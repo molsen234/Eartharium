@@ -1,0 +1,16 @@
+1. download source archive
+https://github.com/SpartanJ/SOIL2
+
+2. download premake: https://premake.github.io/download
+
+3. Unpack soil2 archive, and drop premake5.exe into it
+
+4. Run premake5.exe vs2019
+
+5. Open SOIL2-master\make\windows\SOIL2.sln and compile appropriate targets (tests may fail)
+
+6. copy libs to vendor and soil2.h to includes
+
+7. Add linker dependency for each target
+
+8. #include <soil2.h> in own project.

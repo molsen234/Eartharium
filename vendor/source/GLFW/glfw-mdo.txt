@@ -1,0 +1,22 @@
+
+1. Download source archive
+https://www.glfw.org/download.html
+unpack to glfw-x.x.x folder
+
+2. Compile library
+ a) Download and install CMake: https://cmake.org/download/
+ b) Run CMake
+ c) Set the source folder to glfw-x.x.x folder and build folder to somewhere new.
+ d) click Configure, choose Visual Studio 16 as generator
+ e) default settings should be OK, click Configure once more to save settings
+ f) Click Generate to create needed files in the build folder
+ g) open the sln file in the build\src folder, set build target (debug/release) and build all
+ h) copy files from build\src\$target to libs dir of own project, repeat from g) as needed
+ i) copy the GLFW folder from glfw-x.x.x\include to own project include folder
+3. Add to project
+ a) Set include path for all targets
+ b) Set libs path for each target (Release/Debug)
+ c) Add dependency in project Linker->Input properties for glfw3.lib for all targets
+    ( check that opengl32.lib is also added as dependency there, and add if not)
+4. Test
+ a) #include <GLFW/glfw3.h> and use functions.

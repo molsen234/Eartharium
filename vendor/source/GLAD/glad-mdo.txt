@@ -1,0 +1,12 @@
+1. Generate and download headers:
+https://glad.dav1d.de/
+Language: C/C++
+Specification: OpenGL
+API: Version 4.6
+Profile: Core
+Extensions: None
+Generate a Loader: enabled
+
+2. Unpack archive and copy include\* to vendor\includes
+
+3. Add src\glad.c to own project

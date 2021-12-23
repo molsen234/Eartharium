@@ -1,0 +1,124 @@
+Eartharium animation snippets
+=============================
+
+Add lat lon grid at 15 degrees with highlighted prime meridian and equator, and tropics, arctics
+----------------------------------------------------------------------------------
+    float latlonwidth = 0.003f;
+    glm::vec4 gridcolor = WHITE;
+    glm::vec4 zerocolor = LIGHT_RED;
+    glm::vec4 tropcolor = LIGHT_YELLOW;
+    glm::vec4 arctcolor = LIGHT_GREEN;
+    earth.addGrid(15.0f, latlonwidth, gridcolor, "LALO", /*rad*/false, /*eq*/false, /*pm*/false);
+    earth.addEquator(latlonwidth, zerocolor);
+    earth.addPrimeMeridian(latlonwidth, zerocolor);
+    earth.addTropics(latlonwidth, tropcolor);
+    earth.addArcticCirles(latlonwidth, arctcolor);
+	world.do_render();
+
+Add flat sun and arrows along meridian, at X degree latitudes
+-------------------------------------------------------------
+    double latdeg = 10.0; //location spacing in degrees
+    float locskyradius = 0.2f;
+    float arrowlen = 2.2f;
+    float arrowwidth = 0.003f;
+    glm::vec4 arrowcolor = LIGHT_ORANGE;
+    earth.addSubsolarPoint();
+    earth.addSubsolarPole();
+    earth.flatsunheight = 3000.0f; // In kilometers
+    unsigned int latgrp = earth.addLocGroup();
+    for (lat = -90.0; lat <= 90.0; lat += latdeg) {
+        earth.locgroups[latgrp].addLocation(lat, 90.0, false, locskyradius);
+        earth.locgroups[latgrp].locations.back().addArrow3DFlatSun(arrowlen, arrowwidth, arrowcolor, true);
+    }
+    world.do_render();
+
+Animate 24 hours at june solstice 2021
+--------------------------------------
+    //unsigned int i = 0;
+    unsigned int steps = 100;
+    Lerper<double> hr = Lerper<double>(0.0, 24.0, steps, false);
+    for (i = 0; i < steps;i++) {
+        world.SetTime(2021, 6.0, 20.0, 12.0 + hr.getNext(), 1.0, 38.0);
+        world.do_render();
+    }
+
+Animate one year  (produces analemma)
+-------------------------------------
+    //unsigned int i = 0;
+    unsigned int steps = 300;
+    Lerper<double> doy = Lerper<double>(0.0, 365.0, steps, false); // day of year
+    //earth.addSubsolarPoint();
+    //earth.addSubsolarPole();
+    //earth.flatsunheight = 3000.0f; // In kilometers
+    for (i = 0; i < steps;i++) {
+        world.SetTime(2021, 6.0, 20.0 + round(doy.getNext()), 12.0, 1.0, 38.0);
+        world.do_render();
+    }
+
+
+
+
+
+Add datatable to LocGroup and define generic Arrows immediately
+---------------------------------------------------------------
+    unsigned int data = earth.addLocGroup();
+    float locskyradius = 0.2f;
+    float arrowlength = 2.2f;
+    float arrowwidth = 0.003f;
+    for (auto& d : icsts) {
+        earth.locgroups[data].addLocation(d.lat, 0.0, false, locskyradius);
+        earth.locgroups[data].locations.back().addArrow3DEleAzi(data, d.ele, d.azi, arrowlength, arrowwidth, LIGHT_GREEN);
+    }
+	world.do_render();
+
+Add datatable to LocGroup and define generic Arrows one by one
+--------------------------------------------------------------
+    unsigned int data = earth.addLocGroup();
+    float locskyradius = 0.2f;  
+    float arrowlength = 2.2f;     // optional
+    float arrowwidth = 0.003f;    // optional
+    glm::vec4 arrowcolor = GREEN; // optional
+    for (auto& d : icsts) {
+        earth.locgroups[data].addLocation(d.lat, 90.0, false, locskyradius);
+        earth.locgroups[data].locations.back().addArrow3DEleAzi(data, d.ele, d.azi, arrowlength, arrowwidth, arrowcolor);
+        world.do_render();
+    }
+
+Add datatable to LocGroup and define generic Arrows one by one with fade-in
+---------------------------------------------------------------------------
+    //unsigned int i; // Reusable generic counter
+    unsigned int data = earth.addLocGroup();
+    unsigned int fadeframes = 10; // Don't set to 1, then use version without fade instead. Although it does seem to work with 1.
+    float locskyradius = 0.2f;
+    float arrowlength = 2.2f;     // optional
+    float arrowwidth = 0.003f;    // optional
+    glm::vec4 arrowcolor = GREEN; // optional
+    Lerper<float> fade = Lerper<float>(0.0f, 1.0f, fadeframes, true);
+    for (auto& d : icsts) {
+        earth.locgroups[data].addLocation(d.lat, 90.0, false, locskyradius);
+        glm::vec4 fadecolor = arrowcolor;
+        fadecolor.a = 0.0f;    // NOTE: the GPU will happily draw primitives with alpha=0, so the shader specifically discards on alpha=0
+        earth.locgroups[data].locations.back().addArrow3DEleAzi(data, d.ele, d.azi, arrowlength, arrowwidth, fadecolor);
+        //fade = Lerper<float>(0.0f, 1.0f, fadeframes, false);       // NOTE: repeat is enabled above, so no need to reinit every arrow
+        for (i = 0; i < fadeframes; i++) {
+            fadecolor.a = fade.getNext();
+            //fadecolor.a = (float)i / (float)(fadeframes-1);
+            earth.locgroups[data].locations.back().changeArrow3DEleAziColor(data, fadecolor);
+            world.do_render();
+        }
+    }
+
+Orbit camera around Earth once at current latitude
+--------------------------------------------------
+    // unsigned int i = 0;
+    unsigned int steps = 300;
+    Lerper<float> clon = Lerper<float>(0.0f, 360.0f, steps, false);
+    for (i = 0;i < steps;i++) {
+        world.camLon = clon.getNext();
+        world.CamUpdate();
+        world.do_render();
+    }
+
+
+
+

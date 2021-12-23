@@ -1,0 +1,9 @@
+Application folder
+------------------
+
+Compiled binaries, libraries and data files are moved here to test as a distributable unit.
+- Eartharium.exe : main program
+- libs
+- Texture files
+
+

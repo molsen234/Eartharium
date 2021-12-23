@@ -1,0 +1,11 @@
+1) Download the sources from https://github.com/epezent/implot and extract
+2) Copy implot.h, implot_internal.h, implot.cpp, implot_items.cpp and optionally implot_demo.cpp to Eartharium\ImGUI\*
+3) Include the files in the Visual Studio project
+
+Usage:
+
+ImGui::CreateContext();
+ImPlot::CreateContext();
+... [ImPlot::* calls here]
+ImPlot::DestroyContext();
+ImGui::DestroyContext();

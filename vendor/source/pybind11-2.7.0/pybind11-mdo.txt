@@ -1,0 +1,22 @@
+Download from: https://github.com/pybind/pybind11
+(See Releases on right hand side of screen)
+
+Unzip to vendor/source
+
+Copy ./include/pybind11 to vendor/include/pybind11
+
+Copy include dir from python37 installation to vendor/include, e.g. C:\Python37\include -> vendor\include\python37
+
+Add include configuration the python37 folder directly, as pybind11 expects that (in detail, add $(SolutionDir)\vendor\includes\python37; to External Includes under appropriate targets in properties)
+
+Copy library files from python37\libs to vendor\libs - If debug libs are missing, run the python installer again and select debug libraries (currently on 2nd page of installer). Dynamic libs (dll) are in root of python installation, not in the libs folder.
+
+Add libraries to linker configuration in VS2019 (just python37.lib and python37_d.lib as per target.)
+
+Test with this:
+    // Test pybind11 functionality
+    pybind11::scoped_interpreter guard{};
+    auto sys = pybind11::module::import("sys");
+    pybind11::print(sys.attr("path"));
+
+

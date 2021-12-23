@@ -1,0 +1,8 @@
+1. Download:
+https://github.com/ocornut/imgui
+
+2. Put \backends\imgui_impl_glfw.* and \backends\imgui_impl_opengl3.* and imgui.* in own project
+3. Put \*.hh in same folder and include in project
+4. #include the 3 headers from 2. in own project, the ones from 3. are taken by the ImGUI code
+
+5. Done.

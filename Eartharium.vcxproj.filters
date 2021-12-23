@@ -1,0 +1,392 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="AA+">
+      <UniqueIdentifier>{4bc00350-a829-4749-8167-5009552180a5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ImGUI">
+      <UniqueIdentifier>{564b39c4-43dc-455b-809a-25beb4edd5e6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Eartharium\Eartharium.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\glad.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\mdoOpenGL.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\Primitives.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AADate.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AACoordinateTransformation.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAMercury.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\stdafx.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAJupiter.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAMars.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AANeptune.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AASaturn.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAUranus.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAVenus.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAEarth.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AANutation.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AASidereal.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAAberration.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAElliptical.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAFK5.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAKepler.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAMoon.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAPluto.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AASun.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\ImGUI\imgui_impl_glfw.cpp">
+      <Filter>ImGUI</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\ImGUI\imgui_impl_opengl3.cpp">
+      <Filter>ImGUI</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\ImGUI\imgui.cpp">
+      <Filter>ImGUI</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\ImGUI\imgui_draw.cpp">
+      <Filter>ImGUI</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\ImGUI\imgui_tables.cpp">
+      <Filter>ImGUI</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\ImGUI\imgui_widgets.cpp">
+      <Filter>ImGUI</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\ImGUI\imgui_demo.cpp">
+      <Filter>ImGUI</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAEquationOfTime.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\Earth.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\Astronomy.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAAngularSeparation.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAInterpolate.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAPlanetaryPhenomena.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAPlanetaryPhenomena2.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAVSOP87A_EAR.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAVSOP87B_EAR.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAVSOP87C_EAR.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAVSOP87D_EAR.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAVSOP87D_JUP.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAVSOP87D_MAR.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAVSOP87D_MER.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAVSOP87D_NEP.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAVSOP87D_SAT.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAVSOP87D_URA.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAVSOP87D_VEN.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAVSOP87.cpp">
+      <Filter>AA+</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\ImGUI\implot.cpp">
+      <Filter>ImGUI</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\ImGUI\implot_demo.cpp">
+      <Filter>ImGUI</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\ImGUI\implot_items.cpp">
+      <Filter>ImGUI</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Eartharium\mdoOpenGL.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\Primitives.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AADate.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AADefines.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AA2DCoordinate.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AACoordinateTransformation.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAMercury.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\stdafx.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAJupiter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAMars.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AANeptune.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AASaturn.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAUranus.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAVenus.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAEarth.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AASidereal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AANutation.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAElliptical.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAFK5.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAKepler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAPluto.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AASun.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAAberration.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AA3DCoordinate.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAMoon.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\ImGUI\imgui_impl_glfw.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\ImGUI\imgui_impl_opengl3.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\ImGUI\imgui.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\ImGUI\imconfig.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\ImGUI\imgui_internal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\ImGUI\imstb_textedit.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\ImGUI\imstb_rectpack.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\ImGUI\imstb_truetype.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAEquationOfTime.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\config.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\Earth.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAPlanetaryPhenomena.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAPlanetaryPhenomena2.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAAngularSeparation.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAInterpolate.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\Astronomy.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAVSOP87A_EAR.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAVSOP87B_EAR.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAVSOP87C_EAR.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAVSOP87D_EAR.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAVSOP87D_JUP.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAVSOP87D_MAR.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAVSOP87D_MER.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAVSOP87D_NEP.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAVSOP87D_SAT.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAVSOP87D_URA.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAVSOP87D_VEN.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAVSOP87.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\ImGUI\implot.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\ImGUI\implot_internal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Eartharium\shaders\primitive.shader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Eartharium\shaders\earth.shader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Eartharium\shaders\skybox.shader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="cpp.hint" />
+    <None Include="Eartharium\ImGUI\cpp.hint" />
+    <None Include="Eartharium\shaders\planetoid.shader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Eartharium\shaders\primitiveshadow.shader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Eartharium\shaders\shadowearth.shader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Eartharium\shaders\primitivesdwbox.shader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Eartharium\shaders\sdwboxearth.shader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Eartharium\hello.py">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="Eartharium\shaders\skysphere.shader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Eartharium\shaders\pip.shader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Eartharium\shaders\earth-elliptic.shader" />
+    <None Include="Eartharium\Lesson001.py">
+      <Filter>Source Files</Filter>
+    </None>
+  </ItemGroup>
+</Project>

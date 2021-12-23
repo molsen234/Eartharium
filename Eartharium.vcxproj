@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{01a5bc10-81a8-40b5-9835-c20388da181a}</ProjectGuid>
+    <RootNamespace>Eartharium</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <ExternalIncludePath>$(SolutionDir)\vendor\includes\python37;$(SolutionDir)\vendor\includes;$(ExternalIncludePath)</ExternalIncludePath>
+    <LibraryPath>$(SolutionDir)\vendor\libs\64-debug;$(LibraryPath)</LibraryPath>
+    <IntDir>$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)\$(ProjectName)\$(Platform)\$(Configuration)\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <ExternalIncludePath>$(SolutionDir)\vendor\includes\python37;$(SolutionDir)\vendor\includes;$(ExternalIncludePath)</ExternalIncludePath>
+    <LibraryPath>$(SolutionDir)\vendor\libs\64-release;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64)</LibraryPath>
+    <IntDir>$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)\$(ProjectName)\$(Platform)\$(Configuration)\</OutDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>python37_d.lib;soil2-debug.lib;opengl32.lib;glfw3.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>python37.lib;soil2.lib;opengl32.lib;glfw3.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="Eartharium\AAplus\AAVSOP87.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAVSOP87A_EAR.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAVSOP87B_EAR.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAVSOP87C_EAR.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAVSOP87D_EAR.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAVSOP87D_JUP.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAVSOP87D_MAR.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAVSOP87D_MER.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAVSOP87D_NEP.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAVSOP87D_SAT.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAVSOP87D_URA.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAVSOP87D_VEN.cpp" />
+    <ClCompile Include="Eartharium\Astronomy.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAAngularSeparation.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAInterpolate.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAPlanetaryPhenomena.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAPlanetaryPhenomena2.cpp" />
+    <ClCompile Include="Eartharium\Earth.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAAberration.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AACoordinateTransformation.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AADate.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAEarth.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAElliptical.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAEquationOfTime.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAFK5.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAJupiter.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAKepler.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAMars.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAMercury.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAMoon.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AANeptune.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AANutation.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAPluto.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AASaturn.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AASidereal.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AASun.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAUranus.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAVenus.cpp" />
+    <ClCompile Include="Eartharium\AAplus\stdafx.cpp" />
+    <ClCompile Include="Eartharium\Eartharium.cpp" />
+    <ClCompile Include="Eartharium\glad.c" />
+    <ClCompile Include="Eartharium\ImGUI\imgui.cpp" />
+    <ClCompile Include="Eartharium\ImGUI\imgui_demo.cpp" />
+    <ClCompile Include="Eartharium\ImGUI\imgui_draw.cpp" />
+    <ClCompile Include="Eartharium\ImGUI\imgui_impl_glfw.cpp" />
+    <ClCompile Include="Eartharium\ImGUI\imgui_impl_opengl3.cpp" />
+    <ClCompile Include="Eartharium\ImGUI\imgui_tables.cpp" />
+    <ClCompile Include="Eartharium\ImGUI\imgui_widgets.cpp" />
+    <ClCompile Include="Eartharium\ImGUI\implot.cpp" />
+    <ClCompile Include="Eartharium\ImGUI\implot_demo.cpp" />
+    <ClCompile Include="Eartharium\ImGUI\implot_items.cpp" />
+    <ClCompile Include="Eartharium\mdoOpenGL.cpp" />
+    <ClCompile Include="Eartharium\Primitives.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Eartharium\AAplus\AAVSOP87.h" />
+    <ClInclude Include="Eartharium\AAplus\AAVSOP87A_EAR.h" />
+    <ClInclude Include="Eartharium\AAplus\AAVSOP87B_EAR.h" />
+    <ClInclude Include="Eartharium\AAplus\AAVSOP87C_EAR.h" />
+    <ClInclude Include="Eartharium\AAplus\AAVSOP87D_EAR.h" />
+    <ClInclude Include="Eartharium\AAplus\AAVSOP87D_JUP.h" />
+    <ClInclude Include="Eartharium\AAplus\AAVSOP87D_MAR.h" />
+    <ClInclude Include="Eartharium\AAplus\AAVSOP87D_MER.h" />
+    <ClInclude Include="Eartharium\AAplus\AAVSOP87D_NEP.h" />
+    <ClInclude Include="Eartharium\AAplus\AAVSOP87D_SAT.h" />
+    <ClInclude Include="Eartharium\AAplus\AAVSOP87D_URA.h" />
+    <ClInclude Include="Eartharium\AAplus\AAVSOP87D_VEN.h" />
+    <ClInclude Include="Eartharium\Astronomy.h" />
+    <ClInclude Include="Eartharium\AAplus\AAAngularSeparation.h" />
+    <ClInclude Include="Eartharium\AAplus\AAInterpolate.h" />
+    <ClInclude Include="Eartharium\AAplus\AAPlanetaryPhenomena.h" />
+    <ClInclude Include="Eartharium\AAplus\AAPlanetaryPhenomena2.h" />
+    <ClInclude Include="Eartharium\Earth.h" />
+    <ClInclude Include="Eartharium\AAplus\AA2DCoordinate.h" />
+    <ClInclude Include="Eartharium\AAplus\AA3DCoordinate.h" />
+    <ClInclude Include="Eartharium\AAplus\AAAberration.h" />
+    <ClInclude Include="Eartharium\AAplus\AACoordinateTransformation.h" />
+    <ClInclude Include="Eartharium\AAplus\AADate.h" />
+    <ClInclude Include="Eartharium\AAplus\AADefines.h" />
+    <ClInclude Include="Eartharium\AAplus\AAEarth.h" />
+    <ClInclude Include="Eartharium\AAplus\AAElliptical.h" />
+    <ClInclude Include="Eartharium\AAplus\AAEquationOfTime.h" />
+    <ClInclude Include="Eartharium\AAplus\AAFK5.h" />
+    <ClInclude Include="Eartharium\AAplus\AAJupiter.h" />
+    <ClInclude Include="Eartharium\AAplus\AAKepler.h" />
+    <ClInclude Include="Eartharium\AAplus\AAMars.h" />
+    <ClInclude Include="Eartharium\AAplus\AAMercury.h" />
+    <ClInclude Include="Eartharium\AAplus\AAMoon.h" />
+    <ClInclude Include="Eartharium\AAplus\AANeptune.h" />
+    <ClInclude Include="Eartharium\AAplus\AANutation.h" />
+    <ClInclude Include="Eartharium\AAplus\AAPluto.h" />
+    <ClInclude Include="Eartharium\AAplus\AASaturn.h" />
+    <ClInclude Include="Eartharium\AAplus\AASidereal.h" />
+    <ClInclude Include="Eartharium\AAplus\AASun.h" />
+    <ClInclude Include="Eartharium\AAplus\AAUranus.h" />
+    <ClInclude Include="Eartharium\AAplus\AAVenus.h" />
+    <ClInclude Include="Eartharium\AAplus\stdafx.h" />
+    <ClInclude Include="Eartharium\ImGUI\imconfig.h" />
+    <ClInclude Include="Eartharium\ImGUI\imgui.h" />
+    <ClInclude Include="Eartharium\ImGUI\imgui_impl_glfw.h" />
+    <ClInclude Include="Eartharium\ImGUI\imgui_impl_opengl3.h" />
+    <ClInclude Include="Eartharium\ImGUI\imgui_internal.h" />
+    <ClInclude Include="Eartharium\ImGUI\implot.h" />
+    <ClInclude Include="Eartharium\ImGUI\implot_internal.h" />
+    <ClInclude Include="Eartharium\ImGUI\imstb_rectpack.h" />
+    <ClInclude Include="Eartharium\ImGUI\imstb_textedit.h" />
+    <ClInclude Include="Eartharium\ImGUI\imstb_truetype.h" />
+    <ClInclude Include="Eartharium\mdoOpenGL.h" />
+    <ClInclude Include="Eartharium\Primitives.h" />
+    <ClInclude Include="Eartharium\config.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="cpp.hint" />
+    <None Include="Eartharium\hello.py" />
+    <None Include="Eartharium\ImGUI\cpp.hint" />
+    <None Include="Eartharium\shaders\earth-elliptic.shader" />
+    <None Include="Eartharium\shaders\pip.shader" />
+    <None Include="Eartharium\shaders\earth.shader" />
+    <None Include="Eartharium\shaders\planetoid.shader" />
+    <None Include="Eartharium\shaders\primitive.shader" />
+    <None Include="Eartharium\shaders\primitivesdwbox.shader" />
+    <None Include="Eartharium\shaders\sdwboxearth.shader" />
+    <None Include="Eartharium\shaders\skybox.shader" />
+    <None Include="Eartharium\shaders\primitiveshadow.shader" />
+    <None Include="Eartharium\shaders\shadowearth.shader" />
+    <None Include="Eartharium\shaders\skysphere.shader" />
+    <None Include="Eartharium\Lesson001.py" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

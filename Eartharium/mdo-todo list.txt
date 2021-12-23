@@ -1,0 +1,274 @@
+ToDo for Eartharium
+===================
+
+
+IMPPORTANT
+----------
+- MUST make Path3D multisegment to accomodate redrawing of split arcs across seams of Earth
+  o It can only split once, so having two segments will suffice
+  o !! BUT for time dependent paths, they may move to have the split in a different place !!
+  o For paths fixed to the ground, no problem with the two path approach.
+
+= MUST implement a thin line primitive that can extend arrows to their target,
+  rather than the ugly cludge currently implemented on Location::addArrow3DFlatSun() !!!
+  UPD: This is now slightly better. Earth still has no lines though.
+
+- Apparently the day and night textures for Earth do not match well in ice coverage at the poles.
+
+= GUI crashes when certain objects do not exist. 
+
+NEW IDEAS
+---------
+= Implement a LERPer
+  v Provide start and end points, and number of steps
+  o Possibly in arrays so it can LERP multiple values to same stepcount - alternative: Lerp Group
+  v Can form basis for animations
+  v Should have optional easing of values (stepfunction as per GLSL, see youtube )
+  v Should be able to loop (start to end, start to end) and bounce (start to end, end to start) or halt (start to end, end, end, end...)
+  o Still need the bounce part of previous item
+- Defect: Transparent primitives fill the depth buffer, so opaque primitives drawn later are fully obscured and not multiplied in
+  o There is no way to fix this simply with blending functions. Here is a tool to play with the OpenGL blend options: http://andersriggelsen.dk/glblendfunc.php
+  o Could be fixed by drawing them in order of opaqueness, solid first whispy last
+  o Or might be solvable by Z sorting in view space and disabling depth buffer while drawing
+  o See: http://jcgt.org/published/0002/02/09/ (PDF and video)
+  o & accompanying blogpost: http://casual-effects.blogspot.com/2014/03/weighted-blended-order-independent.html  
+- ImGui themes: https://github.com/ocornut/imgui/issues/707
+
+
+Animation
+---------
+- Frames: Animations should be frame based, so every animator should take duration in frames
+    Everything else will be animated parameters, based on the frame duration.
+	E.g. morphing Earth from AE to NS takes param = [0.0;1.0], so over 30 frames, it should update by 1/30 per frame
+	Hence, many animators will simply use the Lerper.
+	o Some situatations make this difficult 
+- The sort of things to animate
+  o DateTime - Astronomical positions depend on time and date.
+  o Earth morph
+  o Add/Remove Locations (Location Groups? Yes!)
+  o Add/Remove items to Locations or Location Groups
+  o Item properties: Color, length, width
+  o Item Path3D "WriteOn", maybe color too, so flight paths can indicate how far the plane has gone etc.
+  o Camera location, lookat, yaw,pitch,roll, FoV
+  o SkyBox with StarLocs (PlanetLocs?), SkyPaths?
+  
+
+Framebuffering
+--------------
+- I need a more consistent viewport and framebuffer infrastructure to solve the following
+  v Render is still strange around BACK/FRONT buffers from GLFW - for now single buffer with glFlush()
+    UPD: Reverted to double buffers and glfwSwapfBuffers() it seems to work consistently with writing to file as well
+  o What if I want to render to higher resolution, but keep GUI interactions in lower resolution
+  o Applying post processing like smoothing, gamma correction etc.
+  o More robust frame output perhaps writing to video containers with ffmpeg
+  o Picture in picture via framebuffer -> quad re-rendering
+
+
+Camera
+------
+- Strafe turn and walk
+- Proper LookAt function
+- Ability to smoothly blend from perspective to orthogonal
+- Structure with camera parameters, for animating and restoring previous views?
+- Tying the camera to an output device / framebuffer / rectangle, for easier picture in picture
+
+
+Location
+--------
++ Make all primitives removable:
+  + Dots, Cones, Cylinders, Planes, ViewCones,
+  + Arrows
+  o Paths
+  o Others?
+- Scale arrows when updating SkySphere radius?
+- Analemmas, Sun/Moon True/Flat
+= Ground arrow to tracked object, possibly tied to Location rather than Track
+  UPD: Made line to do that for SubsolarPoint
+- Azi Ele calculation based on XYZ of object
+- Parameter display for
+  o Arrow azi, ele, with protractor or simple billboard number
+  o azi along path
+  o Local solar time (with Eqn of Time)
+  o Local secular time (without Eqn of Time)
++ Tangent plane (oriented to North,East vectors, of Size slightly larger than SkySphere
+= Meridian plane like Tangent plane - Orientation is a bit weird
+- 2D Arrows, in surface for True/Flat Sun/Moon/Tracked Ob/Planets 
+- Arrows and Paths for Star from catalogue
+- Arrows and Paths for remaining planets
+- Local starry sky (textured, or with dots, or point primitives in OpenGL
+
+
+Spheres
+-------
++ Will want UV mappable spherical shapes for Sun, Moon etc
+- For Location Sky, this may be cool to WriteOn when placing
+- Should also support a basic grid like lat/lon on Earth, for astronomy explanations
+- Transparency can be moved from Dots to here, to give a good render order - have to think about blending some more.
+= Support textured objects, but those will probably derive from a basic Sphere
+
+Earth
+-----
+- To facilitate unwrapping a sphere to an AE projection at any point, make texture repeated and remap texture coordinates via a rotation matrix / quaternion
+  Earth will need to have a texture pole for this to work. How to do this generically for all geometries? 
++ Make all dots removable
+- Make all paths removable
++ Arctic circles
++ Tropics
++ Equator
++ Great Arc segment
++ LERP Arc segment
++ Flat Arc segment
+= Paths for Sun and Moon terminators
+  UPD: Sun done, Moon left
+- Moon with the following capabilities:
+  o Position
+  o Phase
+  o Libration
+  o View from Earth Location?
+  o Visibility in Inner SolarSystem
+- Setting refraction for Sun and Moon dynamically
+- Turn on/off or adjust twilight
+- Add remaining geometries
+  v WGS72
+  v WGS84
+  o Cube
+  o Torus
+  o Williams Pear
+= getXYZtoLLH()  (opposite of getLoc3D())
+  o Done for NS and AE, though AE must check if off edge
+- Add Rotation Axis
+- Great circle plane
+- Tangent plane
+- View Cone
+
+Plane
+-----
++ Add plane primitive from Point, Normal. What about orientation (rotation about normal) and extent/size?
+  o Functional plane implemented, may need additional From* methods
+
+SkyBox
+------
+- Mark stars from catalogue (on the cube surface to avoid parallax)
+- Rotate to sidereal time
+- Add Constellation markers
+
+Track
+-----
+- To display flight path, satellite orbit, etc.
+- Load path from file data
+  o TLE (SGP4)
+  o KML (Google Earth)
+- Interpolate gaps by
+  o Great circle distance
+  o lat-lon lerp (rectangular line)
+  o Straight line on AE
+- Arrow to Sun direction
+- Arrow to Moon direction
+- Ground arrow to tracked object, possibly tied to Location rather than Track
+
+Solar System
+------------
+- Planet Newtonian vectors
+- Observation angles
+- Textured objects, use SphereUV if possible
+
+Main window
+-----------
+- Text lines for
+  v Date and time UTC no DST
+  o Sun RA/Dec
+  o Moon RA/Dec
+
+Camera
+------
+- Strafe
+- LookAt that is not Origin
+- Ability to view from Location (Separate camera?)
+- Multiple cameras with PiP view
+
+Graph
+-----
+- To plot Equation of Time against Analemma or Orbital speed in Solar System etc
+
+Solar Eclipse path
+------------------
+- https://ia800308.us.archive.org/22/items/131123ExplanatorySupplementAstronomicalAlmanac/131123-explanatory-supplement-astronomical-almanac.pdf
+
+
+Ground sky view
+---------------
+- displays the current sky with paths and planets
+- Moon must librate and rotate correcly, along with phase
+- Render to 360 view
+
+
+Layer system
+------------
+- Add frames / separators
+- Add render targets such as 360 cube map -> 360 video frame
+
+
+
+Other ideas
+-----------
++ Refactor Primitives
+  + Share Primitive3D, Verts and Tris structs
+  + Possiply inherit from base Primitive class
+  + Still need to do Dots and Cylinders - done!
+  + Normalize the primitive cache's in Earth/Location/etc
+    + Still need to review Location again - done!
+
+- Would a Star class be useful? Could tie to SkyBox and Location / Earth and help manage catalogue
+- Implement a Location catalogue (airports, major cities, etc), and billboard callout for Location or Earth::Dot
+- Consider how to handle view transformations and scale of Earth/SolarSystem for great precision and clipping
+- Work out Rise, Culmination and Set times & indicators for Location
+- Perhaps make views from Moon and Planets
+- Animation and scripting - make a plan and test options
+
+3DFonts for billboards
+----------------------
+https://forum.lazarus.freepascal.org/index.php?topic=37372.0
+https://forum.lazarus.freepascal.org/index.php/topic,19980.15.html
+https://www.opengl.org/archives/resources/features/fontsurvey/
+http://gltt.sourceforge.net/
+http://ftgl.sourceforge.net/docs/html/ (successor to gltt)
+https://github.com/bantamtools/ftgl
+Some notes on improving imgui font rendering: https://github.com/nothings/stb/tree/master/tests/oversample
+ImGui Icons and mixing fonts: https://github.com/juliettef/IconFontCppHeaders
+
+
+LocationArrows
+--------------
+- Types
+  o Sun True/Flat 2D/3D
+  o Moon True/Flat 2D/3D
+  o Mercury True/Flat 2D/3D
+  o Venus  True/Flat 2D/3D
+  o Mars True/Flat 2D/3D
+  o Jupiter True/Flat 2D/3D
+  o Saturn True/Flat 2D/3D
+  o Uranus True/Flat 2D/3D
+  o Neptune True/Flat 2D/3D
+  o Pluto? True/Flat 2D/3D
+  o Star  True/Flat 2D/3D    - Multiple
+  o AziEle True/Flat 2D/3D   - Multiple
+  o XYZ  True/Flat 2D/3D     - Multiple (manmade objects)
+
+- Properties
+  o Color
+  o Length
+  o Width
+  o 
+
+
+
+
+
+
+
+
+
+
+
+
+

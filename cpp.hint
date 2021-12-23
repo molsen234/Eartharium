@@ -1,0 +1,13 @@
+// Hint files help the Visual Studio IDE interpret Visual C++ identifiers
+// such as names of functions and macros.
+// For more information see https://go.microsoft.com/fwlink/?linkid=865984
+#define STBTT_DEF
+#define STBRP_DEF
+#define IM_MSVC_RUNTIME_CHECKS_OFF __pragma(runtime_checks("",off)) __pragma(check_stack(off)) __pragma(strict_gs_check(push,off))
+#define IM_MSVC_RUNTIME_CHECKS_OFF
+#define IM_MSVC_RUNTIME_CHECKS_RESTORE __pragma(runtime_checks("",restore)) __pragma(check_stack()) __pragma(strict_gs_check(pop))
+#define IM_MSVC_RUNTIME_CHECKS_RESTORE
+#define IMGUI_API
+#define IMGUI_IMPL_API
+
+#define NOT_A_VEC3 glm::vec3(maxfloat)

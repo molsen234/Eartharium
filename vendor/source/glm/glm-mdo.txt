@@ -1,0 +1,8 @@
+1. download GLM:
+https://glm.g-truc.net/0.9.9/index.html
+
+2. Extract and place the header files in vendor\includes\glm folder
+
+3. Use by adding #include <glm/glm.hpp> (and gtc/gtx/ext if required) to own project file.
+
+That's it, GLM is a headers-only library and does not require separate compilation.
