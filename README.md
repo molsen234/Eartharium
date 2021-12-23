@@ -51,40 +51,40 @@ Add a call to it in main(), replacing any TestArea() call (current sources have 
 
 A minimal setup requires a Scene, an Astronomy, a Camera, an Earth and a RenderLayer3D to render it. Add the following to TestEarth:
 
-RenderChain* chain = myapp.getRenderChain();
-Astronomy* astro = myapp.newAstronomy();
-astro->setTimeNow();
-Scene* scene = myapp.newScene();
-Camera* cam = scene->w_camera; // Default Camera - the Scene must always have at least one
-cam->camFoV = 22.8f;
-cam->camLat = 90.0f;
-cam->camLon =  0.0f;
-cam->camDst = 10.0f;
-cam->CamUpdate();
-myapp.currentCam = cam;  // Manually set which Camera receives keyboard updates
-RenderLayer3D* layer = chain->newRenderLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
-Earth* earth = scene->getEarthOb("AENS", 180, 90);
-earth->flatsunheight = 0.0f; // Used for both Subsolar and Sublunar points
-earth->addSubsolarPoint();
-earth->w_sinsol = true;
-earth->addSublunarPoint();
-earth->w_linsol = true;
-earth->addTerminatorTrueSun();
-earth->w_twilight = false;
-earth->addTerminatorTrueMoon();
-chain->do_render(); // Draw the layers, thus rendering the scene.
+    RenderChain* chain = myapp.getRenderChain();
+    Astronomy* astro = myapp.newAstronomy();
+    astro->setTimeNow();
+    Scene* scene = myapp.newScene();
+    Camera* cam = scene->w_camera; // Default Camera - the Scene must always have at least one
+    cam->camFoV = 22.8f;
+    cam->camLat = 90.0f;
+    cam->camLon =  0.0f;
+    cam->camDst = 10.0f;
+    cam->CamUpdate();
+    myapp.currentCam = cam;  // Manually set which Camera receives keyboard updates
+    RenderLayer3D* layer = chain->newRenderLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    Earth* earth = scene->getEarthOb("AENS", 180, 90);
+    earth->flatsunheight = 0.0f; // Used for both Subsolar and Sublunar points
+    earth->addSubsolarPoint();
+    earth->w_sinsol = true;
+    earth->addSublunarPoint();
+    earth->w_linsol = true;
+    earth->addTerminatorTrueSun();
+    earth->w_twilight = false;
+    earth->addTerminatorTrueMoon();
+    chain->do_render(); // Draw the layers, thus rendering the scene.
 
 The above sets up all the required items, and configures Earth to be a flat AE map. It sets up the Camera to look straight down above the north pole. Earth is configured to show the Subsolar and Sublunar points, and show the illuminated areas (day and night), as well as where the Moon can be seen (greyscale vs color). But you will not be able to see this because the function returns as soon as it is done.
 
 Add a loop to wait until you press ESC before exiting, and poll the keyboard to update the various objects:
 
-myapp.anim = false;
-while (!glfwWindowShouldClose(myapp.window)) {
-    myapp.update();
-    if (myapp.anim) astro->addTime(0.0, 0.0, 5.0, 0.0);
-    scene->w_camera->CamUpdate();
-    chain->do_render();
-}
+    myapp.anim = false;
+    while (!glfwWindowShouldClose(myapp.window)) {
+        myapp.update();
+        if (myapp.anim) astro->addTime(0.0, 0.0, 5.0, 0.0);
+        scene->w_camera->CamUpdate();
+        chain->do_render();
+    }
 
 The myapp.update() will process keyboard events and resizing when the window size changes. Use WASD to change the camera view angle. Use Q/E to zoom in/out (Field of View). Hit the space bar to toggle myapp.amin on / off, this will start / stop the time progression. addTime arguments are days, hours, minutes, seconds; all are double floating points and all can be larger than their natural values (e.g. 32.5 hours and 73.8 minutes works fine).
 
@@ -92,15 +92,15 @@ Change the camera view to see the AE map at an oblique angle, then use the N and
 
 Now add the following lines before the loop, to create a location with arrows indicating the observed (true) directions to the Sun and Moon:
 
-unsigned int locgroup = earth->addLocGroup();
-earth->locgroups[locgroup]->addLocation(l_cph.lat, l_cph.lon, false, 0.2f);
-earth->locgroups[locgroup]->addLocation(l_nyc.lat, l_nyc.lon, false, 0.2f);
-earth->locgroups[locgroup]->addLocation(l_tok.lat, l_tok.lon, false, 0.2f);
-for (auto& loc : earth->locgroups[longrp]->locations) {
-    loc->addLocDot();
-    loc->addArrow3DTrueSun();
-    loc->addArrow3DTrueMoon();
-}
+    unsigned int locgroup = earth->addLocGroup();
+    earth->locgroups[locgroup]->addLocation(l_cph.lat, l_cph.lon, false, 0.2f);
+    earth->locgroups[locgroup]->addLocation(l_nyc.lat, l_nyc.lon, false, 0.2f);
+    earth->locgroups[locgroup]->addLocation(l_tok.lat, l_tok.lon, false, 0.2f);
+    for (auto& loc : earth->locgroups[longrp]->locations) {
+        loc->addLocDot();
+        loc->addArrow3DTrueSun();
+        loc->addArrow3DTrueMoon();
+    }
 
 Now when you compile and run the program, you will see 3 locations marked with little red dots. Each will have a yellow arrow pointing in the direction where an oberver would see the Sun, and a grey one for the Moon. Press space, the arrows will follow the celestial objects they are connected to automatically. Try using N and M to morph the Earth, the arrows will automaticall change according to the surface of the Earth. The cities are defined at the top of Eartharium.cpp, you can add your own. Or you can just speficy the latitude and longitude directly in the addLocation call of course. The 'false' indicates whether the angles are in radians (they are not, hence false). The 0.2f is the radius of the local sky sphere. Add the following inside the location loop right after addARrow3DTrueMoon():
 
@@ -114,9 +114,9 @@ Now compile and run again. You will see a semitransparent ball around each locat
 
 You might want to see the time and date (in UTC, which is Greenwich time without daylight savings) displayed clearly. For that use the RenderLayerText layer by adding the following lines somewhere after creating the RenderLayer3D layer, but before entering the loop:
 
-RenderLayerText* text = chain->newLayerText(0.0f, 0.0f, 1.0f, 1.0f, nullptr);
-text->setFont(myapp.m_font2);
-text->setCelestialMech(astro);
+    RenderLayerText* text = chain->newLayerText(0.0f, 0.0f, 1.0f, 1.0f, nullptr);
+    text->setFont(myapp.m_font2);
+    text->setCelestialMech(astro);
 
 That is all, the nullptr means that we are not asking to draw any additional text lines. As soon as RenderLayerText has an Astronomy object, it will show the time. I have yet to implement a function to remove the Astronomy object, but you can do that yourself if you need to switch the time display off.
 
