@@ -10,6 +10,9 @@
 *.userosscache
 *.sln.docstates
 
+# MDO defined to ignore the huge textures
+textures/
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 

@@ -977,12 +977,12 @@ unsigned int AngleArcs::add(glm::vec3 position, glm::vec3 start, glm::vec3 stop,
 }
 void AngleArcs::update(unsigned int index, glm::vec3 position, glm::vec3 start, glm::vec3 stop, float length, glm::vec4 color, float width) {
     bool dirty = (position != m_arcs[index].position || start != m_arcs[index].start || stop != m_arcs[index].stop || length != m_arcs[index].length || width != m_arcs[index].width);
-    if (position != NOT_A_VEC3) m_arcs[index].position = position;
-    if (start != NOT_A_VEC3) m_arcs[index].start = start;
-    if (stop != NOT_A_VEC3) m_arcs[index].stop = stop;
-    if (length != NOT_A_FLOAT) m_arcs[index].length = length;
-    if (color != NOT_A_COLOR && color != NOT_A_VEC4) m_arcs[index].color = color;
-    if (width != NOT_A_FLOAT) m_arcs[index].width = width;
+    if (position != NO_VEC3) m_arcs[index].position = position;
+    if (start != NO_VEC3) m_arcs[index].start = start;
+    if (stop != NO_VEC3) m_arcs[index].stop = stop;
+    if (length != NO_FLOAT) m_arcs[index].length = length;
+    if (color != NO_COLOR && color != NO_VEC4) m_arcs[index].color = color;
+    if (width != NO_FLOAT) m_arcs[index].width = width;
     // could check if position/start/stop have changed, and skip generator.
     if (dirty) {
         glm::vec3 nstart = glm::normalize(m_arcs[index].start);
@@ -1603,7 +1603,7 @@ unsigned int ViewCones::FromStartEnd(glm::vec3 pos, glm::vec3 end, float width, 
 }
 //unsigned int ViewCones::FromStartEleAzi(glm::vec3 pos, float ele, float azi, glm::vec4 color) {}
 void ViewCones::UpdateStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
-    if (color == NOT_A_COLOR) color = getColor(index);
+    if (color == NO_COLOR) color = getColor(index);
     Update(index, { color, pos, dir, glm::vec3(width, len, width), 0.0f });
 }
 void ViewCones::UpdateStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {

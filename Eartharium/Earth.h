@@ -2,14 +2,14 @@
 #include "Primitives.h"
 #include "Astronomy.h"
 
-// Protos
+// Protos - Allows classes to use pointers when they are defined above the class they want to point to.
 class Location;
 
 class LocGroup {
 // Container vector (or map?) of Locations for SceneGraph and iterating over Locations
 // Deleted Locations are retained but marked inactive, to maintain correspondance to
-// loaded datasets etc. If there is a need, a xmap-remap architecture can be implemented
-// (see Primitives for an example.)
+// loaded datasets etc. If there is a need, a xmap-remap architecture can be implemented with the tightvec template
+// (see Primitives for an example.) Currently the number of locations used is small so the overhead of scanning over defunct ones is small.
 public:
     std::list<Location*> locations; // holds actual locations for easy reference - NO, not at the moment !!!
 private:
@@ -162,7 +162,7 @@ private:
         LLH llh1;
         LLH llh2;
     };
-    float m_alpha = 1.0f; // Not working well at all - probably due to backface culling being switched off
+    float m_alpha = 1.0f; // Not working well at all - probably due to backface culling being switched off !!!
     bool mydebug = false; // Set to trip breakpoints during debugging
     double m_JD = 0.0;
     bool timedirty = false;
@@ -214,14 +214,12 @@ private:
     std::vector<dotcache> m_dotcache;
     std::vector<arrowcache> m_arrowcache;
     std::vector<polycache> m_polycache;
-    ////std::vector<AstroPath> ap_cache;
 public:
     Earth(Scene* scene, std::string mode, unsigned int meshU, unsigned int meshV);
     ~Earth();
     void setFade(float alpha);
     void updateType(std::string type);
     void Update();
-    //void UpdateTime(double jd);  // Deprecated - Set the time in RenderLayer3D->m_astro->setTimeJD()
     void updateMorph();
     void Draw();
     unsigned int addLocGroup();
@@ -286,11 +284,11 @@ public:
     void addTropics(float size = 0.002f, glm::vec4 color = YELLOW);
     void addArcticCirles(float size = 0.002f, glm::vec4 color = AQUA);
     unsigned int addLatitudeCurve(double lat, glm::vec4 color = WHITE, float width = 0.01f, bool rad = true);
-    void changeLatitudeCurve(unsigned int index, double lat, glm::vec4 color = NOT_A_COLOR, float width = 0.0f, bool rad = true);
+    void changeLatitudeCurve(unsigned int index, double lat, glm::vec4 color = NO_COLOR, float width = 0.0f, bool rad = true);
     void updateLatitudeCurve(polycache& p);
     void addPrimeMeridian(float size = 0.002f, glm::vec4 color = RED);
     unsigned int addLongitudeCurve(double lon, glm::vec4 color = WHITE, float width = 0.01f, bool rad = true);
-    void changeLongitudeCurve(unsigned int index, double lon, glm::vec4 color = NOT_A_COLOR, float width = 0.0f, bool rad = true); 
+    void changeLongitudeCurve(unsigned int index, double lon, glm::vec4 color = NO_COLOR, float width = 0.0f, bool rad = true); 
     void updateLongitudeCurve(polycache& p);
     double calcArcDist(LLH llh1, LLH llh2, bool rad);
     LLH calcGreatArc(LLH llh1, LLH llh2, double f, bool rad = true);
@@ -326,7 +324,7 @@ class Location {
 private:
     class TrueSun {
     public:
-        glm::vec4 color = NOT_A_COLOR;
+        glm::vec4 color = NO_COLOR;
         TrueSun(Location* location);
         void enableArrow3D();
         //void enableDot3D();
@@ -429,7 +427,7 @@ public:
     void Destroy();
     void Update(bool time, bool morph, bool flatsun);
     void Draw();
-    glm::vec4 getPlanetColor(unsigned int planet, glm::vec4 color = NOT_A_COLOR);
+    glm::vec4 getPlanetColor(unsigned int planet, glm::vec4 color = NO_COLOR);
     void moveLoc(double lat, double lon, bool radians = true);
     void storeLatLon(double lat, double lon);
     double getLat(bool rad = true);
@@ -442,7 +440,7 @@ public:
 
     // Generics
     void addLocSky(float size = 0.2f, glm::vec4 color = glm::vec4(0.1f, 1.0f, 0.1f, 0.25f));
-    void changeLocSky(float size = 0.0f, glm::vec4 color = NOT_A_COLOR);
+    void changeLocSky(float size = 0.0f, glm::vec4 color = NO_COLOR);
     void deleteLocSky();
     void updateLocSky(dotcache& d);
 
@@ -465,7 +463,7 @@ public:
     void addNormal(float length = 0.2f, float width = loccoordarrowwidth);
     void updateNormalCoord(arrowcache& ar);
     void addObserver(float bearing, glm::vec4 color = LIGHT_GREY, float height = 0.0f);
-    void changeObserver(float bearing, glm::vec4 color = NOT_A_COLOR, float height = 0.0f);
+    void changeObserver(float bearing, glm::vec4 color = NO_COLOR, float height = 0.0f);
     void addArrow3DEleAzi(unsigned int unique, double ele, double azi, float length = 0.2f, float width = locazielewidth, glm::vec4 color = GREEN);
     void deleteArrow3DEleAzi(unsigned int unique);
     void changeArrow3DEleAzi(unsigned int unique, double ele, double azi, float length = 0.2f, float width = locazielewidth, glm::vec4 color = GREEN);
@@ -477,12 +475,12 @@ public:
 
     // Dots
     void addLocDot(float size = locdotsize, glm::vec4 color = DEFAULT_LOCDOT_COLOR);
-    void changeLocDot(float size = -1.0f, glm::vec4 color = NOT_A_COLOR);
+    void changeLocDot(float size = -1.0f, glm::vec4 color = NO_COLOR);
     void deleteLocDot();
     void updateLocDot(dotcache& d);
 
     void addDot3DTrueSun(glm::vec4 color = LIGHT_YELLOW, float size = locdotsize);
-    void changeDot3DTrueSun(float size = locdotsize, glm::vec4 color = NOT_A_COLOR);
+    void changeDot3DTrueSun(float size = locdotsize, glm::vec4 color = NO_COLOR);
     void deleteDot3DTrueSun();
     void updateDot3DTrueSun(dotcache& d);
     // Add planetary and moon dots
@@ -499,7 +497,7 @@ public:
     void addArrow3DTrueMoon(float length = 0.2f, float width = 0.003f, glm::vec4 color = glm::vec4(0.4f, 0.4f, 0.4f, 1.0f), bool checkit = false);
     void updateArrow3DTrueMoon(arrowcache& ar);
 
-    void addArrow3DTruePlanet(unsigned int planet, float length = 0.2f, glm::vec4 color = NOT_A_COLOR, bool checkit = false);
+    void addArrow3DTruePlanet(unsigned int planet, float length = 0.2f, glm::vec4 color = NO_COLOR, bool checkit = false);
     void updateArrow3DTruePlanet(arrowcache& ar);
 
     // Lines
@@ -515,11 +513,11 @@ public:
     // TODO: Add rays/lines to an arbitrary point to illustrate view cone angles, horizons, parallelity of incoming light rays etc. !!!
 
     // Paths
-    void addPlanetaryPath(unsigned int planet, double startoffset, double endoffset, unsigned int steps, unsigned int type = ECGEO, glm::vec4 color = NOT_A_COLOR, float width = 0.003f);
+    void addPlanetaryPath(unsigned int planet, double startoffset, double endoffset, unsigned int steps, unsigned int type = ECGEO, glm::vec4 color = NO_COLOR, float width = 0.003f);
     void updatePlanetaryPath(polycache& pa);
-    void addPlanetTruePath24(unsigned int planet, glm::vec4 color = NOT_A_COLOR, float width = locpathwidth);
+    void addPlanetTruePath24(unsigned int planet, glm::vec4 color = NO_COLOR, float width = locpathwidth);
     void deletePlanetTruePath24(unsigned int planet);
-    void addPlanetTruePathSidYear(unsigned int planet, glm::vec4 color = NOT_A_COLOR, float width = locpathwidth);
+    void addPlanetTruePathSidYear(unsigned int planet, glm::vec4 color = NO_COLOR, float width = locpathwidth);
     void deletePlanetTruePathSidYear(unsigned int planet);
     void addPath3DTrueSun(glm::vec4 color = SUNCOLOR, float width = locsunpathwidth);
     void deletePath3DTrueSun();
@@ -561,7 +559,7 @@ public:
 private:
     struct planetinfo {
         double sidyear = 0.0; // sidereal year of planet in Earth days
-        glm::vec4 color = NOT_A_COLOR;
+        glm::vec4 color = NO_COLOR;
     };
     std::array<planetinfo, 9> m_planetinfos = {{  // sidereal years are a bit long to allow orbits to close
         { 368,   SUNCOLOR },     // Sun

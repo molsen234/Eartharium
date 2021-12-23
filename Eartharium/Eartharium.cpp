@@ -4,6 +4,7 @@
 #include "Primitives.h"
 #include "Earth.h"
 #include "Astronomy.h"
+// It would be good to clean up the header include hierarchy one day !!!
 
 #include <thread>
 
@@ -21,6 +22,7 @@ void GLPrintError();
 // -----------
 //  Locations
 // -----------
+// Just a few handy locations. Eventually a location manager should load from a file and offer interactive maintenance !!!
 LLH l_gnw = { 51.477811, 0.001475, 0.0 };      // Greenwich Royal Observatory, UK
 LLH l_qqt = { 69.243574, -53.540529, 0.0 };    // Quequertarsuaq, Greenland
 LLH l_cph = { 55.6761, 12.5683, 0.0 };         // Copenhagen, Denmark 55.6761° N, 12.5683° E
@@ -49,6 +51,7 @@ LLH l_phuket = { 7.891579, 98.295930, 0.0 };   // Phuket west facing (sunset) we
 // ---------------
 //  Solar Eclipse
 // ---------------
+// Currently unused obviously. Here as a reminder to implement such a class
 class SolarEclipse {
 
 public:
@@ -59,7 +62,8 @@ public:
 // ------------
 //  BillBoardP
 // ------------
-//  BillBoard text for primitives
+//  BillBoard text for primitives - currently unused placeholder
+//  Will eventually provide texts hovering above objects, to indicate angles, lengths or names
 class BillBoardP {
     std::string text = "TEST!";
 public:
@@ -72,12 +76,17 @@ public:
 // -------------
 //  SceneObject
 // -------------
+// Currently unused
+// Meant to facilitate measuring distances and angles between any two objects, as well as implementing parenting of transformations
+// The plan is to have locations be children of a planetary object, arrows be children of locations, angle/distance texts be children of arrows,
+// and offer a way to indicate what to measure to etc. I have yet to work out the requirements ...
 class SceneObject {
-    union primobj {
+    union primobj { // Allow all types of objects to be SceneObject
         Primitive3D* primitive;
         Earth* earth;
         Location* location;
         Camera* camera;
+        // add the rest ...
     };
     unsigned int id = 0;
     unsigned int type = 0;
@@ -102,6 +111,9 @@ public:
 // -----------
 //  SceneTree
 // -----------
+// Currently unused
+// Meant to facilitate measuring distances and angles between any two objects, as well as implementing parenting of transformations and GUI traversal
+// See SceneObject above for more info
 class SceneTree {
     Camera* camera = nullptr;
     tightvec<SceneObject*> objects;
@@ -130,6 +142,7 @@ public:
 
 
 void AngleArcsDev(Application& myapp) {
+    // Function to test AngleArcs while developing
     myapp.anim = false;
 
     Astronomy* astro = myapp.newAstronomy();
@@ -166,7 +179,7 @@ void AngleArcsDev(Application& myapp) {
 
     start = glm::vec3(1.0f, 0.0f, 0.0f);
     arrows->UpdateStartDirLen(a1, pos, start, 1.0f, 0.01f, LIGHT_RED);
-    anglearcs->update(myangle, NOT_A_VEC3, start, NOT_A_VEC3, NOT_A_FLOAT, NOT_A_COLOR, NOT_A_FLOAT);
+    anglearcs->update(myangle, NO_VEC3, start, NO_VEC3, NO_FLOAT, NO_COLOR, NO_FLOAT);
 
     while (!glfwWindowShouldClose(myapp.window)) {
         myapp.currentCam->CamUpdate();
@@ -181,7 +194,8 @@ void AngleArcsDev(Application& myapp) {
 }
 
 void IdleArea(Application& myapp) {
-
+    // An Idle function to drop into after a python script has completed, so the scene can be interacted with for planning the next animation steps.
+    // Scans for the various elements created by the python script and takes over by adding GUI / keyboard interaction
     myapp.anim = false;
     RenderLayerGUI* gui = myapp.getRenderChain()->newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
     unsigned int lnum = 1;
@@ -206,6 +220,8 @@ void IdleArea(Application& myapp) {
 
 
 void TestArea6(Application& myapp) {
+    // Simply creates AENS Earth and sets up some basics for viewing Sun/Moon
+    // 
     // Set up environment - Application could setup a default astro and scene with cam for us. Makes no diff., we'd still need to obtain reference to them
     Astronomy* astro = myapp.newAstronomy();
     astro->setTimeNow();
@@ -506,6 +522,7 @@ void TestArea5(Application& myapp) {
 
 // Application is a global container for all the rest
 Application app = Application();  // New global after refactor
+// Below test areas do not get app passed, so it is defined here so they can access it globally.
 
 void TestArea4() {
     app.ipython = false; // drop to interactive python console before exiting script
@@ -531,7 +548,7 @@ void TestArea4() {
     }
 }
 void TestArea3() {
-
+    // Now older test area, originally used to test multiple RenderLayer3D views. Kept here for easy reference until I make documentation for calls.
     app.togglefullwin = false;
     //app.camFoV = 50.0f;
     app.anim = false;
@@ -663,7 +680,8 @@ void TestArea3() {
 
 // Testing area
 void TestArea1(World& world) {
-
+    // Was used to analyse I Can Science That's 2021 june solstice community data
+    // Was later used to generate some planetary data, and test astronomy calculations. Those have since been revised so will probably not work anymore.
     // Shall explain the basics of the Sun as observed on Earth
 
     //const float latlonwidth = 0.002f;
@@ -1091,11 +1109,18 @@ void TestArea1(World& world) {
     //}
 }
 
+
+// -------------------------------------
+//  Python scripting module definitions
+// -------------------------------------
 Application* getApplication() {
+    // Since the allocated Application instance is currently a global, this function allows the python module to access it
+    // Application then has hooks to access all the other items via getXXXX() or newXXXX() depending on whether more than one is allowed
+    //  (getXXXX() when all need to share the same instance, newXXXX() when multiple can be used)
     return &app;
 }
-
 PYBIND11_EMBEDDED_MODULE(eartharium, m) {
+    // Should probably be moved into a separate translation unit (*.h/*.cpp)
     m.doc() = "Eartharium Module";
     m.def("getApplication", &getApplication, py::return_value_policy::reference);
     py::class_<LLH>(m, "LLH")
@@ -1267,19 +1292,25 @@ PYBIND11_EMBEDDED_MODULE(eartharium, m) {
 
 
 int main() {
-
-    app.start_fullscreen = false;
+    // This is main. The entry point of execution when launching
+    // Do as little as possible here.
+    app.start_fullscreen = false;  // Starting full screen can make debugging difficult during a hang
     if (app.initWindow() == -1) return -1; // Bail if Window and OpenGL context setup fails
 
-    if (false) {
+    if (false) { // Set to true to run a python script and drop into an idle interactive
         app.interactive = false;
         //std::string pyfile = "c:\\Coding\\Eartharium\\Eartharium\\hello.py";
-        std::string pyfile = "c:\\Coding\\Eartharium\\Eartharium\\Lesson001.py";
+        std::string pyfile = "c:\\Coding\\Eartharium\\Eartharium\\Lesson001.py";  // Hardcoded which python script to run until a script manager is built
         py::scoped_interpreter guard{};
         py::object scope = py::module_::import("__main__").attr("__dict__");
         py::eval_file(pyfile.c_str(), scope);
         IdleArea(app);
+        glfwTerminate();
+        return 0; // Let the OS deal with all the memory leaks, Not all destructors are up to date currently
     }
+    // If no python script was run, simply drop to a test area that sets up via C++ instead.
+    // Good for things not yet implemented in python interface, or while developing things,
+    // but requires a recompile for every change. Python scripts can simply be saved after changes, and Eartharium can be run again.
 
     //TestArea5(app);
 
@@ -1288,25 +1319,26 @@ int main() {
     // Cleanup
     glfwTerminate();
 
-    return 0;
+    return 0;  // Poor Windows will deal with cleaning up the heap
 }
 
 
-// Textures
+// Textures - Just a note to remember which texture slots are in use on the GPU
 // --------
-// Shadows = 1, SkyBox = 2, Earth = 3 + 4, Sundot = 5, Moondot = 6, PiP = 7.
+// Shadows = 1, SkyBox = 2, Earth = 3 + 4, Sundot = 5, Moondot = 6.
 
 
 // ----------------
 //  GLFW Callbacks
 // ----------------
 void keyboard_callback(GLFWwindow*, int key, int scancode, int action, int mods) {
+    // GLFW has a C interface for callbacks, so this has not yet been moved into Application. I'll have to look into that.
     // Mapped Keys: <ESC>,<SPACE>,a,c,d,e,f,g,h,j,m,n,p,q,s,w,z
     // Unmapped Keys: b,i,k,l,o,r,u,v,x,y,1,2,3,4,5,6,7,8,9,0
     if (action == GLFW_RELEASE || action == GLFW_REPEAT) {
         // ESC - End application - may move to end animation when timeline edits have been implemented
         if (key == GLFW_KEY_ESCAPE) { glfwSetWindowShouldClose(app.window, true); }
-        //if (key == GLFW_KEY_L) toggle = !toggle;
+        //if (key == GLFW_KEY_L) toggle = !toggle;  // Was once able to toggle between filled triangles and wireframe mode. Shaders no longer support that.
         // SPACE - Toggle Time Animation
         if (key == GLFW_KEY_SPACE) { app.anim = !app.anim; }
         // G - Toggle GUI
@@ -1391,7 +1423,6 @@ void GLAPIENTRY MessageCallback(GLenum source, GLenum type, GLuint id, GLenum se
         (type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""),
         type, severity, message);
 }
-
 static void GLClearError() {
     unsigned int i = 0;
     while (glGetError() != GL_NO_ERROR) {

@@ -1,12 +1,15 @@
-#include "Earth.h"
 
+#include "Earth.h"
 
 // ----------
 //  LocGroup
 // ----------
 
 // NOTE: Implement using std::list rather than tightvec !!!
+// - I have forgotten why, will have to revisit
+// - Oh! So GUI can eventually easily iterate over it without showing the deleted ones.
 LocGroup::LocGroup(Earth* e, unsigned int identifier) {
+    // LocGroup allows Earth
     earth = e;
     id = identifier; // Check earth for duplicates? Or return unique id instead? !!!
     //locations.reserve(locgrpreserve);
@@ -281,7 +284,7 @@ void SubLunar::Draw() {
     shdr->Unbind();
     return;
 }
-glm::vec3 SubLunar::getLoc3D_NS(float rLat, float rLon, float height, float radius) {
+glm::vec3 SubLunar::getLoc3D_NS(float rLat, float rLon, float height, float radius) { // For generating the mesh
     float m_Radius = 1.0f;
     float w = cos(rLat) * (radius + height);
     float x = cos(rLon) * w;
@@ -1056,7 +1059,7 @@ void Earth::updateSubsolarCone_NS() {
     double t = asin(rE / d);
     double h = l * cos(t);
     double rc = l * sin(t);
-    m_scene->getViewConesOb()->UpdateStartDirLen(m_suncone, flatSun, glm::normalize(flatSun), (float)h - 0.001f, (float)rc + 0.002f, NOT_A_COLOR);
+    m_scene->getViewConesOb()->UpdateStartDirLen(m_suncone, flatSun, glm::normalize(flatSun), (float)h - 0.001f, (float)rc + 0.002f, NO_COLOR);
 }
 LLH Earth::getSublunarPoint() {
     return { m_moonDec, m_moonHour, m_flatsunheight };
@@ -1169,7 +1172,7 @@ void Earth::changeLatitudeCurve(unsigned int index, double lat, glm::vec4 color,
     // lat outside -360 to 360 range is assumed to be NO_LAT.
     if (!rad) lat *= deg2rad;
     if (m_polycache[index].type == LATITUDE) {
-        if (color != NOT_A_COLOR) m_polycache[index].color = color;
+        if (color != NO_COLOR) m_polycache[index].color = color;
         if (abs(lat) <= tau) m_polycache[index].llh1.lat = lat;
         if (width > 0.0f) m_polycache[index].width = width;
     }
@@ -1199,7 +1202,7 @@ void Earth::changeLongitudeCurve(unsigned int index, double lon, glm::vec4 color
     // lat outside -360 to 360 range is assumed to be NO_LAT.
     if (!rad) lon *= deg2rad;
     if (m_polycache[index].type == LONGITUDE) {
-        if (color != NOT_A_COLOR) m_polycache[index].color = color;
+        if (color != NO_COLOR) m_polycache[index].color = color;
         if (abs(lon) <= tau) m_polycache[index].llh1.lon = lon;
         if (width > 0.0f) m_polycache[index].width = width;
     }
@@ -1963,7 +1966,7 @@ void Location::Draw() {
 }
 glm::vec4 Location::getPlanetColor(unsigned int planet, glm::vec4 color) {
     // Might belong somewhere else, like a config object or CelestialMech !!!
-    if (color != NOT_A_COLOR) return color;
+    if (color != NO_COLOR) return color;
     if (planet == SUN) return SUNCOLOR;
     if (planet == MERCURY) return MERCURYCOLOR;
     if (planet == VENUS) return VENUSCOLOR;
@@ -2051,7 +2054,7 @@ void Location::changeLocSky(float size, glm::vec4 color) {
     if (size == 0.0f) size = m_radius;
     for (auto& d : m_dotcache) {
         if (d.type == LOCSKY) {
-            if (color != NOT_A_COLOR) d.changeColor(color);
+            if (color != NO_COLOR) d.changeColor(color);
             if (size > 0.0f)  d.changeSize(size);
             return;
         }
@@ -2160,7 +2163,7 @@ void Location::addObserver(float bearing, glm::vec4 color, float height) {
     m_observer = m_scene->newMinifigs()->FromStartDirLen(m_pos, dir, height, height, color, bearing);
 }
 void Location::changeObserver(float bearing, glm::vec4 color, float height) {
-    if (color == NOT_A_COLOR) color = m_scene->newMinifigs()->getDetails(m_observer)->color;
+    if (color == NO_COLOR) color = m_scene->newMinifigs()->getDetails(m_observer)->color;
     if (height == 0.0f) height = m_scene->newMinifigs()->getDetails(m_observer)->scale.z;
     bearing = deg2radf * (bearing - 180.0f);
     glm::vec3 dir = m_earth->getNml3D(m_lat, m_lon);
@@ -2243,7 +2246,7 @@ void Location::changeLocDot(float size, glm::vec4 color) {
     // color = NOT_A_COLOR -> don't change
     for (auto& d : m_dotcache) {
         if (d.type == LOC) {
-            if (color != NOT_A_COLOR) d.changeColor(color);
+            if (color != NO_COLOR) d.changeColor(color);
             if (size > 0.0f)  d.changeSize(size);
             updateLocDot(d);
             return;
@@ -2272,7 +2275,7 @@ void Location::changeDot3DTrueSun(float size, glm::vec4 color) {
     // color = NOT_A_COLOR -> don't update
     for (auto& d : m_dotcache) {
         if (d.type == TRUESUN3D) {
-            if (color != NOT_A_COLOR) d.changeColor(color);
+            if (color != NO_COLOR) d.changeColor(color);
             if (size > 0.0f)  d.changeSize(size);
             return;
         }

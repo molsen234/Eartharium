@@ -1026,7 +1026,7 @@ public:
 class PolyCurve {
 private:
     Scene* m_scene = nullptr;
-    glm::vec4 m_color = NOT_A_COLOR;
+    glm::vec4 m_color = NO_COLOR;
     float m_width = 0.0f;
     unsigned int facets = 8;
     std::vector<glm::vec3> m_points;

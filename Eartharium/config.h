@@ -2,21 +2,20 @@
 
 #include <glm/glm.hpp>
 
-// Camera movement via keyboard
+// Camera movement via keyboard - These limits are used in Eartharium.cpp:keyboard_callback() for GLFW
 #define CAMERA_MAX_DIST 100.0f
 #define CAMERA_MIN_DIST 1.0f
-#define CAMERA_STEP_FACTOR 0.1f
-#define CAMERA_MAX_FOV 180.0f  // In degrees
-#define CAMERA_MIN_FOV 1.0f    // In degrees
-#define CAMERA_FOV_FACTOR 0.1f
-#define CAMERA_MAX_LATITUDE 90.0f
+#define CAMERA_STEP_FACTOR 0.1f // Multiplier / divisor for camera distance because 1 to 2 degrees doubles the FoV but 90 to 91 barely changes it 
+#define CAMERA_MAX_FOV 180.0f  // In degrees - May need revision if implementing 360 degree virtual videos
+#define CAMERA_MIN_FOV 1.0f    // In degrees - extremely low FoV angles cause a hperbolic effect
+#define CAMERA_FOV_FACTOR 0.1f // Multiplier / divisor for FoV because 1 to 2 degrees doubles the FoV but 90 to 91 barely changes it
+#define CAMERA_MAX_LATITUDE 90.0f // Latitude locked to +/-90 to avoid turning upside down
 #define CAMERA_MIN_LATIDUDE -90.0f
 //#define CAMERA_MAX_LONGITUDE 180.0f // Unrestricted to circle limitless
 //#define CAMERA_MIN_LONGIDUDE -180.0f
 #define CAMERA_ANGLE_STEP 2.0f
 
-// Basic colors
-#define NOT_A_COLOR glm::vec4(1.0f, 1.0f, 1.0f, 0.0f)  // Used to mark nocare values in method calls
+// Basic colors - The names explains it all
 #define WHITE glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)
 #define GREY glm::vec4(0.5f,0.5f,0.5f,1.0f)
 #define BLACK glm::vec4(0.0f,0.0f,0.0f,1.0f)
@@ -33,7 +32,7 @@
 #define LIGHT_GREY glm::vec4(0.8f, 0.8f, 0.8f, 1.0f)
 #define AQUA glm::vec4(0.0f, 1.0f, 1.0f, 1.0f)
 
-// Default object colors
+// Default object colors - For non-textured solar system view, and planet arrows/paths in Earth and Location
 #define SUNCOLOR glm::vec4(0.8f, 0.8f, 0.0f, 1.0f)
 #define MERCURYCOLOR glm::vec4(0.6f, 0.6f, 0.6f, 1.0f)
 #define VENUSCOLOR glm::vec4(1.0f, 0.0f, 1.0f, 1.0f)
@@ -44,13 +43,15 @@
 #define URANUSCOLOR glm::vec4(0.5f, 1.0f, 1.0f, 1.0f)
 #define NEPTUNECOLOR glm::vec4(0.5f, 0.5f, 1.0f, 1.0f)
 
-// No care values
-#define NOT_A_FLOAT maxfloat
-#define NOT_A_VEC3 glm::vec3(maxfloat)
-#define NOT_A_VEC4 glm::vec4(maxfloat)
+// No care values - Used to indicate that no value is provided. Used to keep existing values whatever they are in functions that receive multiple values
+#define NO_FLOAT maxfloat
+#define NO_VEC2 glm::vec2(maxfloat)
+#define NO_VEC3 glm::vec3(maxfloat)
+#define NO_VEC4 glm::vec4(maxfloat)
+#define NO_COLOR glm::vec4(maxfloat)  // Used to mark nocare values in method calls
 
 // Earth config
-constexpr auto NE_SMEAR = 0.001f;        // Stepsize for estimating North and East vectors in Earth class;
+constexpr auto NE_SMEAR = 0.001f;        // Stepsize for estimating North and East vectors in Earth class (numerical differentiation)
 const float latlonwidth = 0.002f;        // Latitude / longitude path width
 const float llprimewidth = 0.003f;       // Prime meridian and equator path width
 
