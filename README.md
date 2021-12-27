@@ -44,8 +44,9 @@ This project is currently just a hodgepodge of classes that can be chained toget
 ### Basic Render setup
 Begin by creating a function in Eartharium.cpp:
 
-void TestEarth(Application& myapp) {
-}
+    void TestEarth(Application& myapp) {
+    
+    }
 
 Add a call to it in main(), replacing any TestArea() call (current sources have TestArea5(app); or AngleArcsDev(app)) Your TestEarth() function will now be called when you compile and run Eartharium.
 
@@ -62,8 +63,9 @@ A minimal setup requires a Scene, an Astronomy, a Camera, an Earth and a RenderL
     cam->camDst = 10.0f;
     cam->CamUpdate();
     myapp.currentCam = cam;  // Manually set which Camera receives keyboard updates
-    RenderLayer3D* layer = chain->newRenderLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
-    Earth* earth = scene->getEarthOb("AENS", 180, 90);
+    RenderLayer3D* layer = chain->newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    Earth* earth = scene->newEarth("AENS", 180, 90);
+    app.currentEarth = earth;
     earth->flatsunheight = 0.0f; // Used for both Subsolar and Sublunar points
     earth->addSubsolarPoint();
     earth->w_sinsol = true;
@@ -90,13 +92,13 @@ The myapp.update() will process keyboard events and resizing when the window siz
 
 Change the camera view to see the AE map at an oblique angle, then use the N and M keys to morph smoothly between AE map and Normal Sphere (this is what AENS refers to in the call creating the Earth). Press F to toggle btween windowed and full screen mode. Hit ESC or close the window to end the program.
 
-Now add the following lines before the loop, to create a location with arrows indicating the observed (true) directions to the Sun and Moon:
+Now add the following lines before the loop, to create a few locations with arrows indicating the observed (true) directions to the Sun and Moon:
 
-    unsigned int locgroup = earth->addLocGroup();
-    earth->locgroups[locgroup]->addLocation(l_cph.lat, l_cph.lon, false, 0.2f);
-    earth->locgroups[locgroup]->addLocation(l_nyc.lat, l_nyc.lon, false, 0.2f);
-    earth->locgroups[locgroup]->addLocation(l_tok.lat, l_tok.lon, false, 0.2f);
-    for (auto& loc : earth->locgroups[longrp]->locations) {
+    unsigned int locgrp = earth->addLocGroup();
+    earth->locgroups[locgrp]->addLocation(l_cph.lat, l_cph.lon, false, 0.2f);
+    earth->locgroups[locgrp]->addLocation(l_nyc.lat, l_nyc.lon, false, 0.2f);
+    earth->locgroups[locgrp]->addLocation(l_tok.lat, l_tok.lon, false, 0.2f);
+    for (auto& loc : earth->locgroups[locgrp]->locations) {
         loc->addLocDot();
         loc->addArrow3DTrueSun();
         loc->addArrow3DTrueMoon();
