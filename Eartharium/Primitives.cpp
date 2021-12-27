@@ -15,15 +15,21 @@
 //  Camera
 // --------
 Camera::Camera(Scene* scene) : m_scene(scene) {
+    update();
     //Recalc();   NOTE: Set reasonable defaults in Primitives.h and do Recalc() so cam starts in well defined configuration !!!
 }
-void Camera::SetCamLightPos(glm::vec3 lPos) { CamLightDir = glm::normalize(lPos); }
-void Camera::CamUpdate() {
+void Camera::setCamLightPos(glm::vec3 lPos) { CamLightDir = glm::normalize(lPos); }
+void Camera::setLatLon(float lat, float lon) {
+    if (lat != NO_FLOAT) camLat = lat;
+    if (lon != NO_FLOAT) camLon = lon;
+    update();
+}
+void Camera::update() {
     setPosLLH({ camLat, camLon, camDst });
-    glm::vec3 lPos = GetPosXYZ();
-    lPos += GetRight() * -camlightsep;
-    lPos += GetUp() * camlightsep;
-    SetCamLightPos(lPos);
+    glm::vec3 lPos = getPosXYZ();
+    lPos += getRight() * -camlightsep;
+    lPos += getUp() * camlightsep;
+    setCamLightPos(lPos);
 }
 void Camera::setLookAt(glm::vec3 position, glm::vec3 target, glm::vec3 upwards) {
     m_position = position;
@@ -36,32 +42,36 @@ void Camera::setPosXYZ(glm::vec3 pos) {
     Recalc();
 }
 void Camera::setPosLLH(LLH llh) {
+    while (camLon > 180.0) camLon -= 360.0;
+    while (camLon < -180.0) camLon += 360.0;
+    // How to normalize latitude properly? Not practical as 100 should go to 80 and longitude should change 180 whereas 360 should simply go to 0.
+    // Better to just snap to valid range.
+    if (camLat > 90.0) camLat = 90.0;
+    if (camLat < -90.0) camLat = -90.0;
     float camW = (float)cos(deg2rad * llh.lat) * (float)llh.dst;
     m_position.x = (float)cos(deg2rad * llh.lon) * camW;
     m_position.y = (float)sin(deg2rad * llh.lon) * camW;
     m_position.z = (float)sin(deg2rad * llh.lat) * (float)llh.dst;
     Recalc();
 }
-glm::vec3 Camera::GetPosXYZ() { return m_position; }
-void Camera::SetTarget(glm::vec3 target) {
+glm::vec3 Camera::getPosXYZ() { return m_position; }
+void Camera::setTarget(glm::vec3 target) {
     m_target = target;
     ViewMat = glm::lookAt(m_position, m_target, cameraUp);
     //Recalc();
 }
-void Camera::setFoV(float fov) { // Is a public variable, so probably get rid of get/set methods and do one Recalc() every frame (after GUI etc)
+void Camera::setFoV(float fov) { // !!! Is a public variable, so probably get rid of get/set methods and do one Recalc() every frame (after GUI etc)
     camFoV = fov;
     Recalc();
     //ProjMat = glm::perspective(glm::radians(m_fov), (float)m_world->w_width / (float)m_world->w_height, 0.1f, 100.0f);
 }
 float Camera::getFoV() { return camFoV; }
-glm::mat4 Camera::GetViewMat() { return ViewMat; }
-glm::mat4 Camera::GetSkyViewMat() { return glm::lookAt(glm::vec3(0.0f), m_target - m_position, cameraUp); }
-glm::mat4 Camera::GetProjMat() { return ProjMat; }
-glm::vec3 Camera::GetRight() { return cameraRight; }
-glm::vec3 Camera::GetUp() { return cameraUp; }
-void Camera::setCamLightPos(glm::vec3 lPos) {
-    CamLightDir = glm::normalize(lPos);
-}
+glm::mat4 Camera::getViewMat() { return ViewMat; }
+glm::mat4 Camera::getSkyViewMat() { return glm::lookAt(glm::vec3(0.0f), m_target - m_position, cameraUp); }
+glm::mat4 Camera::getProjMat() { return ProjMat; }
+glm::vec3 Camera::getRight() { return cameraRight; }
+glm::vec3 Camera::getUp() { return cameraUp; }
+glm::vec3 Camera::getPosition() { return m_position; }
 void Camera::Recalc() {
     m_direction = glm::normalize(m_position - m_target);
     cameraRight = glm::normalize(glm::cross(worldUp, m_direction));
@@ -156,13 +166,13 @@ void Scene::render() {
     }
     if (m_earthOb != nullptr) m_earthOb->Draw();
     if (m_solsysOb != nullptr) m_solsysOb->Draw();
-    if (m_minifigsOb != nullptr) m_minifigsOb->Draw(NONE);
-    if (m_sphereuvOb != nullptr) m_sphereuvOb->Draw(NONE);
-    if (m_cylindersOb != nullptr) m_cylindersOb->Draw(NONE);
-    if (m_planesOb != nullptr) m_planesOb->Draw(NONE);
-    if (m_conesOb != nullptr) m_conesOb->Draw(NONE);
-    if (m_dotsOb != nullptr) m_dotsOb->Draw(NONE);
-    if (m_viewconesOb != nullptr) m_viewconesOb->Draw(NONE);
+    if (m_minifigsOb != nullptr) m_minifigsOb->draw(NONE);
+    if (m_sphereuvOb != nullptr) m_sphereuvOb->draw(NONE);
+    if (m_cylindersOb != nullptr) m_cylindersOb->draw(NONE);
+    if (m_planesOb != nullptr) m_planesOb->draw(NONE);
+    if (m_conesOb != nullptr) m_conesOb->draw(NONE);
+    if (m_dotsOb != nullptr) m_dotsOb->draw(NONE);
+    if (m_viewconesOb != nullptr) m_viewconesOb->draw(NONE);
     if (m_anglearcsOb != nullptr) m_anglearcsOb->draw();
     // Do PiP last before GUI as it is layered on top of scene
 
@@ -628,72 +638,72 @@ void RenderLayerPlot::setCurrentTime(double time) {
 // -------------
 //  RenderChain
 // -------------
-RenderChain::RenderChain(Application* app) : m_app(app) {
-    m_layers.reserve(16); // ?? Might need to be a list instead of a vector
-    //m_layers.push_back(new RenderLayer(m_application->getWindow2Viewport())); // Default render layer
-}
-RenderLayer3D* RenderChain::newLayer3D(float vpx1, float vpy1, float vpx2, float vpy2, Scene* scene, Astronomy* astro, Camera* cam) {
-    //std::cout << "RenderChain::newLayer3D() was called!\n";
-    if (cam == nullptr) cam = scene->w_camera;
-    RenderLayer3D* layer = new RenderLayer3D(vpx1, vpy1, vpx2, vpy2, scene, astro, cam);
-    m_layers.push_back(layer);
-    //std::cout << " -> Returning layer: " << layer << "\n";
-    return layer;
-}
-RenderLayerText* RenderChain::newLayerText(float vpx1, float vpy1, float vpx2, float vpy2, RenderLayerTextLines* lines) {
-    RenderLayerText* layer = new RenderLayerText(vpx1, vpy1, vpx2, vpy2, m_app, lines);
-    m_layers.push_back(layer);
-    return layer;
-}
-RenderLayerGUI* RenderChain::newLayerGUI(float vpx1, float vpy1, float vpx2, float vpy2) {
-    RenderLayerGUI* layer = new RenderLayerGUI(vpx1, vpy1, vpx2, vpy2, m_app);
-    m_layers.push_back(layer);
-    return layer;
-}
-RenderLayerPlot* RenderChain::newLayerPlot(float vpx1, float vpy1, float vpx2, float vpy2) {
-    RenderLayerPlot* layer = new RenderLayerPlot(vpx1, vpy1, vpx2, vpy2, m_app);
-    m_layers.push_back(layer);
-    return layer;
-}
-void RenderChain::updateView(int w, int h) {
-    // Called from Application when switching between full screen and windowed mode, ADD: or when window is resized !!!
-    float width = (float)w;
-    float height = (float)h;
-    for (auto& l : m_layers) {
-        l->updateViewport(width, height);
-    }
-}
-void RenderChain::do_render() {
-    if (m_app->interactive) m_app->update(); // Set the interactive flag while experimenting so resizing works properly during python script
-    // Update necessary layer related items, then render. Copy from world, or use world do_render() for now.
-    //glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    m_app->update();
-    m_app->beginImGUI();
-    for (auto& l : m_layers) {
-        l->animateViewport();
-        l->render();
-    }
-    m_app->endImGUI();
-    if (renderoutput) RenderFrame(0);
-    currentframe++;
-    glfwSwapBuffers(m_app->window);
-}
-void RenderChain::RenderFrame(unsigned int framebuffer) {
-    std::string fullname = "C:\\Coding\\Eartharium\\Eartharium\\AnimOut\\" + basefname;
-    char numerator[20];
-    sprintf(numerator, "S%03d-%04d.png", currentseq, currentframe);
-    fullname.append(numerator);
-    saveImage(fullname, m_app->window, 0);               // default frame buffer
-    //saveImage(fullname, window, framebuffer);
-    std::cout << "Rendered Frame " << currentframe << " to " << fullname << "\n";
-    //delete[] numerator;  // NO! It is stack allocated!
-}
-void RenderChain::incSequence() {
-    currentseq++;
-    currentframe = 0;
-}
+//RenderChain::RenderChain(Application* app) : m_app(app) {
+//    m_layers.reserve(16); // ?? Might need to be a list instead of a vector
+//    //m_layers.push_back(new RenderLayer(m_application->getWindow2Viewport())); // Default render layer
+//}
+//RenderLayer3D* RenderChain::newLayer3D(float vpx1, float vpy1, float vpx2, float vpy2, Scene* scene, Astronomy* astro, Camera* cam) {
+//    //std::cout << "RenderChain::newLayer3D() was called!\n";
+//    if (cam == nullptr) cam = scene->w_camera;
+//    RenderLayer3D* layer = new RenderLayer3D(vpx1, vpy1, vpx2, vpy2, scene, astro, cam);
+//    m_layers.push_back(layer);
+//    //std::cout << " -> Returning layer: " << layer << "\n";
+//    return layer;
+//}
+//RenderLayerText* RenderChain::newLayerText(float vpx1, float vpy1, float vpx2, float vpy2, RenderLayerTextLines* lines) {
+//    RenderLayerText* layer = new RenderLayerText(vpx1, vpy1, vpx2, vpy2, m_app, lines);
+//    m_layers.push_back(layer);
+//    return layer;
+//}
+//RenderLayerGUI* RenderChain::newLayerGUI(float vpx1, float vpy1, float vpx2, float vpy2) {
+//    RenderLayerGUI* layer = new RenderLayerGUI(vpx1, vpy1, vpx2, vpy2, m_app);
+//    m_layers.push_back(layer);
+//    return layer;
+//}
+//RenderLayerPlot* RenderChain::newLayerPlot(float vpx1, float vpy1, float vpx2, float vpy2) {
+//    RenderLayerPlot* layer = new RenderLayerPlot(vpx1, vpy1, vpx2, vpy2, m_app);
+//    m_layers.push_back(layer);
+//    return layer;
+//}
+//void RenderChain::updateView(int w, int h) {
+//    // Called from Application when switching between full screen and windowed mode, ADD: or when window is resized !!!
+//    float width = (float)w;
+//    float height = (float)h;
+//    for (auto& l : m_layers) {
+//        l->updateViewport(width, height);
+//    }
+//}
+//void RenderChain::do_render() {
+//    if (m_app->interactive) m_app->update(); // Set the interactive flag while experimenting so resizing works properly during python script
+//    // Update necessary layer related items, then render. Copy from world, or use world do_render() for now.
+//    //glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+//    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+//    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//    m_app->update();
+//    m_app->beginImGUI();
+//    for (auto& l : m_layers) {
+//        l->animateViewport();
+//        l->render();
+//    }
+//    m_app->endImGUI();
+//    if (renderoutput) RenderFrame(0);
+//    currentframe++;
+//    glfwSwapBuffers(m_app->window);
+//}
+//void RenderChain::RenderFrame(unsigned int framebuffer) {
+//    std::string fullname = "C:\\Coding\\Eartharium\\Eartharium\\AnimOut\\" + basefname;
+//    char numerator[20];
+//    sprintf(numerator, "S%03d-%04d.png", currentseq, currentframe);
+//    fullname.append(numerator);
+//    saveImage(fullname, m_app->window, 0);               // default frame buffer
+//    //saveImage(fullname, window, framebuffer);
+//    std::cout << "Rendered Frame " << currentframe << " to " << fullname << "\n";
+//    //delete[] numerator;  // NO! It is stack allocated!
+//}
+//void RenderChain::incSequence() {
+//    currentseq++;
+//    currentframe = 0;
+//}
 
 
 // -------------
@@ -701,12 +711,15 @@ void RenderChain::incSequence() {
 // -------------
 Application::Application() {
     // Set up everyhing that is non-optional and singular (e.g. Main Window)
-    m_renderchain = new RenderChain(this);
+//    m_renderchain = new RenderChain(this);
     m_shaderlib = new ShaderLibrary();
+    m_layers.reserve(16); // ?? Might need to be a list instead of a vector
+//m_layers.push_back(new RenderLayer(m_application->getWindow2Viewport())); // Default render layer
+
 }
 // DESTRUCTOR: Should ideally tear down the things we set up
 
-RenderChain* Application::getRenderChain() { return m_renderchain; }
+//RenderChain* Application::getRenderChain() { return m_renderchain; }
 ShaderLibrary* Application::getShaderLib() { return m_shaderlib; }
 Astronomy* Application::newAstronomy() { return new Astronomy(); }  // These may want to save references for clean-up, or maybe not !!!
 Scene* Application::newScene() { return new Scene(this); }
@@ -736,8 +749,7 @@ int Application::initWindow() {
 void Application::SetWH(int w, int h) {  // Note: Called from GLFW window resize callback
     w_width = w;
     w_height = h;
-    m_renderchain->updateView(w_width, w_height);
-    // Should let new size propagate to RenderChain and from there to RenderLayers
+    updateView(w_width, w_height);
 }
 int Application::getWidth() { return w_width; }
 int Application::getHeight() { return w_height; }
@@ -755,7 +767,7 @@ void Application::update() {
         w_height = mode->height;
         togglefullwin = false;
         isfullscreen = true;
-        m_renderchain->updateView(w_width, w_height);
+        updateView(w_width, w_height);
     }
     if (togglefullwin && isfullscreen) {
         // Toggle to windowed mode
@@ -766,11 +778,11 @@ void Application::update() {
         //glViewport(0, 0, w_width, w_height);              // Should probably do this in RenderChain instead !!!
         togglefullwin = false;
         isfullscreen = false;
-        m_renderchain->updateView(w_width, w_height);
+        updateView(w_width, w_height);
     }
-    if (interactive && currentCam != nullptr) currentCam->CamUpdate();
+    if (currentCam != nullptr) currentCam->update();
     if (dumpcam && currentCam != nullptr) {
-        std::cout << "Camera dump at frame: " << m_renderchain->currentframe << "\n";
+        std::cout << "Camera dump at frame: " << currentframe << "\n";
         std::cout << "camFoV = " << currentCam->camFoV << "f\n";  // TODO: Add .0f formatting
         std::cout << "camLat = " << currentCam->camLat << "f\n";
         std::cout << "camLon = " << currentCam->camLon << "f\n";
@@ -813,6 +825,80 @@ void Application::endImGUI() {
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
+RenderLayer3D* Application::newLayer3D(float vpx1, float vpy1, float vpx2, float vpy2, Scene* scene, Astronomy* astro, Camera* cam) {
+    //std::cout << "RenderChain::newLayer3D() was called!\n";
+    if (cam == nullptr) cam = scene->w_camera;
+    RenderLayer3D* layer = new RenderLayer3D(vpx1, vpy1, vpx2, vpy2, scene, astro, cam);
+    m_layers.push_back(layer);
+    //std::cout << " -> Returning layer: " << layer << "\n";
+    return layer;
+}
+void Application::deleteLayer3D(RenderLayer3D* layer) {
+    delete layer;
+}
+RenderLayerText* Application::newLayerText(float vpx1, float vpy1, float vpx2, float vpy2, RenderLayerTextLines* lines) {
+    RenderLayerText* layer = new RenderLayerText(vpx1, vpy1, vpx2, vpy2, this, lines);
+    m_layers.push_back(layer);
+    return layer;
+}
+void Application::deleteLayerText(RenderLayerText* layer) {
+    delete layer;
+}
+RenderLayerGUI* Application::newLayerGUI(float vpx1, float vpy1, float vpx2, float vpy2) {
+    RenderLayerGUI* layer = new RenderLayerGUI(vpx1, vpy1, vpx2, vpy2, this);
+    m_layers.push_back(layer);
+    return layer;
+}
+void Application::deleteLayerGUI(RenderLayerGUI* layer) {
+    delete layer;
+}
+RenderLayerPlot* Application::newLayerPlot(float vpx1, float vpy1, float vpx2, float vpy2) {
+    RenderLayerPlot* layer = new RenderLayerPlot(vpx1, vpy1, vpx2, vpy2, this);
+    m_layers.push_back(layer);
+    return layer;
+}
+void Application::deleteLayerPlot(RenderLayerPlot* layer) {
+    delete layer;
+}
+void Application::updateView(int w, int h) {
+    // Called from Application when switching between full screen and windowed mode, ADD: or when window is resized !!!
+    float width = (float)w;
+    float height = (float)h;
+    for (auto& l : m_layers) {
+        l->updateViewport(width, height);
+    }
+}
+void Application::render() {
+    update();
+    //glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    beginImGUI();
+    for (auto& l : m_layers) {
+        l->animateViewport();
+        l->render();
+    }
+    endImGUI();
+    if (renderoutput) RenderFrame(0); // Save PNG of front buffer.
+    glfwSwapBuffers(window); // Swap rendered screen to front
+    currentframe++;
+    if (currentframe == 100000) incSequence(); // Protect against issues with frame counter wrapping in filename which only allows 5 digits
+}
+void Application::RenderFrame(unsigned int framebuffer) {
+    std::string fullname = "C:\\Coding\\Eartharium\\Eartharium\\AnimOut\\" + basefname;
+    char numerator[20];
+    sprintf(numerator, "S%03d-%05d.png", currentseq, currentframe);
+    fullname.append(numerator);
+    saveImage(fullname, window, 0);               // default frame buffer
+    //saveImage(fullname, window, framebuffer);
+    std::cout << "Rendered Frame " << currentframe << " to " << fullname << "\n";
+    //delete[] numerator;  // NO! It is stack allocated!
+}
+void Application::incSequence() {
+    currentseq++;
+    currentframe = 0;
+}
+
 
 
 // --------
@@ -840,10 +926,10 @@ void SkyBox::Draw() {
     glm::mat4 proj =  glm::perspective(glm::radians(70.0f), m_scene->m_app->getAspect(), 0.1f, 100.0f);
     double timerot = hrs2rad * rad2deg * -m_scene->m_celestOb->getGsid(); //  -100.0; NOTE: Probably because cubemap is loaded incorrectly !!!
     m_scene->w_camera->camLon -= (float)timerot;
-    m_scene->w_camera->CamUpdate();
-    glm::mat4 view = glm::mat4(glm::mat3(m_scene->w_camera->GetViewMat()));
+    m_scene->w_camera->update();
+    glm::mat4 view = glm::mat4(glm::mat3(m_scene->w_camera->getViewMat()));
     m_scene->w_camera->camLon += (float)timerot;
-    m_scene->w_camera->CamUpdate();
+    m_scene->w_camera->update();
     glFrontFace(GL_CCW);
     glDepthMask(GL_FALSE);
     glDepthFunc(GL_LEQUAL);
@@ -909,19 +995,19 @@ void ParticleTrail::push(glm::vec3 pos) {
     for (auto& p : m_queue) {  // Here whole trail could be faded out when desired
         p.size *= (float)m_sizefactor;
         //p.color.a *= 0.95f;
-        m_scene->getDotsOb()->UpdateXYZ(p.index, p.position, p.color, p.size);
+        m_scene->getDotsOb()->changeXYZ(p.index, p.position, p.color, p.size);
     }
     if (m_queue.size() >= m_number) {
-        m_scene->getDotsOb()->Delete(m_queue.back().index);
+        m_scene->getDotsOb()->remove(m_queue.back().index);
         m_queue.pop_back();
     }
-    unsigned int index = m_scene->getDotsOb()->FromXYZ(pos, m_color, size);
+    unsigned int index = m_scene->getDotsOb()->addXYZ(pos, m_color, size);
     m_queue.push_front({ m_color, pos, size, index } );
     m_gap = m_spacing;
 }
 void ParticleTrail::clear() {
     for (auto& p : m_queue) {
-        m_scene->getDotsOb()->Delete(p.index);
+        m_scene->getDotsOb()->remove(p.index);
     }
     m_queue.clear();
 }
@@ -932,7 +1018,7 @@ void ParticleTrail::trim(unsigned int length) {
     //  element that does not exist.
     if (length < m_queue.size()) {
         for (unsigned int i = length; i < m_queue.size(); i++) {
-            m_scene->getDotsOb()->Delete(m_queue.at(i).index);
+            m_scene->getDotsOb()->remove(m_queue.at(i).index);
         }
         m_queue.resize(length);
     }
@@ -946,6 +1032,7 @@ void ParticleTrail::expand(unsigned int length) {
 void ParticleTrail::draw() {
     // Loop through the particle queue and draw them. If using Dots, no need to draw anything
 }
+
 
 // -----------
 //  AngleArcs
@@ -961,7 +1048,7 @@ unsigned int AngleArcs::add(glm::vec3 position, glm::vec3 start, glm::vec3 stop,
     glm::vec3 axis = glm::cross(nstart, nstop); // Use nstart early, it is rescaled later when generating points!
     double rangle = acos(glm::dot(nstart, nstop)); // angle in radians
 
-    m_arcs.push_back({ nullptr, 0, color, position, start, stop, length, width, rad2deg * rangle });
+    m_arcs.push_back({ nullptr, 0, color, position, start, stop, length, width, rad2deg * rangle, false });
 
     m_arcs.back().polycurve = new PolyCurve(m_scene, color, width);
     // loop from 0 to rangle in steps of deg2rad (one degree in radians)
@@ -970,10 +1057,14 @@ unsigned int AngleArcs::add(glm::vec3 position, glm::vec3 start, glm::vec3 stop,
     for (double a = 0.0; a < rangle; a += deg2rad) {
         point = glm::rotate(nstart, (float)a, axis);
         //VPRINT(point);
-        m_arcs.back().polycurve->AddPoint(point);
+        m_arcs.back().polycurve->addPoint(point + position);
     }
-    m_arcs.back().polycurve->Generate();
+    m_arcs.back().polycurve->generate();
     return m_arcs.size() - 1;
+}
+void AngleArcs::remove(unsigned int index) {
+    delete m_arcs[index].polycurve;
+    m_arcs[index].expired = true;
 }
 void AngleArcs::update(unsigned int index, glm::vec3 position, glm::vec3 start, glm::vec3 stop, float length, glm::vec4 color, float width) {
     bool dirty = (position != m_arcs[index].position || start != m_arcs[index].start || stop != m_arcs[index].stop || length != m_arcs[index].length || width != m_arcs[index].width);
@@ -981,29 +1072,30 @@ void AngleArcs::update(unsigned int index, glm::vec3 position, glm::vec3 start, 
     if (start != NO_VEC3) m_arcs[index].start = start;
     if (stop != NO_VEC3) m_arcs[index].stop = stop;
     if (length != NO_FLOAT) m_arcs[index].length = length;
-    if (color != NO_COLOR && color != NO_VEC4) m_arcs[index].color = color;
+    if (color != NO_COLOR) m_arcs[index].color = color;
     if (width != NO_FLOAT) m_arcs[index].width = width;
     // could check if position/start/stop have changed, and skip generator.
-    if (dirty) {
+    if (true) {
         glm::vec3 nstart = glm::normalize(m_arcs[index].start);
         glm::vec3 nstop = glm::normalize(m_arcs[index].stop);
         glm::vec3 axis = glm::cross(nstart, nstop); // Use nstart early, it is rescaled later when generating points!
         double rangle = acos(glm::dot(nstart, nstop)); // angle in radians
         m_arcs[index].angle = rad2deg * rangle;
-        m_arcs[index].polycurve->ClearPoints();
+        //std::cout << "Angle is: " << m_arcs[index].angle << "\n";
+        m_arcs[index].polycurve->clearPoints();
         glm::vec3 point = glm::vec3(0.0f);
         nstart *= m_arcs[index].length;
         for (double a = 0.0; a < rangle; a += deg2rad) {
             point = glm::rotate(nstart, (float)a, axis);
-            m_arcs[index].polycurve->AddPoint(point);
+            m_arcs[index].polycurve->addPoint(point + position);
         }
-        m_arcs[index].polycurve->Generate();
+        m_arcs[index].polycurve->generate();
     }
 }
 
 void AngleArcs::draw() {
     for (auto& a : m_arcs) {
-        a.polycurve->Draw();
+        a.polycurve->draw();
     }
 }
 
@@ -1054,13 +1146,14 @@ PolyCurve::~PolyCurve() {
     // delete vb2;  // Is deleted on every Draw() call completion
     delete va;
 }
-void PolyCurve::AddPoint(glm::vec3 point) { // Should check if reserve is full and warn at console.
+void PolyCurve::addPoint(glm::vec3 point) { // Should check if reserve is full and warn at console.
     m_points.push_back(point);
 }
-void PolyCurve::ClearPoints() {
+void PolyCurve::clearPoints() {
     m_points.clear();
+    m_segments.clear(); // Just in case someone would clear the points and not call generate() to update segments.
 }
-void PolyCurve::Generate() {
+void PolyCurve::generate() {
     // Simply figure out the position, orientation and scale of each cylinder segment
     // and build instance table
     m_segments.clear();
@@ -1076,11 +1169,11 @@ void PolyCurve::Generate() {
         //    << scale.x << "," << scale.y << "," << scale.z << ")\n";
     }
 }
-void PolyCurve::Draw() {
+void PolyCurve::draw() {
     if (m_segments.size() == 0) return;
     shdr->Bind();
-    shdr->SetUniformMatrix4f("view", m_scene->w_camera->GetViewMat());
-    shdr->SetUniformMatrix4f("projection", m_scene->w_camera->GetProjMat());
+    shdr->SetUniformMatrix4f("view", m_scene->w_camera->getViewMat());
+    shdr->SetUniformMatrix4f("projection", m_scene->w_camera->getProjMat());
     shdr->SetUniform3f("lightDir", m_scene->w_camera->CamLightDir.x, m_scene->w_camera->CamLightDir.y, m_scene->w_camera->CamLightDir.z);
     vb1->Bind();
     va->Bind();
@@ -1135,44 +1228,58 @@ Arrows::Arrows(Scene* scene) : m_scene(scene) {
 Arrows::~Arrows() {
     // Delete Cones and Cylinders here, some brutal caller may decide recreating Arrows is the easiest way to delete a bunch of them
     for (auto& a : m_arrows.m_Elements) {
-        m_cylinders->Delete(a.cylinder);
-        m_cones->Delete(a.cone);
+        m_cylinders->remove(a.cylinder);
+        m_cones->remove(a.cone);
     }
 }
-void Arrows::Delete(unsigned int index) {
-    m_cylinders->Delete(m_arrows[index].cylinder);
-    m_cones->Delete(m_arrows[index].cone);
+void Arrows::remove(unsigned int index) {
+    m_cylinders->remove(m_arrows[index].cylinder);
+    m_cones->remove(m_arrows[index].cone);
     m_arrows.remove(index);
 }
-unsigned int Arrows::Store(Arrow a) {
+unsigned int Arrows::store(Arrow a) {
     return m_arrows.store(a);
 }
-void Arrows::Draw() {
+void Arrows::draw() {
+    // Why do I even have this function here? !!!
     std::cout << "Arrows::Draw() was called. No need to do that, arrows are drawn as Cones and Cylinders.\n";
 }
-unsigned int Arrows::FromStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
+unsigned int Arrows::addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
     dir = glm::normalize(dir);
-    unsigned int cone = m_cones->FromStartDirLen(pos + dir * len, dir, width * 20, width * 4, color);
-    unsigned int cyl = m_cylinders->FromStartDirLen(pos, dir * len, len - width * 20, width, color);
-    return Store({ cyl, cone, color, pos, dir, len, width });
+    unsigned int cone = m_cones->addStartDirLen(pos + dir * len, dir, width * 20, width * 4, color);
+    unsigned int cyl = m_cylinders->addStartDirLen(pos, dir * len, len - width * 20, width, color);
+    return store({ cyl, cone, color, pos, dir, len, width });
 }
-unsigned int Arrows::FromStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+unsigned int Arrows::addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
     glm::vec3 dir = end - pos;
-    unsigned int cone = m_cones->FromStartDirLen(end, dir, width * 20, width * 4, color);
-    unsigned int cyl = m_cylinders->FromStartDirLen(pos, dir, glm::length(dir) - width * 20, width, color);
-    return Store({ cyl, cone, color, pos, dir, glm::length(dir), width });
+    unsigned int cone = m_cones->addStartDirLen(end, dir, width * 20, width * 4, color);
+    unsigned int cyl = m_cylinders->addStartDirLen(pos, dir, glm::length(dir) - width * 20, width, color);
+    return store({ cyl, cone, color, pos, dir, glm::length(dir), width });
 }
-void Arrows::UpdateStartDirLen(unsigned int arrow, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
-    m_cones->UpdateStartDirLen(m_arrows[arrow].cone, pos + dir * len, dir, width * 20, width * 4, color);
-    m_cylinders->UpdateStartDirLen(m_arrows[arrow].cylinder, pos, dir, len - width * 20, width, color);
-    m_arrows[arrow] = { m_arrows[arrow].cylinder, m_arrows[arrow].cone, color, pos, dir, len, width };
+void Arrows::changeStartDirLen(unsigned int arrow, glm::vec3 pos, glm::vec3 dir, float length, float width, glm::vec4 color) {
+    if (length == NO_FLOAT) length = m_arrows[arrow].length;
+    if (width == NO_FLOAT) width = m_arrows[arrow].width;
+    if (color == NO_COLOR) color = m_arrows[arrow].color;
+    m_cones->changeStartDirLen(m_arrows[arrow].cone, pos + dir * length, dir, width * 20, width * 4, color);
+    m_cylinders->changeStartDirLen(m_arrows[arrow].cylinder, pos, dir, length - width * 20, width, color);
+    m_arrows[arrow] = { m_arrows[arrow].cylinder, m_arrows[arrow].cone, color, pos, dir, length, width };
 }
-void Arrows::UpdateStartEnd(unsigned int arrow, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+void Arrows::changeStartEnd(unsigned int arrow, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+    if (width == NO_FLOAT) width = m_arrows[arrow].width;
+    if (color == NO_COLOR) color = m_arrows[arrow].color;
     glm::vec3 dir = end - pos;
-    m_cones->UpdateStartDirLen(m_arrows[arrow].cone, end, dir, width * 20, width * 4, color);
-    m_cylinders->UpdateStartDirLen(m_arrows[arrow].cylinder, pos, dir, glm::length(dir) - width * 20, width, color);
+    m_cones->changeStartDirLen(m_arrows[arrow].cone, end, dir, width * 20, width * 4, color);
+    m_cylinders->changeStartDirLen(m_arrows[arrow].cylinder, pos, dir, glm::length(dir) - width * 20, width, color);
     m_arrows[arrow] = { m_arrows[arrow].cylinder, m_arrows[arrow].cone, color, pos, dir, glm::length(dir), width };
 }
+void Arrows::changeArrow(unsigned int index, glm::vec4 color, float length, float width) {
+    if (color != NO_COLOR) m_arrows[index].color = color;
+    if (length != NO_FLOAT) m_arrows[index].length = length;
+    if (width != NO_FLOAT)  m_arrows[index].width = width;
+    m_cones->changeColorLengthWidth(m_arrows[index].cone, color, length, width);
+    m_cylinders->changeColorLengthWidth(m_arrows[index].cylinder, color, length, width);
+}
+
 void Arrows::clear() {
     m_arrows.clear();
 }
@@ -1197,7 +1304,7 @@ Primitives::~Primitives() {
     // delete vb2;  // Is deleted on every Draw() call completion
     delete va;
 }
-void Primitives::Init() {
+void Primitives::init() {
     //std::string shdrsrc = "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitive.shader";
     //shdr = new Shader(shdrsrc);
     shdr = m_scene->m_app->getShaderLib()->getShader(PRIMITIVE_SHADER);
@@ -1223,19 +1330,19 @@ void Primitives::Init() {
     va->AddBuffer(*vb1, *vbl1, true);
     ib = new IndexBuffer((unsigned int*)&m_tris[0], (unsigned int)m_tris.size() * 3);  // IB uses COUNT, not BYTES!!!
 }
-unsigned int Primitives::Store(Primitive3D p) {
+unsigned int Primitives::store(Primitive3D p) {
     return m_Primitives.store(p);
 }
-void Primitives::Update(unsigned int oid, Primitive3D p) {
+void Primitives::update(unsigned int oid, Primitive3D p) {
     m_Primitives.update(oid, p);
 }
-void Primitives::Remove(unsigned int oid) {
+void Primitives::remove(unsigned int oid) {
     m_Primitives.remove(oid);
 }
 void Primitives::clear() {
     m_Primitives.clear();
 }
-void Primitives::Draw(unsigned int shadow) {
+void Primitives::draw(unsigned int shadow) {
     if (m_Primitives.size() == 0) return;
     // Create an instance array and render using one allocated Primitive
     // - color4
@@ -1246,8 +1353,8 @@ void Primitives::Draw(unsigned int shadow) {
 
     if (shadow == SHADOW_MAP) { // Directional light source using square depth texture
         smshdr->Bind();
-        smshdr->SetUniformMatrix4f("view", m_scene->w_camera->GetViewMat());
-        smshdr->SetUniformMatrix4f("projection", m_scene->w_camera->GetProjMat());
+        smshdr->SetUniformMatrix4f("view", m_scene->w_camera->getViewMat());
+        smshdr->SetUniformMatrix4f("projection", m_scene->w_camera->getProjMat());
         smshdr->SetUniform3f("lightDir", m_scene->w_camera->CamLightDir.x, m_scene->w_camera->CamLightDir.y, m_scene->w_camera->CamLightDir.z);
         smshdr->SetUniformMatrix4f("lightSpaceMatrix", m_scene->getShadowmapOb()->lightSpaceMatrix);
     }
@@ -1263,8 +1370,8 @@ void Primitives::Draw(unsigned int shadow) {
     else { // NONE
         shdr->Bind();
         // NOTE: Consider passing in 1 multiplied matrix instead of these:
-        shdr->SetUniformMatrix4f("view", m_scene->w_camera->GetViewMat());
-        shdr->SetUniformMatrix4f("projection", m_scene->w_camera->GetProjMat());
+        shdr->SetUniformMatrix4f("view", m_scene->w_camera->getViewMat());
+        shdr->SetUniformMatrix4f("projection", m_scene->w_camera->getProjMat());
         shdr->SetUniform3f("lightDir", m_scene->w_camera->CamLightDir.x, m_scene->w_camera->CamLightDir.y, m_scene->w_camera->CamLightDir.z);
     }
     // Set up and draw
@@ -1303,10 +1410,13 @@ Primitive3D* Primitives::getDetails(unsigned int index) {
 glm::vec4 Primitives::getColor(unsigned int index) {
     return m_Primitives[index].color;
 }
+void Primitives::setColor(unsigned int index, glm::vec4 color) {
+    m_Primitives[index].color = color;
+}
 // Adding a new primitive:
 // - Add a proto for the class at the top of Primitive.h
-// - Add primitive pointer variable to World
-// - Add get and set for primitive pointer in World
+// - Add primitive pointer variable to Application
+// - Add getter for primitive pointer in Application
 // - Add class definition in Primitives.h:
 //   o Constructor
 //   o From* instancing method(s)
@@ -1334,20 +1444,24 @@ Minifigs::Minifigs(Scene* scene) : Primitives(scene, 10000, 10000) {
     //std::cout << "Minifigs::Minifigs()\n";
     m_Primitives.reserve(200);
     genGeom();
-    Init();
+    init();
 }
 Minifigs::~Minifigs() {
     // Cleanup
 }
-unsigned int Minifigs::FromStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color, float bearing) {
-    return Store({ color, pos, dir, glm::vec3(width, len, width), bearing });
+unsigned int Minifigs::addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color, float bearing) {
+    return store({ color, pos, dir, glm::vec3(width, len, width), bearing });
 }
-void Minifigs::UpdateStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color, float bearing) {
-    Update(index, { color, pos, dir, glm::vec3(width, len, width), bearing });
+void Minifigs::changeStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float length, float width, glm::vec4 color, float bearing) {
+    Primitive3D* prim = getDetails(index);
+    if (color == NO_COLOR) color = prim->color;
+    if (length == NO_FLOAT) length = prim->scale.y;
+    if (width == NO_FLOAT) width = prim->scale.x;
+    update(index, { color, pos, dir, glm::vec3(width, length, width), bearing });
 }
-unsigned int Minifigs::FromStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+unsigned int Minifigs::addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
     glm::vec3 dir = end - pos;
-    return Store({ color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
+    return store({ color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
 }
 
 void Minifigs::genGeom() {
@@ -1425,9 +1539,9 @@ SphereUV::SphereUV(Scene* scene) : Primitives(scene, 1000, 1000) {
     // Cones specific
     m_Primitives.reserve(5000);
     genGeom();
-    Init();
+    init();
 }
-void SphereUV::Print() {
+void SphereUV::print() {
     for (unsigned int i = 0; i < m_Primitives.size(); i++) {
         std::cout << "SphereUV " << i << ":" << std::endl;
         std::cout << " Color:     " << m_Primitives[i].color.r << m_Primitives[i].color.g << m_Primitives[i].color.b << m_Primitives[i].color.a << std::endl;
@@ -1436,23 +1550,27 @@ void SphereUV::Print() {
         std::cout << " Scaling:   " << m_Primitives[i].scale.x << m_Primitives[i].scale.y << m_Primitives[i].scale.z << std::endl;
     }
 }
-void SphereUV::Delete(unsigned int index) {
-    Remove(index);
+unsigned int SphereUV::addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
+    return store({ color, pos, dir, glm::vec3(width, len, width), 0.0f });
 }
-unsigned int SphereUV::FromStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
-    return Store({ color, pos, dir, glm::vec3(width, len, width), 0.0f });
-}
-unsigned int SphereUV::FromStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+unsigned int SphereUV::addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
     glm::vec3 dir = end - pos;
-    return Store({ color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
+    return store({ color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
 }
 //unsigned int SphereUV::FromStartEleAzi(glm::vec3 pos, float ele, float azi, glm::vec4 color) {}
-void SphereUV::UpdateStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
-    Update(index, { color, pos, dir, glm::vec3(width, len, width), 0.0f });
+void SphereUV::changeStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float length, float width, glm::vec4 color) {
+    Primitive3D* prim = getDetails(index);
+    if (color == NO_COLOR) color = prim->color;
+    if (length == NO_FLOAT) length = prim->scale.y;
+    if (width == NO_FLOAT) width = prim->scale.x;
+    update(index, { color, pos, dir, glm::vec3(width, length, width), 0.0f });
 }
-void SphereUV::UpdateStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+void SphereUV::changeStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+    Primitive3D* prim = getDetails(index);
+    if (color == NO_COLOR) color = prim->color;
+    if (width == NO_FLOAT) width = prim->scale.x;
     glm::vec3 dir = end - pos;
-    Update(index, { color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
+    update(index, { color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
 }
 //void SphereUV::UpdateStartEleAzi(unsigned int index, glm::vec3 pos, float ele, float azi, glm::vec4 color) {}
 glm::vec3 SphereUV::getLoc3D_NS(float lat, float lon, float height) {
@@ -1483,54 +1601,6 @@ void SphereUV::genGeom() {
 }
 
 
-// ---------
-//  Letters
-// ---------
-Letters::Letters(Scene* scene) : Primitives(scene, 8, 4) {
-    //world->SetLettersOb(this);
-    // Reserve an initial number of primitives, adding beyond the reservation is still possible, but slow.
-    m_Primitives.reserve(2000);
-    genGeom();
-    Init();
-}
-// Functions to instantiate the primitive
-void Letters::Delete(unsigned int index) {
-    Remove(index);
-}
-unsigned int Letters::FromStartNormalLen(glm::vec3 pos, glm::vec3 nml, float len, glm::vec4 color) {
-    // Takes the position of the center of the plane, the direction of the surface normal, a scale factor and the color
-    return Store({ color, pos, nml, glm::vec3(len, 1.0f, len), 0.0f });
-}
-unsigned int Letters::FromStartUV(glm::vec3 pos, glm::vec3 spanU, glm::vec3 spanV, glm::vec4 color) {
-    // Takes the position of the center of the plane, and two vectors that "span" the plane, and the color
-    //  Spanning means the plane diagonal will be -spanU,-spanV to spanU,spanV transported to position.
-    return Store({ color, pos, glm::cross(spanU,spanV), glm::vec3(glm::length(spanU), 1.0f, glm::length(spanV)), 0.0f });
-}
-void Letters::UpdateStartNormalLen(unsigned int index, glm::vec3 pos, glm::vec3 nml, float len, glm::vec4 color) {
-    Update(index, { color, pos, nml, glm::vec3(len, 1.0f, len), 0.0f });
-}
-void Letters::UpdateStartUV(unsigned int index, glm::vec3 pos, glm::vec3 spanU, glm::vec3 spanV, glm::vec4 color) {
-    Update(index, { color, pos, glm::cross(spanU,spanV), glm::vec3(glm::length(spanU), 1.0f, glm::length(spanV)), 0.0f });
-}
-// Create the geometry (vertices and triangles)
-void Letters::genGeom() {
-    // Unit square in the XZ plane, centered on the origin, surface normal along Y axis - 2 tris front, 2 tris back
-    // Although backface culling is on, there is still some Z fighing, so thickened the plane slightly
-    m_verts.push_back({ glm::vec3(1.0f, 0.00001f,  1.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(0.0f, 0.0f) });
-    m_verts.push_back({ glm::vec3(0.0f, 0.00001f,  1.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(0.0f, 0.0f) });
-    m_verts.push_back({ glm::vec3(1.0f, 0.00001f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(0.0f, 0.0f) });
-    m_verts.push_back({ glm::vec3(0.0f, 0.00001f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(0.0f, 0.0f) });
-    m_verts.push_back({ glm::vec3(1.0, 0.0f,  1.0f), glm::vec3(0.0f, -1.0f, 0.0f), glm::vec2(0.0f, 0.0f) });
-    m_verts.push_back({ glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, -1.0f, 0.0f), glm::vec2(0.0f, 0.0f) });
-    m_verts.push_back({ glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f), glm::vec2(0.0f, 0.0f) });
-    m_verts.push_back({ glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f), glm::vec2(0.0f, 0.0f) });
-    m_tris.push_back({ 0,3,2 });  // ADD texture coordinates
-    m_tris.push_back({ 0,1,3 });
-    m_tris.push_back({ 4,6,7 });
-    m_tris.push_back({ 4,7,5 });
-}
-
-
 // --------
 //  Planes
 // --------
@@ -1538,30 +1608,27 @@ Planes::Planes(Scene* scene) : Primitives(scene, 8, 4) {
     // Reserve an initial number of primitives, adding beyond the reservation is still possible, but slow.
     m_Primitives.reserve(500);
     genGeom();
-    Init();
+    init();
 }
 // Functions to instantiate the primitive
-void Planes::Delete(unsigned int index) {
-    Remove(index);
-}
-unsigned int Planes::FromStartNormalLen(glm::vec3 pos, glm::vec3 nml,float rot, float len, glm::vec4 color) {
+unsigned int Planes::addStartNormalLen(glm::vec3 pos, glm::vec3 nml,float rot, float len, glm::vec4 color) {
     // Takes the position of the center of the plane, the direction and rotation of the surface normal, a scale factor and the color
-    return Store({ color, pos, nml, glm::vec3(len, 1.0f, len), 0.0f });
+    return store({ color, pos, nml, glm::vec3(len, 1.0f, len), 0.0f });
 }
-unsigned int Planes::FromStartUV(glm::vec3 pos, glm::vec3 spanU, glm::vec3 spanV, glm::vec4 color) {
+unsigned int Planes::addStartUV(glm::vec3 pos, glm::vec3 spanU, glm::vec3 spanV, glm::vec4 color) {
     // Takes the position of the center of the plane, and two vectors that "span" the plane, and the color
     //  Spanning means the plane diagonal will be -spanU,-spanV to spanU,spanV transported to position.
     float angle = -atan2(spanU.z, sqrt(spanU.x * spanU.x + spanU.y * spanU.y));
-    return Store({ color, pos, glm::cross(spanU,spanV), glm::vec3(glm::length(spanU), 1.0f, glm::length(spanV)), angle });
+    return store({ color, pos, glm::cross(spanU,spanV), glm::vec3(glm::length(spanU), 1.0f, glm::length(spanV)), angle });
 }
-void Planes::UpdateStartNormalLen(unsigned int index, glm::vec3 pos, glm::vec3 nml, float rot, float len, glm::vec4 color) {
+void Planes::changeStartNormalLen(unsigned int index, glm::vec3 pos, glm::vec3 nml, float rot, float len, glm::vec4 color) {
     // Note: When specifying a non-infinite plane by normal and position, the rotation about the normal is not defined,
     //       so rot cannot be calculated from those parameters and is thus explicitly required (defaulting to 0 rads).
-    Update(index, { color, pos, nml, glm::vec3(len, 1.0f, len), rot });
+    update(index, { color, pos, nml, glm::vec3(len, 1.0f, len), rot });
 }
-void Planes::UpdateStartUV(unsigned int index, glm::vec3 pos, glm::vec3 spanU, glm::vec3 spanV, glm::vec4 color) {
+void Planes::changeStartUV(unsigned int index, glm::vec3 pos, glm::vec3 spanU, glm::vec3 spanV, glm::vec4 color) {
     float angle = -atan2(spanU.z, sqrt(spanU.x * spanU.x + spanU.y * spanU.y));
-    Update(index, { color, pos, glm::cross(spanU,spanV), glm::vec3(glm::length(spanU), 1.0f, glm::length(spanV)), angle });
+    update(index, { color, pos, glm::cross(spanU,spanV), glm::vec3(glm::length(spanU), 1.0f, glm::length(spanV)), angle });
 }
 // Create the geometry (vertices and triangles)
 void Planes::genGeom() {
@@ -1589,26 +1656,29 @@ ViewCones::ViewCones(Scene* scene) : Primitives(scene, 500, 500) {
     // ViewCones have higher tri count, so they are better suited for large cones. Otherwise they are identical to Cones
     m_Primitives.reserve(500);
     genGeom();
-    Init();
+    init();
 }
-void ViewCones::Delete(unsigned int index) {
-    Remove(index);
-}
-unsigned int ViewCones::FromStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
-    return Store({ color, pos, dir, glm::vec3(width, len, width), 0.0f });
+unsigned int ViewCones::addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
+    return store({ color, pos, dir, glm::vec3(width, len, width), 0.0f });
 }   
-unsigned int ViewCones::FromStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+unsigned int ViewCones::addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
     glm::vec3 dir = end - pos;
-    return Store({ color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
+    return store({ color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
 }
 //unsigned int ViewCones::FromStartEleAzi(glm::vec3 pos, float ele, float azi, glm::vec4 color) {}
-void ViewCones::UpdateStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
-    if (color == NO_COLOR) color = getColor(index);
-    Update(index, { color, pos, dir, glm::vec3(width, len, width), 0.0f });
+void ViewCones::changeStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float length, float width, glm::vec4 color) {
+    Primitive3D* prim = getDetails(index);
+    if (color == NO_COLOR) color = prim->color;
+    if (length == NO_FLOAT) length = prim->scale.y;
+    if (width == NO_FLOAT) width = prim->scale.x;
+    update(index, { color, pos, dir, glm::vec3(width, length, width), 0.0f });
 }
-void ViewCones::UpdateStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+void ViewCones::changeStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+    Primitive3D* prim = getDetails(index);
+    if (color == NO_COLOR) color = prim->color;
+    if (width == NO_FLOAT) width = prim->scale.x;
     glm::vec3 dir = end - pos;
-    Update(index, { color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
+    update(index, { color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
 }
 //void ViewCones::UpdateStartEleAzi(unsigned int index, glm::vec3 pos, float ele, float azi, glm::vec4 color) {}
 void ViewCones::genGeom() {
@@ -1646,9 +1716,9 @@ Cones::Cones(Scene* scene) : Primitives(scene, 100, 100) {
     // Cones specific
     m_Primitives.reserve(5000);
     genGeom();
-    Init();
+    init();
 }
-void Cones::Print() {
+void Cones::print() {
     for (unsigned int i = 0; i < m_Primitives.size(); i++) {
         std::cout << "Cone " << i << ":" << std::endl;
         std::cout << " Color:     " << m_Primitives[i].color.r << m_Primitives[i].color.g << m_Primitives[i].color.b << m_Primitives[i].color.a << std::endl;
@@ -1657,25 +1727,39 @@ void Cones::Print() {
         std::cout << " Scaling:   " << m_Primitives[i].scale.x << m_Primitives[i].scale.y << m_Primitives[i].scale.z << std::endl;
     }
 }
-void Cones::Delete(unsigned int index) {
-    Remove(index);
+unsigned int Cones::addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
+    return store({ color, pos, dir, glm::vec3(width, len, width), 0.0f });
 }
-unsigned int Cones::FromStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
-    return Store({ color, pos, dir, glm::vec3(width, len, width), 0.0f });
-}
-unsigned int Cones::FromStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+unsigned int Cones::addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
     glm::vec3 dir = end - pos;
-    return Store({ color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
+    return store({ color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
 }
 //unsigned int Cones::FromStartEleAzi(glm::vec3 pos, float ele, float azi, glm::vec4 color) {}
-void Cones::UpdateStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
-    Update(index, { color, pos, dir, glm::vec3(width, len, width), 0.0f });
+void Cones::changeStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float length, float width, glm::vec4 color) {
+    Primitive3D* prim = getDetails(index);
+    if (color == NO_COLOR) color = prim->color;
+    if (length == NO_FLOAT) length = prim->scale.y;
+    if (width == NO_FLOAT) width = prim->scale.x;
+    update(index, { color, pos, dir, glm::vec3(width, length, width), 0.0f });
 }
-void Cones::UpdateStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+void Cones::changeStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+    Primitive3D* prim = getDetails(index);
+    if (color == NO_COLOR) color = prim->color;
+    if (width == NO_FLOAT) width = prim->scale.x;
     glm::vec3 dir = end - pos;
-    Update(index, { color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
+    update(index, { color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
 }
 //void Cones::UpdateStartEleAzi(unsigned int index, glm::vec3 pos, float ele, float azi, glm::vec4 color) {}
+void Cones::changeColorLengthWidth(unsigned int index, glm::vec4 color, float length, float width) {
+    Primitive3D* prim = getDetails(index);
+    if (color == NO_COLOR) color = prim->color;
+    if (length == NO_FLOAT) length = prim->scale.y;
+    if (width == NO_FLOAT) width = prim->scale.x;
+    prim->color = color;
+    prim->scale = glm::vec3(width, length, width);
+    //Update(index, *prim);
+}
+
 void Cones::genGeom() {
     // Anchored at tip, to make Arrows and View Cones easier
     unsigned int facets = 16;
@@ -1707,9 +1791,9 @@ void Cones::genGeom() {
 Cylinders::Cylinders(Scene* scene) : Primitives(scene, 100, 100) {
     m_Primitives.reserve(5000);
     genGeom();
-    Init();
+    init();
 }
-void Cylinders::Print() {
+void Cylinders::print() {
     for (unsigned int i = 0; i < m_Primitives.size(); i++) {
         std::cout << "Cylinder " << i << ":" << std::endl;
         std::cout << " Color:     " << m_Primitives[i].color.r << m_Primitives[i].color.g << m_Primitives[i].color.b << m_Primitives[i].color.a << std::endl;
@@ -1718,25 +1802,37 @@ void Cylinders::Print() {
         std::cout << " Scaling:   " << m_Primitives[i].scale.x << m_Primitives[i].scale.y << m_Primitives[i].scale.z << std::endl;
     }
 }
-void Cylinders::Delete(unsigned int index) {
-    Remove(index);
+unsigned int Cylinders::addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
+    return store({ color, pos, glm::normalize(dir), glm::vec3(width, len, width), 0.0f });
 }
-unsigned int Cylinders::FromStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
-    return Store({ color, pos, glm::normalize(dir), glm::vec3(width, len, width), 0.0f });
-}
-unsigned int Cylinders::FromStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+unsigned int Cylinders::addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
     glm::vec3 dir = end - pos;
-    return Store({ color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
+    return store({ color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
 }
 //unsigned int Cylinders::FromStartEleAzi(glm::vec3 pos, float ele, float azi, glm::vec4 color) {}
-void Cylinders::UpdateStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
-    Update(index, { color, pos, dir, glm::vec3(width, len, width), 0.0f });
+void Cylinders::changeStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float length, float width, glm::vec4 color) {
+    Primitive3D* prim = getDetails(index);
+    if (color == NO_COLOR) color = prim->color;
+    if (length == NO_FLOAT) length = prim->scale.y;
+    if (width == NO_FLOAT) width = prim->scale.x;
+    update(index, { color, pos, dir, glm::vec3(width, length, width), 0.0f });
 }
-void Cylinders::UpdateStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+void Cylinders::changeStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+    Primitive3D* prim = getDetails(index);
+    if (color == NO_COLOR) color = prim->color;
+    if (width == NO_FLOAT) width = prim->scale.x;
     glm::vec3 dir = end - pos;
-    Update(index, { color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
+    update(index, { color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
 }
 //void Cylinders::UpdateStartEleAzi(unsigned int index, glm::vec3 pos, float ele, float azi, glm::vec4 color) {}
+void Cylinders::changeColorLengthWidth(unsigned int index, glm::vec4 color, float length, float width) {
+    Primitive3D* prim = getDetails(index);
+    if (color == NO_COLOR) color = prim->color;
+    if (length == NO_FLOAT) length = prim->scale.y;
+    if (width == NO_FLOAT) width = prim->scale.x;
+    prim->color = color;
+    prim->scale = glm::vec3(width, length, width);
+}
 void Cylinders::genGeom() {
     unsigned int facets = 16;
     float width = 1.0f;  // actually radius
@@ -1773,16 +1869,23 @@ void Cylinders::genGeom() {
 Dots::Dots(Scene* scene) : Primitives(scene, 2000, 1000) {
     m_Primitives.reserve(20000);
     genGeom();
-    Init();
+    init();
 }
-void Dots::Delete(unsigned int index) {
-    Remove(index);
+unsigned int Dots::addXYZ(glm::vec3 pos, glm::vec4 color, float size) {
+    return store({ color, pos, glm::vec3(0.0f,0.0f,1.0f), glm::vec3(size,size,size), 0.0f }); // col,pos,dir,scale
 }
-unsigned int Dots::FromXYZ(glm::vec3 pos, glm::vec4 color, float size) {
-    return Store({ color, pos, glm::vec3(0.0f,0.0f,1.0f), glm::vec3(size,size,size), 0.0f }); // col,pos,dir,scale
+void Dots::changeXYZ(unsigned int index, glm::vec3 pos, glm::vec4 color, float size) {
+    Primitive3D* prim = getDetails(index);
+    if (color == NO_COLOR) color = prim->color;
+    if (size == NO_FLOAT) size = prim->scale.x;
+    update(index, { color, pos, glm::vec3(0.0f,0.0f,1.0f), glm::vec3(size,size,size), 0.0f });
 }
-void Dots::UpdateXYZ(unsigned int index, glm::vec3 pos, glm::vec4 color, float size) {
-    Update(index, { color, pos, glm::vec3(0.0f,0.0f,1.0f), glm::vec3(size,size,size), 0.0f });
+void Dots::changeDot(unsigned int index, glm::vec4 color, float size) {
+    Primitive3D* prim = getDetails(index);
+    if (color == NO_COLOR) color = prim->color;
+    if (size == NO_FLOAT) size = prim->scale.x;
+    prim->color = color;
+    prim->scale = glm::vec3(size);
 }
 void Dots::genGeom() {
     // IcoSphere generation from: https://schneide.blog/2016/07/15/generating-an-icosphere-in-c/

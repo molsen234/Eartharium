@@ -83,6 +83,7 @@ const double ninety = deg2rad * 89.99999;  // Used to avoid singularity at poles
 const double tiny = 0.00001;               // Used to determine practically zero
 const unsigned int maxuint = 4294967295;   // pow(2,32)-1 used to represent 'none' for various indices
 const float maxfloat = FLT_MAX;
+const double maxdouble = DBL_MAX;
 
 // Astronomical constants
 const double earthradius = 6378.1370;  // kilometers

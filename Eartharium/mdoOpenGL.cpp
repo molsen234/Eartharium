@@ -354,8 +354,7 @@ GLFWwindow* setupEnv(unsigned int width, unsigned int height, GLint major, GLint
     //glEnable(GL_DEBUG_OUTPUT);
     //glDebugMessageCallback(MessageCallback, 0);
 
-    //glfwSwapInterval(1);
-    // During init, enable debug output
+    glfwSwapInterval(0);
 
     // Set global openGL parameters
     glEnable(GL_MULTISAMPLE);
@@ -459,10 +458,10 @@ void ShadowBox::Render(glm::vec3 lightPos) {  // pass far plane?
     //glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
     // (so exclude SkyBox !!)
     //world->GetSphereUVOb()->Draw(SHADOW_BOX);
-    m_scene->getCylindersOb()->Draw(SHADOW_BOX);
+    m_scene->getCylindersOb()->draw(SHADOW_BOX);
     //world->GetViewConesOb()->Draw(SHADOW_BOX);
     //world->GetPlanesOb()->Draw(SHADOW_BOX);
-    m_scene->getConesOb()->Draw(SHADOW_BOX);
+    m_scene->getConesOb()->draw(SHADOW_BOX);
     //world->GetDotsOb()->Draw(SHADOW_BOX);
 
 
@@ -530,10 +529,10 @@ void ShadowMap::Render() {
     // Render objects that are allowed to cast shadows
     // (so exclude SkyBox !!)
     //world->GetSphereUVOb()->Draw(SHADOW_MAP);
-    m_scene->getCylindersOb()->Draw(SHADOW_MAP);
+    m_scene->getCylindersOb()->draw(SHADOW_MAP);
     //world->GetViewConesOb()->Draw(SHADOW_MAP);
     //world->GetPlanesOb()->Draw(SHADOW_MAP);
-    m_scene->getConesOb()->Draw(SHADOW_MAP);
+    m_scene->getConesOb()->draw(SHADOW_MAP);
     //world->GetDotsOb()->Draw(SHADOW_MAP);
     // Ensure frame is completely rendered before returning to scene render
     //GLsync fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);

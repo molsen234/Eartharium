@@ -1,9 +1,33 @@
 ToDo for Eartharium
 ===================
 
+Update AE map to reflect the fact that the distance from north pole to equator is 10000km. This means equator is NOT the same size as the globe, so sadly the morphs will not align.
 
-IMPPORTANT
-----------
+Alternatively just implement distance formulas, and let the display of the planet be as it is. In detail, from https://www.youtube.com/watch?v=Jbzub6PVDFs&ab_channel=ResearchFlatMoon comment response to FE Peer Review:
+
+FE Peer Review:
+Your videos on the Haversine formula and Jos Leys' video "Constructing a Flat Earth Map" gave me the idea for a video that I started a week or so back. But I'm so busy at the moment that I'm not sure when I'll get it done. The idea is to use your formulas for calculating great circle distances between 4 US cities, probably Los Angeles, Atlanta, New York and Seattle, along the lines of Jos Leys' video. Then determine what the distances would have to be for those same cities to be located on a flat plane. I could then suggest to Knodel and Globebusters that if they insist on their Gleason Map they can do some road trips and definitively prove or disprove their hypothesis by conducting actual measurements. All it would take is a couple of weeks, some careful record keeping and some fun road trips.
+
+Michael Dam Olsen:
+That sounds like an interesting project! I'm probably telling you things you know already, but here are a few tips for the math:
+The properties of the AE map is that all distances and angles that are measured from the north pole are true to the globe Earth. This sets your scale such that the north pole to equator distance will be exactly 10000 km, by the old definition of the meter. That of course gives an equator that is different from a globe. In my 3D model of flat Earth, I have chosen to ignore that fact, and make the equators match instead. The result is that I get incorrect flat Earth distance measurements, so thanks to you, I now have to go and change that :)
+
+To derive the equation for distances between two latitude, longitude points on a flat Earth, the easiest way is to transform the lat,lon to Cartesian coordinates, and then use Pythagoras' formula for the distance. The AE map is best described in polar coordinates, with the south "pole" at 20000km from the north pole. Convert latitude and longitude as follows: r = (90-latitude)*1000/9, angle = if (longitude<0) longitude+360, else just longitude, now r, angle are regular polar coordinates. 1000/9 is by reducing 20000/180 (20000 the distance from north pole to south rim, 180 the latitude difference between those two).
+
+To convert to Cartesian, x = r * cos(angle), y = r * sin(angle). Do this for both points (a and b), and obtain xa,ya and xb,yb. The distance is then sqrt((xb-xa)^2 + (yb-ya)^2).
+
+Sydney is at 33.8688° S, 151.2093° E, so r = (90-(-33.8688))*1000/9 = 13763.2, angle = 151.2093 (East is +, West is -). X of Sydney is then Xs = 13763.2*cos(151.2093) = -12061.86, and Ys = 13763.2*sin(151.2093) = 6628.51.
+
+Perth is at 31.9523° S, 115.8613° E, the same calculations give: r = (90-(-31.9523))*1000/9 = 12548.78, angle = 115.8613, Xp = 12548.78*cos(115.8613) = -5473.70, Yp = 12548.78*sin(115.8613) = 11292.05.
+
+The X difference is -5473.70 - (-12061.86) = 6588.16, the Y difference is 11292.05 - 6628.51 = 4663.54. The distance is then sqrt(6588.16^2 + 4663.54^2) = sqrt(65,152,457.5172) = 8071.70 kilometers, almost exactly twice the distance on a globe.
+
+Anyway, you got me to change my model, so I had to do the math. I thought I might as well share it :)
+
+
+
+IMPORTANT
+---------
 - MUST make Path3D multisegment to accomodate redrawing of split arcs across seams of Earth
   o It can only split once, so having two segments will suffice
   o !! BUT for time dependent paths, they may move to have the split in a different place !!
@@ -183,12 +207,19 @@ Camera
 ------
 - Strafe
 - LookAt that is not Origin
-- Ability to view from Location (Separate camera?)
-- Multiple cameras with PiP view
+- Ability to view from Location (Separate camera? Scenes now support multiple cameras, that can attach to different render layers. Add a way to switch between them in a Layer3D)
++ Multiple cameras with PiP view
 
 Graph
 -----
+- Use ImPlot for graphing, it has lots of options!
 - To plot Equation of Time against Analemma or Orbital speed in Solar System etc
+- Check SetNextAxisLinks(ImAxis axis, double* link_min, double* link_max); it seems I can simply pass references to variables that controls range.
+  That could be easier to work with. E.g. plot->y_min = 123.45; and pass y_min to above function.
+- Is there a way to offset a time series by some amount to show local time at a location other than my own?
+  Yes, at least by using data callback functions
+- Check out DragLineX(int id, double* x, const ImVec4& col, float thickness = 1, ImPlotDragToolFlags flags = ImPlotDragToolFlags_None);
+  IT seems to be able to swipe so I can read it and set Astronomy time accordingly
 
 Solar Eclipse path
 ------------------
@@ -206,6 +237,7 @@ Layer system
 ------------
 - Add frames / separators
 - Add render targets such as 360 cube map -> 360 video frame
+
 
 
 

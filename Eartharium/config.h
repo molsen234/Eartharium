@@ -4,7 +4,7 @@
 
 // Camera movement via keyboard - These limits are used in Eartharium.cpp:keyboard_callback() for GLFW
 #define CAMERA_MAX_DIST 100.0f
-#define CAMERA_MIN_DIST 1.0f
+#define CAMERA_MIN_DIST 2.0f
 #define CAMERA_STEP_FACTOR 0.1f // Multiplier / divisor for camera distance because 1 to 2 degrees doubles the FoV but 90 to 91 barely changes it 
 #define CAMERA_MAX_FOV 180.0f  // In degrees - May need revision if implementing 360 degree virtual videos
 #define CAMERA_MIN_FOV 1.0f    // In degrees - extremely low FoV angles cause a hperbolic effect
@@ -45,6 +45,7 @@
 
 // No care values - Used to indicate that no value is provided. Used to keep existing values whatever they are in functions that receive multiple values
 #define NO_FLOAT maxfloat
+#define NO_DOUBLE maxdouble
 #define NO_VEC2 glm::vec2(maxfloat)
 #define NO_VEC3 glm::vec3(maxfloat)
 #define NO_VEC4 glm::vec4(maxfloat)

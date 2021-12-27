@@ -52,18 +52,19 @@ enum itemtype {
     FLATSUN3D,
     TRUEMOON3D,
     TRUEPLANET3D,
-    TRUEMERCURY3D,  // To be retired, use TRUEPLANET3D in conjunction with planet id in .unique field, just like for stars.
-    TRUEVENUS3D,    //   :
-    TRUEMARS3D,     //   :
-    TRUEJUPITER3D,  //   :
-    TRUESATURN3D,   //   :
-    TRUEURANUS3D,   //   : (Also, you forgot Neptune)
     SIDPLANET3D,
     AZIELE3D,
     RADEC3D,
     ARROWEXTENT,
     TANGENT,
     MERIDIAN,
+    PARALLEL,
+    GRIDLAT,    // Used to identify which were added by addGrid();
+    GRIDLON,
+    EQUATOR,
+    PRIME_MERIDIAN,
+    ARCTIC,
+    TROPIC,
     LATITUDE,
     LONGITUDE,
     DOT,
@@ -72,6 +73,7 @@ enum itemtype {
     LERPARC,
     FLATARC,    // Aka Derp Arc - shortest distance on AE map
     SUNTERMINATOR,
+    MOONTERMINATOR,
     SHADOW_MAP,
     SHADOW_BOX,
     EC,
@@ -320,10 +322,10 @@ class Scene;
 // --------
 class Camera {
 public:
-    // Being set from GUI, should be set from keyboard as well !!!
-    float camLat = 0.0f;
-    float camLon = 0.0f;
-    float camDst = 10.0f;
+    // Used by GUI and keyboard, as well as programming from C++ and Python
+    float camLat = 0.0;
+    float camLon = 0.0;
+    float camDst = 20.0f;
     float camFoV = 6.0f;
     float camNear = 1.0f;
     float camFar = 1500.0f;
@@ -337,34 +339,34 @@ private:
     glm::vec3 m_position = glm::vec3(0.0f);
     glm::vec3 m_target = glm::vec3(0.0f);
     glm::vec3 m_direction = glm::vec3(0.0f);
-    //float m_fov = 30.0f;
     glm::vec3 worldUp = glm::vec3(0.0f, 0.0f, 1.0f);
     glm::vec3 cameraRight = glm::vec3(1.0f, 0.0f, 0.0f);
     glm::vec3 cameraUp = glm::vec3(0.0, 1.0, 0.0); // Part of worldUp that fits with cameraDirection
 public:
     Camera(Scene* scene);
-    void SetCamLightPos(glm::vec3 lPos);
-    void CamUpdate();
+    void setCamLightPos(glm::vec3 lPos);
+    void setLatLon(float lat, float lon);
+    void update();
     void setLookAt(glm::vec3 position, glm::vec3 target, glm::vec3 upwards);
     void setPosXYZ(glm::vec3 pos);
     void setPosLLH(LLH llh);
-    glm::vec3 GetPosXYZ();
-    void SetTarget(glm::vec3 target);
+    glm::vec3 getPosXYZ();
+    void setTarget(glm::vec3 target);
     void setFoV(float fov);
     float getFoV();
-    glm::mat4 GetViewMat();
-    glm::mat4 GetSkyViewMat();
-    glm::mat4 GetProjMat();
-    glm::vec3 GetRight();
-    glm::vec3 GetUp();
+    glm::mat4 getViewMat();
+    glm::mat4 getSkyViewMat();
+    glm::mat4 getProjMat();
+    glm::vec3 getRight();
+    glm::vec3 getUp();
+    glm::vec3 getPosition();
 private:
-    void setCamLightPos(glm::vec3 lPos);
     void Recalc();
     //Application* m_app = nullptr;
 };
 
 // Protos
-struct Viewport {
+struct Viewport { // Currently unused, but intended for the RenderLayers
     GLint vp_x = 0;
     GLint vp_y = 0;
     GLint vp_w = 0;
@@ -438,10 +440,10 @@ class RenderLayer {
 public:
     unsigned int type = NONE;
 protected:
-    float view_x1 = 0.0;  // Where in the viewport should this layer render, in [0.0f;1.0f] coordinates
-    float view_y1 = 0.0;
-    float view_x2 = 0.0;
-    float view_y2 = 0.0;
+    float view_x1 = 0.0f;  // Where in the viewport should this layer render, in [0.0f;1.0f] coordinates
+    float view_y1 = 0.0f;
+    float view_x2 = 0.0f;
+    float view_y2 = 0.0f;
     float vp_x = 0.0f;  // The resulting glViewport() setting
     float vp_y = 0.0f;
     float vp_w = 0.0f;
@@ -602,36 +604,6 @@ private:
 };
 
 
-
-// -------------
-//  RenderChain
-// -------------
-class RenderChain {
-    Application* m_app = nullptr;
-public:
-    // Rendering to file
-    std::string basefname = "Basefilename";
-    unsigned int currentframe = 0;
-    unsigned int currentseq = 0;
-    bool renderoutput = false;
-    // Should probably be private, but how to pick up layers from python then? !!!
-    std::vector<RenderLayer*> m_layers;  // RenderLayer is a parent object to RenderLayer3D, RenderLayerText, RenderLayerGUI, ...
-
-private:
-
-public:
-    RenderChain(Application* app);
-    RenderLayer3D* newLayer3D(float vpx1, float vpy1, float vpx2, float vpy2, Scene* scene, Astronomy* astro, Camera* cam = nullptr);
-    RenderLayerText* newLayerText(float vpx1, float vpy1, float vpx2, float vpy2, RenderLayerTextLines* lines = nullptr);
-    RenderLayerGUI* newLayerGUI(float vpx1, float vpy1, float vpx2, float vpy2);
-    RenderLayerPlot* newLayerPlot(float vpx1, float vpy1, float vpx2, float vpy2);
-    void updateView(int w, int h);
-    void do_render();
-    void RenderFrame(unsigned int framebuffer);
-    void incSequence();
-};
-
-
 // -------------
 //  Application
 // -------------
@@ -660,20 +632,22 @@ public:
 
     // Scripting
     bool ipython = false;
-
     bool gui = false;
-    //bool datetimegui = false;
-    bool render = false; // Whether to write image to disk
     bool anim = false;
-
     bool do_eot = false;
-    // Camera trims - global so kbd handler can access it
-    float camSpd = CAMERA_ANGLE_STEP;
-    float camlightsep = 2.2f;  // Factor to offset light from camera
-    glm::vec3 CamLightDir = glm::vec3(0.0f, 0.0f, 1.0f);
+
+    // ------ Rendering ------ //
+    // Rendering to file
+    std::string basefname = "Basefilename";
+    unsigned int currentframe = 0;
+    unsigned int currentseq = 0;
+    bool renderoutput = false; // Whether to write image to disk
+
+    // Should probably be private, but how to pick up layers from python then? !!! Don't pick them up, create them instead! None are created by default.
+    std::vector<RenderLayer*> m_layers;  // RenderLayer is a parent object to RenderLayer3D, RenderLayerText, RenderLayerGUI, ...
 
 private:
-    RenderChain* m_renderchain = nullptr;
+    //RenderChain* m_renderchain = nullptr;
     ShaderLibrary* m_shaderlib = nullptr;
 
     // For windowed / fullscreen control
@@ -686,7 +660,7 @@ private:
 
 public:
     Application();
-    RenderChain* getRenderChain();
+    //RenderChain* getRenderChain();
     ShaderLibrary* getShaderLib();
     Astronomy* newAstronomy();
     Scene* newScene();
@@ -700,178 +674,21 @@ public:
     void initImGUI();
     void beginImGUI();
     void endImGUI();
+
+    RenderLayer3D* newLayer3D(float vpx1, float vpy1, float vpx2, float vpy2, Scene* scene, Astronomy* astro, Camera* cam = nullptr);
+    void deleteLayer3D(RenderLayer3D* layer);
+    RenderLayerText* newLayerText(float vpx1, float vpy1, float vpx2, float vpy2, RenderLayerTextLines* lines = nullptr);
+    void deleteLayerText(RenderLayerText* layer);
+    RenderLayerGUI* newLayerGUI(float vpx1, float vpy1, float vpx2, float vpy2);
+    void deleteLayerGUI(RenderLayerGUI* layer);
+    RenderLayerPlot* newLayerPlot(float vpx1, float vpy1, float vpx2, float vpy2);
+    void deleteLayerPlot(RenderLayerPlot* layer);
+    void updateView(int w, int h);
+    void render();
+    void RenderFrame(unsigned int framebuffer);
+    void incSequence();
+
 };
-
-
-// ------------------
-//  PictureInPicture
-// ------------------
-//class PictureInPicture {
-//public:
-//
-//private:
-//    Scene* m_scene = nullptr;
-//    unsigned int quadVAO, quadVBO;
-//    GLint m_width = 0;
-//    GLint m_height = 0;
-//    GLint m_viewport[4] = { 0, 0, 0, 0 };  //startx,starty, width,height
-//    unsigned int m_fbo = maxuint;  // Frame Buffer Object
-//    unsigned int m_tex = maxuint;  // Texture for color data (RenderID)
-//    unsigned int m_rbo = maxuint;  // Render Buffer Object for Depth and Stencil buffers
-//    unsigned int m_texslot = GL_TEXTURE7;
-//    Shader* m_shdr;
-//    VertexArray* va = nullptr;
-//    VertexBuffer* vb1 = nullptr;
-//    VertexBufferLayout* vbl1 = nullptr;
-//    IndexBuffer* ib = nullptr;
-//
-//    // PiP Geometry
-//    struct SimpleVertex {
-//        glm::vec3 pos;
-//        glm::vec2 uv;
-//    };
-//    std::vector<SimpleVertex> m_verts;
-//    std::vector<Tri> m_tris;
-//
-//public:
-//    PictureInPicture(Scene* scene, GLsizei width = 600, GLsizei height = 400) : m_scene(scene), m_width(width), m_height(height) {
-//        // Frame Buffer Object
-//
-//        glGenFramebuffers(1, &m_fbo);
-//        glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
-//        // Texture Attachment
-//        glActiveTexture(m_texslot);
-//        glGenTextures(1, &m_tex);
-//        glBindTexture(GL_TEXTURE_2D, m_tex);
-//        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL); // May need to set glViewport
-//        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-//        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-//        glBindTexture(GL_TEXTURE_2D, 0);
-//        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_tex, 0);
-//        // Depth and Stencil Buffer Attachments - Using Render Buffer rather than Texture, so can only write and not sample in shader
-//        glGenRenderbuffers(1, &m_rbo);
-//        glBindRenderbuffer(GL_RENDERBUFFER, m_rbo);
-//        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
-//        glBindRenderbuffer(GL_RENDERBUFFER, 0);
-//        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_rbo);
-//
-//        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-//            std::cout << "ERROR: PictureInPicture() Framebuffer is not complete!\n";
-//        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-//        // Set up a basic shader
-//        m_shdr = m_scene->m_app->getShaderLib()->getShader(PIP_SHADER);
-//
-//        // Set up for rendering quad
-//        //genGeom();
-//        //vbl1 = new VertexBufferLayout; // Vertices list
-//        //vbl1->Push<float>(3);     // Vertex coord (pos)
-//        //vbl1->Push<float>(2);     // UV coord
-//        //va = new VertexArray;
-//        //vb1 = new VertexBuffer(&m_verts[0], (unsigned int)m_verts.size() * sizeof(SimpleVertex));
-//        //va->AddBuffer(*vb1, *vbl1, true);
-//        //ib = new IndexBuffer((unsigned int*)&m_tris[0], (unsigned int)m_tris.size() * 3);  // IB uses COUNT, not BYTES!!!
-//
-//        // From LearnOpenGL
-//        float quadVertices[] = { // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates.
-//        // positions   // texCoords  // in OpenGL NDC (-1;1), -Z facing camera
-//        //-1.0f,  1.0f,  0.0f, 1.0f,
-//        //-1.0f, -1.0f,  0.0f, 0.0f,
-//        // 1.0f, -1.0f,  1.0f, 0.0f,
-//        //
-//        //-1.0f,  1.0f,  0.0f, 1.0f,
-//        // 1.0f, -1.0f,  1.0f, 0.0f,
-//        // 1.0f,  1.0f,  1.0f, 1.0f
-//         0.5f,  1.0f,  0.0f, 1.0f,  // Smaller quad upper right 1/16th of screen
-//         0.5f,  0.5f,  0.0f, 0.0f,
-//         1.0f,  0.5f,  1.0f, 0.0f,
-//        
-//         0.5f,  1.0f,  0.0f, 1.0f,
-//         1.0f,  0.5f,  1.0f, 0.0f,
-//         1.0f,  1.0f,  1.0f, 1.0f
-//        };
-//        // screen quad VAO
-//        glGenVertexArrays(1, &quadVAO);
-//        glGenBuffers(1, &quadVBO);
-//        glBindVertexArray(quadVAO);
-//        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-//        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
-//        glEnableVertexAttribArray(0);
-//        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-//        glEnableVertexAttribArray(1);
-//        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-//
-//    }
-//    ~PictureInPicture() {
-//        //delete ib;   // Disabled while using the crude OpebGL code from LearnOpenGL
-//        //delete va;
-//        //delete vb1;
-//        //delete vbl1;
-//        glDeleteFramebuffers(1, &m_fbo);
-//    }
-//    unsigned int getFB() {
-//        return m_fbo;
-//    }
-//    void Bind() {
-//        // Store current viewport
-//        glGetIntegerv(GL_VIEWPORT, m_viewport);
-//        //std::cout << "PiP viewport: " << m_viewport[0] << "," << m_viewport[1] << "," << m_viewport[2] << "," << m_viewport[3] << "\n";
-//        glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
-//        glViewport(0, 0, m_width, m_height);
-//    }
-//    void Unbind() {
-//        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-//        glViewport(m_viewport[0], m_viewport[1], m_viewport[2], m_viewport[3]);
-//    }
-//    void Draw() {
-//        // Simply draw the quad with the texture from the frame buffer
-//        glActiveTexture(m_texslot);
-//        glBindTexture(GL_TEXTURE_2D, m_tex);
-//        m_shdr->Bind();
-//        m_shdr->SetUniform1i("tex", m_texslot-GL_TEXTURE0);
-//        //m_shdr->SetUniformMatrix4f("view", m_world->w_camera->GetViewMat());
-//        //m_shdr->SetUniformMatrix4f("projection", m_world->w_camera->GetProjMat());
-//
-//        //vb1->Bind(); // Bound by va->AddBuffer
-//        //va->Bind();
-//        //va->AddBuffer(*vb1, *vbl1, true);
-//        //ib->Bind();
-//        ////glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-//        //glDisable(GL_DEPTH_TEST);
-//        //glDisable(GL_CULL_FACE);
-//        //glDrawElements(GL_TRIANGLES, ib->GetCount(), GL_UNSIGNED_INT, (const void*)&m_tris);
-//        ////glDrawElements(GL_TRIANGLES, 2, GL_UNSIGNED_INT, (const void*)&m_tris);
-//        //glEnable(GL_DEPTH_TEST);
-//        //glEnable(GL_CULL_FACE);
-//        //ib->Unbind();
-//        //va->Unbind();
-//        //vb1->Unbind();
-//
-//        // From LearnOpenGL
-//        glBindVertexArray(quadVAO);
-//        glDisable(GL_CULL_FACE);
-//        glDisable(GL_DEPTH_TEST);
-//        glDrawArrays(GL_TRIANGLES, 0, 6);
-//        glEnable(GL_DEPTH_TEST);
-//        glEnable(GL_CULL_FACE);
-//
-//        m_shdr->Unbind();
-//    }
-//    void genGeom() {
-//        //                  pos                          uv
-//        m_verts.push_back({ glm::vec3(1.0f, 1.0f, 0.0f), glm::vec2(1.0f, 1.0f) });
-//        m_verts.push_back({ glm::vec3(0.5f, 1.0f, 0.0f), glm::vec2(0.0f, 1.0f) });
-//        m_verts.push_back({ glm::vec3(1.0f, 0.5f, 0.0f), glm::vec2(1.0f, 0.0f) });
-//        m_verts.push_back({ glm::vec3(0.5f, 0.5f, 0.0f), glm::vec2(0.0f, 0.0f) });
-//        //m_verts.push_back({ glm::vec3(1.0f, 1.0f, 0.0f), glm::vec2(1.0f, 1.0f) });
-//        //m_verts.push_back({ glm::vec3(0.5f, 1.0f, 0.0f), glm::vec2(0.0f, 1.0f) });
-//        //m_verts.push_back({ glm::vec3(1.0f, 0.5f, 0.0f), glm::vec2(1.0f, 0.0f) });
-//        //m_verts.push_back({ glm::vec3(0.5f, 0.5f, 0.0f), glm::vec2(0.0f, 0.0f) });
-//        m_tris.push_back({ 0,3,2 });
-//        m_tris.push_back({ 0,1,3 });
-//        //m_tris.push_back({ 4,6,7 });
-//        //m_tris.push_back({ 4,7,5 });
-//    }
-//};
 
 
 // --------
@@ -1008,6 +825,7 @@ private:
         float length;
         float width;
         double angle;
+        bool expired = false;
     };
     std::vector<AngleArc> m_arcs;
 public:
@@ -1015,6 +833,7 @@ public:
     ~AngleArcs();
     double getAngle(unsigned int index);
     unsigned int add(glm::vec3 position, glm::vec3 start, glm::vec3 stop, float length, glm::vec4 color = LIGHT_GREY, float width = 0.001f);
+    void remove(unsigned int index);
     void update(unsigned int index, glm::vec3 position, glm::vec3 start, glm::vec3 stop, float length, glm::vec4 color = LIGHT_GREY, float width = 0.001f);
     void draw();
 
@@ -1043,10 +862,10 @@ private:
 public:
     PolyCurve(Scene* scene, glm::vec4 color, float width);
     ~PolyCurve();
-    void AddPoint(glm::vec3 point);
-    void ClearPoints();
-    void Generate();
-    void Draw();
+    void addPoint(glm::vec3 point);
+    void clearPoints();
+    void generate();
+    void draw();
     void genGeom();
 };
 
@@ -1072,13 +891,14 @@ private:
 public:
     Arrows(Scene* scene);
     ~Arrows();
-    void Draw();
-    unsigned int Store(Arrow a);
-    void Delete(unsigned int index);
-    unsigned int FromStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
-    unsigned int FromStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
-    void UpdateStartDirLen(unsigned int arrow, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
-    void UpdateStartEnd(unsigned int arrow, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
+    void draw();
+    unsigned int store(Arrow a);
+    void remove(unsigned int index);
+    unsigned int addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
+    unsigned int addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
+    void changeStartDirLen(unsigned int arrow, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
+    void changeStartEnd(unsigned int arrow, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
+    void changeArrow(unsigned int index, glm::vec4 color = NO_COLOR, float length = NO_FLOAT, float width = NO_FLOAT);
     void clear();
 };
 
@@ -1103,18 +923,19 @@ private:
     VertexBufferLayout* vbl2 = nullptr;
     IndexBuffer* ib = nullptr;
 public:
-    void Draw(unsigned int shadow);
+    void draw(unsigned int shadow);
     void clear();
+    glm::vec4 getColor(unsigned int index);
+    void setColor(unsigned int index, glm::vec4 color);
     Primitive3D* getDetails(unsigned int index);
+    void remove(unsigned int oid);
 protected:
     Primitives(Scene* scene, unsigned int verts, unsigned int tris);
     ~Primitives();
-    void Init();
-    unsigned int Store(Primitive3D p);
-    void Update(unsigned int oid, Primitive3D p);
-    void Remove(unsigned int oid);
+    void init();
+    unsigned int store(Primitive3D p);
+    void update(unsigned int oid, Primitive3D p);
     void virtual genGeom() = 0;
-    glm::vec4 getColor(unsigned int index);
 };
 
 
@@ -1125,9 +946,9 @@ class Minifigs : public Primitives {
 public:
     Minifigs(Scene* scene);
     ~Minifigs();
-    unsigned int FromStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color, float bearing);
-    void UpdateStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color, float bearing);
-    unsigned int FromStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
+    unsigned int addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color, float bearing);
+    void changeStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color, float bearing);
+    unsigned int addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
 private:
     std::string m_objFile = "C:\\Coding\\Eartharium\\Eartharium\\models\\minifig.obj";
     void genGeom() override;
@@ -1140,31 +961,14 @@ private:
 class SphereUV : public Primitives {
 public:
     SphereUV(Scene* scene);
-    void Print();
-    void Delete(unsigned int index);
-    unsigned int FromStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
-    unsigned int FromStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
+    void print();
+    unsigned int addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
+    unsigned int addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
     //unsigned int FromStartEleAzi(glm::vec3 pos, float ele, float azi, glm::vec4 color);
-    void UpdateStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
-    void UpdateStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
+    void changeStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
+    void changeStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
     //void UpdateStartEleAzi(unsigned int index, glm::vec3 pos, float ele, float azi, glm::vec4 color);
     glm::vec3 getLoc3D_NS(float lat, float lon, float height);
-private:
-    void genGeom() override;
-};
-
-
-// ---------
-//  Letters
-// ---------
-class Letters : public Primitives {
-public:
-    Letters(Scene* scene);
-    void Delete(unsigned int index);
-    unsigned int FromStartNormalLen(glm::vec3 pos, glm::vec3 nml, float len, glm::vec4 color);
-    unsigned int FromStartUV(glm::vec3 pos, glm::vec3 spanU, glm::vec3 spanV, glm::vec4 color);
-    void UpdateStartNormalLen(unsigned int index, glm::vec3 pos, glm::vec3 nml, float len, glm::vec4 color);
-    void UpdateStartUV(unsigned int index, glm::vec3 pos, glm::vec3 spanU, glm::vec3 spanV, glm::vec4 color);
 private:
     void genGeom() override;
 };
@@ -1176,11 +980,10 @@ private:
 class Planes : public Primitives {
 public:
     Planes(Scene* scene);
-    void Delete(unsigned int index);
-    unsigned int FromStartNormalLen(glm::vec3 pos, glm::vec3 nml, float rot, float len, glm::vec4 color);
-    unsigned int FromStartUV(glm::vec3 pos, glm::vec3 spanU, glm::vec3 spanV, glm::vec4 color);
-    void UpdateStartNormalLen(unsigned int index, glm::vec3 pos, glm::vec3 nml, float rot, float len, glm::vec4 color);
-    void UpdateStartUV(unsigned int index, glm::vec3 pos, glm::vec3 spanU, glm::vec3 spanV, glm::vec4 color);
+    unsigned int addStartNormalLen(glm::vec3 pos, glm::vec3 nml, float rot, float len, glm::vec4 color);
+    unsigned int addStartUV(glm::vec3 pos, glm::vec3 spanU, glm::vec3 spanV, glm::vec4 color);
+    void changeStartNormalLen(unsigned int index, glm::vec3 pos, glm::vec3 nml, float rot, float len, glm::vec4 color);
+    void changeStartUV(unsigned int index, glm::vec3 pos, glm::vec3 spanU, glm::vec3 spanV, glm::vec4 color);
 private:
     void genGeom() override;
 };
@@ -1192,13 +995,12 @@ private:
 class ViewCones : public Primitives {
 public:
     ViewCones(Scene* scene);
-    void Delete(unsigned int index);
-    unsigned int FromStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
-    unsigned int FromStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
-    //unsigned int FromStartEleAzi(glm::vec3 pos, float ele, float azi, glm::vec4 color);
-    void UpdateStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
-    void UpdateStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
-    //void UpdateStartEleAzi(unsigned int index, glm::vec3 pos, float ele, float azi, glm::vec4 color);
+    unsigned int addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
+    unsigned int addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
+    //unsigned int addStartEleAzi(glm::vec3 pos, float ele, float azi, glm::vec4 color);
+    void changeStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
+    void changeStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
+    //void changeStartEleAzi(unsigned int index, glm::vec3 pos, float ele, float azi, glm::vec4 color);
 private:
     void genGeom() override;
 };
@@ -1210,14 +1012,14 @@ private:
 class Cones : public Primitives {
 public:
     Cones(Scene* scene);
-    void Print();
-    void Delete(unsigned int index);
-    unsigned int FromStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
-    unsigned int FromStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
-    //unsigned int FromStartEleAzi(glm::vec3 pos, float ele, float azi, glm::vec4 color);
-    void UpdateStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
-    void UpdateStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
+    void print();
+    unsigned int addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
+    unsigned int addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
+    //unsigned int addStartEleAzi(glm::vec3 pos, float ele, float azi, glm::vec4 color);
+    void changeStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
+    void changeStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
     //void UpdateStartEleAzi(unsigned int index, glm::vec3 pos, float ele, float azi, glm::vec4 color);
+    void changeColorLengthWidth(unsigned int index, glm::vec4 color, float length, float width);
 private:
     void genGeom() override;
 };
@@ -1229,14 +1031,14 @@ private:
 class Cylinders : public Primitives {
 public:
     Cylinders(Scene* scene);
-    void Print();
-    void Delete(unsigned int index);
-    unsigned int FromStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
-    unsigned int FromStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
+    void print();
+    unsigned int addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
+    unsigned int addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
     //unsigned int FromStartEleAzi(glm::vec3 pos, float ele, float azi, glm::vec4 color);
-    void UpdateStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
-    void UpdateStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
+    void changeStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
+    void changeStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
     //void UpdateStartEleAzi(unsigned int index, glm::vec3 pos, float ele, float azi, glm::vec4 color);
+    void changeColorLengthWidth(unsigned int index, glm::vec4 color, float length, float width);
 private:
     void genGeom() override;
 };
@@ -1272,11 +1074,9 @@ private:
     };
 public:
     Dots(Scene* scene);
-    //~Dots();
-    //void Draw();             // Implement !!!
-    void Delete(unsigned int index);
-    unsigned int FromXYZ(glm::vec3 pos, glm::vec4 color, float size);
-    void UpdateXYZ(unsigned int index, glm::vec3 pos, glm::vec4 color, float size);
+    unsigned int addXYZ(glm::vec3 pos, glm::vec4 color, float size);
+    void changeXYZ(unsigned int index, glm::vec3 pos, glm::vec4 color, float size);
+    void changeDot(unsigned int index, glm::vec4 color, float size);
 private:
     void genGeom() override;
     TriangleList subdivide(VertexList& vertices, TriangleList triangles);

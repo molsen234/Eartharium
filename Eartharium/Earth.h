@@ -98,7 +98,7 @@ private:
 // -------
 //  Earth
 // -------
-typedef LLH(Earth::* calcFunc)(LLH, LLH, double, bool);
+typedef LLH(Earth::* calcFunc)(LLH, LLH, double, double, bool);
 class Earth {
 public:
     Scene* m_scene = nullptr;
@@ -162,6 +162,19 @@ private:
         LLH llh1;
         LLH llh2;
     };
+    struct polycache2 {
+        PolyCurve* path = nullptr;
+        PolyCurve* path2 = nullptr;
+        float width = 0.0f;
+        unsigned int type = NONE;    // Allows Earth update() to call the right update fuunction
+        glm::vec4 color = NO_COLOR;
+        LLH llh1 = { 0.0, 0.0, 0.0 };
+        LLH llh2 = { 0.0, 0.0, 0.0 };
+        double refraction = 0.0;
+        double fend = 0.0;           // 1.0 or tau depending on calculation function
+        calcFunc ca;      // calculation function
+        bool closed = false;
+    };
     float m_alpha = 1.0f; // Not working well at all - probably due to backface culling being switched off !!!
     bool mydebug = false; // Set to trip breakpoints during debugging
     double m_JD = 0.0;
@@ -186,10 +199,10 @@ private:
     unsigned int m_suncone = maxuint;
     float m_flatsunheight = 3000.0f;
     bool flatsundirty = false;
-    PolyCurve* m_sunterm1 = nullptr;
-    PolyCurve* m_sunterm2 = nullptr;
-    PolyCurve* m_moonterm1 = nullptr;
-    PolyCurve* m_moonterm2 = nullptr;
+    //PolyCurve* m_sunterm1 = nullptr;
+    //PolyCurve* m_sunterm2 = nullptr;
+    //PolyCurve* m_moonterm1 = nullptr;
+    //PolyCurve* m_moonterm2 = nullptr;
     double m_moonJD = 0.0; // Time Moon was calculated
     double m_moonDec = 0.0;
     double m_moonRA = 0.0;
@@ -214,6 +227,7 @@ private:
     std::vector<dotcache> m_dotcache;
     std::vector<arrowcache> m_arrowcache;
     std::vector<polycache> m_polycache;
+    std::vector<polycache2> m_polycache2;
 public:
     Earth(Scene* scene, std::string mode, unsigned int meshU, unsigned int meshV);
     ~Earth();
@@ -230,7 +244,6 @@ public:
     glm::vec3 getLoc3D_XX(std::string mode, double lat, double lon, double height = 0.0f);
     glm::vec3 getNml3D_XX(std::string mode, double lat, double lon, double height = 0.0f);
     glm::vec3 getLoc3D_NS(double lat, double lon, double height = 0.0f);
-    glm::vec3 getLoc3D_A2NS(double lat, double lon, double height = 0.0f);
     glm::vec3 getNml3D_NS(double lat, double lon, double height = 0.0f);
     glm::vec3 getLoc3D_AE(double lat, double lon, double height = 0.0f);
     glm::vec3 getNml3D_AE(double lat, double lon, double height = 0.0f);
@@ -279,36 +292,43 @@ public:
     void deleteSublunarPoint();
     void updateSublunarPoint();
     void addViewConeXYZ_NS(glm::vec3 pos, glm::vec4 color);
+    void addViewConeLLH_NS(LLH loc, glm::vec4 color);
     void addGrid(float deg = 15.0f, float size = 0.002f, glm::vec4 color = WHITE, std::string type = "LALO", bool rad = false, bool eq = true, bool pm = true);
+    void removeGrid(); // Removes all latitudes and longitudes drawn by addGrid(), they are marked by type GRID
     void addEquator(float size = 0.002f, glm::vec4 color = RED);
+    void removeEquator();
     void addTropics(float size = 0.002f, glm::vec4 color = YELLOW);
+    void removeTropics();
     void addArcticCirles(float size = 0.002f, glm::vec4 color = AQUA);
-    unsigned int addLatitudeCurve(double lat, glm::vec4 color = WHITE, float width = 0.01f, bool rad = true);
+    void removeArcticCircles();
+    unsigned int addLatitudeCurve(double lat, glm::vec4 color = WHITE, float width = 0.01f, bool rad = true, unsigned int type = LATITUDE);
     void changeLatitudeCurve(unsigned int index, double lat, glm::vec4 color = NO_COLOR, float width = 0.0f, bool rad = true);
     void updateLatitudeCurve(polycache& p);
     void addPrimeMeridian(float size = 0.002f, glm::vec4 color = RED);
-    unsigned int addLongitudeCurve(double lon, glm::vec4 color = WHITE, float width = 0.01f, bool rad = true);
+    void removePrimeMeridian();
+    unsigned int addLongitudeCurve(double lon, glm::vec4 color = WHITE, float width = 0.01f, bool rad = true, unsigned int type = LONGITUDE);
     void changeLongitudeCurve(unsigned int index, double lon, glm::vec4 color = NO_COLOR, float width = 0.0f, bool rad = true); 
     void updateLongitudeCurve(polycache& p);
     double calcArcDist(LLH llh1, LLH llh2, bool rad);
-    LLH calcGreatArc(LLH llh1, LLH llh2, double f, bool rad = true);
-    LLH calcLerpArc(LLH llh1, LLH llh2, double f, bool rad = true);
+    LLH calcGreatArc(LLH llh1, LLH llh2, double f, double refraction, bool rad = true);
+    LLH calcLerpArc(LLH llh1, LLH llh2, double f, double refraction, bool rad = true);
     void addGreatArc(LLH llh1, LLH llh2, glm::vec4 color, float width, bool rad);
     void addLerpArc(LLH llh1, LLH llh2, glm::vec4 color, float width, bool rad);
     void addArc(LLH llh1, LLH llh2, glm::vec4 color, float width, bool rad, calcFunc ca, unsigned int type);
     void addFlatArc(LLH llh1, LLH llh2, glm::vec4 color, float width, bool rad);
-    void updateGreatArc(polycache p);
-    void updateLerpArc(polycache p);
-    void updateArc(polycache p, calcFunc ca);
+    void updateGreatArc(polycache2& p);
+    void updateLerpArc(polycache2& p);
+    //void updateArc(polycache p, calcFunc ca);
     void updateFlatArc(polycache p);
     void addArcPoint(glm::vec3 ap, bool first, bool last, glm::vec3& oldap, PolyCurve* curve);
     void addTerminatorTrueMoon(glm::vec4 color = LIGHT_GREY, float width = 0.003f);
     void deleteTerminatorTrueMoon();
-    void updateTerminatorTrueMoon();
+    void updateTerminatorTrueMoon(polycache2& p);
     void addTerminatorTrueSun(glm::vec4 color = LIGHT_YELLOW, float width = 0.003f);
     void deleteTerminatorTrueSun();
-    void updateTerminatorTrueSun();
-    LLH calcTerminator(double slat, double slon, double parm, double refang = 0.0, bool rad = true);
+    void updateTerminatorTrueSun(polycache2& p);
+    LLH calcTerminator(LLH llh1, LLH llh2, double param, double refang = 0.0, bool rad = true);
+    void updateCompositePath(polycache2& p);
 private:
     void genGeom();
     void updateSun();
@@ -321,19 +341,50 @@ private:
 const unsigned int locationreserveitems = 50;
 
 class Location {
-private:
-    class TrueSun {
+public:
+    class TrueSun {  // Experiment, not completely useful yet.
+        // This kind of class avoids the need for the xxxxcache vectors, and collects the astronomy data locally so it can be shared between arrows and dots etc.
     public:
-        glm::vec4 color = NO_COLOR;
-        TrueSun(Location* location);
+        glm::vec4 defaultcolor = SUNCOLOR;
         void enableArrow3D();
-        //void enableDot3D();
+        void changeArrow3D(glm::vec4 color = NO_COLOR, float length = NO_FLOAT, float width = NO_FLOAT);
+        void disableArrow3D();
+        void enableLine3D();
+        void enableDot3D();
+        void changeDot3D(glm::vec4 color, float size);
+        void disableDot3D();
+        void enableAzimuthAngle();
+        void enableElevationAngle();
+        void enablePath24();
+        void disablePath24();
+        void enableAnalemma();
+        void disableAnalemma();
+        double getElevation(bool radians);
+        double getAzimuth(bool radians);
     private:
+        TrueSun(Location* location);  //ctor
         Location* m_location = nullptr;
         unsigned int m_type = TRUESUN3D;
+        unsigned int m_dot = maxuint;
         unsigned int m_arrow = maxuint;
+        unsigned int m_line = maxuint;
+        unsigned int m_aziangle = maxuint;
+        unsigned int m_eleangle = maxuint;
+        LLH sun = { 0.0, 0.0, 0.0 };       // geocentric Sun GHA, Dec, Distance
+        LLH localsun = { 0.0, 0.0, 0.0 };  // topocentric Sun Azi, Ele, Distance
+        glm::vec3 sundir = NO_VEC3;        // Cartesian Sun direction in world coordinates
+        void update(bool time, bool geometry, bool flatsun);
+        void draw();
+        friend class Location;
     };
-    TrueSun* m_truesun = nullptr;
+
+    class TruePlanet {
+
+    };
+
+    Location::TrueSun* truesun = nullptr;  // No need to make private, it is constructed in Location ctor, so always available.
+
+private:
     struct arrowcache {
         glm::vec3 position;
         glm::vec3 direction;
@@ -405,6 +456,7 @@ private:
     Dots* m_dots = nullptr;
     Planes* m_planes = nullptr;
     Cylinders* m_cylinders = nullptr;
+    AngleArcs* m_anglearcs = nullptr;
     glm::vec3 m_pos = glm::vec3(0.0f);
     double m_lat = 0.0;  // in radians
     double m_lon = 0.0;
@@ -413,6 +465,7 @@ private:
     glm::vec3 m_east;
     glm::vec3 m_north;
     glm::vec3 m_zenith;
+    LLH localsun = { 0.0, 0.0, 0.0 };
     std::vector<arrowcache> m_arrowcache;
     std::vector<dotcache> m_dotcache;
     std::vector<planecache> m_planecache;
@@ -421,7 +474,7 @@ private:
     std::vector<cylindercache> m_cylindercache;
     unsigned int m_observer = maxuint;
 public:
-    void enableTrueSun();
+    Location::TrueSun* enableTrueSun(); // Is this even needed? We construct it in Location ctor !!!
     Location(Earth* earth, double lat, double lon, bool radians = true, float rsky = 0.2f);
     ~Location();
     void Destroy();
@@ -432,6 +485,7 @@ public:
     void storeLatLon(double lat, double lon);
     double getLat(bool rad = true);
     double getLon(bool rad = true);
+    glm::vec3 getPosition();
     // Calculations
     glm::vec3 calcDirEleAzi(LLH heading, bool radians = true);
     glm::vec3 calcDirRADec(double ra, double dec, double jd = 0.0);
@@ -486,10 +540,10 @@ public:
     // Add planetary and moon dots
 
     // Arrows
-    void addArrow3DTrueSun(float length = 0.2f, float width = locsunarrowwidth, glm::vec4 color = LIGHT_YELLOW, bool checkit = false);
-    void changeArrow3DTrueSun(float length = 0.2f, float width = locsunarrowwidth, glm::vec4 color = LIGHT_YELLOW);
-    void deleteArrow3DTrueSun();
-    void updateArrow3DTrueSun(arrowcache& ar);
+    //unsigned int addArrow3DTrueSun(float length = 0.2f, float width = locsunarrowwidth, glm::vec4 color = LIGHT_YELLOW, bool checkit = false);
+    //void changeArrow3DTrueSun(float length = 0.2f, float width = locsunarrowwidth, glm::vec4 color = LIGHT_YELLOW);
+    //void deleteArrow3DTrueSun();
+    //void updateArrow3DTrueSun(arrowcache& ar);
 
     void addArrow3DFlatSun(float length = 0.2f, float width = locsunarrowwidth, glm::vec4 color = LIGHT_GREEN, bool checkit = false);
     void updateArrow3DFlatSun(arrowcache& ar);
@@ -502,19 +556,21 @@ public:
 
     // Lines
     void addLine3DTrueSun(float width = loclinewidth, glm::vec4 color = SUNCOLOR, bool checkit = true);
-    void changeLine3DTrueSun();
-    void deleteLine3DTrueSun();
+    //void changeLine3DTrueSun();
+    //void deleteLine3DTrueSun();
     void updateLine3DTrueSun(cylindercache& l);
 
     void addLine3DFlatSun(float width = loclinewidth, glm::vec4 color = LIGHT_GREEN, bool checkit = true);
-    void changeLine3DFlatSun();
-    void deleteLine3DFlatSun();
+    //void changeLine3DFlatSun();
+    //void deleteLine3DFlatSun();
     void updateLine3DFlatSun(cylindercache& l);
     // TODO: Add rays/lines to an arbitrary point to illustrate view cone angles, horizons, parallelity of incoming light rays etc. !!!
 
     // Paths
     void addPlanetaryPath(unsigned int planet, double startoffset, double endoffset, unsigned int steps, unsigned int type = ECGEO, glm::vec4 color = NO_COLOR, float width = 0.003f);
     void updatePlanetaryPath(polycache& pa);
+    void deletePlanetaryPath(unsigned int type, unsigned int unique);
+
     void addPlanetTruePath24(unsigned int planet, glm::vec4 color = NO_COLOR, float width = locpathwidth);
     void deletePlanetTruePath24(unsigned int planet);
     void addPlanetTruePathSidYear(unsigned int planet, glm::vec4 color = NO_COLOR, float width = locpathwidth);

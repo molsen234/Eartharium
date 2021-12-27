@@ -53,7 +53,8 @@ LLH l_phuket = { 7.891579, 98.295930, 0.0 };   // Phuket west facing (sunset) we
 // ---------------
 // Currently unused obviously. Here as a reminder to implement such a class
 class SolarEclipse {
-
+    // This is the stuff I'd love to make: https://www.youtube.com/watch?v=IaBt5Zau3ng&ab_channel=NASAScientificVisualizationStudio
+    // Along with showing where the Sun and Moon are in relation to Earth, with shadow cones for umbra, penumbra and antumbra
 public:
     
 };
@@ -140,6 +141,212 @@ public:
     }
 };
 
+void DemoVideo(Application& myapp) { // Might be better to pass as pointer, so all objects use -> instead of . dereferences.
+    // Demonstrate the capabilities of Eartharium - Commented for ease of use
+    
+    // Decide whether to render only to screen (windowed), or to file in full screen.
+    //bool renderfiles = true;
+    myapp.togglefullwin = false;  // Full screen or not
+    myapp.renderoutput = false;   // Output to files or not
+    // Full name is "C:\Coding\Eartharium\Eartharium\AnimOut\" + basefname + sequence number (###) + frame number (#####)
+    // Every new clip in a video should have a new sequence number for easy import into video editors. Use Application::incSequence() to bump sequence number.
+    // Note: You can generate no more than 100000 frames per sequence. At 30fps this is 3333 seconds, almost 1 hour.
+    //       If the frame number reaches this limit, Eartharium will bump the sequence number automatically and reset frame count to zero.
+    //       You will then simply have two clips instead of one.
+    myapp.basefname = "DemoVideo ";
+
+    // Set up the minimum machinery required to get something on screen.
+    Astronomy* astro = myapp.newAstronomy(); // Required, as most items change appearance depending on astronomical time (defaults to now at construction)
+    Scene* scene = myapp.newScene();         // Required, this is our 3D universe where objects reside.
+    Camera* cam = scene->w_camera;           // Required, in order to look at the scene.
+    myapp.currentCam = cam;
+    // Technically, a RenderLaer3D is only required if you want to view objects. To simply make astronomical calculations
+    // and output to console, you only need an instance of Astronomy.
+    RenderLayer3D* layer1 = myapp.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, scene->w_camera); // Required to draw objects to screen.
+
+    // Populate the scene - Note that there is no scene lighting to set up. Currently the only light is built into the Camera, no other options available.
+    Earth* earth = scene->newEarth("NSAE", 180, 90);
+    earth->w_sinsol = false; // Solar insolation is on by default, but will only be showcased later
+
+    myapp.render();   // Simply render a single frame of the Earth with default camera
+
+    // Note: Earth is fixed in space for ease of use, so demonstrate Camera movement
+    myapp.incSequence(); // Increase video sequence number to indicate next video clip.
+    // Orbit Camera around Earth. Camera will re-map longitudes outside -180 to 180, and snap latitudes to -90 to 90,
+    // but I show separate loops here for clarity. ( E.g. I could have used for (double lon = 0.0; lon > -360.0; lon -= 2.0) )
+    // Camera actually takes float values, but C++ automatically converts. Will probably change to use double in Camera, to suit with Location etc !!!
+    for (float lon = 0.0; lon > -180.0; lon -= 2.0) {
+        cam->setLatLon(NO_FLOAT, lon); // NO_DOUBLE indicates that the value is not to be updated
+        myapp.render();
+    }
+    for (float lon = 180.0f; lon >= 0.0f; lon -= 2.0f) {
+        cam->setLatLon(NO_FLOAT, lon);
+        myapp.render();
+    }
+    for (float lat = 0.0f; lat < 90.0f; lat += 2.0f) {
+        cam->setLatLon(lat, NO_FLOAT);
+        myapp.render();
+    }
+    for (float lat = 90.0f; lat > 0.0f; lat -= 2.0f) {
+        cam->setLatLon(lat, NO_FLOAT);
+        myapp.render();
+    }
+    for (float lat = 0.0f; lat > -90.0f; lat -= 2.0f) {
+        cam->setLatLon(lat, NO_FLOAT);
+        myapp.render();
+    }
+    for (float lat = -90.0f; lat <= 0.0f; lat += 2.0f) {
+        cam->setLatLon(lat, NO_FLOAT);
+        myapp.render();
+    }
+
+    // Demonstrate Camera Distance
+    myapp.incSequence();
+    float dstfactor = CAMERA_STEP_FACTOR / 4.0f;
+    for (float dist = 20.0f; dist < CAMERA_MAX_DIST; dist += dist * dstfactor) { // Maybe change to double for consistency !!!
+        cam->camDst = dist;
+        cam->update();   // Add setDistance() function to Camera !!!
+        myapp.render();
+    }
+    for (float dist = cam->camDst; dist > CAMERA_MIN_DIST; dist -= dist * dstfactor) {
+        cam->camDst = dist;
+        cam->update();   // Add setDistance() function to Camera !!!
+        myapp.render();
+    }
+    for (float dist = cam->camDst; dist < 20.0f; dist += dist * dstfactor) { // Maybe change to double for consistency !!!
+        cam->camDst = dist;
+        cam->update();   // Add setDistance() function to Camera !!!
+        myapp.render();
+    }
+    // In case we don't hit the target distance exactly in the loop, set it explicitly - Maybe make cam Lerp controls for Lat, Lon, Dst, Fov !!!
+    cam->camDst = 20.0f;
+    cam->update();   // Add setDistance() function to Camera !!!
+    myapp.render();
+
+    // Demonstrate Camera Field of View
+    myapp.incSequence();
+    float fovfactor = CAMERA_FOV_FACTOR / 4.0f;
+    for (float fov = 6.0f; fov <= 20.0f; fov += fov * fovfactor) { // Maybe change to double for consistency !!!
+        cam->camFoV = fov;
+        cam->update();   // Add setfovance() function to Camera !!!
+        myapp.render();
+    }
+    for (float fov = cam->camFoV; fov > 1.0f; fov -= fov * fovfactor) {
+        cam->camFoV = fov;
+        cam->update();   // Add setfovance() function to Camera !!!
+        myapp.render();
+    }
+    for (float fov = cam->camFoV; fov <= 6.0f; fov += fov * fovfactor) { // Maybe change to double for consistency !!!
+        cam->camFoV = fov;
+        cam->update();   // Add setfovance() function to Camera !!!
+        myapp.render();
+    }
+    cam->camFoV = 6.0f;
+    cam->update();
+    myapp.render();
+
+    // Demonstrate Earth Lat Lon Grid, Equator, Prime Meridian, Arctic Circles, Tropics.
+    myapp.incSequence();
+
+    // The two last booleans determine if Equator and Prime Meridian are included
+    // Exclude them if you intend to draw them separately, in another color/thickness for example.
+    // Draw latitudes only, including the equator
+    earth->addGrid(15.0f, 0.002f, LIGHT_GREY, "LA", false, true, false);
+    myapp.render();
+
+    // Remove all the items drawn by addGrid(), even if done in multiple calls (separate latitude and longitude spacings or colors for example)
+    // If this is not desired, redraw the ones you want to keep. Or use the addLatitude() & addLongitude() calls directly and collect the indices
+    earth->removeGrid();
+    myapp.render();
+
+    // Draw longitudes only, including prime meridian
+    earth->addGrid(15.0f, 0.002f, LIGHT_GREY, "LO", false, false, true);
+    myapp.render();
+
+    earth->removeGrid();
+    myapp.render();
+
+    // Draw both latitudes and longitudes, but omit prime meridian and equator as they are drawn in different color/thickness
+    earth->addGrid(10.0f, 0.002f, WHITE, "LALO", false, false, false);
+    myapp.render();
+
+    // Add prime meridian
+    earth->addPrimeMeridian(0.003f, LIGHT_RED);
+    myapp.render();
+
+    earth->addEquator(0.003f, LIGHT_RED);
+    myapp.render();
+
+    earth->removeEquator();
+    earth->removePrimeMeridian();
+    myapp.render();
+
+    // Tropics
+    earth->addTropics();
+    myapp.render();
+    earth->tropicsoverlay = true;       // Overlay color is Earth::tropics
+    myapp.render();
+
+    // Arctic Circles
+    earth->addArcticCirles();
+    myapp.render();
+    earth->arcticsoverlay = true;       // Overlay color is Earth::arctics
+    myapp.render();
+
+    earth->removeGrid();
+    for (float lat = 0.0f; lat < 90.0f; lat += 2.0f) {
+        cam->setLatLon(lat, NO_FLOAT);
+        myapp.render();
+    }
+    for (float lat = 90.0f; lat > 0.0f; lat -= 2.0f) {
+        cam->setLatLon(lat, NO_FLOAT);
+        myapp.render();
+    }
+
+    earth->removeTropics();
+    earth->tropicsoverlay = false;
+    earth->removeArcticCircles();
+    earth->arcticsoverlay = false;
+    myapp.render();
+
+    myapp.renderoutput = true;
+    myapp.togglefullwin = true;
+    myapp.update(); // Trigger switch to full screen
+
+    // Demonstrate Solar features
+    myapp.incSequence();
+    // Demonstrate Sun Direction
+    // Set up UTC time display
+    RenderLayerText* text = myapp.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, nullptr);
+    text->setCelestialMech(astro);
+    text->setFont(myapp.m_font2);  // Default monospace 36 point font
+    astro->setTime(2021, 9, 22.0, 12.0, 0.0, 0.0, true); // UTC midday on september equinox 2021
+    myapp.render();
+    // Note: This is an arrow from the center of Earth towards the center of the Sun.
+    //       Technically this does not pierce the surface exactly at the GP, except at the equator.
+    //       This is because Earth is an ellipsoid rather than a perfect sphere. But it is quite close.
+    earth->addArrow3DTrueSun(1.5f, 0.005f, SUNCOLOR);
+    for (unsigned int f = 0; f < 60; f++) {
+        astro->addTime(0.0, 24.0 / 60.0, 0.0, 0.0); // Do 24 hours in 60 frames
+        myapp.render();
+    }
+    
+
+    // Demonstrate Earth Tropics and Arctic regions
+
+
+    // Drop into interactive loop
+    myapp.renderoutput = false;   // Output to files or not
+    myapp.anim = false;
+    while (!glfwWindowShouldClose(myapp.window)) {
+        if (myapp.anim) astro->addTime(0.0, 0.0, 1.0, 0.0); // Advance time 1.0 minutes
+        myapp.update();                // Process keyboard, window resize, etc
+        scene->w_camera->update();     // If camera was changed, calculate new matrices for shaders
+
+        myapp.render();             // Render everything to screen (and optionally to file)
+    }
+}
+
 
 void AngleArcsDev(Application& myapp) {
     // Function to test AngleArcs while developing
@@ -147,7 +354,8 @@ void AngleArcsDev(Application& myapp) {
 
     Astronomy* astro = myapp.newAstronomy();
     astro->setTimeNow();
-
+    //astro->addTime(0.0, 3.0, 0.0, 0.0);
+    //astro->setTime(2021, 12, 24.0, 12.0, 0.0, 0.0, true);
     Scene* scene = myapp.newScene();
     AngleArcs* anglearcs = scene->getAngleArcsOb();
     Arrows* arrows = scene->getArrowsOb();
@@ -157,39 +365,60 @@ void AngleArcsDev(Application& myapp) {
     cam->camLat = 90.0f;
     cam->camLon = 0.0f;
     cam->camDst = 10.0f;
-    cam->CamUpdate();
+    cam->update();
     myapp.currentCam = cam;          // Enable kbd controls
 
-    RenderLayer3D* layer1 = myapp.getRenderChain()->newLayer3D(0.0f,0.0f,1.0f,1.0f, scene, astro, cam);
+    RenderLayer3D* layer1 = myapp.newLayer3D(0.0f,0.0f,1.0f,1.0f, scene, astro, cam);
 
     RenderLayerTextLines textlines = RenderLayerTextLines();
-    char angletext[] = "Angle: xxx.xxx\n";
-    std::string sangletext = "Angle: xxx.xxx\n";
+    char angletext[] = "Elevation: xxx.xxx\n";
+    std::string sangletext = "Elevation: xxx.xxx\n";
     textlines.addLine(sangletext);
-    RenderLayerText* text = myapp.getRenderChain()->newLayerText(0.0f,0.0f,1.0f,1.0f, &textlines);
+    RenderLayerText* text = myapp.newLayerText(0.0f,0.0f,1.0f,1.0f, &textlines);
     text->setFont(myapp.m_font2);
+    text->setCelestialMech(astro);
 
-    glm::vec3 pos = glm::vec3(0.0f, 0.0f, 0.0f);
-    glm::vec3 start = glm::vec3(0.5f, 0.5f, 0.0f);
-    glm::vec3 stop = glm::vec3(0.0f, 1.0f, 0.0f);
-    unsigned int a1 = arrows->FromStartDirLen(pos, start, 1.0f, 0.01f, LIGHT_BLUE);
-    unsigned int a2 = arrows->FromStartDirLen(pos, stop, 1.0f, 0.01f, LIGHT_GREEN);
+    //glm::vec3 pos = glm::vec3(0.0f, 0.0f, 0.0f);
+    //glm::vec3 start = glm::vec3(0.5f, 0.5f, 0.0f);
+    //glm::vec3 stop = glm::vec3(0.0f, 1.0f, 0.0f);
+    //unsigned int a1 = arrows->FromStartDirLen(pos, start, 1.0f, 0.01f, LIGHT_BLUE);
+    //unsigned int a2 = arrows->FromStartDirLen(pos, stop, 1.0f, 0.01f, LIGHT_GREEN);
+    //
+    //unsigned int myangle = anglearcs->add(pos, start, stop, 0.2f, LIGHT_GREY, 0.005f);
+    //
+    //start = glm::vec3(1.0f, 0.0f, 0.0f);
+    //arrows->UpdateStartDirLen(a1, pos, start, 1.0f, 0.01f, LIGHT_RED);
+    //anglearcs->update(myangle, NO_VEC3, start, NO_VEC3, NO_FLOAT, NO_COLOR, NO_FLOAT);
 
-    unsigned int myangle = anglearcs->add(pos, start, stop, 0.2f, LIGHT_GREY, 0.005f);
+    Earth* earth = scene->newEarth("NSAE", 180, 90);
+    unsigned int locgrp = earth->addLocGroup();
+    Location* loc = earth->locgroups[locgrp]->addLocation(l_ams.lat, l_ams.lon, false, 0.2f);
+    //loc->addArrow3DTrueSun();
+    //loc->addArrowElevationAngle()
+    loc->addNormal();
+    //loc->addTangentPlane();
+    loc->addLocSky();
+    loc->truesun->enableArrow3D();
+    loc->truesun->changeArrow3D(LIGHT_RED, NO_FLOAT, NO_FLOAT);
+    loc->truesun->enableElevationAngle();
+    loc->truesun->enableDot3D();
+    loc->truesun->changeDot3D(LIGHT_RED, NO_FLOAT);
+    loc->truesun->enableLine3D();
+    loc->truesun->enablePath24();
+    loc->truesun->enableAnalemma();
 
-    start = glm::vec3(1.0f, 0.0f, 0.0f);
-    arrows->UpdateStartDirLen(a1, pos, start, 1.0f, 0.01f, LIGHT_RED);
-    anglearcs->update(myangle, NO_VEC3, start, NO_VEC3, NO_FLOAT, NO_COLOR, NO_FLOAT);
+    cam->setTarget(loc->getPosition());
 
+    myapp.anim = true;
     while (!glfwWindowShouldClose(myapp.window)) {
-        myapp.currentCam->CamUpdate();
+        if (myapp.anim) astro->addTime(0.0, 0.0, 1.0, 0.0);
+        myapp.currentCam->update();
         myapp.update();
-        sprintf_s(angletext, "Angle: %03.3f", anglearcs->getAngle(myangle));
+        sprintf_s(angletext, "Elevation: %03.3f", loc->truesun->getElevation(false));
         sangletext = angletext;
-        //if (myapp.anim) astro->addTime(0.0, 0.0, 5.0, 0.0);
-        //scene->w_camera->CamUpdate();
+        scene->w_camera->update();
 
-        myapp.getRenderChain()->do_render();
+        myapp.render();
     }
 }
 
@@ -197,10 +426,10 @@ void IdleArea(Application& myapp) {
     // An Idle function to drop into after a python script has completed, so the scene can be interacted with for planning the next animation steps.
     // Scans for the various elements created by the python script and takes over by adding GUI / keyboard interaction
     myapp.anim = false;
-    RenderLayerGUI* gui = myapp.getRenderChain()->newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    RenderLayerGUI* gui = myapp.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
     unsigned int lnum = 1;
     char lname[20];
-    for (auto& l : myapp.getRenderChain()->m_layers) {
+    for (auto& l : myapp.m_layers) {
         if (l->type == LAYER3D) {
             sprintf_s(lname, "Scene %02d", lnum);
             gui->addLayer3D((RenderLayer3D*)l, lname);
@@ -208,12 +437,12 @@ void IdleArea(Application& myapp) {
         }
     }
     while (!glfwWindowShouldClose(myapp.window)) {
-        myapp.currentCam->CamUpdate();
+        myapp.currentCam->update();
         myapp.update();
         //if (myapp.anim) astro->addTime(0.0, 0.0, 5.0, 0.0);
         //scene->w_camera->CamUpdate();
 
-        myapp.getRenderChain()->do_render();
+        myapp.render();
     }
 
 }
@@ -224,32 +453,34 @@ void TestArea6(Application& myapp) {
     // 
     // Set up environment - Application could setup a default astro and scene with cam for us. Makes no diff., we'd still need to obtain reference to them
     Astronomy* astro = myapp.newAstronomy();
-    astro->setTimeNow();
-    astro->addTime(-1.0, 0.0, 0.0, 0.0);
+    //astro->setTimeNow();
+    //astro->addTime(-1.0, 0.0, 0.0, 0.0);
     //astro->setUnixTime(1639884318.0);
-    //astro->setTime(2021, 12, 19.0, 12.0 - 9.0, 24.0, 18.0, true);
+    astro->setTime(2022, 2, 5.0, 8.0, 17.0, 45.0, true);
     Scene* scene = myapp.newScene();
     Camera* cam = scene->w_camera; // Default camera
     cam->camFoV = 22.8f;
     cam->camLat = 90.0f;
     cam->camLon =  0.0f;
     cam->camDst = 10.0f;
-    cam->CamUpdate();
+    cam->update();
     myapp.currentCam = cam;          // Enable kbd controls
 
-    RenderChain* chain = myapp.getRenderChain();   // TODO: Make RenderChain internal to Application, via shim. It is singleton, so we never need more than 1 !!!
-    RenderLayer3D* layer1 = chain->newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
-    RenderLayerGUI* gui = chain->newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    RenderLayer3D* layer1 = myapp.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    RenderLayerGUI* gui = myapp.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
     gui->addLayer3D(layer1, "Earth Scene");
 
     RenderLayerTextLines lines;
-    RenderLayerText* text = chain->newLayerText(0.0f, 0.0f, 1.0f, 1.0f, &lines);
+    RenderLayerText* text = myapp.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, &lines);
     text->setFont(myapp.m_font2);
     text->setCelestialMech(astro);  // Probably change the method name !!!
 
-    Earth* earth = scene->newEarth("AENS", 180, 90);
+    SkySphere* sky = scene->newSkysphere(180, 90);
+    sky->addStars();
+    Earth* earth = scene->newEarth("ERAE", 180, 90);
     //earth->addGrid(15.0f);
-
+    earth->addLongitudeCurve(180.0, WHITE, 0.002f, false);
+    earth->addEquator(0.002f, WHITE);
     earth->flatsunheight = 0.0f; // Used for both Subsolar and Sublunar points
     earth->addSubsolarPoint();
     earth->w_sinsol = true;
@@ -258,14 +489,18 @@ void TestArea6(Application& myapp) {
     earth->addTerminatorTrueSun();
     earth->w_twilight = false;
     earth->addTerminatorTrueMoon();
+
+    earth->addFlatArc({ l_ams.lat, l_ams.lon, 0.0 }, { l_nyc.lat, l_nyc.lon, 0.0 }, LIGHT_ORANGE, 0.003f, false);
+    earth->addGreatArc({ l_nyc.lat, l_nyc.lon, 0.0 }, { l_ams.lat, l_ams.lon, 0.0 }, LIGHT_GREEN, 0.003f, false);
+    earth->addLerpArc({ l_ams.lat, l_ams.lon, 0.0 }, { l_nyc.lat, l_nyc.lon, 0.0 }, LIGHT_RED, 0.003f, false);
     myapp.anim = false;
     while (!glfwWindowShouldClose(myapp.window)) {
 
         myapp.update();
         if (myapp.anim) astro->addTime(0.0, 0.0, 5.0, 0.0);
-        scene->w_camera->CamUpdate();
+        scene->w_camera->update();
 
-        chain->do_render();
+        myapp.render();
     }
 }
 
@@ -305,15 +540,14 @@ void TestArea5(Application& myapp) {
     cam->camLat = 26.0f;
     cam->camLon = 68.0f;
     cam->camDst = 10.0f;
-    cam->CamUpdate();
+    cam->update();
     myapp.currentCam = cam;          // Enable kbd controls
-    RenderChain* chain = myapp.getRenderChain();   // TODO: Make RenderChain internal to Application, via shim. It is singleton, so we never need more than 1 !!!
-    RenderLayer3D* layer1 = chain->newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
-    RenderLayerGUI* gui = chain->newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    RenderLayer3D* layer1 = myapp.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    RenderLayerGUI* gui = myapp.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
 
     gui->addLayer3D(layer1, "Earth Scene");
      
-    RenderLayerPlot* plot = chain->newLayerPlot(0.0f, 0.0f, 1.0f, 1.0f); // upper right quarter (Y axis is downwards)
+    RenderLayerPlot* plot = myapp.newLayerPlot(0.0f, 0.0f, 1.0f, 1.0f); // upper right quarter (Y axis is downwards)
     plot->animateView(0.0f, 0.67f, 1.0f, 1.0f, 60);
     // Test Date and Time to Unix Timestamp conversion
     //std::cout << "Unix timestamp: " << astro->getDateTime2UnixTime(1956, 10, 10, 10, 10, 10) << "\n";
@@ -424,7 +658,7 @@ void TestArea5(Application& myapp) {
     lines->addLine(ele_data_text);
 
 
-    RenderLayerText* text = chain->newLayerText(0.0f, 0.0f, 1.0f, 1.0f, lines);
+    RenderLayerText* text = myapp.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, lines);
     text->setFont(myapp.m_font2);
     text->setCelestialMech(astro);  // Probably change the method name !!!
 
@@ -449,7 +683,7 @@ void TestArea5(Application& myapp) {
     // Fayetteville in Sandhills of North Carolina: 35.050458, -78.912176
     Location* loc = earth->locgroups[locgroup]->addLocation(l_kabul.lat, l_kabul.lon, false, 0.2f);
     //loc->addObserver(135.0f, LIGHT_RED, 0.1f);
-    loc->addArrow3DTrueSun(0.2f, locsunarrowwidth, predictioncolor);
+    //loc->addArrow3DTrueSun(0.2f, locsunarrowwidth, predictioncolor);
 
     LLH sunpos = astro->calcGeo2Topo(astro->getDecGHA(SUN, 0.0), { loc->getLat(), loc->getLon(), 1817.522 + 0.5 });
     earth->w_refract = true;
@@ -466,7 +700,7 @@ void TestArea5(Application& myapp) {
     plot->setCurrentTime(1581073620.0);
 
     myapp.update();
-    scene->w_camera->CamUpdate();
+    scene->w_camera->update();
     int pauseframes = 2; // 20;
     int advanceframes = 10; // 60;
     double myutime = 0.0;
@@ -481,14 +715,14 @@ void TestArea5(Application& myapp) {
                 plot->setStartEnd(myutime - bracket, myutime + bracket);
                 plot->setCurrentTime(myutime);
                 astro->setUnixTime(myutime);
-                scene->w_camera->CamUpdate();
-                chain->do_render();
+                scene->w_camera->update();
+                myapp.render();
             }
             sprintf_s(dstring, "Measured alt: %02.3f\n", (float)(pt.data));
             ele_pred_text = dstring;
 
             for (int i = 0; i < pauseframes; i++) { // Pause at datapoint
-                chain->do_render();
+                myapp.render();
             }
             prevutime = pt.utime;
         }
@@ -506,7 +740,7 @@ void TestArea5(Application& myapp) {
 
         myapp.update();
         if (myapp.anim) astro->addTime(0.0, 0.0, 1.0, 0.0);
-        scene->w_camera->CamUpdate();
+        scene->w_camera->update();
 
         sunpos = astro->calcGeo2Topo(astro->getDecGHA(SUN, 0.0), { loc->getLat(),loc->getLon(), 10000.0 });
         sprintf_s(pstring, "Predicted Elevation: %02.3f\n", (float)(sunpos.lat * rad2deg));
@@ -515,7 +749,7 @@ void TestArea5(Application& myapp) {
         //plot->plotSeries(mydata);
         //plot->predictSeries(mypred);
 
-        chain->do_render();
+        myapp.render();
     }
 
 }
@@ -530,21 +764,21 @@ void TestArea4() {
     py::object scope = py::module_::import("__main__").attr("__dict__");
     py::eval_file("c:\\Coding\\Eartharium\\Eartharium\\hello.py", scope);
 
-    RenderLayer3D* layer1 = (RenderLayer3D*)app.getRenderChain()->m_layers[0];
+    RenderLayer3D* layer1 = (RenderLayer3D*)app.m_layers[0];
     Scene* scene1 = layer1->m_scene;
     while (!glfwWindowShouldClose(app.window)) {
         // Camera transform - orbital
         //scene1->m_app->update();
         app.update();
         //astro->setTimeNow();
-        scene1->w_camera->CamUpdate();
-        //scene2->w_camera->CamUpdate();
+        scene1->w_camera->update();
+        //scene2->w_camera->update();
 
         // Update time ticks etc
         //astro->addTime(1.0, 0.0, 0.0, 0.0); // dhms
         //if (world.GetSolsysOb() != nullptr) world.GetSolsysOb()->Update();
 
-        app.getRenderChain()->do_render();
+        app.render();
     }
 }
 void TestArea3() {
@@ -554,29 +788,28 @@ void TestArea3() {
     app.anim = false;
     app.update();
 
-    RenderChain* chain = app.getRenderChain();
-    chain->basefname = "Eccentric Light ";
-    chain->currentseq = 1;
-    chain->currentframe = 1;
-    chain->renderoutput = false;
+    app.basefname = "Eccentric Light ";
+    app.currentseq = 1;
+    app.currentframe = 1;
+    app.renderoutput = false;
 
     Scene* scene1 = app.newScene();
     Scene* scene2 = app.newScene();
     Astronomy* astro = app.newAstronomy();
     astro->setTime(2021, 11, 7.0, 9.0, 0.0, 0.0, true);
 
-    RenderLayer3D* layer1 = chain->newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene1, astro);
-    RenderLayer3D* layer2 = chain->newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene2, astro);  // How to draw without depthcheck? And with a nice border? !!!
+    RenderLayer3D* layer1 = app.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene1, astro);
+    RenderLayer3D* layer2 = app.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene2, astro);  // How to draw without depthcheck? And with a nice border? !!!
 
     RenderLayerTextLines* lines = new RenderLayerTextLines();
     char dstring[] = "1234567890123456789012345678901234567890";
     std::string eccen = "Ecc:";
     lines->addLine(eccen);
-    RenderLayerText* text = chain->newLayerText(0.0f, 0.0f, 1.0f, 1.0f, lines);
+    RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, lines);
     text->setFont(app.m_font2);
     text->setCelestialMech(astro);  // Probably change the method name !!!
 
-    RenderLayerGUI* gui = chain->newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
     //gui->addScene(scene1, "Earth Scene"); // Should this be addLayer3D instead? It has the Astronomy and the Scene, the GUI can then also control the view
     //gui->addScene(scene2, "Solsys Scene");
     gui->addLayer3D(layer1, "Earth Scene"); // Should this be addLayer3D instead? It has the Astronomy and the Scene, the GUI can then also control the view
@@ -614,7 +847,7 @@ void TestArea3() {
     //    l->addArrow3DTrueSun();
     //}
 
-    chain->renderoutput = false;
+    app.renderoutput = false;
 
 
     //1 year insolation
@@ -623,8 +856,8 @@ void TestArea3() {
     //Lerper<double> hr = Lerper<double>(0.0, 24.0, steps, true);
     for (i = 0; i < steps; i++) {
         astro->addTime(1.0, 0.0, 0.0, 0.0); // A day per frame
-        scene1->w_camera->CamUpdate();
-        scene2->w_camera->CamUpdate();
+        scene1->w_camera->update();
+        scene2->w_camera->update();
         solsys->Update();
         sprintf_s(dstring, "Eccentricity: %02.3f\n", app.currentEarth->eccen);
         eccen = dstring;
@@ -632,11 +865,11 @@ void TestArea3() {
         if (sunloc.lon < pi) sunloc.lon = -sunloc.lon;
         else sunloc.lon = tau - sunloc.lon;               // subsolar.lon is now -pi to pi east of south
         l1->moveLoc(sunloc.lat, sunloc.lon);
-        chain->do_render();
+        app.render();
     }
 
 
-    chain->renderoutput = false;
+    app.renderoutput = false;
 
     // Calculate the obliqity of the ecliptic (Earth axis tilt) at the time of Eratosthenes (240BC)
     //astro->setTime(-240, 6, 20, 22.0, 30.0, 0.0, true);  // UTC no DST
@@ -649,8 +882,8 @@ void TestArea3() {
         sprintf_s(dstring, "Eccentricity: %02.3f\n", app.currentEarth->eccen);
         eccen = dstring;
         //astro->setTimeNow();
-        scene1->w_camera->CamUpdate();
-        scene2->w_camera->CamUpdate();
+        scene1->w_camera->update();
+        scene2->w_camera->update();
         solsys->Update();
 
         // Update time ticks etc
@@ -662,7 +895,7 @@ void TestArea3() {
         else sunloc.lon = tau - sunloc.lon;               // subsolar.lon is now -pi to pi east of south
         l1->moveLoc(sunloc.lat, sunloc.lon);
 
-        chain->do_render();
+        app.render();
     }
     delete lines;
 }
@@ -1150,12 +1383,23 @@ PYBIND11_EMBEDDED_MODULE(eartharium, m) {
         .def(py::init())
         ;
     py::class_<Application>(m, "Application")
-        .def("getRenderChain", &Application::getRenderChain, py::return_value_policy::reference)
+        //.def("getRenderChain", &Application::getRenderChain, py::return_value_policy::reference)
         .def("newScene", &Application::newScene, py::return_value_policy::reference)
         .def("newAstronomy", &Application::newAstronomy, py::return_value_policy::reference)
         .def("update", &Application::update)
+        .def("newLayer3D", &Application::newLayer3D, "Creates a new 3D Render Layer",
+            py::arg("vpx1"), py::arg("vpy1"), py::arg("vpx2"), py::arg("vpy2"),
+            py::arg("scene"), py::arg("astro"), py::arg("cam") = (Camera*) nullptr,
+            py::return_value_policy::reference
+        )
+        .def("newLayerText", &Application::newLayerText, "Creates a new Text Render Layer",
+            py::arg("vpx1"), py::arg("vpy1"), py::arg("vpx2"), py::arg("vpy2"),
+            py::arg("lines") = (RenderLayerTextLines*) nullptr,
+            py::return_value_policy::reference
+        )
+        .def("do_render", &Application::render)
         .def_readwrite("ipython", &Application::ipython)
-        .def_readwrite("render", &Application::render)
+        .def_readwrite("render", &Application::renderoutput)
         .def_readwrite("currentCam", &Application::currentCam)
         .def_readwrite("m_font2", &Application::m_font2)
         ;
@@ -1186,7 +1430,7 @@ PYBIND11_EMBEDDED_MODULE(eartharium, m) {
         .def_readwrite("camLat", &Camera::camLat)
         .def_readwrite("camLon", &Camera::camLon)
         .def_readwrite("camDst", &Camera::camDst)
-        .def("CamUpdate", &Camera::CamUpdate, "Updates the Camera settings from Application etc")
+        .def("CamUpdate", &Camera::update, "Updates the Camera settings from Application etc")
         ;
     py::class_<Scene>(m, "Scene")
         .def("newEarth", &Scene::newEarth, "Adds a new Earth object to the Scene",
@@ -1214,19 +1458,6 @@ PYBIND11_EMBEDDED_MODULE(eartharium, m) {
         .def("updateView", &RenderLayer3D::updateView, "Updates the width and height of the view. Called automatically when window size changes.",
             py::arg("w"), py::arg("h")
         )
-        ;
-    py::class_<RenderChain>(m, "RenderChain")
-        .def("newLayer3D", &RenderChain::newLayer3D, "Creates a new 3D Render Layer",
-            py::arg("vpx1"), py::arg("vpy1"), py::arg("vpx2"), py::arg("vpy2"),
-            py::arg("scene"), py::arg("astro"), py::arg("cam") = (Camera*) nullptr,
-            py::return_value_policy::reference
-        )
-        .def("newLayerText", &RenderChain::newLayerText, "Creates a new Text Render Layer",
-            py::arg("vpx1"), py::arg("vpy1"), py::arg("vpx2"), py::arg("vpy2"),
-            py::arg("lines") = (RenderLayerTextLines*) nullptr,
-            py::return_value_policy::reference
-        )
-        .def("do_render", &RenderChain::do_render)
         ;
     py::class_<Location>(m, "Location")
         .def("addLocDot", &Location::addLocDot, "Adds an icosphere dot to the Location at height 0.",
@@ -1290,7 +1521,6 @@ PYBIND11_EMBEDDED_MODULE(eartharium, m) {
 }
 
 
-
 int main() {
     // This is main. The entry point of execution when launching
     // Do as little as possible here.
@@ -1312,10 +1542,10 @@ int main() {
     // Good for things not yet implemented in python interface, or while developing things,
     // but requires a recompile for every change. Python scripts can simply be saved after changes, and Eartharium can be run again.
 
-    //TestArea5(app);
+    TestArea6(app);
 
-    AngleArcsDev(app);
-
+    //AngleArcsDev(app);
+    //DemoVideo(app);
     // Cleanup
     glfwTerminate();
 
@@ -1371,21 +1601,21 @@ void keyboard_callback(GLFWwindow*, int key, int scancode, int action, int mods)
         }
         // W A S D - Spin Camera around LookAt point
         if (key == GLFW_KEY_A && app.currentCam != nullptr) {
-            app.currentCam->camLon -= app.camSpd;
+            app.currentCam->camLon -= CAMERA_ANGLE_STEP;
             if (app.currentCam->camLon > 180.0f) app.currentCam->camLon -= 360.0f;
             if (app.currentCam->camLon < -180.0f) app.currentCam->camLon += 360.0f;
         }
         if (key == GLFW_KEY_D && app.currentCam != nullptr) {
-            app.currentCam->camLon += app.camSpd;
+            app.currentCam->camLon += CAMERA_ANGLE_STEP;
             if (app.currentCam->camLon > 180.0f) app.currentCam->camLon -= 360.0f;
             if (app.currentCam->camLon < -179.9f) app.currentCam->camLon += 360.0f;
         }
         if (key == GLFW_KEY_W && app.currentCam != nullptr) {
-            app.currentCam->camLat += app.camSpd;
+            app.currentCam->camLat += CAMERA_ANGLE_STEP;
             if (app.currentCam->camLat > CAMERA_MAX_LATITUDE) app.currentCam->camLat = CAMERA_MAX_LATITUDE;
         }
         if (key == GLFW_KEY_S && app.currentCam != nullptr) {
-            app.currentCam->camLat -= app.camSpd;
+            app.currentCam->camLat -= CAMERA_ANGLE_STEP;
             if (app.currentCam->camLat < CAMERA_MIN_LATIDUDE) app.currentCam->camLat = CAMERA_MIN_LATIDUDE;
         }
         // Z C - Increase / Decrease Camera distance to LookAt point
