@@ -325,8 +325,8 @@ public:
     // Used by GUI and keyboard, as well as programming from C++ and Python
     float camLat = 0.0;
     float camLon = 0.0;
-    float camDst = 20.0f;
     float camFoV = 6.0f;
+    float camDst = 20.0f;
     float camNear = 1.0f;
     float camFar = 1500.0f;
 
@@ -344,6 +344,7 @@ private:
     glm::vec3 cameraUp = glm::vec3(0.0, 1.0, 0.0); // Part of worldUp that fits with cameraDirection
 public:
     Camera(Scene* scene);
+    void setLatLonFovDist(float lat, float lon, float fov, float dst);
     void setCamLightPos(glm::vec3 lPos);
     void setLatLon(float lat, float lon);
     void update();
@@ -381,13 +382,14 @@ class Scene {
     // A Scene holds all the 3D Primitives, Objects, and Camera(s) - basically everything that has spatial or temporal relationships
 public:
     Application* m_app = nullptr;
-    Astronomy* m_celestOb = nullptr;
+    Astronomy* m_astro = nullptr; // Why is this here? Oh, so Earth can look it up. Probably should have a RenderLayer3D pointer instead.
     Camera* w_camera = nullptr;
     unsigned int shadows = NONE;  // Create a way to update this from GUI or keyboard or python etc.
     SolarSystem* m_solsysOb = nullptr;
     Earth* m_earthOb = nullptr;
 private:
     std::vector<Camera*> m_cameras;
+    std::vector<PolyCurve*> m_polycurves;
     float m_aspect = 1.0f;
     Minifigs* m_minifigsOb = nullptr;
     Dots* m_dotsOb = nullptr;
@@ -428,8 +430,10 @@ public:
     ShadowBox* getShadowboxOb();
     ShadowMap* getShadowmapOb();
     Earth* newEarth(std::string mode, unsigned int mU, unsigned int mV);
-    Earth* getEarth();
+    Earth* getEarth(); // May return nullptr, so user must check!
     Minifigs* newMinifigs();
+    PolyCurve* newPolyCurve(glm::vec4 color, float width, unsigned int reserve = NO_UINT);
+    void deletePolyCurve(PolyCurve* curve);
 };
 
 
@@ -500,7 +504,7 @@ public:
     std::vector<std::string*> lines;
     void addLine(std::string& line) { lines.push_back(&line); }
     bool empty() { return lines.empty(); }
-    unsigned int size() { return lines.size(); }
+    unsigned int size() { return (unsigned int)lines.size(); }
     //std::vector<std::string*>::iterator begin() { return lines.begin(); }
 };
 class RenderLayerText : public RenderLayer {
@@ -509,7 +513,7 @@ public:
     RenderLayerText(float vpx1, float vpy1, float vpx2, float vpy2, Application* app, RenderLayerTextLines* lines = nullptr);
     void setFont(ImFont* font);
     //void setFont(std::string* path, unsigned int size);
-    void setCelestialMech(Astronomy* astro);
+    void setAstronomy(Astronomy* astro);
     void updateViewport(float w, float h);
     void animateViewport();
     void render();
@@ -643,11 +647,10 @@ public:
     unsigned int currentseq = 0;
     bool renderoutput = false; // Whether to write image to disk
 
-    // Should probably be private, but how to pick up layers from python then? !!! Don't pick them up, create them instead! None are created by default.
+    // Should ideally be private, but I sometimes need to pick up layers in C++, which were created in Python.
     std::vector<RenderLayer*> m_layers;  // RenderLayer is a parent object to RenderLayer3D, RenderLayerText, RenderLayerGUI, ...
 
 private:
-    //RenderChain* m_renderchain = nullptr;
     ShaderLibrary* m_shaderlib = nullptr;
 
     // For windowed / fullscreen control
@@ -655,8 +658,8 @@ private:
     const GLFWvidmode* mode = nullptr;
     int win_width = 800;    // Stores Windowed width/height while in fullscreen
     int win_height = 600;
-    int w_posx = 0;         // Ditto for position
-    int w_posy = 0;
+    int w_posx = 10;         // Ditto for position
+    int w_posy = 10;
 
 public:
     Application();
@@ -665,6 +668,8 @@ public:
     Astronomy* newAstronomy();
     Scene* newScene();
     int initWindow();
+    void setFullScreen();
+    void setWindowed(int width = 0, int height = 0);  // Should not be negative, but GLFW uses int rather than unsigned int
     void SetWH(int w, int h);
     int getWidth();
     int getHeight();
@@ -677,6 +682,7 @@ public:
 
     RenderLayer3D* newLayer3D(float vpx1, float vpy1, float vpx2, float vpy2, Scene* scene, Astronomy* astro, Camera* cam = nullptr);
     void deleteLayer3D(RenderLayer3D* layer);
+    //RenderLayer3D* newLayer3D();  // Assumes full screen, and creates Scene, Astronomy and sets Camera to default from Scene - No, what about object ownership? !!!
     RenderLayerText* newLayerText(float vpx1, float vpy1, float vpx2, float vpy2, RenderLayerTextLines* lines = nullptr);
     void deleteLayerText(RenderLayerText* layer);
     RenderLayerGUI* newLayerGUI(float vpx1, float vpy1, float vpx2, float vpy2);
@@ -859,8 +865,9 @@ private:
     VertexBufferLayout* vbl1 = nullptr;
     VertexBufferLayout* vbl2 = nullptr;
     IndexBuffer* ib = nullptr;
+    //bool limit = false; // For debugging reserve() issues 
 public:
-    PolyCurve(Scene* scene, glm::vec4 color, float width);
+    PolyCurve(Scene* scene, glm::vec4 color, float width, size_t reserve = NO_UINT);
     ~PolyCurve();
     void addPoint(glm::vec3 point);
     void clearPoints();

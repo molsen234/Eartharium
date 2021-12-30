@@ -12,6 +12,7 @@
 
 # MDO defined to ignore the huge textures
 textures/
+AnimOut/
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs

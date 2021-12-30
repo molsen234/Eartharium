@@ -372,7 +372,7 @@ Earth::~Earth() {
     }
     if (!m_polycache.empty()) {
         for (auto& p : m_polycache) {
-            delete p.path;
+            m_scene->deletePolyCurve(p.path);
         }
         m_polycache.clear();
     }
@@ -429,8 +429,8 @@ void Earth::Update() {
         //mydebug = true;
         flatsundirty = true;
     }
-    if (m_JD != m_scene->m_celestOb->getJD()) {
-        m_JD = m_scene->m_celestOb->getJD();
+    if (m_JD != m_scene->m_astro->getJD()) {
+        m_JD = m_scene->m_astro->getJD();
         timedirty = true;
     }
     // if timedirty
@@ -469,6 +469,8 @@ void Earth::Update() {
             if (p.type == GREATARC) updateGreatArc(p);
             if (p.type == LERPARC) updateLerpArc(p);
         }
+        // Collect in a cache with other celestial paths
+        if (suncurve != nullptr && sunpath != nullptr) updateSubsolarPath();
     }
     if (flatsundirty || paramdirty || timedirty) {  // Essentially if ANYTHING has changed, update locations.
         for (auto& lg : locgroups) {
@@ -597,6 +599,13 @@ void Earth::Draw() {
             l->Draw();
         }
     }
+    if (suncurve != nullptr && sunpath != nullptr) suncurve->draw();
+    if (tissotcurve != nullptr) {
+        tissotcurve->draw();
+    }
+    if (tissotcurve2 != nullptr) {
+        tissotcurve2->draw();
+    }
     return;
 }
 unsigned int Earth::addLocGroup() {
@@ -610,7 +619,7 @@ glm::vec3 Earth::getLoc3D(double rLat, double rLon, double height) {
     /// <summary>
     /// Takes Earth latitude and longitude in radians to glm::vec3 Cartesian coordinate in world space
     /// </summary>
-    /// <param name="rLat">Latitude given in 0 to pi radians</param>
+    /// <param name="rLat">Latitude given in -pi/2 to pi/2 radians</param>
     /// <param name="rLon">Longitude given in -pi to pi radians from Greenwich meridian (east of south)</param>
     /// <param name="height">Optional height above geoid surface in km</param>
     /// <returns>Cartesian coordinates glm::vec3 in world space units for currently active geoid geometry</returns>
@@ -883,13 +892,13 @@ LLH Earth::getXYZtoLLH_AE(glm::vec3 pos) {
 }
 LLH Earth::getSun(double jd) {
     // If jd == 0 get Sun GHA,Dec for current JD, else get Sun for provided JD - handled in getDecGHA()
-    return m_scene->m_celestOb->getDecGHA(SUN, jd);
+    return m_scene->m_astro->getDecGHA(SUN, jd);
 }
 LLH Earth::getPlanet(unsigned int planet, double jd) {
-    return m_scene->m_celestOb->getDecGHA(planet, jd);
+    return m_scene->m_astro->getDecGHA(planet, jd);
 }
 void Earth::CalcMoon() {
-    double currentJD = m_scene->m_celestOb->getJD();
+    double currentJD = m_scene->m_astro->getJD();
     if (m_moonJD == currentJD) return;
     double elon = CAAMoon::EclipticLongitude(currentJD);  // lambda
     double elat = CAAMoon::EclipticLatitude(currentJD);   // beta
@@ -898,7 +907,7 @@ void Earth::CalcMoon() {
     m_moonDist = CAAMoon::RadiusVector(m_JD); // RadiusVector() returns in km
     m_moonRA = hrs2rad * equa.X;
     m_moonDec = deg2rad * equa.Y;
-    m_moonHour = m_moonRA - m_scene->m_celestOb->getGsid(); // Gsid returns in radians now, so don't convert!
+    m_moonHour = m_moonRA - m_scene->m_astro->getGsid(); // Gsid returns in radians now, so don't convert!
     double w = cos(m_moonDec);
     MoonLightDir.x = (float)(cos(m_moonHour) * w);
     MoonLightDir.y = (float)(sin(m_moonHour) * w);
@@ -964,7 +973,7 @@ void Earth::updateArrow3DTrueSun(arrowcache& ar) {
 }
 void Earth::addLunarUmbraCone() {
     const double radiusdiff = moonradius - sunradius;
-    LLH sun = m_scene->m_celestOb->getDecGHA(SUN);
+    LLH sun = m_scene->m_astro->getDecGHA(SUN);
     glm::vec3 sunpos = getLoc3D_NS(sun.lat, sun.lon, sun.dst);
     glm::vec3 moonpos = getLoc3D_NS(m_moonDec, m_moonHour, m_moonDist);
     glm::vec3 conedir = sunpos - moonpos;
@@ -977,7 +986,7 @@ void Earth::addLunarUmbraCone() {
 }
 glm::vec3 Earth::getSubsolarXYZ(double jd) {
     if (jd == m_JD) return flatSun;
-    LLH mysun = m_scene->m_celestOb->getDecGHA(SUN, jd); // subsolar.lon is west of south, 0 to tau
+    LLH mysun = m_scene->m_astro->getDecGHA(SUN, jd); // subsolar.lon is west of south, 0 to tau
     if (mysun.lon < pi) mysun.lon = -mysun.lon;
     else mysun.lon = tau - mysun.lon;                          // subsolar.lon is now -pi to pi east of south
     return getLoc3D(mysun.lat, mysun.lon, m_flatsunheight / earthradius);
@@ -990,6 +999,7 @@ void Earth::addSubsolarPoint(float size) {
 }
 void Earth::deleteSubsolarPoint() {
     if (m_sunob != nullptr) delete m_sunob;
+    m_sunob = nullptr;
 }
 void Earth::updateSubsolarPoint() {
     if (m_sunob == nullptr) {
@@ -1139,13 +1149,13 @@ void Earth::removeArcticCircles() {
 }
 unsigned int Earth::addLatitudeCurve(double lat, glm::vec4 color, float width, bool rad, unsigned int type) {
     if (!rad) lat *= deg2rad;
-    PolyCurve* curve = new PolyCurve(m_scene, color, width);
+    PolyCurve* curve = m_scene->newPolyCurve(color, width);
     curve->addPoint(getLoc3D(lat, (-180.0+tiny) * deg2rad, 0.0));
     for (int lon = -179; lon <= 180; lon++) { // Note: we do not want -180, but we do want +180
         curve->addPoint(getLoc3D(lat, lon * deg2rad, 0.0));
     }
     curve->generate();
-    m_polycache.push_back({ curve,width,type,color, {lat,0.0f,0.0f},{0.0f,0.0f,0.0f} });
+    m_polycache.push_back({ curve, width, type, color, LLH({ lat,0.0 ,0.0 }), LLH({ 0.0 ,0.0 ,0.0 }) });
     return (unsigned int)m_polycache.size() - 1;
 }
 void Earth::changeLatitudeCurve(unsigned int index, double lat, glm::vec4 color, float width, bool rad) {
@@ -1173,10 +1183,9 @@ void Earth::removePrimeMeridian() {
         if (po.type == PRIME_MERIDIAN) po.type = NONE;
     }
 }
-
 unsigned int Earth::addLongitudeCurve(double lon, glm::vec4 color, float width, bool rad, unsigned int type) {
     if (!rad) lon *= deg2rad;
-    PolyCurve* curve = new PolyCurve(m_scene, color, width);
+    PolyCurve* curve = m_scene->newPolyCurve(color, width);
     for (int lat = -90; lat <= 90; lat++) {
         curve->addPoint(getLoc3D(lat * deg2rad, lon, 0.0));
     }
@@ -1284,8 +1293,8 @@ void Earth::addArc(LLH llh1, LLH llh2, glm::vec4 color, float width, bool rad, c
         llh2.lon *= deg2rad; // 
     }
     // Might check if one of same type is present, and toss a warning to console !!!
-    PolyCurve* curve1 = new PolyCurve(m_scene, color, width);
-    PolyCurve* curve2 = new PolyCurve(m_scene, color, width);
+    PolyCurve* curve1 = m_scene->newPolyCurve(color, width);
+    PolyCurve* curve2 = m_scene->newPolyCurve(color, width);
     m_polycache2.push_back({ curve1, curve2, width, type, color, llh1, llh2, /* refraction */ 0.0, /* fend */ 1.0, ca, /* closed */ false});
     updateCompositePath(m_polycache2.back());
     return;
@@ -1301,7 +1310,7 @@ void Earth::addFlatArc(LLH llh1, LLH llh2, glm::vec4 color, float width, bool ra
         llh2.lat *= deg2rad;
         llh2.lon *= deg2rad;
     }
-    PolyCurve* curve = new PolyCurve(m_scene, color, width);
+    PolyCurve* curve = m_scene->newPolyCurve(color, width);
     LLH llh;
     glm::vec3 pos2;
     // Get Cartesian endpoints and lerp in xyz space
@@ -1364,10 +1373,10 @@ void Earth::addArcPoint(glm::vec3 ap, bool first, bool last, glm::vec3& oldap, P
     return;
 }
 void Earth::addTerminatorTrueMoon(glm::vec4 color, float width) {
-    //PolyCurve* curve1 = new PolyCurve(m_scene, LIGHT_GREEN, width);  // Show paths in two different colors to troubleshoot
-    //PolyCurve* curve2 = new PolyCurve(m_scene, LIGHT_RED, width);
-    PolyCurve* curve1 = new PolyCurve(m_scene, color, width);
-    PolyCurve* curve2 = new PolyCurve(m_scene, color, width);
+    //PolyCurve* curve1 = m_scene->newPolyCurve(LIGHT_GREEN, width);  // Show paths in two different colors to troubleshoot
+    //PolyCurve* curve2 = m_scene->newPolyCurve(LIGHT_RED, width);
+    PolyCurve* curve1 = m_scene->newPolyCurve(color, width);
+    PolyCurve* curve2 = m_scene->newPolyCurve(color, width);
     m_polycache2.push_back({ curve1, curve2,
                                 width, MOONTERMINATOR, color,
                                 {m_moonDec, m_moonHour, 0.0}, {0.0, 0.0, 0.0},
@@ -1396,8 +1405,8 @@ void Earth::updateTerminatorTrueMoon(polycache2& p) {
     return;
 }
 void Earth::addTerminatorTrueSun(glm::vec4 color, float width) {
-    PolyCurve* curve1 = new PolyCurve(m_scene, color, width);
-    PolyCurve* curve2 = new PolyCurve(m_scene, color, width);
+    PolyCurve* curve1 = m_scene->newPolyCurve(color, width);
+    PolyCurve* curve2 = m_scene->newPolyCurve(color, width);
     m_polycache2.push_back({ curve1, curve2,
                                 width, SUNTERMINATOR, color,
                                 {subsolar.lat, subsolar.lon, 0.0}, {0.0, 0.0, 0.0},
@@ -1426,7 +1435,22 @@ void Earth::updateTerminatorTrueSun(polycache2& p) {
     return;
     return;
 }
-
+void Earth::addSubsolarPath(double begin, double finish, unsigned int steps, bool fixed) {
+    // Params are in fractional JDs
+    if (begin == NO_DOUBLE) begin = -0.5;
+    if (finish == NO_DOUBLE) finish = 0.5;
+    if (steps == NO_UINT) steps = (finish - begin) * 360.0; // default to 360 degrees per day
+    sunpath = m_scene->m_astro->getCelestialPath(SUN, begin, finish, steps, ECGEO, fixed);
+    suncurve = m_scene->newPolyCurve(SUNCOLOR, 0.005f, steps);
+    updateSubsolarPath();
+}
+void Earth::updateSubsolarPath() {
+    suncurve->clearPoints();
+    for (auto& sp : sunpath->entries) {
+        suncurve->addPoint(getLoc3D(sp.geodec, -sp.geogha));
+    }
+    suncurve->generate();
+}
 LLH Earth::calcTerminator(LLH llh1, LLH llh2, double param, double refang, bool rad) {
     if (!rad) {
         llh1.lat *= deg2rad;
@@ -1455,6 +1479,53 @@ LLH Earth::calcTerminator(LLH llh1, LLH llh2, double param, double refang, bool 
     }
     return res;
 }
+void Earth::addTissotIndicatrix(LLH location, double radius, bool rad) {
+    // Can draw an indicatrix directly at a pole.
+    // To validate, compare with:
+    // https://map-projections.net/img/tissot-30-w/azimutal-equidistant-gpolar.jpg?ft=616b1080  radius = 5deg, grid = 10
+    // https://map-projections.net/img/tissot-30/rectang-0.jpg?ft=54e394a0 radius 7.5, grid = 15
+    if (!rad) {
+        location.lat *= deg2rad;
+        location.lon *= deg2rad;
+        radius *= deg2rad;
+    }
+    unsigned int steps = 180;  // Might need to be a passed in parameter? !!!
+    tissotcurve2 = m_scene->newPolyCurve(LIGHT_BLUE, 0.002f, steps);  // Obviously not scalable. Make into Arc or Composite path
+    // Method: Draw a circe around the north pole, of the right size, in lat,lon coordinates.
+    // Rotate it into place at provided location, converting to Cartesian world coordinates and plot using PolyCurve.
+    double const zangle = location.lon - pi;   // Negative of angle to rotate around Z, to center above X axis
+    double const yangle = location.lat - pi2;  // Really -(90-lat) Negative of angle to rotate around Y to center on north pole
+    double const cy = cos(yangle);
+    double const sy = sin(yangle);
+    double const cz = cos(zangle);
+    double const sz = sin(zangle);
+    double const lz = (float)sin(pi2 - radius);
+    //glm::vec3 loc = glm::vec3(0.0f);
+    for (double a = 0.0; a <= tau; a += tau / steps) {
+        // This is the actual process: (I have condensed it slightly below, tossing variables that are not used, and substituted vars only used once)
+        //loc.x = (float)(radius * cos(a));
+        //loc.y = (float)(radius * sin(a));
+        //loc.z = (float)sin(pi2 - radius);   // Not dependent on a, so can be outside loop
+        //loc2 = glm::rotateY(loc, yangle);
+        //loc3 = glm::rotateZ(loc2, zangle);
+        //LLH sloc = getXYZtoLLH_NS(loc3);   // lat/lon in radians
+        //tissotcurve2->addPoint(getLoc3D(sloc.lat, sloc.lon));
+
+        // The biggest saving is precalculating the sines and cosines of yangle and zangle
+        // Further reduction by resolving variables and reducing the formulae yielded no better results
+        double lx = radius * cos(a);
+        double ly = radius * sin(a);
+        double l2x = lx * cy + lz * sy;
+        double l3x = l2x * cz - ly * sz;
+        double l3y = l2x * sz + ly * cz;
+        double lat = atan2(-lx * sy + lz * cy, sqrt(l3x * l3x + l3y * l3y));
+        double lon = atan2(l3y, l3x);
+        tissotcurve2->addPoint(getLoc3D(lat, lon));
+    }
+    tissotcurve2->generate();
+    // This could relatively easily be altered to be a calculation function for updateCompositePath(), at a slight overhead.
+}
+
 void Earth::updateCompositePath(polycache2& p) {
     // NOTE: Height is awkward, not currently tracked/lerped !!!
     //       For Moon and Sun groundpath it is not needed. But for the Lerp and Great paths, it might be nice!
@@ -1580,7 +1651,7 @@ void Earth::genGeom() {
 }
 void Earth::updateSun() {
     // Get XYZ of subsolar point and flat sun (as per sun height set in GUI)
-    subsolar = m_scene->m_celestOb->getDecGHA(SUN); // subsolar.lon is west of south, 0 to tau
+    subsolar = m_scene->m_astro->getDecGHA(SUN); // subsolar.lon is west of south, 0 to tau
     //std::cout << "Earth::updateSun(): subsolar.gha { " << subsolar.lat << ", " << subsolar.lon << ", " << subsolar.dst << " }\n";
 
     if (subsolar.lon < pi) subsolar.lon = -subsolar.lon;
@@ -1639,7 +1710,7 @@ Location::~Location() {
 void Location::Destroy() {
     if (!m_polycache.empty()) {
         for (auto& pa : m_polycache.m_Elements) {  // These are full objects made with new, so delete
-            delete pa.path;             // But isn't this messing the vector length while iterating? - No. We delete path not cache.
+            m_scene->deletePolyCurve(pa.path);
             delete pa.planetCP;
         }
         m_polycache.clear();
@@ -1790,15 +1861,15 @@ glm::vec3 Location::calcDirEleAzi(LLH heading, bool radians) {
 }
 glm::vec3 Location::calcDirRADec(double ra, double dec, double jd) {
     // Takes RA and Dec in degrees and JD, returns normalized vec3 direction
-    if (jd == 0.0) jd = m_scene->m_celestOb->getJD();
-    double gsidtime = m_scene->m_celestOb->getGsid(jd); // In radians
+    if (jd == 0.0) jd = m_scene->m_astro->getJD();
+    double gsidtime = m_scene->m_astro->getGsid(jd); // In radians
     double lha = gsidtime + m_lon - deg2rad * ra;
-    LLH topocentric = m_scene->m_celestOb->calcGeo2Topo({ deg2rad * dec, lha, 0.0 }, { m_lat, m_lon, 0.0 });
+    LLH topocentric = m_scene->m_astro->calcGeo2Topo({ deg2rad * dec, lha, 0.0 }, { m_lat, m_lon, 0.0 });
     return calcDirEleAzi(topocentric, true);
 }
 glm::vec3 Location::getTrueSunDir(double jd) {
-    LLH sun = m_scene->m_celestOb->getDecGHA(SUN, jd);
-    localsun = m_scene->m_celestOb->calcGeo2Topo(sun, { m_lat, m_lon, 0.0 }); // Sun Ele, Azi
+    LLH sun = m_scene->m_astro->getDecGHA(SUN, jd);
+    localsun = m_scene->m_astro->calcGeo2Topo(sun, { m_lat, m_lon, 0.0 }); // Sun Ele, Azi
     return calcDirEleAzi(localsun, true);
 }
 glm::vec3 Location::getFlatSunDir(double jd) {
@@ -1811,8 +1882,8 @@ Location::TrueSun::TrueSun(Location* location) : m_location(location) {
     update(true, true, true); // Ensure there are valid astronomical values
 }
 void Location::TrueSun::update(bool time, bool geometry, bool flatsun) {
-    sun = m_location->m_scene->m_celestOb->getDecGHA(SUN); // Current Sun GHA, Dec, no JD specified
-    localsun = m_location->m_scene->m_celestOb->calcGeo2Topo(sun, { m_location->m_lat, m_location->m_lon, 0.0 }); // Sun Ele, Azi
+    sun = m_location->m_scene->m_astro->getDecGHA(SUN); // Current Sun GHA, Dec, no JD specified
+    localsun = m_location->m_scene->m_astro->calcGeo2Topo(sun, { m_location->m_lat, m_location->m_lon, 0.0 }); // Sun Ele, Azi
     //std::cout << "Calculated elevation angle: " << rad2deg*localsun.lat << "\n";
     sundir = m_location->calcDirEleAzi(localsun, true);
 
@@ -2052,9 +2123,9 @@ void Location::updateArrow3DEleAzi(arrowcache& ar) {
 void Location::addArrow3DRADec(unsigned int unique, double ra, double dec, glm::vec4 color, float width, float length) {
     // Takes RA & Dec in degrees
     // m_lat & m_lon are in rads. Consider using getLat(true) and getLon(true) instead
-    double gsidtime = m_scene->m_celestOb->getGsid(); // In radians
+    double gsidtime = m_scene->m_astro->getGsid(); // In radians
     double gha = gsidtime - (deg2rad * ra); // calcGeo2Topo() needs GHA, not LHA
-    LLH topocentric = m_scene->m_celestOb->calcGeo2Topo({ deg2rad * dec, gha, 0.0 }, { m_lat, m_lon, 0.0 });
+    LLH topocentric = m_scene->m_astro->calcGeo2Topo({ deg2rad * dec, gha, 0.0 }, { m_lat, m_lon, 0.0 });
     glm::vec3 dir = calcDirEleAzi(topocentric, true);
     unsigned int index = m_arrows->addStartDirLen(m_pos, dir, length, width, color);
     m_arrowcache.push_back({ m_pos, dir, color, length, width, dec, ra, index, RADEC3D, unique });
@@ -2071,9 +2142,9 @@ void Location::addArrow3DRADec(unsigned int unique, double ra, double dec, glm::
 // ADD: deleteArrow3DRADec(), changeArrow3DRADec()
 void Location::updateArrow3DRADec(arrowcache& ar) {
     //NOTE: Stellarium gives Azimuth in clockwise from North, topocentric is clockwise from South
-    double gsidtime = m_scene->m_celestOb->getGsid(); // In radians
+    double gsidtime = m_scene->m_astro->getGsid(); // In radians
     double gha = gsidtime - (deg2rad * ar.azimuth);
-    LLH topocentric = m_scene->m_celestOb->calcGeo2Topo({ deg2rad * ar.elevation, gha, 0.0 }, { m_lat, m_lon, 0.0 });
+    LLH topocentric = m_scene->m_astro->calcGeo2Topo({ deg2rad * ar.elevation, gha, 0.0 }, { m_lat, m_lon, 0.0 });
     glm::vec3 dir = calcDirEleAzi(topocentric, true);
     m_arrows->changeStartDirLen(ar.index, m_pos, dir, ar.length, ar.width, ar.color);
 }
@@ -2140,8 +2211,8 @@ void Location::updateArrow3DTrueMoon(arrowcache& ar) {
 }
 
 void Location::updateArrow3DTruePlanet(arrowcache& ar) {
-    LLH pos = m_scene->m_celestOb->getDecGHA(ar.unique);
-    LLH topo = m_scene->m_celestOb->calcGeo2Topo(pos, { m_lat, m_lon, 0.0 });
+    LLH pos = m_scene->m_astro->getDecGHA(ar.unique);
+    LLH topo = m_scene->m_astro->calcGeo2Topo(pos, { m_lat, m_lon, 0.0 });
     glm::vec3 dir = calcDirEleAzi(topo, true);
     m_arrows->changeStartDirLen(ar.index, m_pos, dir, ar.length, 0.003f, ar.color);
 }
@@ -2153,9 +2224,9 @@ void Location::addArrow3DTruePlanet(unsigned int planet, float length, glm::vec4
         }
     }
     color = getPlanetColor(planet, color);
-    m_scene->m_celestOb->enablePlanet(planet);
-    LLH pos = m_scene->m_celestOb->getDecGHA(planet);
-    LLH topo = m_scene->m_celestOb->calcGeo2Topo(pos, { m_lat, m_lon, 0.0 });
+    m_scene->m_astro->enablePlanet(planet);
+    LLH pos = m_scene->m_astro->getDecGHA(planet);
+    LLH topo = m_scene->m_astro->calcGeo2Topo(pos, { m_lat, m_lon, 0.0 });
     glm::vec3 dir = calcDirEleAzi(topo, true);
     unsigned int index = m_arrows->addStartDirLen(m_pos, dir, length, 0.003f, color);
     m_arrowcache.push_back({ m_pos, dir, color, length, 0.003f, topo.lat, topo.lon, index, TRUEPLANET3D, planet });
@@ -2180,9 +2251,9 @@ void Location::updateLine3DFlatSun(cylindercache& l) {
 // To facilitate deleting paths, they should return an id of some sort. Done! No??
 // Additionally the polycache must support gap elimination (or mark entries as void). Done by using tightvec!
 void Location::addPlanetaryPath(unsigned int planet, double startoffset, double endoffset, unsigned int steps, unsigned int type, glm::vec4 color, float width) {
-    CelestialPath* planetCP = m_scene->m_celestOb->getCelestialPath(planet, startoffset, endoffset, steps, ECGEO);
+    CelestialPath* planetCP = m_scene->m_astro->getCelestialPath(planet, startoffset, endoffset, steps, ECGEO);
     color = getPlanetColor(planet, color);
-    PolyCurve* path = new PolyCurve(m_scene, color, width);
+    PolyCurve* path = m_scene->newPolyCurve(color, width);
     unsigned int index = m_polycache.store({ path, planetCP, width, type, color, 0.0, 0.0, planet });
     m_polycache[index].index = index;
     updatePlanetaryPath(m_polycache[index]);
@@ -2192,7 +2263,7 @@ void Location::addPlanetaryPath(unsigned int planet, double startoffset, double 
 void Location::updatePlanetaryPath(polycache& pa) {
     pa.path->clearPoints();
     for (auto const& pt : pa.planetCP->entries) {
-        LLH topo = m_scene->m_celestOb->calcGeo2Topo({ pt.geodec, pt.geogha, 0.0 }, { m_lat, m_lon, 0.0 });
+        LLH topo = m_scene->m_astro->calcGeo2Topo({ pt.geodec, pt.geogha, 0.0 }, { m_lat, m_lon, 0.0 });
         glm::vec3 dir = calcDirEleAzi(topo, true);
         pa.path->addPoint(m_pos + dir * m_radius);
     }
@@ -2208,7 +2279,7 @@ void Location::deletePlanetaryPath(unsigned int type, unsigned int unique) {
     }
     if (path != nullptr) {
         delete path->path; // PolyCurve
-        m_scene->m_celestOb->removeCelestialPath(path->planetCP); // CelestialPath
+        m_scene->m_astro->removeCelestialPath(path->planetCP); // CelestialPath
         unsigned int index = path->index;
         m_polycache.remove(index); // Cache
     }
@@ -2234,7 +2305,7 @@ void Location::deletePlanetTruePathSidYear(unsigned int planet) {
     deletePlanetaryPath(SIDPLANET3D, planet);
 }
 void Location::addPath3DFlatSun(glm::vec4 color, float width) {
-    PolyCurve* path = new PolyCurve(m_scene, color, width);
+    PolyCurve* path = m_scene->newPolyCurve(color, width);
     doPath3DFlatSun(path);
     m_polycache.store({ path, nullptr, width, FLATSUN3D, color, 0.0, 0.0, 0 });
 }
@@ -2247,7 +2318,7 @@ void Location::doPath3DFlatSun(PolyCurve* path) {
     // Change to smarter date/time based start and end
     // For now, just sweep 1 JD centered on current epoch
     //float height = 0.0/earthradius; // Observer height in km to Earth radii 
-    double myJD = m_scene->m_celestOb->getJD() + 0.5;
+    double myJD = m_scene->m_astro->getJD() + 0.5;
     for (double fday = myJD - 1.0; fday < myJD; fday += 0.01) {
         path->addPoint(m_pos + getFlatSunDir(fday) * m_radius);
     }
@@ -2255,7 +2326,7 @@ void Location::doPath3DFlatSun(PolyCurve* path) {
 }
 
 void Location::addPath3DTrueMoon(glm::vec4 color, float width) {
-    PolyCurve* path = new PolyCurve(m_scene, color, width);
+    PolyCurve* path = m_scene->newPolyCurve(color, width);
     doPath3DTrueMoon(path);
     m_polycache.store({ path, nullptr, width, TRUEMOON3D, color, 0.0, 0.0, 0 });
 }
@@ -2267,7 +2338,7 @@ void Location::updatePath3DTrueMoon(polycache p) {
 void Location::doPath3DTrueMoon(PolyCurve* path) {
     // Change to smarter date/time based start and end
     // For now, just sweep 1 JD centered on current epoch
-    double myJD = m_scene->m_celestOb->getJD() + 0.5;
+    double myJD = m_scene->m_astro->getJD() + 0.5;
     for (double fday = myJD - 1.0; fday < myJD; fday += 0.01) {
         LLH moon = m_earth->getMoon(fday);
         CAA2DCoordinate localmoon = CAACoordinateTransformation::Equatorial2Horizontal(
@@ -2280,7 +2351,7 @@ void Location::doPath3DTrueMoon(PolyCurve* path) {
 
 // Stars are likely to be added in multitudes, implement a unique id passed by caller (unsigned int)
 void Location::addPath3DRADec(unsigned int unique, double ra, double dec, glm::vec4 color, float width) {
-    PolyCurve* path = new PolyCurve(m_scene, color, width);
+    PolyCurve* path = m_scene->newPolyCurve(color, width);
     doPath3DRADec(ra, dec, path);
     m_polycache.store({ path, nullptr, width, RADEC3D, color, dec, ra, unique });
 }
@@ -2292,7 +2363,7 @@ void Location::updatePath3DRADec(polycache& pa) {
 void Location::doPath3DRADec(double ra, double dec, PolyCurve* path) {
     // Change to smarter date/time based start and end
     // For now, just sweep 1 JD centered on current epoch
-    double myJD = m_scene->m_celestOb->getJD() + 0.5;
+    double myJD = m_scene->m_astro->getJD() + 0.5;
     for (double fday = myJD - 1.0; fday < myJD; fday += 0.01) {
         glm::vec3 point = m_pos + calcDirRADec(ra, dec, fday) * m_radius;
         path->addPoint(point);
@@ -2306,7 +2377,7 @@ void Location::doPath3DRADec(double ra, double dec, PolyCurve* path) {
 // -------------
 SolarSystem::SolarSystem(Scene* scene, bool geocentric) : m_scene(scene), m_geocentric(geocentric) {
     //std::cout << "SolarSystem::SolarSystem()\n";
-    m_astro = m_scene->m_celestOb;
+    m_astro = m_scene->m_astro;
     m_jd = m_astro->getJD();
     glm::vec3 earthpos = CalcEarth() + m_sunpos;
     m_sunpos = m_geocentric ? -earthpos : glm::vec3(0.0f);
@@ -2393,8 +2464,8 @@ void SolarSystem::PlanetOrbit(unsigned int planet, bool update) {
         double siderealyear = m_planetinfos[planet - SUN].sidyear; // Earth days
         glm::vec4 color = m_planetinfos[planet - SUN].color;
         color.a = 0.4f;
-        m_PlanetPath[planet - SUN] = new PolyCurve(m_scene, color, solsyspathwidth);
-        m_PlanetOrbit[planet - SUN] = m_scene->m_celestOb->getCelestialPath(planet, -0.5 * siderealyear, 0.5 * siderealyear, orbitsteps, EC);
+        m_PlanetPath[planet - SUN] = m_scene->newPolyCurve(color, solsyspathwidth);
+        m_PlanetOrbit[planet - SUN] = m_scene->m_astro->getCelestialPath(planet, -0.5 * siderealyear, 0.5 * siderealyear, orbitsteps, EC);
     }
     if (update) m_PlanetPath[planet - SUN]->clearPoints();
     for (auto const& pt : m_PlanetOrbit[planet - SUN]->entries) {
@@ -2412,7 +2483,7 @@ void SolarSystem::SunPos(bool update) {
     if (m_PlanetTrail[SUN] != nullptr && m_trails) m_PlanetTrail[SUN]->push(m_sunpos);
 }
 void SolarSystem::SunOrbit(bool update) {
-    m_SunPath = new PolyCurve(m_scene, SUNCOLOR, solsyspathwidth);
+    m_SunPath = m_scene->newPolyCurve(SUNCOLOR, solsyspathwidth);
     double siderealyear = 366; // Sun days
     for (double jd = m_astro->getJD() - 0.5 * siderealyear; jd < m_astro->getJD() + 0.5 * siderealyear; jd += siderealyear / 360) {
         glm::vec3 pos = CalcSun(jd);
@@ -2572,7 +2643,7 @@ void SkySphere::UpdateTime(double jd) {
     // HACK to keep steady background when displaying SolarSystem, check that it is orientated correctly !!!
     // Problem with this hack is, it will now create a SolarSystem and move on.
     //if (m_scene->getSolsysOb() != nullptr) return;
-    m_gsid = (float)(-m_scene->m_celestOb->getGsid(jd));
+    m_gsid = (float)(-m_scene->m_astro->getGsid(jd));
     // Update Dot cache with rotation
     for (auto& d : m_dotcache) {
         updateDotDecRA(d);
@@ -2598,7 +2669,7 @@ void SkySphere::addDotDecRA(unsigned int unique, double dec, double ra, bool rad
     double ra2;
     if (ra < pi) ra2 = -ra;
     else ra2 = tau - ra;
-    glm::vec3 pos = getLoc3D_NS(dec, m_gsid - ra2);
+    glm::vec3 pos = 0.5f * getLoc3D_NS(dec, m_gsid - ra2);
     unsigned int index = m_dots->addXYZ(pos, LIGHT_GREEN, 0.3f);
     m_dotcache.push_back({ unique, LIGHT_GREEN, dec, ra, 0.0f, 0.3f, index });
     return; // (unsigned int)m_dotcache.size() - 1;

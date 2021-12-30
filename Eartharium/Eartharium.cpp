@@ -89,16 +89,16 @@ class SceneObject {
         Camera* camera;
         // add the rest ...
     };
-    unsigned int id = 0;
-    unsigned int type = 0;
-    //primobj primitiveobject;            // The geometry etc of this object (of type SceneObject::type)
-    // std::vector<SceneObject*> children;
-    glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
+    glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);  //PolyCurve, how does this apply???
     glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f);
     glm::vec4 orientation = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f); // Up vec3 + rotation about up, from which angle?
     glm::vec4 color = WHITE;
     //Material* material = nullptr;
     glm::mat4 worldmatrix = glm::mat4(1.0f);
+    unsigned int id = 0;
+    unsigned int type = 0;
+    //primobj primitiveobject;            // The geometry etc of this object (of type SceneObject::type)
+    // std::vector<SceneObject*> children;
 public:
     std::string name = "Object";
     SceneObject* parent = nullptr;
@@ -318,7 +318,7 @@ void DemoVideo(Application& myapp) { // Might be better to pass as pointer, so a
     // Demonstrate Sun Direction
     // Set up UTC time display
     RenderLayerText* text = myapp.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, nullptr);
-    text->setCelestialMech(astro);
+    text->setAstronomy(astro);
     text->setFont(myapp.m_font2);  // Default monospace 36 point font
     astro->setTime(2021, 9, 22.0, 12.0, 0.0, 0.0, true); // UTC midday on september equinox 2021
     myapp.render();
@@ -345,6 +345,84 @@ void DemoVideo(Application& myapp) { // Might be better to pass as pointer, so a
 
         myapp.render();             // Render everything to screen (and optionally to file)
     }
+}
+
+void SunLesson001(Application* app) {
+    // Set up RenderLayer3D with required items
+    app->update();
+    Astronomy* astro = app->newAstronomy();
+    astro->setTime(2021, 9, 21.0, 12.0, 0.0, 0.0, true);
+    Scene* scene = app->newScene();
+    Camera* cam = scene->w_camera;
+    cam->setLatLonFovDist(0.0f, 0.0f, 12.0f, 10.0f);
+    RenderLayer3D* layer = app->newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+
+    // Set up RenderLayerText with required items
+    RenderLayerTextLines textlines = RenderLayerTextLines(); // Not required to create a RenderLayerText, a nullptr can be passed. But I need it below.
+    char angletext[] = "Elevation: xxx.xxx\n";
+    std::string sangletext = "Elevation: xxx.xxx\n";
+    textlines.addLine(sangletext);
+    RenderLayerText* text = app->newLayerText(0.0f, 0.0f, 1.0f, 1.0f, &textlines);
+    text->setFont(app->m_font2);
+    text->setAstronomy(astro);
+
+    // Set up RenderLayerGUI
+    RenderLayerGUI* gui = app->newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    gui->addLayer3D(layer, "Earth Scene");
+
+    // Build scene
+    Earth* earth = scene->newEarth("NS", 180, 90);
+    earth->w_sinsol = false;
+    earth->w_refract = false;
+    earth->w_twilight = false;
+    earth->flatsunheight = 0.0f;
+    earth->addGrid(15.0f);
+    //earth->addArrow3DTrueSun(2.0f, 0.005f, SUNCOLOR);
+    earth->addSubsolarPoint();
+
+    //app->setFullScreen();
+    //app->renderoutput = true;
+
+    // Simply Earth with Subsolar point, for intro screen
+    app->render();
+
+    // Sun orbit one day before September equinox 2021
+    app->incSequence();
+    unsigned int frames = 60;
+    double hours = 24.0 / frames;
+    for (unsigned int i = 0; i < frames; i++) {
+        astro->addTime(0.0, hours, 0.0, 0.0);
+        app->render();
+    }
+
+
+    app->setWindowed();
+    // Sun GP path in 24 hours
+    earth->addSubsolarPath(0.0, 10.0, NO_UINT, true); // From now, one day ahead
+    //earth->deleteSubsolarPoint();
+
+    // Show subsolar point following the plotted path
+    app->incSequence();
+    frames = 60;
+    hours = 240.0 / frames;
+    for (unsigned int i = 0; i < frames; i++) {
+        astro->addTime(0.0, hours, 0.0, 0.0);
+        app->render();
+    }
+
+    earth->addTissotIndicatrix({ -90.0, -40.0, 0.0 }, 5.0, false);
+
+    app->anim = false;
+    //app->setWindowed();
+    app->renderoutput = false;
+    while (!glfwWindowShouldClose(app->window)) {
+
+        if (app->anim) astro->addTime(0.0, 0.0, 5.0, 0.0);
+        scene->w_camera->update(); // Can this be added somewhere so we don't need to call it explicitly? !!!
+
+        app->render();
+    }
+
 }
 
 
@@ -376,7 +454,7 @@ void AngleArcsDev(Application& myapp) {
     textlines.addLine(sangletext);
     RenderLayerText* text = myapp.newLayerText(0.0f,0.0f,1.0f,1.0f, &textlines);
     text->setFont(myapp.m_font2);
-    text->setCelestialMech(astro);
+    text->setAstronomy(astro);
 
     //glm::vec3 pos = glm::vec3(0.0f, 0.0f, 0.0f);
     //glm::vec3 start = glm::vec3(0.5f, 0.5f, 0.0f);
@@ -473,7 +551,7 @@ void TestArea6(Application& myapp) {
     RenderLayerTextLines lines;
     RenderLayerText* text = myapp.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, &lines);
     text->setFont(myapp.m_font2);
-    text->setCelestialMech(astro);  // Probably change the method name !!!
+    text->setAstronomy(astro);  // Probably change the method name !!!
 
     SkySphere* sky = scene->newSkysphere(180, 90);
     sky->addStars();
@@ -503,8 +581,6 @@ void TestArea6(Application& myapp) {
         myapp.render();
     }
 }
-
-
 
 
 void TestArea5(Application& myapp) {
@@ -660,7 +736,7 @@ void TestArea5(Application& myapp) {
 
     RenderLayerText* text = myapp.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, lines);
     text->setFont(myapp.m_font2);
-    text->setCelestialMech(astro);  // Probably change the method name !!!
+    text->setAstronomy(astro);  // Probably change the method name !!!
 
     //glm::vec3 dotpos = glm::vec3(0.0f, 0.0f, 0.0f);
     //scene->getDotsOb()->FromXYZ(dotpos, LIGHT_GREEN, 0.2f);
@@ -807,7 +883,7 @@ void TestArea3() {
     lines->addLine(eccen);
     RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, lines);
     text->setFont(app.m_font2);
-    text->setCelestialMech(astro);  // Probably change the method name !!!
+    text->setAstronomy(astro);  // Probably change the method name !!!
 
     RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
     //gui->addScene(scene1, "Earth Scene"); // Should this be addLayer3D instead? It has the Astronomy and the Scene, the GUI can then also control the view
@@ -899,15 +975,6 @@ void TestArea3() {
     }
     delete lines;
 }
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1447,7 +1514,7 @@ PYBIND11_EMBEDDED_MODULE(eartharium, m) {
         )
         ;
     py::class_<RenderLayerText>(m, "RenderLayerText")
-        .def("setCelestialMech", &RenderLayerText::setCelestialMech, "Sets the Astronomy keeping time, if synchronized UTC display is desired.",
+        .def("setAstronomy", &RenderLayerText::setAstronomy, "Sets the Astronomy keeping time, if synchronized UTC display is desired.",
             py::arg("astro")
         )
         .def("setFont", &RenderLayerText::setFont, "Set the predefined font to use for the text in the layer",
@@ -1542,10 +1609,12 @@ int main() {
     // Good for things not yet implemented in python interface, or while developing things,
     // but requires a recompile for every change. Python scripts can simply be saved after changes, and Eartharium can be run again.
 
-    TestArea6(app);
-
+    //TestArea6(app);
     //AngleArcsDev(app);
     //DemoVideo(app);
+
+    SunLesson001(&app);
+
     // Cleanup
     glfwTerminate();
 

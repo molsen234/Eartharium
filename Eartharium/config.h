@@ -44,6 +44,7 @@
 #define NEPTUNECOLOR glm::vec4(0.5f, 0.5f, 1.0f, 1.0f)
 
 // No care values - Used to indicate that no value is provided. Used to keep existing values whatever they are in functions that receive multiple values
+#define NO_UINT maxuint
 #define NO_FLOAT maxfloat
 #define NO_DOUBLE maxdouble
 #define NO_VEC2 glm::vec2(maxfloat)
@@ -70,6 +71,10 @@ const float locsunarrowwidth = 0.003f;
 const float locpathwidth = 0.002f;       // Default local sky paths width
 const float locanalemmawidth = locpathwidth;
 const float locsunpathwidth = locpathwidth;
+
+// Primitives cofig
+// - PolyCurve -
+const size_t polycurvereserve = 5000; // default number of points in a path to reserve
 
 // For debug convenience
 #define VPRINT(v) std::cout << "(" << v.x << "," << v.y << "," << v.z << ")\n"

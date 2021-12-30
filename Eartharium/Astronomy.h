@@ -22,6 +22,7 @@ public:
 	double jdEnd = 0.0;
 	unsigned int jdSteps = 0;
 	unsigned int cpType = EC;
+	bool fixedpath = false; // When this flag is set to true, the updater will no longer recalculate the path
 	unsigned int m_refcnt = 1;
 	unsigned int index = maxuint;
 	std::vector<CelestialDetail> entries;
@@ -31,11 +32,11 @@ private:
 	double m_stepsize = 0.0;
 	bool m_updating = true;   // Whether this path is updating to current JD (true) or it is frozen in time (false)
 public:
-	CelestialPath(Astronomy* celmec, unsigned int planet, double start, double end, unsigned int steps, unsigned int type);
+	CelestialPath(Astronomy* celmec, unsigned int planet, double start, double end, unsigned int steps, unsigned int type, bool fixed = false);
 	~CelestialPath();
 	bool operator==(const CelestialPath& other);
 	bool operator!=(const CelestialPath& other);
-	void update();
+	void update(bool force = true);
 	void incref();
 	void decref();
 private:
@@ -59,11 +60,13 @@ private:
 	double m_hour = 0.0;
 	double m_minute = 0.0;
 	double m_second = 0.0;
-	bool m_gregorian = false;
+	bool m_gregorian = true;
 	double m_gsidtime = 0.0; // Greenwich sidereal time in radians
 
 	tightvec<CelestialPath*> cacheCP;
 
+	// Planet current time cached parameters (Tip: planet 0 is the Sun)
+	// This could be done using a vector<CelestialDetail> instead, if refcnt is added to CelestialDetail. Check where changes are needed !!!
 	unsigned int planet_refcnt[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	double planet_ecJD[10] = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }; // JD of Ecliptic data
 	double planet_ecLat[10] = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
@@ -111,7 +114,7 @@ public:
 	//CAAEllipticalPlanetaryDetails calcEllipticalRad(double JD, unsigned int planet);
 	CelestialDetail getDetails(double JD, unsigned int planet, unsigned int type);
 
-	CelestialPath* getCelestialPath(unsigned int planet, double startoffset, double endoffset, unsigned int steps, unsigned int type);
+	CelestialPath* getCelestialPath(unsigned int planet, double startoffset, double endoffset, unsigned int steps, unsigned int type, bool fixed = false);
 	void updateCelestialPaths();
 	void removeCelestialPath(CelestialPath* path);
 
@@ -124,10 +127,10 @@ public:
 	double getEcLat(unsigned int planet, double jd);
 	double getEcLon(unsigned int planet, double jd);
 	double getRadius(unsigned int planet, double jd, bool km = true);
-	double EcLatMercury(double jd);
-	double EcLonMercury(double jd);
-	double EcDstMercury(double jd);
-	double EcLatVenus(double jd);
+	double EcLatMercury(double jd);  // If all we need is one of these for example when interpolating.
+	double EcLonMercury(double jd);  // Most will use getDetails() instead to get everything,
+	double EcDstMercury(double jd);  // or getDecRA() / getDecGHA() if geocentric is desired,
+	double EcLatVenus(double jd);    // or even getEcLat(), getEcLon(), getEcRadius() while specifying the planet by enum.
 	double EcLonVenus(double jd);
 	double EcDstVenus(double jd);
 	double EcLonEarth(double jd);

@@ -197,6 +197,9 @@ private:
     SubSolar* m_sunob = nullptr;
     unsigned int m_sunpole = maxuint;
     unsigned int m_suncone = maxuint;
+    // As other astro paths are added, they should probably be colleced in a vector and updated in a unified update function
+    CelestialPath* sunpath = nullptr;
+    PolyCurve* suncurve = nullptr;
     float m_flatsunheight = 3000.0f;
     bool flatsundirty = false;
     //PolyCurve* m_sunterm1 = nullptr;
@@ -228,6 +231,8 @@ private:
     std::vector<arrowcache> m_arrowcache;
     std::vector<polycache> m_polycache;
     std::vector<polycache2> m_polycache2;
+    PolyCurve* tissotcurve = nullptr;
+    PolyCurve* tissotcurve2 = nullptr;
 public:
     Earth(Scene* scene, std::string mode, unsigned int meshU, unsigned int meshV);
     ~Earth();
@@ -327,7 +332,10 @@ public:
     void addTerminatorTrueSun(glm::vec4 color = LIGHT_YELLOW, float width = 0.003f);
     void deleteTerminatorTrueSun();
     void updateTerminatorTrueSun(polycache2& p);
+    void addSubsolarPath(double begin = NO_DOUBLE, double finish = NO_DOUBLE, unsigned int steps = NO_UINT, bool fixed = false);
+    void updateSubsolarPath();
     LLH calcTerminator(LLH llh1, LLH llh2, double param, double refang = 0.0, bool rad = true);
+    void addTissotIndicatrix(LLH location, double radius, bool rad);
     void updateCompositePath(polycache2& p);
 private:
     void genGeom();

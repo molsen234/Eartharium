@@ -18,6 +18,13 @@ Camera::Camera(Scene* scene) : m_scene(scene) {
     update();
     //Recalc();   NOTE: Set reasonable defaults in Primitives.h and do Recalc() so cam starts in well defined configuration !!!
 }
+void Camera::setLatLonFovDist(float lat, float lon, float fov, float dst) {
+    camLat = lat;
+    camLon = lon;
+    camFoV = fov;
+    camDst = dst;
+    update();
+}
 void Camera::setCamLightPos(glm::vec3 lPos) { CamLightDir = glm::normalize(lPos); }
 void Camera::setLatLon(float lat, float lon) {
     if (lat != NO_FLOAT) camLat = lat;
@@ -87,6 +94,7 @@ void Camera::Recalc() {
 Scene::Scene(Application* app) : m_app(app) {
     // Set up a default Camera
     w_camera = newCamera();  // Will also be m_cameras[0]
+    if (m_app->currentCam == nullptr) m_app->currentCam = w_camera;
     // Cameras need a scene to look at, so they should be derived from Scene::newCamera() or similar
     // Need to support more than one Camera per scene, so it should return a reference that can be passed to RenderLayer3D
 }
@@ -100,7 +108,7 @@ Scene::~Scene() {
     if (m_conesOb != nullptr) delete m_conesOb;
     if (m_viewconesOb != nullptr) delete m_viewconesOb;
     if (m_dotsOb != nullptr) delete m_dotsOb;
-    if (m_celestOb != nullptr) delete m_celestOb;
+    if (m_astro != nullptr) delete m_astro;
 }
 Camera* Scene::newCamera() {
     Camera* cam = new Camera(this);
@@ -174,8 +182,9 @@ void Scene::render() {
     if (m_dotsOb != nullptr) m_dotsOb->draw(NONE);
     if (m_viewconesOb != nullptr) m_viewconesOb->draw(NONE);
     if (m_anglearcsOb != nullptr) m_anglearcsOb->draw();
-    // Do PiP last before GUI as it is layered on top of scene
-
+    for (auto& p : m_polycurves) {
+        p->draw();
+    }
 }
 Dots* Scene::getDotsOb() {
     if (m_dotsOb == nullptr) m_dotsOb = new Dots(this);
@@ -242,6 +251,7 @@ Earth* Scene::newEarth(std::string mode, unsigned int mU, unsigned int mV) {
     return m_earthOb;
 }
 Earth* Scene::getEarth() {
+    // NOTE: Don't use this unless you know what you are doing. It is meant to be an internal function.
     if (m_earthOb != nullptr) return m_earthOb;
     else {
         std::cout << "WARNING: Scene::getEarth(): was asked for Earth object, but none is available!\n";
@@ -249,9 +259,21 @@ Earth* Scene::getEarth() {
         return nullptr;
     }
 }
-Minifigs* Scene::newMinifigs() {
+Minifigs* Scene::newMinifigs() { // Only single observer at the moment, fix this (like PolyCurve for example) !!!
     if (m_minifigsOb == nullptr) m_minifigsOb = new Minifigs(this);
     return m_minifigsOb;
+}
+PolyCurve* Scene::newPolyCurve(glm::vec4 color, float width, unsigned int reserve) {
+    m_polycurves.emplace_back(new PolyCurve(this, color, width, reserve));
+    return m_polycurves.back();
+}
+void Scene::deletePolyCurve(PolyCurve* curve) {
+    auto it = std::find(m_polycurves.begin(), m_polycurves.end(), curve);
+    if (it != m_polycurves.end()) {
+        std::swap(*it, m_polycurves.back());
+        m_polycurves.pop_back();
+        delete curve;
+    }
 }
 
 
@@ -295,7 +317,7 @@ void RenderLayer::animate() {
 // ---------------
 RenderLayer3D::RenderLayer3D(float vpx1, float vpy1, float vpx2, float vpy2, Scene* scene, Astronomy* astro, Camera* cam)
     : m_scene(scene), m_astro(astro), RenderLayer(vpx1, vpy1, vpx2, vpy2) {
-    m_scene->m_celestOb = m_astro;
+    m_scene->m_astro = m_astro;
     float w = (float)m_scene->m_app->getWidth();
     float h = (float)m_scene->m_app->getHeight();
     updateViewport(w, h);
@@ -329,7 +351,7 @@ void RenderLayer3D::animateViewport() {
 
 RenderLayerText::RenderLayerText(float vpx1, float vpy1, float vpx2, float vpy2, Application* app, RenderLayerTextLines* lines)
     : m_lines(lines), m_app(app), RenderLayer(vpx1, vpy1, vpx2, vpy2) {
-    // If lines == nullptr no lines are printed, except UTC datetime if setCelestialMech() has been called
+    // If lines == nullptr no lines are printed, except UTC datetime if setAstronomy() has been called
     // also astro access so it can print datetimes etc autonomously? No, submit text changes via lines
     float w = (float)m_app->getWidth();
     float h = (float)m_app->getHeight();
@@ -346,7 +368,7 @@ void RenderLayerText::setFont(ImFont* font) {
 //    m_font = io.Fonts->AddFontFromFileTTF("C:\\Coding\\Eartharium\\Eartharium\\textures\\cour.ttf", 36);
 //    // AddFont* is called, but maybe font is already loaded. Can various ImGUI layers cooperate on this sort of thing?
 //}
-void RenderLayerText::setCelestialMech(Astronomy* astro) {
+void RenderLayerText::setAstronomy(Astronomy* astro) {
     m_astro = astro;
 }
 void RenderLayerText::updateViewport(float w, float h) {} // TODO: Scale texts to fit viewport? Render to temp fbo first? !!!
@@ -599,10 +621,10 @@ void RenderLayerPlot::render() {
         //std::cout << "Start, End time: " << start_time << ", " << end_time << "\n";
         ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle);
         ImPlot::SetNextLineStyle(m_predcolor, 2.0f);
-        ImPlot::PlotLine("Globe prediction", &m_pred->begin()->utime, &m_pred->begin()->data, m_pred->size(), 0, sizeof(TimePlotData));
+        ImPlot::PlotLine("Globe prediction", &m_pred->begin()->utime, &m_pred->begin()->data, (int)m_pred->size(), 0, (int)sizeof(TimePlotData));
         ImPlot::SetNextMarkerStyle(ImPlotMarker_Diamond);
         ImPlot::SetNextLineStyle(m_datacolor, 1.0f);
-        ImPlot::PlotStems("Measurements", &m_data->begin()->utime, &m_data->begin()->data, m_data->size(), 0.0, 0, sizeof(TimePlotData));
+        ImPlot::PlotStems("Measurements", &m_data->begin()->utime, &m_data->begin()->data, (int)m_data->size(), 0.0, 0, (int)sizeof(TimePlotData));
         ImPlot::PlotVLines("VLines", &current_time, 1);
         ImPlot::EndPlot();
     }
@@ -633,77 +655,6 @@ void RenderLayerPlot::setTopBottom(double top, double bottom) {
 void RenderLayerPlot::setCurrentTime(double time) {
     current_time = time;
 }
-
-
-// -------------
-//  RenderChain
-// -------------
-//RenderChain::RenderChain(Application* app) : m_app(app) {
-//    m_layers.reserve(16); // ?? Might need to be a list instead of a vector
-//    //m_layers.push_back(new RenderLayer(m_application->getWindow2Viewport())); // Default render layer
-//}
-//RenderLayer3D* RenderChain::newLayer3D(float vpx1, float vpy1, float vpx2, float vpy2, Scene* scene, Astronomy* astro, Camera* cam) {
-//    //std::cout << "RenderChain::newLayer3D() was called!\n";
-//    if (cam == nullptr) cam = scene->w_camera;
-//    RenderLayer3D* layer = new RenderLayer3D(vpx1, vpy1, vpx2, vpy2, scene, astro, cam);
-//    m_layers.push_back(layer);
-//    //std::cout << " -> Returning layer: " << layer << "\n";
-//    return layer;
-//}
-//RenderLayerText* RenderChain::newLayerText(float vpx1, float vpy1, float vpx2, float vpy2, RenderLayerTextLines* lines) {
-//    RenderLayerText* layer = new RenderLayerText(vpx1, vpy1, vpx2, vpy2, m_app, lines);
-//    m_layers.push_back(layer);
-//    return layer;
-//}
-//RenderLayerGUI* RenderChain::newLayerGUI(float vpx1, float vpy1, float vpx2, float vpy2) {
-//    RenderLayerGUI* layer = new RenderLayerGUI(vpx1, vpy1, vpx2, vpy2, m_app);
-//    m_layers.push_back(layer);
-//    return layer;
-//}
-//RenderLayerPlot* RenderChain::newLayerPlot(float vpx1, float vpy1, float vpx2, float vpy2) {
-//    RenderLayerPlot* layer = new RenderLayerPlot(vpx1, vpy1, vpx2, vpy2, m_app);
-//    m_layers.push_back(layer);
-//    return layer;
-//}
-//void RenderChain::updateView(int w, int h) {
-//    // Called from Application when switching between full screen and windowed mode, ADD: or when window is resized !!!
-//    float width = (float)w;
-//    float height = (float)h;
-//    for (auto& l : m_layers) {
-//        l->updateViewport(width, height);
-//    }
-//}
-//void RenderChain::do_render() {
-//    if (m_app->interactive) m_app->update(); // Set the interactive flag while experimenting so resizing works properly during python script
-//    // Update necessary layer related items, then render. Copy from world, or use world do_render() for now.
-//    //glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-//    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-//    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-//    m_app->update();
-//    m_app->beginImGUI();
-//    for (auto& l : m_layers) {
-//        l->animateViewport();
-//        l->render();
-//    }
-//    m_app->endImGUI();
-//    if (renderoutput) RenderFrame(0);
-//    currentframe++;
-//    glfwSwapBuffers(m_app->window);
-//}
-//void RenderChain::RenderFrame(unsigned int framebuffer) {
-//    std::string fullname = "C:\\Coding\\Eartharium\\Eartharium\\AnimOut\\" + basefname;
-//    char numerator[20];
-//    sprintf(numerator, "S%03d-%04d.png", currentseq, currentframe);
-//    fullname.append(numerator);
-//    saveImage(fullname, m_app->window, 0);               // default frame buffer
-//    //saveImage(fullname, window, framebuffer);
-//    std::cout << "Rendered Frame " << currentframe << " to " << fullname << "\n";
-//    //delete[] numerator;  // NO! It is stack allocated!
-//}
-//void RenderChain::incSequence() {
-//    currentseq++;
-//    currentframe = 0;
-//}
 
 
 // -------------
@@ -742,11 +693,39 @@ int Application::initWindow() {
     isfullscreen = false;
     togglefullwin = start_fullscreen;    // If start_fullscreen is true, window will toggle to full on next loop
 
+    glfwGetWindowPos(window, &w_posx, &w_posy);
+
     initImGUI();  // Might need to check for success and pass return code
 
     return 0;
 }
-void Application::SetWH(int w, int h) {  // Note: Called from GLFW window resize callback
+void Application::setFullScreen() {
+    if (isfullscreen) return;
+    // Toggle to full screen mode
+    win_width = w_width;
+    win_height = w_height;
+    glfwGetWindowPos(window, &w_posx, &w_posy);
+    glfwSetWindowMonitor(window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
+    w_width = mode->width;
+    w_height = mode->height;
+    togglefullwin = false;
+    isfullscreen = true;
+    updateView(w_width, w_height);
+}
+void Application::setWindowed(int width, int height) {
+    // Toggle to windowed mode - values defaults to previous windowed size if none are given
+    // Don't check if windowed or fullscreen, is also used to change window size while windowed.
+    if (width == 0) width = win_width;
+    if (height == 0) height = win_height;
+    w_width = width;
+    w_height = height;
+    glfwSetWindowMonitor(window, nullptr, w_posx, w_posy, w_width, w_height, mode->refreshRate);
+    togglefullwin = false;
+    isfullscreen = false;
+    updateView(w_width, w_height);
+}
+void Application::SetWH(int w, int h) {
+    // NOTE: This is an internal callback for GFLW, use setWindowed(int width, int height) to set window size
     w_width = w;
     w_height = h;
     updateView(w_width, w_height);
@@ -755,31 +734,8 @@ int Application::getWidth() { return w_width; }
 int Application::getHeight() { return w_height; }
 void Application::update() {
     glfwPollEvents();    // Should cause callbacks to be triggered
-    if (togglefullwin && !isfullscreen) {
-        // Toggle to full screen mode
-        win_width = w_width;
-        win_height = w_height;
-        glfwGetWindowPos(window, &w_posx, &w_posy);
-        glfwSetWindowMonitor(window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
-        //m_winVP = { 0, 0, mode->width, mode->height };
-        //glViewport(0, 0, mode->width, mode->height);    // Should probably do this in RenderChain instead !!!
-        w_width = mode->width;
-        w_height = mode->height;
-        togglefullwin = false;
-        isfullscreen = true;
-        updateView(w_width, w_height);
-    }
-    if (togglefullwin && isfullscreen) {
-        // Toggle to windowed mode
-        w_width = win_width;
-        w_height = win_height;
-        glfwSetWindowMonitor(window, nullptr, w_posx, w_posy, w_width, w_height, mode->refreshRate);
-        //m_winVP = { 0, 0, w_width, w_height };
-        //glViewport(0, 0, w_width, w_height);              // Should probably do this in RenderChain instead !!!
-        togglefullwin = false;
-        isfullscreen = false;
-        updateView(w_width, w_height);
-    }
+    if (togglefullwin && !isfullscreen) { setFullScreen(); }
+    if (togglefullwin && isfullscreen) { setWindowed(win_width, win_height); }
     if (currentCam != nullptr) currentCam->update();
     if (dumpcam && currentCam != nullptr) {
         std::cout << "Camera dump at frame: " << currentframe << "\n";
@@ -791,7 +747,6 @@ void Application::update() {
     }
 }
 float Application::getAspect() {
-    //std::cout << "Application::getAspect() Viewport w,h: " << m_winVP.vp_w << "," << m_winVP.vp_h << "\n";
     if (w_height == 0) {
         std::cout << "ERROR! Application::getAspect(): m_winVP.vp_h is zero, so aspect ratio will cause DIV0 exception! Returning 0.0f instead.\n";
         return 0.0f;
@@ -810,7 +765,7 @@ void Application::initImGUI() {
     m_font1 = io.Fonts->AddFontFromFileTTF("C:\\Coding\\Eartharium\\Eartharium\\textures\\cour.ttf", 16);
     m_font2 = io.Fonts->AddFontFromFileTTF("C:\\Coding\\Eartharium\\Eartharium\\textures\\cour.ttf", 36);
 
-    ImPlot::CreateContext(); // For Plot Layers. When RenderChain invocation is integrated into Application, it can be dynamically allocated when needed !!!
+    ImPlot::CreateContext(); // For plot layers only needs init once
 
     imgui_ready = true;
 }
@@ -826,11 +781,9 @@ void Application::endImGUI() {
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 RenderLayer3D* Application::newLayer3D(float vpx1, float vpy1, float vpx2, float vpy2, Scene* scene, Astronomy* astro, Camera* cam) {
-    //std::cout << "RenderChain::newLayer3D() was called!\n";
     if (cam == nullptr) cam = scene->w_camera;
     RenderLayer3D* layer = new RenderLayer3D(vpx1, vpy1, vpx2, vpy2, scene, astro, cam);
     m_layers.push_back(layer);
-    //std::cout << " -> Returning layer: " << layer << "\n";
     return layer;
 }
 void Application::deleteLayer3D(RenderLayer3D* layer) {
@@ -924,7 +877,7 @@ SkyBox::~SkyBox() {
 }
 void SkyBox::Draw() {
     glm::mat4 proj =  glm::perspective(glm::radians(70.0f), m_scene->m_app->getAspect(), 0.1f, 100.0f);
-    double timerot = hrs2rad * rad2deg * -m_scene->m_celestOb->getGsid(); //  -100.0; NOTE: Probably because cubemap is loaded incorrectly !!!
+    double timerot = hrs2rad * rad2deg * -m_scene->m_astro->getGsid(); //  -100.0; NOTE: Probably because cubemap is loaded incorrectly !!!
     m_scene->w_camera->camLon -= (float)timerot;
     m_scene->w_camera->update();
     glm::mat4 view = glm::mat4(glm::mat3(m_scene->w_camera->getViewMat()));
@@ -1050,7 +1003,7 @@ unsigned int AngleArcs::add(glm::vec3 position, glm::vec3 start, glm::vec3 stop,
 
     m_arcs.push_back({ nullptr, 0, color, position, start, stop, length, width, rad2deg * rangle, false });
 
-    m_arcs.back().polycurve = new PolyCurve(m_scene, color, width);
+    m_arcs.back().polycurve = m_scene->newPolyCurve(color, width);
     // loop from 0 to rangle in steps of deg2rad (one degree in radians)
     glm::vec3 point = glm::vec3(0.0f);
     nstart *= length;
@@ -1060,10 +1013,10 @@ unsigned int AngleArcs::add(glm::vec3 position, glm::vec3 start, glm::vec3 stop,
         m_arcs.back().polycurve->addPoint(point + position);
     }
     m_arcs.back().polycurve->generate();
-    return m_arcs.size() - 1;
+    return (unsigned int)m_arcs.size() - 1;
 }
 void AngleArcs::remove(unsigned int index) {
-    delete m_arcs[index].polycurve;
+    m_scene->deletePolyCurve(m_arcs[index].polycurve);
     m_arcs[index].expired = true;
 }
 void AngleArcs::update(unsigned int index, glm::vec3 position, glm::vec3 start, glm::vec3 stop, float length, glm::vec4 color, float width) {
@@ -1103,22 +1056,17 @@ void AngleArcs::draw() {
 // -----------
 //  PolyCurve
 // -----------
-const unsigned int polycurvereserve = 5000; // number of points in a path to reserve
-PolyCurve::PolyCurve(Scene* scene, glm::vec4 color, float width) : m_scene(scene) {
-    // Might take a parent, for relative coords in AddPoint()
-    //std::cout << "PolyCurve::PolyCurve() " << this << "\n";
-    // This shifts the generation of the cylinder segments to the GPU, compared to Path3D.
-    // It is a drop-in replacement, every interface is identical.
+PolyCurve::PolyCurve(Scene* scene, glm::vec4 color, float width, size_t reserve) : m_scene(scene) {
+    // NOTE: It is preferred to instantiate these via the Scene object!
+    if (reserve == NO_UINT) reserve = polycurvereserve; 
     m_color = color;
     m_width = width;
-    m_points.reserve(polycurvereserve);
-    m_segments.reserve(polycurvereserve);
+    m_points.reserve(reserve+2);   // Add a little headroom
+    m_segments.reserve(reserve+2); // When sizing it is easy to think of the number of points, and forget an extra one is used for closing the curve.
     facets = 16;
     m_verts.reserve(((size_t)facets + 1) * 2);
     m_tris.reserve((size_t)facets * 2);
     genGeom();
-    //std::string shdarrowsrc = "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitive.shader";
-    //shdr = new Shader(shdarrowsrc);
     shdr = m_scene->m_app->getShaderLib()->getShader(PRIMITIVE_SHADER);
     vbl1 = new VertexBufferLayout;  // Vertices list
     vbl1->Push<float>(3);           // Vertex coord (pos)
@@ -1137,8 +1085,6 @@ PolyCurve::PolyCurve(Scene* scene, glm::vec4 color, float width) : m_scene(scene
     ib = new IndexBuffer((unsigned int*)&m_tris[0], (unsigned int)m_tris.size() * 3);  // IB uses COUNT, not BYTES!!!
 }
 PolyCurve::~PolyCurve() {
-    //std::cout << "\n\nPolyCurve destroyed!!\n\n";
-    //delete shdr;
     delete vbl2;
     delete vbl1;
     delete ib;
@@ -1146,27 +1092,29 @@ PolyCurve::~PolyCurve() {
     // delete vb2;  // Is deleted on every Draw() call completion
     delete va;
 }
-void PolyCurve::addPoint(glm::vec3 point) { // Should check if reserve is full and warn at console.
+void PolyCurve::addPoint(glm::vec3 point) {
+    //if (limit) std::cout << "WARNING PolyPolyCurve (" << this << ") adding beyond capacity, resizing!\n"; // only triggers if coming back after setting limit flag
     m_points.push_back(point);
+    if (m_points.size() == m_points.capacity()) {
+        std::cout << "WARNING: PolyCurve (" << this << ") capacity: " << m_points.capacity() << " reached. It will be SLOW to add new points now!\n";
+    //    limit = true;
+    }
 }
 void PolyCurve::clearPoints() {
     m_points.clear();
     m_segments.clear(); // Just in case someone would clear the points and not call generate() to update segments.
+    //limit = false;
 }
 void PolyCurve::generate() {
     // Simply figure out the position, orientation and scale of each cylinder segment
-    // and build instance table
+    // and build instance table. Cylinders are actually instantiated on GPU
     m_segments.clear();
     for (unsigned int i = 1; i < m_points.size(); i++) {
-        // color(4), pos(3), dir(3), scale(3)
         glm::vec3 pos = m_points[i - 1];
         glm::vec3 dir = m_points[i] - m_points[i - 1];
         glm::vec3 scale = glm::vec3(m_width, glm::length(dir), m_width);
+        // color(4), pos(3), dir(3), scale(3)
         m_segments.push_back({ m_color, pos, dir, scale, 0.0 });
-        //m_segments.push_back({ m_color, m_points[i - 1], m_points[i] - m_points[i - 1], glm::vec3(m_width, glm::length(m_points[i] - m_points[i - 1]), m_width) });
-        //std::cout << "Segment " << i << ": (" << pos.x << "," << pos.y << "," << pos.z << ") ("
-        //    << dir.x << "," << dir.y << "," << dir.z << ") ("
-        //    << scale.x << "," << scale.y << "," << scale.z << ")\n";
     }
 }
 void PolyCurve::draw() {
@@ -1182,15 +1130,16 @@ void PolyCurve::draw() {
     vb2 = new VertexBuffer(&m_segments[0], (unsigned int)m_segments.size() * sizeof(Primitive3D));
     va->AddBuffer(*vb2, *vbl2, false);
     // Primitives list (0,1,2 are in vertex list)
-    glVertexAttribDivisor(3, 1);               // Color4
-    glVertexAttribDivisor(4, 1);               // Pos3
-    glVertexAttribDivisor(5, 1);               // Dir3
-    glVertexAttribDivisor(6, 1);               // Scale3
-    glVertexAttribDivisor(7, 1);               // Rot1
+    glVertexAttribDivisor(3, 1);    // Color4
+    glVertexAttribDivisor(4, 1);    // Pos3
+    glVertexAttribDivisor(5, 1);    // Dir3
+    glVertexAttribDivisor(6, 1);    // Scale3
+    glVertexAttribDivisor(7, 1);    // Rot1
     glDrawElementsInstanced(GL_TRIANGLES, ib->GetCount(), GL_UNSIGNED_INT, 0, (GLsizei)m_segments.size());
     delete vb2;
 }
 void PolyCurve::genGeom() { // Single segment
+    // NOT using the Cylinders primitive here, as we can make do with less facets
     float width = 1.0f;  // actually radius
     float height = 1.0f; // length of cylinder
     double lon;
@@ -1204,15 +1153,15 @@ void PolyCurve::genGeom() { // Single segment
         clonw = clon * width;
         slon = (float)sin(lon);
         slonw = slon * width;
-        // position3, normal3, uv2
-        m_verts.push_back({ glm::vec3(clonw, 1.0f, slonw), glm::vec3(clon, 0.0f, slon), glm::vec2(0.0f, 0.0f) });
-        m_verts.push_back({ glm::vec3(clonw, 0.0f, slonw), glm::vec3(clon, 0.0f, slon), glm::vec2(0.0f, 0.0f) });
+        // position(3), normal(3), uv(2)
+        m_verts.emplace_back(glm::vec3(clonw, 1.0f, slonw), glm::vec3(clon, 0.0f, slon), glm::vec2(0.0f, 0.0f));
+        m_verts.emplace_back(glm::vec3(clonw, 0.0f, slonw), glm::vec3(clon, 0.0f, slon), glm::vec2(0.0f, 0.0f));
         if (u < facets) {
-            m_tris.push_back({ u * 2    , u * 2 + 1, u * 2 + 3 });
-            m_tris.push_back({ u * 2    , u * 2 + 3, u * 2 + 2 });
+            // indexA(1), indexB(1), indexC(1) CCW
+            m_tris.emplace_back(u * 2, u * 2 + 1, u * 2 + 3);
+            m_tris.emplace_back(u * 2, u * 2 + 3, u * 2 + 2);
         }
     }
-    //std::cout << "Verts: " << m_verts.size() << " Tris: " << m_tris.size() << "\n";
 }
 
 
@@ -1522,9 +1471,9 @@ void Minifigs::genGeom() {
             int c = std::stoi(line.substr(pos), &sz);
             pos += (int)sz + 2;
             int cn = std::stoi(line.substr(pos), &sz);
-            m_verts[a-1].normal = normals[an-1];
-            m_verts[b-1].normal = normals[bn-1];
-            m_verts[c-1].normal = normals[cn-1];
+            m_verts[(size_t)a-1].normal = normals[(size_t)an-1];
+            m_verts[(size_t)b-1].normal = normals[(size_t)bn-1];
+            m_verts[(size_t)c-1].normal = normals[(size_t)cn-1];
             m_tris.push_back({ (unsigned int)a-1, (unsigned int)b-1, (unsigned int)c-1 });
         }
     }

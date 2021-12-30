@@ -14,7 +14,7 @@
 //  Increase / decrease by delta unit
 //  Set to specific JD
 //  Set to specific UTC
-//  
+//  Set to specific UNIX TimeStamp
 
 // How to deal with getting calculations for paths vs reusing calculations for current moment?
 // Maybe calling without param jd for current time, and only updating stored values if calling a time function
@@ -27,14 +27,14 @@ class Earth;
 // ---------------
 //  CelestialPath
 // ---------------
-CelestialPath::CelestialPath(Astronomy* celmec, unsigned int planet, double startoffset, double endoffset, unsigned int steps, unsigned int type)
-    : m_astro(celmec), jdStart(startoffset), jdEnd(endoffset), jdSteps(steps), cpType(type) {
+CelestialPath::CelestialPath(Astronomy* celmec, unsigned int planet, double startoffset, double endoffset, unsigned int steps, unsigned int type, bool fixed)
+    : m_astro(celmec), jdStart(startoffset), jdEnd(endoffset), jdSteps(steps), cpType(type), fixedpath(fixed) {
     // Also have the option of a fixed CelestialPath that doesn't follow/update with current JD. !!!
     this->planet = planet;
     //std::cout << "CelestialPath() constructor, CelestialMech* is: " << celmec << "\n";
     m_stepsize = (endoffset - startoffset) / (double)steps;
     entries.reserve(1000);
-    update();
+    update(/* force */ true); // Force update even if fixed is true, to get initial data
 }
 CelestialPath::~CelestialPath() {
     //std::cout << "~CelestialPath{" << this << "} destroyed: planet = " << planet << "\n";
@@ -42,13 +42,14 @@ CelestialPath::~CelestialPath() {
 }
 bool CelestialPath::operator==(const CelestialPath& other) {
     // Add fuzz factor to double comparisons !!!
-    return (planet == other.planet && jdEnd == other.jdEnd && jdStart == other.jdStart && jdSteps == other.jdSteps);
+    return (planet == other.planet && jdEnd == other.jdEnd && jdStart == other.jdStart && jdSteps == other.jdSteps && fixedpath == other.fixedpath);
 }
 bool CelestialPath::operator!=(const CelestialPath& other) {
     // Add fuzz factor to double comparisons !!!
-    return (planet != other.planet || jdEnd != other.jdEnd || jdStart != other.jdStart || jdSteps != other.jdSteps);
+    return (planet != other.planet || jdEnd != other.jdEnd || jdStart != other.jdStart || jdSteps != other.jdSteps || fixedpath != other.fixedpath);
 }
-void CelestialPath::update() {
+void CelestialPath::update(bool force) {
+    if (fixedpath && !force) return;
     double currentjd = m_astro->getJD();
     if (m_jdCurrent == currentjd) return;
     entries.clear();
@@ -152,23 +153,23 @@ void Astronomy::getTimeString(char* dstring) {
     long y, mo, d, h, mi;
     double s;
     m_date.Get(y, mo, d, h, mi, s);
-    sprintf(dstring, "%04d-%02d-%02d %02d:%02d:%02.0f\n", y, mo, d, h, mi, s);
+    sprintf(dstring, "%04d-%02d-%02d %02d:%02d:%02.0f UTC\n", y, mo, d, h, mi, s);
 }
 void Astronomy::updateTimeString() {
     // Triggers an update of the internally stored std::string Astronomy::timestr based on current JD
     long y, mo, d, h, mi;
     double s;
     m_date.Get(y, mo, d, h, mi, s);
-    sprintf((char*)timestr.c_str(), "%04d-%02d-%02d %02d:%02d:%02.0f\n", y, mo, d, h, mi, s);
+    sprintf((char*)timestr.c_str(), "%04d-%02d-%02d %02d:%02d:%02.0f UTC\n", y, mo, d, h, mi, s);
 }
 void Astronomy::DateTimeString(CAADate* date, char* dstring) {
     // dstring should be at least 21 chars long
-    sprintf(dstring, "%04d-%02d-%02d %02d:%02d:%02.0f", date->Year(), date->Month(), date->Day(), date->Hour(), date->Minute(), date->Second());
+    sprintf(dstring, "%04d-%02d-%02d %02d:%02d:%02.0f UTC", date->Year(), date->Month(), date->Day(), date->Hour(), date->Minute(), date->Second());
 }
 void Astronomy::JulianDateTimeString(double jd, char* dstring) {
     // dstring should be at least 21 chars long
     CAADate date = CAADate(jd, true);
-    sprintf(dstring, "%04d-%02d-%02d %02d:%02d:%02.0f", date.Year(), date.Month(), date.Day(), date.Hour(), date.Minute(), date.Second());
+    sprintf(dstring, "%04d-%02d-%02d %02d:%02d:%02.0f UTC", date.Year(), date.Month(), date.Day(), date.Hour(), date.Minute(), date.Second());
 }
 int Astronomy::getString2UnixTime(std::string& string) {
     // TODO: Implement like in Eartharium.cpp:TestArea5(), but resilient to missing seconds, and accepting either '/' or '-' date separator
@@ -178,9 +179,9 @@ int Astronomy::getDateTime2UnixTime(double year, double month, double day, doubl
     // Verified to work with negative Unix timestamps too, i.e. dates before epoch (1970-01-01 00:00:00)
     int y = (int)year - 1900;
     int ydays = (int)calcYearDay(year, month, day);
-    std::cout << "Day of Year: " << ydays << "\n";
+    //std::cout << "Day of Year: " << ydays << "\n";
     int utime = (int)second + (int)minute * 60 + (int)hour * 3600; // Day fraction
-    std::cout << "Day fraction: " << utime << "\n";
+    //std::cout << "Day fraction: " << utime << "\n";
     utime += ydays * 86400; // Month and day as calculated above, including current leap year
     utime += (y - 70) * 31536000 + ((y- 69) / 4) * 86400 - ((y - 1) / 100) * 86400 + ((y + 299) / 400) * 86400; // Previous leap years adjustment
     return utime;
@@ -450,21 +451,19 @@ CelestialDetail Astronomy::getDetails(double JD, unsigned int planet, unsigned i
     details.geodec = ApparentEqu.lat;
     return details;
 }
-
-
-
-CelestialPath* Astronomy::getCelestialPath(unsigned int planet, double startoffset, double endoffset, unsigned int steps, unsigned int type) {
+CelestialPath* Astronomy::getCelestialPath(unsigned int planet, double startoffset, double endoffset, unsigned int steps, unsigned int type, bool fixed) {
+    // Optional param fixed determined whether path will evolve with time or remain with initial values
     // Check if there is a matching CelestialPath already
     for (auto cp : cacheCP.m_Elements) {
         // Maybe upgrade type from ec to ecgeo if other params match
-        if (cp->planet == planet && cp->jdStart == startoffset && cp->jdEnd == endoffset && cp->jdSteps == steps && cp->cpType == type) {
+        if (cp->planet == planet && cp->jdStart == startoffset && cp->jdEnd == endoffset && cp->jdSteps == steps && cp->cpType == type && fixed == cp->fixedpath) {
             cp->m_refcnt++;
             //std::cout << "CelestialMech::getCelestialPath(): found matching CP for planet: " << cp->planet << "\n";
             return cp;
         }
     }
     // Otherwise create a new CelestialPath
-    CelestialPath* path = new CelestialPath(this, planet, startoffset, endoffset, steps, type);
+    CelestialPath* path = new CelestialPath(this, planet, startoffset, endoffset, steps, type, fixed);
     path->index = cacheCP.store(path);
     //std::cout << "CelestialMech::getCelestialPath(): created new CP {" << path << "} for planet: " << path->planet << "\n";
     return path;
@@ -480,12 +479,9 @@ void Astronomy::removeCelestialPath(CelestialPath* path) {
 void Astronomy::updateCelestialPaths() {
     //if (cacheCP.empty()) return;
     for (auto cp : cacheCP.m_Elements) {
-        cp->update();
+        if (!cp->fixedpath) cp->update();
     }
 }
-
-
-
 CAA2DCoordinate Astronomy::EclipticAberration(double Lambda, double Beta, double JD) {
     // From CAAAberration::EclipticAberration() converted to accept radians
     const double T = (JD - 2451545) / 36525;
@@ -584,6 +580,7 @@ double Astronomy::NutationInObliquity(double JD) {
 }
 double Astronomy::getEcLat(unsigned int planet, double jd) {
     // Heliocentric Ecliptic Latitude (ref. Equinox of Epoch) in radians
+    // Unconditionally caching may or may not be desired. Consider a flag, or rename the function so it is clear that getEcLat{planet}() may be preferable. !!!
     if (planet == MERCURY) planet_ecLat[planet] = EcLatMercury(jd);
     else if (planet == VENUS) planet_ecLat[planet] = EcLatVenus(jd);
     else if (planet == EARTH) planet_ecLat[planet] = EcLatEarth(jd);
