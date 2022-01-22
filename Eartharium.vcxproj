@@ -267,14 +267,16 @@
     <ClInclude Include="Eartharium\mdoOpenGL.h" />
     <ClInclude Include="Eartharium\Primitives.h" />
     <ClInclude Include="Eartharium\config.h" />
+    <ClInclude Include="Eartharium\shaders\line.shader" />
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />
     <None Include="Eartharium\hello.py" />
     <None Include="Eartharium\ImGUI\cpp.hint" />
     <None Include="Eartharium\shaders\earth-elliptic.shader" />
-    <None Include="Eartharium\shaders\pip.shader" />
+    <None Include="Eartharium\shaders\blit.shader" />
     <None Include="Eartharium\shaders\earth.shader" />
+    <None Include="Eartharium\shaders\glyph.shader" />
     <None Include="Eartharium\shaders\planetoid.shader" />
     <None Include="Eartharium\shaders\primitive.shader" />
     <None Include="Eartharium\shaders\primitivesdwbox.shader" />

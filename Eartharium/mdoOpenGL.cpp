@@ -16,7 +16,11 @@ VertexBuffer::~VertexBuffer()
 }
 void VertexBuffer::LoadData(const void* data, unsigned int size) {
     glBindBuffer(GL_ARRAY_BUFFER, m_RenderID);
-    glBufferData(GL_ARRAY_BUFFER, size, data, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, size, data, GL_DYNAMIC_DRAW);
+}
+void VertexBuffer::UpdateData(const void* data, unsigned int size) {
+    glBindBuffer(GL_ARRAY_BUFFER, m_RenderID);
+    glBufferSubData(GL_ARRAY_BUFFER,0, size, data);
 }
 void VertexBuffer::Bind() const
 {
@@ -39,7 +43,7 @@ IndexBuffer::IndexBuffer(const unsigned int* data, unsigned int count) {
     m_Count = count;
     glGenBuffers(1, &m_RenderID);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_RenderID);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, m_Count * sizeof(unsigned int), data, GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, m_Count * sizeof(unsigned int), data, GL_DYNAMIC_DRAW);
 }
 IndexBuffer::~IndexBuffer() {
     glDeleteBuffers(1, &m_RenderID);
@@ -121,7 +125,7 @@ Texture::Texture(const std::string& filepath, unsigned int texslot)  // Pass in 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     if (glfwExtensionSupported("GL_ARB_texture_filter_anisotropic")) {
         GLfloat value, max_anisotropy = 4.0f; /* don't exceed this value...*/
         glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &value);
@@ -153,10 +157,10 @@ void Texture::Bind() {
 	glActiveTexture(m_TextureSlot);
 	glBindTexture(GL_TEXTURE_2D, m_RenderID);
     //std::cout << "Texture::Bind(): TextureSlot: " << m_TextureSlot - GL_TEXTURE0 << ", RenderID: " << m_RenderID << ".\n";
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); // GL_CLAMP_TO_EDGE
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     //glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, 8.0f);
 }
 void Texture::Unbind() {
@@ -330,13 +334,20 @@ GLFWwindow* setupEnv(unsigned int width, unsigned int height, GLint major, GLint
         glfwTerminate();
         return NULL;
     }
+    // Check if GLFW enabled multisamples
+    GLint parm = 0;
+    glGetNamedFramebufferParameteriv(0, GL_SAMPLES, &parm);
+    std::cout << "default fbo GL_SAMPLES: " << parm << "\n";  // Note: Intel UHD 630 drivers give incorrect values!
+
     int texture_units;
     int tex_max_units;
     int linwidth[2];
+    int vplims[2];
     float maxanis;
     glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &texture_units);
     glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &tex_max_units);
     glGetIntegerv(GL_SMOOTH_LINE_WIDTH_RANGE, linwidth);
+    glGetIntegerv(GL_MAX_VIEWPORT_DIMS, vplims);
     glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &maxanis);
     std::cout << "OpenGL version:  " << glGetString(GL_VERSION) << "\n";
     std::cout << "OpenGL vendor:   " << glGetString(GL_VENDOR) << "\n";
@@ -345,6 +356,7 @@ GLFWwindow* setupEnv(unsigned int width, unsigned int height, GLint major, GLint
     std::cout << "Available line width: " << linwidth[0] << " to " << linwidth[1] << "\n";
     std::cout.precision(15);
     std::cout << "Maximum Anisotropic Filtering Samples: " << maxanis << "\n";
+    std::cout << "Maximum Viewport size (x,y): " << vplims[0] << ", " << vplims[1] << '\n';
     std::cout << "\n\n" << std::endl;
     // Register callback for when user resizes the window
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
@@ -375,10 +387,14 @@ GLFWwindow* setupEnv(unsigned int width, unsigned int height, GLint major, GLint
 // -----------------
 //  Save Screenshot
 // -----------------
-void saveImage(std::string& filepath, GLFWwindow* w, unsigned int framebuffer /* = 0 */) {
+void saveImage(std::string& filepath, GLFWwindow* w, unsigned int framebuffer /* = 0 */, int fb_width, int fb_height) {
     // Saving named framebuffer doesn't work right, it seems to save a low res image of the main window instead
     int width, height;
-    glfwGetFramebufferSize(w, &width, &height);
+    if (framebuffer == 0) glfwGetFramebufferSize(w, &width, &height);
+    else {
+        width = fb_width;
+        height = fb_height;
+    }
     GLsizei nrChannels = 3;
     GLsizei stride = nrChannels * width;
     stride += (stride % 4) ? (4 - stride % 4) : 0;
@@ -457,12 +473,12 @@ void ShadowBox::Render(glm::vec3 lightPos) {  // pass far plane?
     // Render objects that are allowed to cast shadows
     //glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
     // (so exclude SkyBox !!)
-    //world->GetSphereUVOb()->Draw(SHADOW_BOX);
-    m_scene->getCylindersOb()->draw(SHADOW_BOX);
-    //world->GetViewConesOb()->Draw(SHADOW_BOX);
-    //world->GetPlanesOb()->Draw(SHADOW_BOX);
-    m_scene->getConesOb()->draw(SHADOW_BOX);
-    //world->GetDotsOb()->Draw(SHADOW_BOX);
+    //world->GetSphereUVFactoryb()->Draw(SHADOW_BOX);
+    m_scene->getCylindersFactory()->draw(SHADOW_BOX);
+    //world->GetViewConesFactory()->Draw(SHADOW_BOX);
+    //world->GetPlanesFactory()->Draw(SHADOW_BOX);
+    m_scene->getConesFactory()->draw(SHADOW_BOX);
+    //world->GetDotsFactory()->Draw(SHADOW_BOX);
 
 
     // Cleanup
@@ -529,10 +545,10 @@ void ShadowMap::Render() {
     // Render objects that are allowed to cast shadows
     // (so exclude SkyBox !!)
     //world->GetSphereUVOb()->Draw(SHADOW_MAP);
-    m_scene->getCylindersOb()->draw(SHADOW_MAP);
+    m_scene->getCylindersFactory()->draw(SHADOW_MAP);
     //world->GetViewConesOb()->Draw(SHADOW_MAP);
     //world->GetPlanesOb()->Draw(SHADOW_MAP);
-    m_scene->getConesOb()->draw(SHADOW_MAP);
+    m_scene->getConesFactory()->draw(SHADOW_MAP);
     //world->GetDotsOb()->Draw(SHADOW_MAP);
     // Ensure frame is completely rendered before returning to scene render
     //GLsync fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);

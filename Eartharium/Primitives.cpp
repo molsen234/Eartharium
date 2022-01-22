@@ -107,6 +107,7 @@ Scene::~Scene() {
     if (m_cylindersOb != nullptr) delete m_cylindersOb;
     if (m_conesOb != nullptr) delete m_conesOb;
     if (m_viewconesOb != nullptr) delete m_viewconesOb;
+    if (m_skydotsOb != nullptr) delete m_skydotsOb;
     if (m_dotsOb != nullptr) delete m_dotsOb;
     if (m_astro != nullptr) delete m_astro;
 }
@@ -149,13 +150,12 @@ void Scene::clearScene() {
     if (m_conesOb != nullptr) { m_conesOb->clear(); }
     if (m_viewconesOb != nullptr) { m_viewconesOb->clear(); }
     if (m_planesOb != nullptr) { m_planesOb->clear(); }
-    //if (m_lettersOb != nullptr) { m_lettersOb->clear(); }
     // Should delete shader library here !!!
 }
 void Scene::render() {
     // Should take fbo render target !!!
     // Might take CelestialMech to be able to switch between eras? 
-    if (m_earthOb != nullptr) m_earthOb->Update(); // Make sure primitives are up to date before casting their shadows (earth updates locations)
+    if (m_earthOb != nullptr) m_earthOb->Update(); // Make sure primitives are up to date before casting their shadows (Earth updates Locations)
     // Do shadow pass here
     if (shadows == SHADOW_MAP) {
         if (m_shadowmap != nullptr) m_shadowmap->Render();
@@ -169,62 +169,72 @@ void Scene::render() {
     if (m_skyboxOb != nullptr) {
         m_skyboxOb->Draw();
     }
-    if (m_skysphereOb != nullptr) {
-        m_skysphereOb->Draw();
-    }
     if (m_earthOb != nullptr) m_earthOb->Draw();
     if (m_solsysOb != nullptr) m_solsysOb->Draw();
     if (m_minifigsOb != nullptr) m_minifigsOb->draw(NONE);
     if (m_sphereuvOb != nullptr) m_sphereuvOb->draw(NONE);
     if (m_cylindersOb != nullptr) m_cylindersOb->draw(NONE);
-    if (m_planesOb != nullptr) m_planesOb->draw(NONE);
     if (m_conesOb != nullptr) m_conesOb->draw(NONE);
-    if (m_dotsOb != nullptr) m_dotsOb->draw(NONE);
-    if (m_viewconesOb != nullptr) m_viewconesOb->draw(NONE);
+    if (m_dotsOb != nullptr) m_dotsOb->draw(NONE);   // Make second Dots primitive that draws only transparent Dots and place it near end of render chain !!!
+    if (m_skydotsOb != nullptr) m_skydotsOb->draw(); // SkyDots does not need to support shadows. But it does have a customized draw() function
     if (m_anglearcsOb != nullptr) m_anglearcsOb->draw();
     for (auto& p : m_polycurves) {
         p->draw();
     }
+    for (auto& p : m_polylines) {
+        p->draw();
+    }
+    if (m_skysphereOb != nullptr) m_skysphereOb->draw();
+    if (m_planesOb != nullptr) m_planesOb->draw(NONE);
+    if (m_viewconesOb != nullptr) m_viewconesOb->draw(NONE);
+    if (m_textFactory != nullptr) m_textFactory->draw();
 }
-Dots* Scene::getDotsOb() {
+Dots* Scene::getDotsFactory() {
     if (m_dotsOb == nullptr) m_dotsOb = new Dots(this);
     return m_dotsOb;
 }
-Cylinders* Scene::getCylindersOb() {
+SkyDots* Scene::getSkyDotsFactory() {
+    if (m_skydotsOb == nullptr) m_skydotsOb = new SkyDots(this);
+    return m_skydotsOb;
+}
+Cylinders* Scene::getCylindersFactory() {
     if (m_cylindersOb == nullptr) m_cylindersOb = new Cylinders(this);
     return m_cylindersOb;
 }
-Cones* Scene::getConesOb() {
+Cones* Scene::getConesFactory() {
     if (m_conesOb == nullptr) m_conesOb = new Cones(this);
     return m_conesOb;
 }
-ViewCones* Scene::getViewConesOb() {
+ViewCones* Scene::getViewConesFactory() {
     if (m_viewconesOb == nullptr) m_viewconesOb = new ViewCones(this);
     return m_viewconesOb;
 }
-Planes* Scene::getPlanesOb() {
+Planes* Scene::getPlanesFactory() {
     if (m_planesOb == nullptr) m_planesOb = new Planes(this);
     return m_planesOb;
 }
-//Letters* Scene::getLettersOb() {
-//    if (m_lettersOb == nullptr) m_lettersOb = new Letters(htis);
-//    return m_lettersOb;
-//}
-SphereUV* Scene::getSphereUVOb() {
+TextFactory* Scene::getTextFactory() {
+    if (m_textFactory == nullptr) m_textFactory = new TextFactory(this);
+    return m_textFactory;
+}
+SphereUV* Scene::getSphereUVFactory() {
     if (m_sphereuvOb == nullptr) m_sphereuvOb = new SphereUV(this);
     return m_sphereuvOb;
 }
-Arrows* Scene::getArrowsOb() {
+Arrows* Scene::getArrowsFactory() {
     if (m_arrowsOb == nullptr) m_arrowsOb = new Arrows(this);
     return m_arrowsOb;
 }
-AngleArcs* Scene::getAngleArcsOb() {
+AngleArcs* Scene::getAngleArcsFactory() {
     if (m_anglearcsOb == nullptr) m_anglearcsOb = new AngleArcs(this);
     return m_anglearcsOb;
 }
-
-SkySphere* Scene::newSkysphere(unsigned int mU, unsigned int mV) {
-    if (m_skysphereOb == nullptr) m_skysphereOb = new SkySphere(this, mU, mV);  // Make geometry configurable
+CountryBorders* Scene::getCountryBordersFactory() {
+    if (m_countrybordersOb == nullptr) m_countrybordersOb = new CountryBorders(this);
+    return m_countrybordersOb;
+}
+SkySphere* Scene::newSkysphere(unsigned int mU, unsigned int mV, bool texture) {
+    if (m_skysphereOb == nullptr) m_skysphereOb = new SkySphere(this, mU, mV, texture);  // Make geometry configurable
     return m_skysphereOb;
 }
 SkySphere* Scene::getSkysphere() {
@@ -272,6 +282,18 @@ void Scene::deletePolyCurve(PolyCurve* curve) {
     if (it != m_polycurves.end()) {
         std::swap(*it, m_polycurves.back());
         m_polycurves.pop_back();
+        delete curve;
+    }
+}
+PolyLine* Scene::newPolyLine(glm::vec4 color, float width, unsigned int reserve) {
+    m_polylines.emplace_back(new PolyLine(this, color, width, reserve));
+    return m_polylines.back();
+}
+void Scene::deletePolyLine(PolyLine* curve) {
+    auto it = std::find(m_polylines.begin(), m_polylines.end(), curve);
+    if (it != m_polylines.end()) {
+        std::swap(*it, m_polylines.back());
+        m_polylines.pop_back();
         delete curve;
     }
 }
@@ -336,6 +358,7 @@ void RenderLayer3D::render() {
 }
 void RenderLayer3D::updateViewport(float w, float h) {
     updateView(w, h);
+
     m_scene->setAspect(vp_w / vp_h);  // Camera(s) can pick up the aspect ratio from the Scene
 }
 void RenderLayer3D::animateViewport() {
@@ -482,19 +505,20 @@ void RenderLayerGUI::render() {
                             //{ { 0, 1, 0.0, 0.0, 0.0, 0.0 }, "Calendar Month" },
                             { { 0, 0, 0.0, 23.0, 56.0, 4.0905 }, "Sidereal Day" },
                             { { 0, 0, 1.0, 0.0, 0.0, 0.0 }, "Calendar Day" },
+                            //{ { 0, 13, 1.0, 0.0, 0.0, 0.0 }, "Solar Day" }, // Just enable EoT and do calendar day
                             { { 0, 0, 0.0, 1.0, 0.0, 0.0 }, "1 Hour" },
                             { { 0, 0, 0.0, 0.0, 15.0, 0.0 }, "15 Minutes" },
                             { { 0, 0, 0.0, 0.0, 4.0, 0.0 }, "4 Minutes" }, // Sun moves ~1 degree
                             { { 0, 0, 0.0, 0.0, 1.0, 0.0 }, "1 Minute" }
                         };
                         static int idx;
-                        for (idx = 0; idx < IM_ARRAYSIZE(timesteps); idx++)
-                            if (timesteps[idx].Value == mytimestep)
-                                break;
+                        //mytimestep = timesteps[6].Value; // Hours by default
+                        for (idx = 0; idx < IM_ARRAYSIZE(timesteps); idx++) {
+                            if (timesteps[idx].Value == mytimestep) break;
+                        }
                         static const char* preview_text = timesteps[idx].Name;
-                        //const char* preview_text = timesteps[idx].Name;
-                        if (ImGui::BeginCombo("Step", preview_text))
-                        {
+                        mytimestep = timesteps[idx].Value;
+                        if (ImGui::BeginCombo("Step", preview_text)) {
                             for (int n = 0; n < IM_ARRAYSIZE(timesteps); n++)
                                 if (ImGui::Selectable(timesteps[n].Name, idx == n)) {
                                     mytimestep = timesteps[n].Value;
@@ -502,22 +526,31 @@ void RenderLayerGUI::render() {
                                 }
                             ImGui::EndCombo();
                         }
+                        static double eot = 0.0;
 
                         //ImGui::SameLine();
                         if (ImGui::Button("-1 Step")) {
                             //minusday = true;
-                            l.layer->m_astro->addTime(-mytimestep.da, -mytimestep.hr, -mytimestep.mi, -mytimestep.se);
+                            l.layer->m_astro->addTime(-mytimestep.da, -mytimestep.hr, -mytimestep.mi + eot, -mytimestep.se);
+                            eot = do_eot ? CAAEquationOfTime::Calculate(l.layer->m_astro->getJD(), true) : 0.0;
+                            l.layer->m_astro->addTime(0.0, 0.0, -eot, 0.0);
                         }
                         ImGui::SameLine();
                         if (ImGui::Button("+1 Step")) {
                             //plusday = true;
-                            l.layer->m_astro->addTime(mytimestep.da, mytimestep.hr, mytimestep.mi, mytimestep.se);
+                            l.layer->m_astro->addTime(mytimestep.da, mytimestep.hr, mytimestep.mi + eot, mytimestep.se);
+                            eot = do_eot ? CAAEquationOfTime::Calculate(l.layer->m_astro->getJD(), true) : 0.0;
+                            l.layer->m_astro->addTime(0.0, 0.0, -eot, 0.0);
                         }
                         ImGui::SliderFloat("Time of Day", &slideday, 0.0f, 24.0f);
+                        if (prevslideday != slideday) {
+                            l.layer->m_astro->addTime(0.0, (double)slideday - (double)prevslideday, 0.0, 0.0);
+                            prevslideday = slideday;
+                        }
                         //ImGui::SliderFloat("year", &slideyear, 0.0f, 365.0f);
                     }
                     // Solar System object
-                    if (l.layer->m_scene->m_solsysOb != nullptr) { // Oh, referencing m_scene without a scene added is causing a crash
+                    if (l.layer->m_scene->m_solsysOb != nullptr) {
                         if (ImGui::CollapsingHeader("Solar System")) {
                             ImGui::Checkbox("Geocentric", &l.layer->m_scene->m_solsysOb->geocentric);
                             ImGui::Checkbox("Orbits", &l.layer->m_scene->m_solsysOb->orbits);
@@ -532,6 +565,8 @@ void RenderLayerGUI::render() {
                         // Earth is expanded, so set current Earth in Application
                         l.layer->m_scene->m_app->currentEarth = l.layer->m_scene->m_earthOb;
                         if (ImGui::CollapsingHeader("Earth")) {
+                            ImGui::SliderFloat("Tex X", &l.layer->m_scene->m_app->currentEarth->texture_x, -10.0f, 10.0f);
+                            ImGui::SliderFloat("Tex Y", &l.layer->m_scene->m_app->currentEarth->texture_y, -10.0f, 10.0f);
                             const char* items[] = { "AENS", "AEER", "AERC", "AEE8", "NSER", "NSRC", "NSE8", "ERRC", "ERE8", "RCE8" };
                             if (ImGui::BeginCombo("Earth type", l.layer->m_scene->m_app->currentEarth->current_earth.c_str()))
                             {
@@ -563,9 +598,18 @@ void RenderLayerGUI::render() {
                             ImGui::SliderFloat("Sun Height", &l.layer->m_scene->m_app->currentEarth->flatsunheight, 0.0f, 100000.0f);
                         }
                     }
+                    // Sky Sphere object
+                    if (l.layer->m_scene->m_skysphereOb != nullptr) { // Oh, referencing m_scene without a scene added is causing a crash
+                        if (ImGui::CollapsingHeader("Sky Sphere")) {
+                            ImGui::Checkbox("Textured", &l.layer->m_scene->m_skysphereOb->m_texture);
+                            ImGui::Checkbox("Sky Dots", &l.layer->m_scene->getSkyDotsFactory()->visible);
+                        }
+                    }
                     ImGui::EndTabItem();
                 }
             }
+            ImGui::SliderFloat("Custom 1", &m_app->customparam1, m_app->customlow1, m_app->customhigh1);
+            ImGui::SliderFloat("Custom 2", &m_app->customparam2, m_app->customlow2, m_app->customhigh2);
             ImGui::EndTabBar();
         }
 
@@ -662,21 +706,18 @@ void RenderLayerPlot::setCurrentTime(double time) {
 // -------------
 Application::Application() {
     // Set up everyhing that is non-optional and singular (e.g. Main Window)
-//    m_renderchain = new RenderChain(this);
     m_shaderlib = new ShaderLibrary();
     m_layers.reserve(16); // ?? Might need to be a list instead of a vector
-//m_layers.push_back(new RenderLayer(m_application->getWindow2Viewport())); // Default render layer
 
 }
 // DESTRUCTOR: Should ideally tear down the things we set up
 
-//RenderChain* Application::getRenderChain() { return m_renderchain; }
 ShaderLibrary* Application::getShaderLib() { return m_shaderlib; }
 Astronomy* Application::newAstronomy() { return new Astronomy(); }  // These may want to save references for clean-up, or maybe not !!!
 Scene* Application::newScene() { return new Scene(this); }
 int Application::initWindow() {
     if (start_fullscreen) w_width = 1920;
-    else w_width = 800;
+    else w_width = 1067;
     if (start_fullscreen) w_height = 1080;
     else w_height = 600;
 
@@ -817,39 +858,609 @@ void Application::updateView(int w, int h) {
     // Called from Application when switching between full screen and windowed mode, ADD: or when window is resized !!!
     float width = (float)w;
     float height = (float)h;
-    for (auto& l : m_layers) {
-        l->updateViewport(width, height);
+    if (output_fbo == 0) {
+        for (auto& l : m_layers) {
+            l->updateViewport(width, height);
+        }
+    }
+    else {
+        for (auto& l : m_layers) {
+            l->updateViewport((float)output_width, (float)output_height);
+        }
     }
 }
 void Application::render() {
     update();
-    //glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+    if (output_fbo != 0 && renderoutput == true) {
+        glBindFramebuffer(GL_FRAMEBUFFER, output_fbo);
+        glViewport(0, 0, output_width, output_height);
+        glScissor(0, 0, output_width, output_height);
+    }
+    else {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(0, 0, w_width, w_height);
+        glScissor(0, 0, w_width, w_height);
+    }
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    beginImGUI();
     for (auto& l : m_layers) {
-        l->animateViewport();
-        l->render();
+        if (l->type == LAYER3D) {
+            l->animateViewport();
+            l->render();
+        }
+    }
+    beginImGUI();
+    for (auto& l : m_layers) {       // This won't work for output_fbo, it will render to the window and not to the output framebuffer !!!
+        if (l->type == LAYERPLOT) {
+            l->animateViewport();
+            l->render();
+        }
+    }
+    for (auto& l : m_layers) {
+        if (l->type == LAYERTEXT) {
+            l->animateViewport();
+            l->render();
+        }
+    }
+    if (output_fbo != 0 && renderoutput == true) {
+        // Blit to the app window
+        // Create 2 tri's to fill the window
+        // Render them with the texture of the fbo using a simple blitting shader
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(0, 0, w_width, w_height);
+        glScissor(0, 0, w_width, w_height);
+        // No need to clear the window, we will paint all of it with the RenderLayer3D output
+        //glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        Shader* shdr = getShaderLib()->getShader(BLIT_SHADER);
+        shdr->Bind();
+        shdr->SetUniform1i("screenTexture", GL_TEXTURE7 - GL_TEXTURE0);
+        glBindVertexArray(quadVAO);
+        glDisable(GL_CULL_FACE);
+        glDisable(GL_DEPTH_TEST);
+        //glFrontFace(GL_CCW);
+        glActiveTexture(GL_TEXTURE7);
+        glBindTexture(GL_TEXTURE_2D, output_texture);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        //glFrontFace(GL_CW);
+        glEnable(GL_DEPTH_TEST);
+        glEnable(GL_CULL_FACE);
+        shdr->Unbind();
+    }
+    ////unsigned int i = 0;
+    ////while (glGetError() != GL_NO_ERROR) {
+    ////    i++;
+    ////}
+    //// Resolve simply by blitting to window
+    //// NOTE: Switched off MS in application window, to avoid GL_INVALID_OPERATION when output_fbo and window are not the same size !!!
+    ////       Even so, I still get errors when window and output_fbo have different sizes. Might be a mismatch between float/int internal formats? !!!
+    //
+    //// Note: Intel UHD 630 drivers give incorrect values for GL_SAMPLES!
+    ////GLint parm = 0;
+    ////glGetNamedFramebufferParameteriv(output_fbo, GL_SAMPLES, &parm);
+    ////std::cout << "output_fbo(" << output_fbo << ") GL_SAMPLES: " << parm << "\n";
+    ////GLint parm2 = 0;
+    ////glGetNamedFramebufferParameteriv(0, GL_SAMPLES, &parm2);
+    ////std::cout << "default fbo(0) GL_SAMPLES: " << parm2 << "\n";
+    //glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    //glDrawBuffer(GL_BACK);
+    //glBindFramebuffer(GL_READ_FRAMEBUFFER, output_fbo);
+    //glBlitFramebuffer(0, 0, output_width, output_height, 0, 0, w_width, w_height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    ////while (GLenum er = glGetError()) {
+    ////    std::cout << "New openGL error: " << er << std::endl;
+    ////}
+
+    for (auto& l : m_layers) {
+        if (l->type == LAYERGUI) {
+            l->animateViewport();
+            l->render();
+        }
     }
     endImGUI();
-    if (renderoutput) RenderFrame(0); // Save PNG of front buffer.
+    if (output_fbo != 0 && renderoutput) writeFrame(output_fbo); // Save PNG of off-screen buffer
+    if (output_fbo == 0 && renderoutput) writeFrame(0);          // Save PNG of window contents (back buffer)
     glfwSwapBuffers(window); // Swap rendered screen to front
     currentframe++;
     if (currentframe == 100000) incSequence(); // Protect against issues with frame counter wrapping in filename which only allows 5 digits
 }
-void Application::RenderFrame(unsigned int framebuffer) {
+void Application::writeFrame(unsigned int framebuffer) {
     std::string fullname = "C:\\Coding\\Eartharium\\Eartharium\\AnimOut\\" + basefname;
     char numerator[20];
     sprintf(numerator, "S%03d-%05d.png", currentseq, currentframe);
     fullname.append(numerator);
-    saveImage(fullname, window, 0);               // default frame buffer
-    //saveImage(fullname, window, framebuffer);
-    std::cout << "Rendered Frame " << currentframe << " to " << fullname << "\n";
+    if (framebuffer == 0) {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        saveImage(fullname, window, 0);               // default frame buffer
+    }
+    else {
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+        glViewport(0, 0, output_width, output_height);
+        glScissor(0, 0, output_width, output_height);
+        saveImage(fullname, window, framebuffer, (int)output_width, (int)output_height);
+    }
+    std::cout << "Rendered Frame " << currentframe << " to " << fullname << " from Framebuffer " << framebuffer << "\n";
     //delete[] numerator;  // NO! It is stack allocated!
 }
 void Application::incSequence() {
     currentseq++;
     currentframe = 0;
+}
+unsigned int Application::createFrameBuffer(unsigned int width, unsigned int height, unsigned int type) {
+    GLsizei samples = 4;
+    glGenFramebuffers(1, &output_fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, output_fbo);
+    //glViewport(0, 0, width, height);
+    //glScissor(0, 0, width, height);
+
+    // Configure a multisample texture to hold color data and attach it
+    //glActiveTexture(GL_TEXTURE7);
+    //glGenTextures(1, &output_texture);
+    //glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, output_texture);
+    //glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, samples, GL_RGB, width, height, GL_TRUE);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    //glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, output_texture, 0);
+    // Configure a texture to hold color data and attach it
+    glActiveTexture(GL_TEXTURE7);
+    glGenTextures(1, &output_texture);
+    glBindTexture(GL_TEXTURE_2D, output_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, output_texture, 0);
+
+    // Configure a depth attachment using RBO (not using stencil attachments currently)
+    //glGenRenderbuffers(1, &output_rbo);
+    //glBindRenderbuffer(GL_RENDERBUFFER, output_rbo);
+    //glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, /*GL_DEPTH_COMPONENT32*/ GL_DEPTH24_STENCIL8, width, height); // Could use GL_DEPTH24_STENCIL8 if stencils are needed
+    //glFramebufferRenderbuffer(GL_FRAMEBUFFER, /*GL_DEPTH_ATTACHMENT*/ GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, output_rbo); // Then this would be GL_DEPTH_STENCIL_ATTACHMENT
+    //glBindRenderbuffer(GL_RENDERBUFFER, 0); // Now that it is attached, we can unbind.It could be unbound right after creation, above takes the name.
+    // Configure a depth attachment using RBO (not using stencil attachments currently)
+    glGenRenderbuffers(1, &output_rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, output_rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32, width, height); // Could use GL_DEPTH24_STENCIL8 if stencils are needed
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, output_rbo); // Then this would be GL_DEPTH_STENCIL_ATTACHMENT
+    glBindRenderbuffer(GL_RENDERBUFFER, 0); // Now that it is attached, we can unbind.It could be unbound right after creation, above takes the name.
+
+    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (status != GL_FRAMEBUFFER_COMPLETE) {
+        std::cout << "Framebuffer was not created successfully! Status: " << status << "\n";
+        return NO_UINT;
+    }
+    // GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE - Returned because glTexImage2DMultisample() set GL_TEXTURE_FIXED_SAMPLE_LOCATIONS to GL_FALSE,
+    //  and we use a mixture of texture and render buffers
+    
+    // Note: Intel UHD 630 drivers give incorrect values for GL_SAMPLES!
+    //GLint parm = 0;
+    //glGetNamedFramebufferParameteriv(output_fbo, GL_SAMPLES, &parm);
+    //std::cout << "output_fbo(" << output_fbo << ") GL_SAMPLES: " << parm << "\n";
+
+    // Set up primitive for blitter
+    glGenVertexArrays(1, &quadVAO);
+    glGenBuffers(1, &quadVBO);
+    glBindVertexArray(quadVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_DYNAMIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+
+    output_width = width;
+    output_height = height;
+    return output_fbo;
+}
+void Application::setupFileRender(unsigned int width, unsigned int height, unsigned int type) {
+    output_width = width;
+    output_height = height;
+    output_type = type;
+    output_fbo = createFrameBuffer(output_width, output_height, output_type);
+    // Figure out consistent glViewport settings working well with the View settings of the Layers.
+}
+
+
+// --------------
+//  Text Factory
+// --------------
+TextFactory::TextFactory(Scene* scene) : m_scene(scene) {
+    for (auto& t : m_texts) {
+        delete t;
+    }
+    m_texts.clear();
+}
+TextFactory::~TextFactory() {}
+TextString* TextFactory::newText(Font* font, std::string& text, float size, glm::vec4 color, glm::vec3& position, glm::vec3& direction, glm::vec3& up) {
+    m_texts.push_back(new TextString(m_scene, font, text, size, color, position, direction, up));
+    return m_texts.back();
+}
+void TextFactory::draw() {
+    for (auto& t : m_texts) {
+        t->draw();
+    }
+}
+
+
+// -------------
+//  Text String
+// -------------
+TextString::TextString(Scene* scene, Font* font, const std::string& text, float size,  glm::vec4 color, glm::vec3& position, glm::vec3& direction, glm::vec3& up)
+// Maybe make Font the last parameter and optional, and have a default font loaded? !!!
+    : m_scene(scene), m_font(font), m_text(text), m_size(size), m_color(color), m_position(position), m_direction(direction), m_up(up) {
+    m_glyphsOb = new Glyphs(m_scene, m_font);
+    genGlyphs();
+    m_glyphsOb->drawGlyphs();
+}
+TextString::~TextString() {}
+//void TextString::update() {}
+void TextString::draw() {
+    m_glyphsOb->drawGlyphs();
+}
+void TextString::updateText(const std::string& text) {
+    // Delete the existing Glyphs and create new ones with genGlyph()
+    m_text = text;
+    genGlyphs();
+}
+void TextString::updatePosDirUp(glm::vec3 position, glm::vec3 direction, glm::vec3 up) {
+    m_position = position;
+    m_direction = direction;
+    m_up = up;
+    genGlyphs();
+}
+void TextString::genGlyphs() {
+    // Then a Glyphs can be allocated by each TextString, or even be absorbed into it. !!!
+    m_glyphsOb->clear();
+    //m_letters.clear();  // Why are we even saving these? !!!
+    glm::vec3 cursor = m_position;
+    for (auto& l : m_text) {
+        m_glyphsOb->newGlyph(l, m_color, m_size, cursor, m_direction, m_up);
+    }
+}
+
+
+// ------
+//  Font
+// ------
+// Font could even be part of Application? !!!
+Font::Font(const std::string& fontname) {
+    is_valid = loadFont(fontname);
+    // Do something with return value? Maybe a bool is better.
+}
+int Font::createFont(const std::string& font) {
+    // Should eventually use msdf-atlas-gen example code from github README.md file !!!
+    std::cout << "ERROR! Font::createFont() was called but is not yet implemented!\n";
+    return -1;
+}
+bool Font::loadFont(const std::string& font) {
+    // Could use https://github.com/Chlumsky/msdf-atlas-gen README.md as library and avoid metadata file parsing
+    // MSDF font bitmap
+    const std::string texfile = "C:\\Coding\\Eartharium\\Eartharium\\textures\\" + font + ".png";
+    tex = new Texture(texfile, GL_TEXTURE8);
+    // Mapping metadata
+    std::ifstream infile("C:\\Coding\\Eartharium\\Eartharium\\textures\\" + font + ".csv", std::ifstream::in);
+    if (!infile.is_open()) {
+        std::cout << "ERROR! Glyphs::loadFont(): Could not load CSV for font " << font << " !\n";
+        return false;
+    }
+    std::string line, item;
+    std::istringstream parse;
+    getline(infile, line); // First line of CSV: font size (pixels), atlas width (pixels), atlas height (pixels), lineheight (EM) 
+    parse.str(line);
+    std::getline(parse, item, ',');
+    font_size = std::stof(item);
+    std::getline(parse, item, ',');
+    font_atlas_width = std::stof(item);
+    std::getline(parse, item, ',');
+    font_atlas_height = std::stof(item);
+    std::getline(parse, item, ',');
+    font_lineheight = std::stof(item);
+    unsigned int i = 0; // Remaining lines are glyphs
+    while (getline(infile, line)) {
+        i++;
+        glyphs.push_back(glyphdata());
+        parse.clear();
+        parse.str(line);
+        // character code
+        std::getline(parse, item, ',');
+        glyphs.back().letter = (char)std::stoi(item);
+        // advance
+        std::getline(parse, item, ',');
+        glyphs.back().advance = std::stof(item);
+        // planeBounds
+        std::getline(parse, item, ',');
+        glyphs.back().p_left = std::stof(item);
+        std::getline(parse, item, ',');
+        glyphs.back().p_bottom = std::stof(item);
+        std::getline(parse, item, ',');
+        glyphs.back().p_right = std::stof(item);
+        std::getline(parse, item, ',');
+        glyphs.back().p_top = std::stof(item);
+        // atlasBounds - Converted from pixels to OpenGL texture coordinate range
+        std::getline(parse, item, ',');
+        glyphs.back().a_left = std::stof(item) / font_atlas_width;
+        std::getline(parse, item, ',');
+        glyphs.back().a_bottom = (font_atlas_height - std::stof(item)) / font_atlas_height;
+        std::getline(parse, item, ',');
+        glyphs.back().a_right = std::stof(item) / font_atlas_width;
+        std::getline(parse, item, ',');
+        glyphs.back().a_top = (font_atlas_height - std::stof(item)) / font_atlas_height;
+    }
+    glyphs.push_back(glyphdata()); // Last entry is error indicator.
+    return true;
+    //std::cout << "Font::loadFont(\"" << font << "\"): Glyphs loaded from file : " << i << '\n';
+}
+glyphdata Font::getGlyphdata(char letter) {
+    for (auto& g : glyphs) {
+        if (g.letter == letter) return g;
+    }
+    return glyphs.back(); // By default return the last glyph.
+    // No obvious way to pass an error code, perhaps the font loader can explicitly add an extra error indicating glyph
+    // at the end, so we don't allocate one here every time (since the glyphs are redrawn often, and the same invalid glyph
+    // may come up many times). Perhaps a 
+}
+Texture* Font::getTexture() {
+    return tex;
+}
+
+
+// --------
+//  Glyphs
+// --------
+Glyphs::Glyphs(Scene* scene, Font* font) : m_scene(scene), m_font(font){ // Have one Glyphs object per font, pass in font filename
+    //std::string fontname = "CascadiaMono";
+    //loadFont(fontname); // When several fonts are available, specify name?
+    glyphItems.reserve(30);
+    shdr = m_scene->m_app->getShaderLib()->getShader(GLYPH_SHADER);
+    vbl = new VertexBufferLayout;
+    vbl->Push<float>(3);   // Vertex pos
+    vbl->Push<float>(2);   // Vertex UV
+    vbl->Push<float>(4);   // Color (for overlay)
+}
+Glyphs::~Glyphs() {}
+unsigned int Glyphs::newGlyph(char letter, glm::vec4 color, float size, glm::vec3& cursor, glm::vec3& direction, glm::vec3& up) {
+    // Use msdf from https://github.com/Chlumsky
+    // Draw quads relative to cursor with planeBounds, advance cursor by Advance.
+    // Texture coordinates in pixels is in atlasBounds.
+    // See: https://github.com/Chlumsky/msdf-atlas-gen/issues/2
+
+    // To orientate the writing plane, do we use a normal, or a writing direction vector? Both require an additional direction or angle about the vector.
+    // Look up planeBounds, Advance and atlasBounds
+    // Add cursor and planeBounds to get world coordinates of glyph quad
+    // Add Advance to cursor, in writing direction. Keep orientation/scale/loc separate from stored glyph?
+    // Divide atlasBounds by texture size to get texture coordinates
+    // Cross planeBoundsX with planeBoundsY to get a normal (for lighting)
+    // Create the quad with vertices: pos, normal, uv, color to glyph cache
+
+    direction = glm::normalize(direction);
+    up = glm::normalize(up);
+
+    glyphdata myglyph = m_font->getGlyphdata(letter);
+
+    glm::vec3 p_a = cursor + (myglyph.p_left * direction + myglyph.p_bottom * up) * size;
+    glm::vec3 p_b = cursor + (myglyph.p_left * direction + myglyph.p_top * up) * size;
+    glm::vec3 p_c = cursor + (myglyph.p_right * direction + myglyph.p_top * up) * size;
+    glm::vec3 p_d = cursor + (myglyph.p_right * direction + myglyph.p_bottom * up) * size;
+    glm::vec2 a_a = glm::vec2(myglyph.a_left, myglyph.a_bottom);
+    glm::vec2 a_b = glm::vec2(myglyph.a_left, myglyph.a_top);
+    glm::vec2 a_c = glm::vec2(myglyph.a_right, myglyph.a_top);
+    glm::vec2 a_d = glm::vec2(myglyph.a_right, myglyph.a_bottom);
+    glyphItems.push_back({ p_a, a_a, color });  // First triangle
+    glyphItems.push_back({ p_b, a_b, color });
+    glyphItems.push_back({ p_c, a_c, color });
+    glyphItems.push_back({ p_a, a_a, color });  // Second triangle
+    glyphItems.push_back({ p_c, a_c, color });
+    glyphItems.push_back({ p_d, a_d, color });  // Add back sides too? !!!
+    cursor += direction * myglyph.advance * size;
+    // Now that glyphItems is not empty, create Vertex Buffer and Vertex Array if they are missing
+    if (va == nullptr && vb == nullptr) {
+        vb = new VertexBuffer(&glyphItems[0], (unsigned int)glyphItems.size() * sizeof(GlyphItem));
+        va = new VertexArray;
+        va->AddBuffer(*vb, *vbl, true);
+    }
+    return 0; // Need to return an index, so we can come back and update the glyph. No, we will recreate all the Glyphs from TextString every time
+}
+void Glyphs::clear() {
+    glyphItems.clear();
+}
+void Glyphs::drawGlyphs() {
+    if (glyphItems.size() == 0) return; // Not sure that loading empty data to OpenGL would be good
+    shdr->Bind();
+    shdr->SetUniformMatrix4f("view", m_scene->w_camera->getViewMat());
+    shdr->SetUniformMatrix4f("projection", m_scene->w_camera->getProjMat());
+    shdr->SetUniform1i("tex", m_font->getTexture()->GetTextureSlot());
+    vb->LoadData(&glyphItems[0], (unsigned int)glyphItems.size() * sizeof(GlyphItem));
+    va->Bind();
+    glDrawArrays(GL_TRIANGLES, 0, (GLsizei)glyphItems.size());
+} 
+
+
+// -----------------
+//  Country Borders
+// -----------------
+CountryBorders::CountryBorders(Scene* scene, const std::string& shapefile) : m_scene(scene) {
+    parseFile(shapefile);
+}
+void CountryBorders::addBorder(Earth& earth, unsigned int rindex /* Country Name String when dBASE data loader is done */) {
+    // BUG?: Seems to be shifted rigth and down by one pixel in the texture. Does the texture lookup in earth.shader needs adjusting?
+    
+    // This could take Earth (for getLoc3D()) and an array where to drop the points.
+    // Ideally I want to be able to draw a border on a globe, then unlink it from the geometry,
+    //  have it float up while Earth morphs, and settle down to compare to the new size.
+    //  (Of course this requires two borders, one that remains linked and one that floats)
+    // But start by simply getting a border onto Earth, then make it morph. I can add a duplicate
+    //  function to whatever object ends up holding a border. Begin by using a PolyCurve, change to GL_LINE later.
+
+    // Should scan borderparts vector to see if the requested border exists already !!!
+    rindex--;  // Array indices assume array starts at 1
+    for (auto& part : records[rindex]->parts) {
+        //std::cout << "addBorder(): part: " << part.partnum << " start: " << part.startindex << " length: " << part.length << "\n";
+        borderparts.push_back(m_scene->newPolyLine(LIGHT_RED, 0.001f, part.length));
+        for (unsigned int i = part.startindex; i < (part.startindex + part.length); i++) {
+            borderparts.back()->addPoint(earth.getLoc3D(deg2rad * records[rindex]->points[i].latitude, deg2rad * records[rindex]->points[i].longitude));
+        }
+        borderparts.back()->generate();
+    }
+    std::cout << "";
+}
+void CountryBorders::draw() {
+    for (auto& poly : borderparts) {
+        poly->draw();
+    }
+}
+void CountryBorders::printRecord(unsigned int rindex) {
+    rindex--; // IMPORTANT! Record numbers start at 1 !!!
+    std::cout << "Record number: " << records[rindex]->recordnum << '\n';
+    std::cout << " Type: " << records[rindex]->type << '\n';
+    std::cout << " Number of parts: " << records[rindex]->numparts << '\n';
+    for (auto& part : records[rindex]->parts) {
+        std::cout << "  Part number: " << part.partnum;
+        std::cout << "  Start Index: " << part.startindex;
+        std::cout << "  Length: " << part.length;
+        std::cout << "  End Index: " << part.startindex + part.length - 1 << '\n'; // so iterate to > parts.length, not >=
+    }
+    std::cout << " Number of points: " << records[rindex]->points.size() << '\n';
+    for (unsigned int i = 0; i < records[rindex]->points.size(); i++) {
+        //std::cout << "  Point number " << i << " (" << records[rindex]->points[i].latitude << "," << records[rindex]->points[i].longitude << ")\n";
+    }
+}
+int CountryBorders::parseFile(const std::string& shapefile) {
+    // IMPORTANT: Determine std::vector sizes and reserve(), or this will be slow !!!
+    std::ifstream infile(shapefile, std::ifstream::in | std::ifstream::binary);
+    if (!infile.is_open()) {
+        std::cout << "Did not manage to open Shapefile!\n";
+        return -1;
+    }
+    uint32_t valint = 0;
+    double valdbl = 0.0;
+    unsigned int record = 1;
+    valint = readIntBig(infile); // magic number, is always 0x0000270A
+    //std::cout << "Magic number: " << valint << '\n';
+    if (valint != 9994) {
+        std::cout << "Was expecting Magic number 9994 (0x0000270A), got: " << valint << " !Not sure how to proceed, so bailing.\n";
+        infile.close();
+        return -1;
+    }
+    valint = readIntBig(infile); // 5 Unused ints
+    valint = readIntBig(infile);
+    valint = readIntBig(infile);
+    valint = readIntBig(infile);
+    valint = readIntBig(infile);
+    uint32_t filesize = 2 * readIntBig(infile); // File length in 16 bit words, including header, int32 big endian
+    //std::cout << "File Size: " << valint << '\n';
+    fileversion = readIntLittle(infile); // Version, int32 little endian
+    //std::cout << "Version: " << fileversion << '\n';
+    valint = readIntLittle(infile); // Shape Type, int32 little endian
+    //std::cout << "Shape Type: " << valint << '\n';
+    if (valint != 5) {
+        std::cout << "Was expecting Shape Type 5! Not sure how to proceed, so bailing.\n";
+        infile.close();
+        return -1;
+    }
+    double minX = readDoubleLittle(infile);
+    double minY = readDoubleLittle(infile);
+    double maxX = readDoubleLittle(infile);
+    double maxY = readDoubleLittle(infile);
+    double minZ = readDoubleLittle(infile);
+    double maxZ = readDoubleLittle(infile);
+    double minM = readDoubleLittle(infile);
+    double maxM = readDoubleLittle(infile);
+    //std::cout << "MBR - Minimum Bounding Box:\n";
+    //std::cout << " minX: " << minX << ", minY: " << minY << '\n';
+    //std::cout << " maxX: " << maxX << ", maxY: " << maxY << '\n';
+    //std::cout << "Z range: " << minZ << ", " << maxZ << '\n';
+    //std::cout << "M range: " << minM << ", " << maxM << '\n';
+    uint32_t rnum = 0;
+    uint32_t temp = 0;
+    uint32_t recordlen = 0;
+    unsigned int pcnt = 0;
+    while (bytecnt < filesize) { // Run until the anticipated end of file
+        records.push_back(new ShapeRecord());
+        records.back()->recordnum = readIntBig(infile);
+        //std::cout << " Record Number: " << records.back()->recordnum << '\n';
+        recordlen = 2 * readIntBig(infile);
+        //std::cout << " Record Length: " << recordlen << '\n'; // length is counted in 16 bit words for some reason
+        unsigned int recordend = bytecnt + recordlen;
+
+        records.back()->type = readIntLittle(infile);
+        //std::cout << "Shape Type: " << valint << '\n';
+        if (records.back()->type != 5) {
+            std::cout << "Was expecting Shape Type 5! Not sure how to proceed, so bailing.\n";
+            infile.close();
+            return -1;
+        }
+        double minX = readDoubleLittle(infile);
+        double minY = readDoubleLittle(infile);
+        double maxX = readDoubleLittle(infile);
+        double maxY = readDoubleLittle(infile);
+        //std::cout << "  MBR - Minimum Bounding Box:\n";
+        //std::cout << "   minX: " << minX << ", minY: " << minY << '\n';
+        //std::cout << "   maxX: " << maxX << ", maxY: " << maxY << '\n';
+        records.back()->numparts = readIntLittle(infile);
+        uint32_t numpoints = readIntLittle(infile); // Needed later when capping last part index
+        //std::cout << "  Number of parts: " << numparts << '\n';
+        //std::cout << "  Number of points: " << numpoints << '\n';
+        unsigned int index;
+        for (unsigned int i = 1; i <= records.back()->numparts; i++) {
+            // Get parts array indices
+            index = readIntLittle(infile); // index into point array where this part starts
+            if (i > 1) records.back()->parts.back().length = index - records.back()->parts.back().startindex; // finish previous part
+            records.back()->parts.push_back(ShapePart()); // start new part
+            records.back()->parts.back().startindex = index;
+            records.back()->parts.back().partnum = i;
+            //std::cout << "  Part " << i << " point data array index: " << records.back()->parts.back().arrayindex << '\n';
+        }
+        records.back()->parts.back().length = numpoints - records.back()->parts.back().startindex;
+
+        pcnt = 0;
+        while (bytecnt < recordend) {
+            // Stuff points for all parts into array
+            records.back()->points.emplace_back(LatLon());
+            records.back()->points.back().longitude = readDoubleLittle(infile);
+            records.back()->points.back().latitude = readDoubleLittle(infile);
+            //std::cout << "    Point: (" << records.back()->points.back().latitude << ", " << records.back()->points.back().longitude << ")\n";
+            pcnt++;
+        }
+        // Now save the count of points for this part
+        records.back()->parts.back().length = pcnt - records.back()->parts.back().startindex;
+        //std::cout << "Last part length: " << records.back()->parts.back().length << '\n';
+        //temp++;
+        //if (temp > 4) break; // It goes on and on without this...
+        // This successfully parses the whole current file, including multiple parts in records. Now consider how to organize the data in memory!
+        return 0;
+    }
+}
+double CountryBorders::readDoubleBig(std::istream& infile) {
+    uint8_t b[8];
+    infile.read((char*)b, 8);
+    uint64_t val = (uint64_t)b[7] | ((uint64_t)b[6] << 8) | ((uint64_t)b[5] << 16) | ((uint64_t)b[4] << 24) |
+        ((uint64_t)b[3] << 32) | ((uint64_t)b[2] << 40) | ((uint64_t)b[1] << 48) | ((uint64_t)b[0] << 56);
+
+    double dbl = *(double*)&val;
+    bytecnt += 8;
+    return dbl;
+}
+double CountryBorders::readDoubleLittle(std::istream& infile) {
+    uint8_t b[8];
+    infile.read((char*)b, 8);
+    uint64_t val = (uint64_t)b[0] | ((uint64_t)b[1] << 8) | ((uint64_t)b[2] << 16) | ((uint64_t)b[3] << 24) |
+        ((uint64_t)b[4] << 32) | ((uint64_t)b[5] << 40) | ((uint64_t)b[6] << 48) | ((uint64_t)b[7] << 56);
+
+    double dbl = *(double*)&val;
+    bytecnt += 8;
+    return dbl;
+}
+uint32_t CountryBorders::readIntBig(std::istream& infile) {
+    uint8_t bytes[4];
+    infile.read((char*)bytes, 4);
+    uint32_t val = bytes[3] | (bytes[2] << 8) | (bytes[1] << 16) | (bytes[0] << 24);
+    bytecnt += 4;
+    return val;
+}
+uint32_t CountryBorders::readIntLittle(std::istream& infile) {
+    uint8_t bytes[4];
+    infile.read((char*)bytes, 4);
+    uint32_t val = bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24);
+    bytecnt += 4;
+    return val;
 }
 
 
@@ -948,19 +1559,19 @@ void ParticleTrail::push(glm::vec3 pos) {
     for (auto& p : m_queue) {  // Here whole trail could be faded out when desired
         p.size *= (float)m_sizefactor;
         //p.color.a *= 0.95f;
-        m_scene->getDotsOb()->changeXYZ(p.index, p.position, p.color, p.size);
+        m_scene->getDotsFactory()->changeXYZ(p.index, p.position, p.color, p.size);
     }
     if (m_queue.size() >= m_number) {
-        m_scene->getDotsOb()->remove(m_queue.back().index);
+        m_scene->getDotsFactory()->remove(m_queue.back().index);
         m_queue.pop_back();
     }
-    unsigned int index = m_scene->getDotsOb()->addXYZ(pos, m_color, size);
+    unsigned int index = m_scene->getDotsFactory()->addXYZ(pos, m_color, size);
     m_queue.push_front({ m_color, pos, size, index } );
     m_gap = m_spacing;
 }
 void ParticleTrail::clear() {
     for (auto& p : m_queue) {
-        m_scene->getDotsOb()->remove(p.index);
+        m_scene->getDotsFactory()->remove(p.index);
     }
     m_queue.clear();
 }
@@ -971,7 +1582,7 @@ void ParticleTrail::trim(unsigned int length) {
     //  element that does not exist.
     if (length < m_queue.size()) {
         for (unsigned int i = length; i < m_queue.size(); i++) {
-            m_scene->getDotsOb()->remove(m_queue.at(i).index);
+            m_scene->getDotsFactory()->remove(m_queue.at(i).index);
         }
         m_queue.resize(length);
     }
@@ -1050,6 +1661,55 @@ void AngleArcs::draw() {
     for (auto& a : m_arcs) {
         a.polycurve->draw();
     }
+}
+
+
+// ----------
+//  PolyLine   - Actually PolyLoop, as it closes the shape automatically (due to ESRI country borders). Make more generic !!!
+// ----------
+PolyLine::PolyLine(Scene* scene, glm::vec4 color, float width, size_t reserve) : m_scene(scene) {
+    // NOTE: It is preferred to instantiate these via the Scene object!
+    if (reserve == NO_UINT) reserve = polycurvereserve;
+    m_color = color;
+    m_width = width;
+    m_points.reserve(reserve + 2);   // Add a little headroom
+    shdr = m_scene->m_app->getShaderLib()->getShader(LINE_SHADER);
+    glGenVertexArrays(1, &VAO);
+    glBindVertexArray(VAO);
+    glGenBuffers(1, &VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+}
+PolyLine::~PolyLine() {
+}
+void PolyLine::addPoint(glm::vec3 point) {
+    //if (limit) std::cout << "WARNING PolyPolyCurve (" << this << ") adding beyond capacity, resizing!\n"; // only triggers if coming back after setting limit flag
+    m_points.push_back(point);
+    if (m_points.size() == m_points.capacity()) {
+        std::cout << "WARNING: PolyCurve (" << this << ") capacity: " << m_points.capacity() << " reached. It will be SLOW to add new points now!\n";
+        //    limit = true;
+    }
+}
+void PolyLine::clearPoints() {
+    m_points.clear();
+    //limit = false;
+}
+void PolyLine::generate() {
+}
+void PolyLine::draw() {
+    shdr->Bind();
+    shdr->SetUniformMatrix4f("view", m_scene->w_camera->getViewMat());
+    shdr->SetUniformMatrix4f("projection", m_scene->w_camera->getProjMat());
+    //shdr->SetUniform3f("lightDir", m_scene->w_camera->CamLightDir.x, m_scene->w_camera->CamLightDir.y, m_scene->w_camera->CamLightDir.z);
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, m_points.size()*sizeof(glm::vec3), &m_points[0], GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glLineWidth(4.0f);
+    glDisable(GL_DEPTH_TEST);
+    glDrawArrays(GL_LINE_LOOP, 0, (GLsizei)m_points.size());  // ESRI Polygons are closed, so use GL_LINE_LOOP
+    glEnable(GL_DEPTH_TEST);
+    //glDrawElementsInstanced(GL_LINES, ib->GetCount(), GL_UNSIGNED_INT, 0, (GLsizei)m_segments.size());
 }
 
 
@@ -1170,8 +1830,8 @@ void PolyCurve::genGeom() { // Single segment
 // --------
 Arrows::Arrows(Scene* scene) : m_scene(scene) {
     // Composite primitive, generates 1 Cylinder and 1 Cone to build an arrow
-    m_cylinders = m_scene->getCylindersOb();
-    m_cones = m_scene->getConesOb();
+    m_cylinders = m_scene->getCylindersFactory();
+    m_cones = m_scene->getConesFactory();
     m_arrows.reserve(5000);
 }
 Arrows::~Arrows() {
@@ -1228,7 +1888,12 @@ void Arrows::changeArrow(unsigned int index, glm::vec4 color, float length, floa
     m_cones->changeColorLengthWidth(m_arrows[index].cone, color, length, width);
     m_cylinders->changeColorLengthWidth(m_arrows[index].cylinder, color, length, width);
 }
-
+void Arrows::removeArrow(unsigned int index) {
+    //std::cout << "WARNING! Arrows::deleteArrow() was called but no delete functions exist for Cones and Cylinders, so cannot delete!!\n";
+    m_cones->removeCone(m_arrows[index].cone);
+    m_cylinders->removeCylinder(m_arrows[index].cylinder);
+    m_arrows.remove(index);
+}
 void Arrows::clear() {
     m_arrows.clear();
 }
@@ -1328,7 +1993,7 @@ void Primitives::draw(unsigned int shadow) {
     va->Bind();
     ib->Bind();
     // Make new vb2 every draw, since primitives might have been added.
-    // NOTE: Or keep flag to track if priimitives were added?
+    // NOTE: Or keep flag to track if primitives were added?
     //       Even if none were added, they may well have been modified.
     va->AddBuffer(*vb1, *vbl1, true);
     vb2 = new VertexBuffer(&m_Primitives[0], (unsigned int)m_Primitives.size() * sizeof(Primitive3D));
@@ -1341,9 +2006,9 @@ void Primitives::draw(unsigned int shadow) {
     glVertexAttribDivisor(6, 1);               // Scale3
     glVertexAttribDivisor(7, 1);               // Rot1
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-    glDisable(GL_CULL_FACE);
+    //glDisable(GL_CULL_FACE);
     glDrawElementsInstanced(GL_TRIANGLES, ib->GetCount(), GL_UNSIGNED_INT, 0, (GLsizei)m_Primitives.size());
-    glEnable(GL_CULL_FACE);
+    //glEnable(GL_CULL_FACE);
     vb2->Unbind();
     ib->Unbind();
     va->Unbind();
@@ -1368,7 +2033,7 @@ void Primitives::setColor(unsigned int index, glm::vec4 color) {
 // - Add getter for primitive pointer in Application
 // - Add class definition in Primitives.h:
 //   o Constructor
-//   o From* instancing method(s)
+//   o add* instancing method(s)
 //   o genGeom() method
 //   o Optionally others like Print() or Validate() or Compact() etc
 // - Add method definitions in Primitives.ccp
@@ -1412,7 +2077,7 @@ unsigned int Minifigs::addStartEnd(glm::vec3 pos, glm::vec3 end, float width, gl
     glm::vec3 dir = end - pos;
     return store({ color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
 }
-
+void Minifigs::removeMinifig(unsigned int index) { remove(index); }
 void Minifigs::genGeom() {
     std::string line;
     std::string::size_type sz;
@@ -1521,6 +2186,7 @@ void SphereUV::changeStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, 
     glm::vec3 dir = end - pos;
     update(index, { color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
 }
+void SphereUV::removeSphereUV(unsigned int index) { remove(index); }
 //void SphereUV::UpdateStartEleAzi(unsigned int index, glm::vec3 pos, float ele, float azi, glm::vec4 color) {}
 glm::vec3 SphereUV::getLoc3D_NS(float lat, float lon, float height) {
     float m_Radius = 1.0f;
@@ -1567,7 +2233,7 @@ unsigned int Planes::addStartNormalLen(glm::vec3 pos, glm::vec3 nml,float rot, f
 unsigned int Planes::addStartUV(glm::vec3 pos, glm::vec3 spanU, glm::vec3 spanV, glm::vec4 color) {
     // Takes the position of the center of the plane, and two vectors that "span" the plane, and the color
     //  Spanning means the plane diagonal will be -spanU,-spanV to spanU,spanV transported to position.
-    float angle = -atan2(spanU.z, sqrt(spanU.x * spanU.x + spanU.y * spanU.y));
+    float angle = -atan2(spanU.z, sqrt(spanU.x * spanU.x + spanU.y * spanU.y));  // Rotation about normal
     return store({ color, pos, glm::cross(spanU,spanV), glm::vec3(glm::length(spanU), 1.0f, glm::length(spanV)), angle });
 }
 void Planes::changeStartNormalLen(unsigned int index, glm::vec3 pos, glm::vec3 nml, float rot, float len, glm::vec4 color) {
@@ -1579,6 +2245,7 @@ void Planes::changeStartUV(unsigned int index, glm::vec3 pos, glm::vec3 spanU, g
     float angle = -atan2(spanU.z, sqrt(spanU.x * spanU.x + spanU.y * spanU.y));
     update(index, { color, pos, glm::cross(spanU,spanV), glm::vec3(glm::length(spanU), 1.0f, glm::length(spanV)), angle });
 }
+void Planes::removePlane(unsigned int index) { remove(index); }
 // Create the geometry (vertices and triangles)
 void Planes::genGeom() {
     // Unit square in the XZ plane, centered on the origin, surface normal along Y axis - 2 tris front, 2 tris back
@@ -1629,6 +2296,7 @@ void ViewCones::changeStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end,
     glm::vec3 dir = end - pos;
     update(index, { color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
 }
+void ViewCones::removeViewCone(unsigned int index) { remove(index); }
 //void ViewCones::UpdateStartEleAzi(unsigned int index, glm::vec3 pos, float ele, float azi, glm::vec4 color) {}
 void ViewCones::genGeom() {
     // Anchored at tip, to make Arrows and View Cones easier
@@ -1708,6 +2376,7 @@ void Cones::changeColorLengthWidth(unsigned int index, glm::vec4 color, float le
     prim->scale = glm::vec3(width, length, width);
     //Update(index, *prim);
 }
+void Cones::removeCone(unsigned int index) { remove(index); }
 
 void Cones::genGeom() {
     // Anchored at tip, to make Arrows and View Cones easier
@@ -1782,6 +2451,7 @@ void Cylinders::changeColorLengthWidth(unsigned int index, glm::vec4 color, floa
     prim->color = color;
     prim->scale = glm::vec3(width, length, width);
 }
+void Cylinders::removeCylinder(unsigned int index) { remove(index); }
 void Cylinders::genGeom() {
     unsigned int facets = 16;
     float width = 1.0f;  // actually radius
@@ -1812,6 +2482,128 @@ void Cylinders::genGeom() {
 }
 
 
+// ----------
+//  Sky Dots
+// ----------
+SkyDots::SkyDots(Scene* scene) : Primitives(scene, 2000, 1000) {
+    m_Primitives.reserve(20000);
+    genGeom();
+    init();
+}
+unsigned int SkyDots::addXYZ(glm::vec3 pos, glm::vec4 color, float size) {
+    return store({ color, pos, glm::vec3(0.0f,0.0f,1.0f), glm::vec3(size,size,size), 0.0f }); // col,pos,dir,scale
+}
+void SkyDots::changeXYZ(unsigned int index, glm::vec3 pos, glm::vec4 color, float size) {
+    Primitive3D* prim = getDetails(index);
+    if (color == NO_COLOR) color = prim->color;
+    if (size == NO_FLOAT) size = prim->scale.x;
+    update(index, { color, pos, glm::vec3(0.0f,0.0f,1.0f), glm::vec3(size,size,size), 0.0f });
+}
+void SkyDots::changeDot(unsigned int index, glm::vec4 color, float size) {
+    Primitive3D* prim = getDetails(index);
+    if (color == NO_COLOR) color = prim->color;
+    if (size == NO_FLOAT) size = prim->scale.x;
+    prim->color = color;
+    prim->scale = glm::vec3(size);
+}
+void SkyDots::removeDot(unsigned int index) { remove(index); }
+void SkyDots::draw() {
+    if (!visible) return;
+    if (m_Primitives.size() == 0) return;
+    // Create an instance array and render using one allocated Primitive
+    // - color4
+    // - position3
+    // - orientation3
+    // - scale3
+    // - rotation1
+
+    shdr->Bind();
+    // NOTE: Consider passing in 1 multiplied matrix instead of these:
+    shdr->SetUniformMatrix4f("view", m_scene->w_camera->getSkyViewMat());
+    shdr->SetUniformMatrix4f("projection", m_scene->w_camera->getProjMat());
+    shdr->SetUniform3f("lightDir", m_scene->w_camera->CamLightDir.x, m_scene->w_camera->CamLightDir.y, m_scene->w_camera->CamLightDir.z);
+
+    // Set up and draw
+    vb1->Bind();
+    va->Bind();
+    ib->Bind();
+    // Make new vb2 every draw, since primitives might have been added.
+    // NOTE: Or keep flag to track if priimitives were added?
+    //       Even if none were added, they may well have been modified.
+    va->AddBuffer(*vb1, *vbl1, true);
+    vb2 = new VertexBuffer(&m_Primitives[0], (unsigned int)m_Primitives.size() * sizeof(Primitive3D));
+    vb2->Bind();
+    va->AddBuffer(*vb2, *vbl2, false);
+    // Primitives list (0,1,2 are in vertex list)
+    glVertexAttribDivisor(3, 1);               // Color4
+    glVertexAttribDivisor(4, 1);               // Pos3
+    glVertexAttribDivisor(5, 1);               // Dir3
+    glVertexAttribDivisor(6, 1);               // Scale3
+    glVertexAttribDivisor(7, 1);               // Rot1
+    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    //glDisable(GL_CULL_FACE);
+    glDrawElementsInstanced(GL_TRIANGLES, ib->GetCount(), GL_UNSIGNED_INT, 0, (GLsizei)m_Primitives.size());
+    //glEnable(GL_CULL_FACE);
+    vb2->Unbind();
+    ib->Unbind();
+    va->Unbind();
+    vb1->Unbind();
+    delete vb2;
+    shdr->Unbind();
+}
+
+void SkyDots::genGeom() {
+    // IcoSphere generation from: https://schneide.blog/2016/07/15/generating-an-icosphere-in-c/
+    // See also: http://blog.andreaskahler.com/2009/06/creating-icosphere-mesh-in-code.html
+    // and: https://observablehq.com/@mourner/fast-icosphere-mesh
+    unsigned int order = 2;
+    float scale = 1.0f;
+    m_verts.reserve((size_t)(10 * pow(4, order) + 2));
+    m_tris.reserve((size_t)(20 * pow(4, order)));
+    VertexList vertices = icovertices;
+    TriangleList triangles = icotriangles;
+    for (unsigned int i = 0; i < order; ++i) {
+        triangles = subdivide(vertices, triangles);
+    }
+    // Transfer to "regular" arrays - Why? Because I don't fully understand the subdiv algorithm
+    for (auto& v : vertices) {
+        m_verts.push_back({ v, v, glm::vec2(0.0f,0.0f) }); // pos,nml,uv
+    }
+    for (auto& t : triangles) {
+        m_tris.push_back({ (unsigned int)t.vertex[0],(unsigned int)t.vertex[1],(unsigned int)t.vertex[2] });
+    }
+    return;
+}
+SkyDots::TriangleList SkyDots::subdivide(VertexList& vertices, TriangleList triangles) {
+    Lookup lookup;
+    TriangleList result;
+    for (auto&& each : triangles) {
+        std::array<SkyDots::Index, 3> mid;      // Index is simply a typedef unsigned int
+        for (int edge = 0; edge < 3; ++edge) {
+            mid[edge] = vertex_for_edge(lookup, vertices, each.vertex[edge], each.vertex[(edge + 1) % 3]);
+        }
+        // Return 4 smaller triangles
+        result.push_back({ each.vertex[0], mid[0], mid[2] });
+        result.push_back({ each.vertex[1], mid[1], mid[0] });
+        result.push_back({ each.vertex[2], mid[2], mid[1] });
+        result.push_back({ mid[0], mid[1], mid[2] });
+    }
+    return result;
+}
+SkyDots::Index SkyDots::vertex_for_edge(Lookup& lookup, VertexList& vertices, Index first, Index second) {
+    Lookup::key_type key(first, second);
+    if (key.first > key.second) std::swap(key.first, key.second);
+    auto inserted = lookup.insert({ key, vertices.size() });
+    if (inserted.second) {
+        auto& edge0 = vertices[first];
+        auto& edge1 = vertices[second];
+        auto point = normalize(edge0 + edge1);  // Scale to unit sphere
+        vertices.push_back(point);
+    }
+    return inserted.first->second;
+}
+
+
 // ------
 //  Dots
 // ------
@@ -1836,6 +2628,7 @@ void Dots::changeDot(unsigned int index, glm::vec4 color, float size) {
     prim->color = color;
     prim->scale = glm::vec3(size);
 }
+void Dots::removeDot(unsigned int index) { remove(index); }
 void Dots::genGeom() {
     // IcoSphere generation from: https://schneide.blog/2016/07/15/generating-an-icosphere-in-c/
     // See also: http://blog.andreaskahler.com/2009/06/creating-icosphere-mesh-in-code.html

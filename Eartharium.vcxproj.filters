@@ -347,6 +347,9 @@
     <ClInclude Include="Eartharium\ImGUI\implot_internal.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Eartharium\shaders\line.shader">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Eartharium\shaders\primitive.shader">
@@ -381,12 +384,13 @@
     <None Include="Eartharium\shaders\skysphere.shader">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="Eartharium\shaders\pip.shader">
+    <None Include="Eartharium\shaders\blit.shader">
       <Filter>Shaders</Filter>
     </None>
     <None Include="Eartharium\shaders\earth-elliptic.shader" />
     <None Include="Eartharium\Lesson001.py">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="Eartharium\shaders\glyph.shader" />
   </ItemGroup>
 </Project>

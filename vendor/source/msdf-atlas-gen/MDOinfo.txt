@@ -1,0 +1,9 @@
+msdf-atlas-gen
+==============
+1) Grab the source code from github: https://github.com/Chlumsky/msdf-atlas-gen
+2) Extract to \vendor\msdf-atlas-gen\msdf-atlas-gen-master
+3) atlas-gen depends on msdf-gen, get it from: https://github.com/Chlumsky/msdfgen (or vcpkg)
+3) Extract to \vendor\msdf-atlas-gen\msdf-gen-master
+4) Grab the code example from README.md on the github page and paste at the appropriate place in source
+   ( my example: primitives.cpp Fonts::createFont() )
+5) 

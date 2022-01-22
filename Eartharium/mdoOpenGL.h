@@ -64,45 +64,11 @@
 // My includes
 #include "config.h"
 
-// Mathematical constants
-const double pi = 3.14159265358979323846;
-const double tau = 2.0 * pi;
-const double pi2 = pi / 2.0;
-const double deg2rad = tau / 360.0;
-const double rad2deg = 360.0 / tau;
-const float pif = 3.14159265358979323846f;
-const float tauf = 2.0f * pif;
-const float pi2f = pif / 2.0f;
-const float deg2radf = tauf / 360.0f;
-const float rad2degf = 360.0f / tauf;
-const double hrs2dec = 15.0;
-const double dec2hrs = 1.0 / 15.0;
-const double rad2hrs = 24.0 / tau;
-const double hrs2rad = tau / 24.0;
-const double ninety = deg2rad * 89.99999;  // Used to avoid singularity at poles
-const double tiny = 0.00001;               // Used to determine practically zero
-const unsigned int maxuint = 4294967295;   // pow(2,32)-1 used to represent 'none' for various indices
-const float maxfloat = FLT_MAX;
-const double maxdouble = DBL_MAX;
-
-// Astronomical constants
-const double earthradius = 6378.1370;  // kilometers
-const double earthaxialtilt = 23.439281; // degrees (2007 wikipedia). Value changes over time, as Earth axis wobbles
-const double earthtropics = 23.4365;   // degrees (DMS: 23 26 11.4). Value fixed by convention - No !!! Is defined as obliquity of ecliptic
-const double eartharctics = 66.5635;   // NOTE: Actually changes over time, but set here to align with tropics
-const double astronomicalunit = 149597870.7; // 1 AU in km, from https://en.wikipedia.org/wiki/Astronomical_unit
-const double sunradius = 696340.0;     // Some uncertainty around this number: https://academic.oup.com/mnras/article/276/2/476/998827
-const double moonradius = 1737.3;
-const double sidereals = 86164.09053083288; // Seconds in 1 sidereal day
-const double sidereald = sidereals / 86400; // Sidereal day as fraction of solar day
-const double km2au = astronomicalunit;
-const double au2km = 1 / astronomicalunit;
-
 // Protos
 GLFWwindow* setupEnv(unsigned int width, unsigned int height, GLint major, GLint minor, bool fullscreen);
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
-void saveImage(std::string& filepath, GLFWwindow* w, unsigned int framebuffer = 0);
+void saveImage(std::string& filepath, GLFWwindow* w, unsigned int framebuffer = 0, int width = 0, int height = 0);
 
 // Actually still in Application.cpp because it uses global vars (the callback cannot be in a class, it is C and not C++)
 void keyboard_callback(GLFWwindow*, int key, int scancode, int action, int mods);
@@ -170,6 +136,7 @@ public:
 	VertexBuffer(const void* data, unsigned int size);
 	~VertexBuffer();
 	void LoadData(const void* data, unsigned int size);
+	void UpdateData(const void* data, unsigned int size);
 	unsigned int GetRenderID();
 	void Bind() const;
 	void Unbind() const;
@@ -278,9 +245,11 @@ enum ShaderType {
 	EARTH_SHADOW_MAP_SHADER,
 	EARTH_SHADOW_BOX_SHADER,
 	PRIMITIVE_SHADER,
+	LINE_SHADER,
 	PRIMITIVE_SHADOW_MAP_SHADER,
 	PRIMITIVE_SHADOW_BOX_SHADER,
-	PIP_SHADER,
+	BLIT_SHADER,
+	GLYPH_SHADER,
 	PLANETOID_SHADER,
 	SKY_BOX_SHADER,
 	SKY_SPHERE_SHADER
@@ -294,14 +263,16 @@ class ShaderLibrary {
 		unsigned int count = 0;
 		std::string file;
 	};
-	std::array<ShaderEntry, 10> shaders = { {
+	std::array<ShaderEntry, 12> shaders = { {
 		{ EARTH_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\earth.shader" },
 		{ EARTH_SHADOW_MAP_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitiveshadow.shader" },
 		{ EARTH_SHADOW_BOX_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitivesdwbox.shader" },
 		{ PRIMITIVE_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitive.shader" },
+		{ LINE_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\line.shader" },
 		{ PRIMITIVE_SHADOW_MAP_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitiveshadow.shader" },
 		{ PRIMITIVE_SHADOW_BOX_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitivesdwbox.shader" },
-		{ PIP_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\pip.shader" },
+		{ BLIT_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\blit.shader" },
+		{ GLYPH_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\glyph.shader" },
 		{ PLANETOID_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\planetoid.shader" },
 		{ SKY_BOX_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\skybox.shader" },
 		{ SKY_SPHERE_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\skysphere.shader" }

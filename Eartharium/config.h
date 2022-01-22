@@ -78,3 +78,59 @@ const size_t polycurvereserve = 5000; // default number of points in a path to r
 
 // For debug convenience
 #define VPRINT(v) std::cout << "(" << v.x << "," << v.y << "," << v.z << ")\n"
+
+
+
+// Mathematical constants
+const double pi = 3.14159265358979323846;
+const double tau = 2.0 * pi;
+const double pi2 = pi / 2.0;
+const double pi4 = pi / 4.0;
+const double twopi = 2 / pi;
+const double deg2rad = tau / 360.0;
+const double rad2deg = 360.0 / tau;
+const float pif = 3.14159265358979323846f;
+const float tauf = 2.0f * pif;
+const float pi2f = pif / 2.0f;
+const float pi4f = pif / 4.0f;
+const float deg2radf = tauf / 360.0f;
+const float rad2degf = 360.0f / tauf;
+const double hrs2dec = 15.0;
+const double dec2hrs = 1.0 / 15.0;
+const double rad2hrs = 24.0 / tau;
+const double hrs2rad = tau / 24.0;
+const double ninety = deg2rad * 89.99999;  // Used to avoid singularity at poles
+const double tiny = 0.00001;               // Used to determine practically zero
+const unsigned int maxuint = 4294967295;   // pow(2,32)-1 used to represent 'none' for various indices
+const float maxfloat = FLT_MAX;
+const double maxdouble = DBL_MAX;
+
+// Astronomical constants
+const double earthradius = 6378.1370;  // kilometers
+const double earthaxialtilt = 23.439281; // degrees (2007 wikipedia). Value changes over time, as Earth axis wobbles
+const double earthtropics = 23.4365;   // degrees (DMS: 23°26'11.4"). Value fixed by convention - No !!! Is defined as obliquity of ecliptic
+const double eartharctics = 66.5635;   // NOTE: Actually changes over time, but set here to align with tropics
+const double astronomicalunit = 149597870.7; // 1 AU in km, from https://en.wikipedia.org/wiki/Astronomical_unit
+const double sunradius = 696340.0;     // Some uncertainty around this number: https://academic.oup.com/mnras/article/276/2/476/998827
+const double moonradius = 1737.3;
+const double sidereals = 86164.09053083288; // Seconds in 1 sidereal day
+const double sidereald = sidereals / 86400; // Sidereal day as fraction of calendar day
+const double km2au = astronomicalunit;
+const double au2km = 1 / astronomicalunit;
+
+// Math helper functions
+inline glm::vec3 projectVector2Plane(glm::vec3 vector, glm::vec3 normal) {
+	// Projects vector onto the plane defined by the normal
+	return vector - normal * glm::dot(vector, normal) / (float)pow(glm::length(normal), 2);
+}
+inline double clamp0to360(double degrees) {
+	while (degrees > 360.0) degrees -= 360.0;
+	while (degrees < 0.0) degrees += 360.0;
+	return degrees;
+}
+inline double clamp0toTau(double radians) {
+	// See Astronomy::rangezero2tau(double rad) !!!
+	while (radians > tau) radians -= tau;
+	while (radians < 0.0) radians += tau;
+	return radians;
+}
