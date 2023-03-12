@@ -126,6 +126,8 @@ Texture::Texture(const std::string& filepath, unsigned int texslot)  // Pass in 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     if (glfwExtensionSupported("GL_ARB_texture_filter_anisotropic")) {
         GLfloat value, max_anisotropy = 4.0f; /* don't exceed this value...*/
         glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &value);
@@ -159,7 +161,7 @@ void Texture::Bind() {
     //std::cout << "Texture::Bind(): TextureSlot: " << m_TextureSlot - GL_TEXTURE0 << ", RenderID: " << m_RenderID << ".\n";
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); // GL_CLAMP_TO_EDGE
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     //glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, 8.0f);
 }
@@ -452,7 +454,7 @@ ShadowBox::ShadowBox(Scene* scene, unsigned int w,unsigned int h) : m_scene(scen
     glActiveTexture(GL_TEXTURE0);
 }
 ShadowBox::~ShadowBox() { }
-void ShadowBox::Render(glm::vec3 lightPos) {  // pass far plane?
+void ShadowBox::Render(Camera* cam, glm::vec3 lightPos) {  // pass far plane?
     // Render the shadow casting objects to depth map
     glActiveTexture(GL_TEXTURE1);
     glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
@@ -474,10 +476,10 @@ void ShadowBox::Render(glm::vec3 lightPos) {  // pass far plane?
     //glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
     // (so exclude SkyBox !!)
     //world->GetSphereUVFactoryb()->Draw(SHADOW_BOX);
-    m_scene->getCylindersFactory()->draw(SHADOW_BOX);
+    m_scene->getCylindersFactory()->draw(cam, SHADOW_BOX);
     //world->GetViewConesFactory()->Draw(SHADOW_BOX);
     //world->GetPlanesFactory()->Draw(SHADOW_BOX);
-    m_scene->getConesFactory()->draw(SHADOW_BOX);
+    m_scene->getConesFactory()->draw(cam, SHADOW_BOX);
     //world->GetDotsFactory()->Draw(SHADOW_BOX);
 
 
@@ -531,7 +533,7 @@ void ShadowMap::Unbind() {
     //glViewport(0, 0, world->w_width, world->w_height);
     //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
-void ShadowMap::Render() {
+void ShadowMap::Render(Camera* cam) {
     glActiveTexture(GL_TEXTURE1);
     glBindFramebuffer(GL_FRAMEBUFFER, m_depthmapFBO);
     glViewport(0, 0, width, height);
@@ -545,10 +547,10 @@ void ShadowMap::Render() {
     // Render objects that are allowed to cast shadows
     // (so exclude SkyBox !!)
     //world->GetSphereUVOb()->Draw(SHADOW_MAP);
-    m_scene->getCylindersFactory()->draw(SHADOW_MAP);
+    m_scene->getCylindersFactory()->draw(cam, SHADOW_MAP);
     //world->GetViewConesOb()->Draw(SHADOW_MAP);
     //world->GetPlanesOb()->Draw(SHADOW_MAP);
-    m_scene->getConesFactory()->draw(SHADOW_MAP);
+    m_scene->getConesFactory()->draw(cam, SHADOW_MAP);
     //world->GetDotsOb()->Draw(SHADOW_MAP);
     // Ensure frame is completely rendered before returning to scene render
     //GLsync fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);

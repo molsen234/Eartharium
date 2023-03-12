@@ -180,6 +180,21 @@
     <ClCompile Include="Eartharium\ImGUI\implot_items.cpp">
       <Filter>ImGUI</Filter>
     </ClCompile>
+    <ClCompile Include="Eartharium\Utilities.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AADiameters.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAGlobe.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AARefraction.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAPrecession.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Eartharium\mdoOpenGL.h">
@@ -347,50 +362,65 @@
     <ClInclude Include="Eartharium\ImGUI\implot_internal.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Eartharium\shaders\line.shader">
+    <ClInclude Include="Eartharium\shaders\line.glsl">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\Utilities.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AADiameters.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAGlobe.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AARefraction.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAPrecession.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Eartharium\shaders\primitive.shader">
+    <None Include="Eartharium\shaders\primitive.glsl">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="Eartharium\shaders\earth.shader">
+    <None Include="Eartharium\shaders\earth.glsl">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="Eartharium\shaders\skybox.shader">
+    <None Include="Eartharium\shaders\skybox.glsl">
       <Filter>Shaders</Filter>
     </None>
     <None Include="cpp.hint" />
     <None Include="Eartharium\ImGUI\cpp.hint" />
-    <None Include="Eartharium\shaders\planetoid.shader">
+    <None Include="Eartharium\shaders\planetoid.glsl">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="Eartharium\shaders\primitiveshadow.shader">
+    <None Include="Eartharium\shaders\primitiveshadow.glsl">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="Eartharium\shaders\shadowearth.shader">
+    <None Include="Eartharium\shaders\shadowearth.glsl">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="Eartharium\shaders\primitivesdwbox.shader">
+    <None Include="Eartharium\shaders\primitivesdwbox.glsl">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="Eartharium\shaders\sdwboxearth.shader">
+    <None Include="Eartharium\shaders\sdwboxearth.glsl">
       <Filter>Shaders</Filter>
     </None>
     <None Include="Eartharium\hello.py">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Eartharium\shaders\skysphere.shader">
+    <None Include="Eartharium\shaders\skysphere.glsl">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="Eartharium\shaders\blit.shader">
+    <None Include="Eartharium\shaders\blit.glsl">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="Eartharium\shaders\earth-elliptic.shader" />
+    <None Include="Eartharium\shaders\earth-elliptic.glsl" />
     <None Include="Eartharium\Lesson001.py">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Eartharium\shaders\glyph.shader" />
+    <None Include="Eartharium\shaders\glyph.glsl" />
   </ItemGroup>
 </Project>

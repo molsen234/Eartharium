@@ -58,6 +58,8 @@ NEW IDEAS
   o & accompanying blogpost: http://casual-effects.blogspot.com/2014/03/weighted-blended-order-independent.html  
 - ImGui themes: https://github.com/ocornut/imgui/issues/707
 
+- Make an AnalemmaMachine class to experiment with the parameters in this lecture: https://www.youtube.com/watch?v=qh4PfP_Lhoc&ab_channel=MemphisAstronSociety
+
 
 Animation
 ---------

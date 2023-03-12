@@ -1,6 +1,26 @@
 #pragma once
 #include "Primitives.h"
 
+
+class Time {
+public:
+	Time(long year, long month, double day, double hour, double minute, double second, bool gregorian = true)
+	: m_year(year), m_month(month), m_day(day), m_hour(hour), m_minute(minute), m_second(second), m_gregorian(gregorian) {
+		current = CAADate(year, month, day, hour, minute, second, gregorian);
+	}
+private:
+	long m_year = 0;
+	long m_month = 0;
+	double m_day = 0.0;
+	double m_hour = 0.0;
+	double m_minute = 0.0;
+	double m_second = 0.0;
+	bool m_gregorian = true;
+	CAADate current;
+	std::string timezone;
+};
+
+
 struct CelestialDetail {
 	double jd = 0.0;
 	double eclat = 0.0;  // Heliocentric Ecliptic coordinates
@@ -11,7 +31,6 @@ struct CelestialDetail {
 	double geogha = 0.0;
 	double geodst = 0.0; // Earth distance in AU
 };
-
 // ---------------
 //  CelestialPath
 // ---------------
@@ -48,9 +67,33 @@ private:
 // -----------
 class Astronomy {
 public:
+	struct stellarobject {
+		double ra = 0.0;
+		double dec = 0.0;
+		double pm_ra = 0.0;
+		double pm_dec = 0.0;
+		double vmag = 0.0;
+		double red = 0.0;
+		double green = 0.0;
+		double blue = 0.0;
+		std::string identifier;
+	};
+	struct stellarobject_xref {
+		std::string popular_name;
+		std::string identifier;
+	};
 	// GUI interface
 	std::string timestr;
-	
+	static bool stellarobjects_loaded;
+	static double epoch;
+	static std::vector<stellarobject> stellarobjects; // Common for all Astronomy instances
+	static std::vector<stellarobject_xref> stellarobject_xrefs; // ditto
+	static void loadStellarObjects();
+	static void convertSIMBAD(std::string filename);
+	static stellarobject& getSObyName(const std::string starname);
+	static LLH getDecRAbyName(const std::string starname, bool rad = false);
+	static LLH getDecRAwithPMbyName(const std::string starname, double jd, bool rad = false);
+	static glm::vec4 getColorbyName(const std::string starname);
 private:
 	double m_jd = 0.0;
 	CAADate m_date;
@@ -62,6 +105,7 @@ private:
 	double m_second = 0.0;
 	bool m_gregorian = true;
 	double m_gsidtime = 0.0; // Greenwich sidereal time in radians
+	double eot = 0.0;
 
 	tightvec<CelestialPath*> cacheCP;
 
@@ -80,14 +124,16 @@ private:
 public:
 	Astronomy();
 	~Astronomy();
-	void setTime(long yr, long mo, double da, double hr, double mi, double se, bool gre);
+	void setTime(long yr, long mo, double da, double hr, double mi, double se, bool gre = true);
 	void setTimeNow();
 	void setJD(double jd, bool gregorian);
 	double getJD();
 	void setUnixTime(double utime);
-	void addTime(double d, double h, double min, double sec);
+	void addTime(double d, double h, double min, double sec, bool eot = false);
+	void dumpCurrentTime(unsigned int frame = NO_UINT);
 	double calculateGsid(double jd);
 	double getGsid(double jd = 0.0);
+	double getEoT(double jd = 0.0);
 	void getTimeString(char* dstring);
 	void updateTimeString();
 	void DateTimeString(CAADate* date, char* dstring);
@@ -101,7 +147,7 @@ public:
 	unsigned int enablePlanet(unsigned int planet);
 	unsigned int disablePlanet(unsigned int planet);
 	LLH getDecRA(unsigned int planet, double jd = 0.0);
-	LLH getDecGHA(unsigned int planet, double jd = 0.0);
+	LLH getDecGHA(unsigned int planet, double jd = 0.0, bool rad = true);
 	void updateGeocentric(unsigned int planet);
 	LLH calcEc2Geo(double Lambda, double Beta, double Epsilon);
 	LLH calcGeo2Topo(LLH pos, LLH loc);
@@ -111,6 +157,7 @@ public:
 	void stringRad2DMS(double rad, char* dstring);
 	void stringRad2HMS(double rad, char* dstring);
 	void stringDeg2DMS(double deg, char* dstring);
+	double getEclipticObliquity(double jd = NO_DOUBLE, bool rad = false);
 	//CAAEllipticalPlanetaryDetails calcEllipticalRad(double JD, unsigned int planet);
 	CelestialDetail getDetails(double JD, unsigned int planet, unsigned int type);
 
@@ -120,9 +167,15 @@ public:
 
 	CAA2DCoordinate EclipticAberration(double Lambda, double Beta, double JD);
 	CAA2DCoordinate FK5Correction(double Longitude, double Latitude, double JD);
+	CAA2DCoordinate EquatorialAberration(double Alpha, double Delta, double JD, bool bHighPrecision);
 	double NutationInLongitude(double JD);
 	double TrueObliquityOfEcliptic(double JD);
 	double NutationInObliquity(double JD);
+	double NutationInRightAscension(double ra, double dec, double obliq, double nut_lon, double nut_obl);
+	double NutationInDeclination(double ra, double obliq, double nut_lon, double nut_obl);
+	// Stellar Earth Centered Equatorial
+	LLH getTrueDecRAbyName(const std::string starname, bool rad = false);
+	LLH calcTrueDecRa(const LLH decra, const double JD = NO_DOUBLE, const double JD0 = JD2000); // If no Epoch, assume J2000
 	// Ecliptic (Heliocentric)
 	double getEcLat(unsigned int planet, double jd);
 	double getEcLon(unsigned int planet, double jd);
@@ -3164,14 +3217,3 @@ constexpr std::array<VSOP87Coefficient, 1> g_R3NeptuneCoefficients
 { {
   { 166,  4.552,  38.133 }
 } };
-
-
-struct stellarobject {
-	double ra;
-	double dec;
-	double vmag;
-	double red;
-	double green;
-	double blue;
-	std::string identifier;
-};

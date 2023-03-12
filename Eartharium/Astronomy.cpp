@@ -77,11 +77,294 @@ void CelestialPath::decref() {
 Astronomy::Astronomy() {
     //std::cout << "Astronomy{" << this << "} created!\n";
     setTimeNow();  // Ensure a default time is set
+    if (stellarobjects_loaded) return;
+    loadStellarObjects();
 }
 Astronomy::~Astronomy() {
     //std::cout << "Astronomy{" << this << "} destroyed!\n";
 }
+bool Astronomy::stellarobjects_loaded = false;
+double Astronomy::epoch = 2000.0;
+// These two lines and the loadStellarObjects() function below, with help from:
+// https://stackoverflow.com/questions/7531981/how-to-instantiate-a-static-vector-of-object
+// (Objective was to have all stellar object lookups handled by Astronomy without loading a duplicate DB for each Astronomy instantiated)
+std::vector<Astronomy::stellarobject> Astronomy::stellarobjects;
+std::vector<Astronomy::stellarobject_xref> Astronomy::stellarobject_xrefs;
+void Astronomy::loadStellarObjects() {
+    size_t res_items = 10000;
+    size_t res_namexrefs = 500;
+    stellarobjects.reserve(res_items);
+    stellarobject_xrefs.reserve(res_namexrefs);
+    std::ifstream stream("C:\\Coding\\Eartharium\\visible stars color - v2.csv");
+    if (!stream.is_open()) {
+        std::cout << "Did not manage to open Star file!\n";
+    }
+    std::istringstream parse;
+    std::string line, item;
+    std::getline(stream, line); // Skip headers - UPD: No headers in current version of the file - UPD2: Headers are back!
+    unsigned int i = 0;
+    while (getline(stream, line)) {
+        i++;
+        stellarobjects.push_back(stellarobject());
+        //std::cout << line << "\n";
+        parse.clear();
+        parse.str(line);
+        //for (std::string item; std::getline(parse, item, ','); ) {
+        //    std::cout << item << '\n';
+        //}
+        std::getline(parse, item, ','); // RA
+        //std::cout << "Parsing RA: " << item << '\n';
+        stellarobjects.back().ra = std::stod(item);
+        std::getline(parse, item, ','); // Dec
+        stellarobjects.back().dec = std::stod(item);
+        // Proper Motion RA, Dec added 2022-02-16
+        std::getline(parse, item, ','); // P.motion RA
+        if (item[0] == '~') stellarobjects.back().pm_ra = 0.0;
+        else stellarobjects.back().pm_ra = std::stod(item);
+        //std::cout << "Proper motion: " << stellarobjects.back().pm_ra << " (" << item << ")";
+        std::getline(parse, item, ','); // P.motion Dec
+        if (item[0] == '~') stellarobjects.back().pm_dec = 0.0;
+        else stellarobjects.back().pm_dec = std::stod(item);
+        //std::cout << ", " << stellarobjects.back().pm_dec << " (" << item << ")" << '\n';
+        std::getline(parse, item, ','); // Vmag
+        stellarobjects.back().vmag = std::stod(item);
+        std::getline(parse, item, ','); // Red
+        stellarobjects.back().red = std::stod(item);
+        std::getline(parse, item, ','); // Green
+        stellarobjects.back().green = std::stod(item);
+        std::getline(parse, item, ','); // Blue
+        stellarobjects.back().blue = std::stod(item);
+        std::getline(parse, item); // Identifier
+        stellarobjects.back().identifier = item;
+    }
+    std::ifstream stream2("C:\\Coding\\Eartharium\\CommonStarNamesIAU.csv");
+    if (!stream.is_open()) {
+        std::cout << "Did not manage to open Star name crossreference file!\n";
+    }
+    getline(stream2, line); // consume header line
+    i = 0;
+    while (getline(stream2, line)) {
+        i++;
+        stellarobject_xrefs.push_back(stellarobject_xref());
+        //std::cout << line << "\n";
+        parse.clear();
+        parse.str(line);
+        std::getline(parse, item, ','); // Identifier
+        stellarobject_xrefs.back().popular_name = item;
+        std::getline(parse, item); // Identifier
+        stellarobject_xrefs.back().identifier = item;
+    }
+    if (i >= res_namexrefs) std::cout << "WARNING! Astronomy::loadStellarObjects(): Name xrefs loaded from file: " << i << ", reserved space: " << res_namexrefs << ". Adding exceeding entries is SLOW!\n";
+    
+
+    stellarobjects_loaded = true;
+}
+void Astronomy::convertSIMBAD(std::string filename) {
+
+    char outsep = ','; // Output separator
+    std::ifstream streami("C:\\Coding\\Eartharium\\simbad-raw.csv");
+    std::ofstream streamo("C:\\Coding\\Eartharium\\simbad-export.csv");
+    if (!streami.is_open()) {
+        std::cout << "Did not manage to open SIMBAD Raw File!\n";
+        return;
+    }
+    if (!streamo.is_open()) {
+        std::cout << "Did not manage to open SIMBAD Export File!\n";
+        return;
+    }
+    std::istringstream parse, parse2;
+    std::string line, item, item2;
+    for (int j = 0; j < 9; j++) std::getline(streami, line);
+
+    streamo << "#" << outsep << "id" << outsep << "typ" << outsep << "icrs_ra_h" << outsep << "icrs_ra_m" << outsep << "icrs_ra_s"
+        << outsep << "icrs_dec_d" << outsep << "icrs_dec_m" << outsep << "icrs_dec_s" << outsep << "fk5_ra_h" << outsep << "fk5_ra_m"
+        << outsep << "fk5_ra_s" << outsep << "fk5_dec_d" << outsep << "fk5_dec_m" << outsep << "fk5_dec_s" << outsep << "fk4_ra_h"
+        << outsep << "fk4_ra_m" << outsep << "fk4_ra_s" << outsep << "fk4_dec_d" << outsep << "fk4_dec_m" << outsep << "fk4_dec_s"
+        << outsep << "gal_ra" << outsep << "gal_dec" << outsep << "pm_ra" << outsep << "pm_dec" << outsep << "plx"
+        << outsep << "Umag" << outsep << "Bmag" << outsep << "Vmag" << outsep << "Rmag" << outsep << "Gmag" << outsep << "Imag"
+        << outsep << "spec.type\n";
+    unsigned int i = 0;
+    while (getline(streami, line)) {
+        i++;
+        parse.clear();
+        parse.str(line);
+
+        std::getline(parse, item, ';'); // Record number
+        if (item[0] == '=') break;      // last line is all "===========..."
+        streamo << rtrim(item) << outsep;
+
+        std::getline(parse, item, ';'); // Identifier
+        streamo << rtrim(item) << outsep;
+
+        std::getline(parse, item, ';'); // Type
+        streamo << rtrim(item) << outsep;
+
+        std::getline(parse, item, ';'); // ICRS(J2000) RA_h RA_m RA_s Dec_d Dec_m Dec_s
+        parse2.clear();
+        parse2.str(rtrim(item));
+        std::getline(parse2, item2, ' '); // RA_h
+        streamo << item2 << outsep;
+        std::getline(parse2, item2, ' '); // RA_m
+        streamo << item2 << outsep;
+        std::getline(parse2, item2, ' '); // RA_s
+        streamo << item2 << outsep;
+        std::getline(parse2, item2, ' '); // Dec_d
+        streamo << item2 << outsep;
+        std::getline(parse2, item2, ' '); // Dec_m
+        streamo << item2 << outsep;
+        std::getline(parse2, item2);      // Dec_s
+        streamo << item2 << outsep;
+
+        std::getline(parse, item, ';'); // FK5(J2000) RA_h RA_m RA_s Dec_d Dec_m Dec_s
+        parse2.clear();
+        parse2.str(rtrim(item));
+        std::getline(parse2, item2, ' '); // RA_h
+        streamo << item2 << outsep;
+        std::getline(parse2, item2, ' '); // RA_m
+        streamo << item2 << outsep;
+        std::getline(parse2, item2, ' '); // RA_s
+        streamo << item2 << outsep;
+        std::getline(parse2, item2, ' '); // Dec_d
+        streamo << item2 << outsep;
+        std::getline(parse2, item2, ' '); // Dec_m
+        streamo << item2 << outsep;
+        std::getline(parse2, item2);      // Dec_s
+        streamo << item2 << outsep;
+
+        std::getline(parse, item, ';');   // FK4(B1950) RA_h RA_m RA_s Dec_d Dec_m Dec_s
+        parse2.clear();
+        parse2.str(rtrim(item));
+        std::getline(parse2, item2, ' '); // RA_h
+        streamo << item2 << outsep;
+        std::getline(parse2, item2, ' '); // RA_m
+        streamo << item2 << outsep;
+        std::getline(parse2, item2, ' '); // RA_s
+        streamo << item2 << outsep;
+        std::getline(parse2, item2, ' '); // Dec_d
+        streamo << item2 << outsep;
+        std::getline(parse2, item2, ' '); // Dec_m
+        streamo << item2 << outsep;
+        std::getline(parse2, item2);      // Dec_s
+        streamo << item2 << outsep;
+
+        std::getline(parse, item, ';');   // Galactic J2000 RA Dec decimal
+        parse2.clear();
+        parse2.str(rtrim(item));
+        std::getline(parse2, item2, ' '); // gal_RA in decimal
+        streamo << item2 << outsep;
+        std::getline(parse2, item2, ' '); // gal_Dec in decimal
+        streamo << item2 << outsep;
+
+        std::getline(parse, item, ';');   // Proper Motion
+        parse2.clear();
+        parse2.str(trim(item));           // trim both ends
+        getline(parse2, item2, ' ');      // Proper Motion RA
+        streamo << item2 << outsep;
+        getline(parse2, item2);           // Proper Motion Dec
+        streamo << item2 << outsep;
+
+        std::getline(parse, item, ';');   // Parallax
+        streamo << trim(item) << outsep;
+
+        std::getline(parse, item, ';');   // Umag
+        streamo << trim(item) << outsep;
+
+        std::getline(parse, item, ';');   // Bmag
+        streamo << trim(item) << outsep;
+
+        std::getline(parse, item, ';');   // Vmag
+        streamo << trim(item) << outsep;
+
+        std::getline(parse, item, ';');   // Rmag
+        streamo << trim(item) << outsep;
+
+        std::getline(parse, item, ';');   // Gmag
+        streamo << trim(item) << outsep;
+
+        std::getline(parse, item, ';');   // Imag
+        streamo << trim(item) << outsep;
+
+        std::getline(parse, item, ';');   // Spectral Type
+        streamo << rtrim(item);
+
+        streamo << '\n';
+    }
+}
+Astronomy::stellarobject& Astronomy::getSObyName(const std::string starname) {
+    std::string sname = starname;
+    for (auto& n : Astronomy::stellarobject_xrefs) {
+        //std::cout << n.popular_name << "|" << n.identifier << '\n';
+        if (n.popular_name == sname) {
+            sname = n.identifier;
+            break;
+        }
+    }
+    for (auto& s : Astronomy::stellarobjects) {
+        if (s.identifier == sname) {
+            return s; // File was loaded in degrees
+        }
+    }
+}
+LLH Astronomy::getDecRAbyName(const std::string starname, bool rad) {
+    std::string sname = starname;
+    for (auto& n : Astronomy::stellarobject_xrefs) {
+        //std::cout << n.popular_name << "|" << n.identifier << '\n';
+        if (n.popular_name == sname) {
+            sname = n.identifier;
+            break;
+        }
+    }
+    for (auto& s : Astronomy::stellarobjects) {
+        if (s.identifier == sname) {
+            return { rad ? deg2rad * s.dec : s.dec, rad ? deg2rad * s.ra : s.ra, 0.0 }; // File was loaded in degrees
+        }
+    }
+    std::cout << "ERROR! Astronomy::getDecRAbyName() - Unknown name supplied: " << starname << '\n';
+    return { 0.0, 0.0, NO_DOUBLE };
+}
+LLH Astronomy::getDecRAwithPMbyName(const std::string starname, double jd, bool rad) {
+    std::string sname = starname;
+    for (auto& n : Astronomy::stellarobject_xrefs) {
+        //std::cout << n.popular_name << "|" << n.identifier << '\n';
+        if (n.popular_name == sname) {
+            sname = n.identifier;
+            break;
+        }
+    }
+    for (auto& s : Astronomy::stellarobjects) {
+        if (s.identifier == sname) {
+            // apply Proper Motion
+            double elapsedyears = (jd - 2451545.0) / 365.25;
+            double dec = s.dec + s.pm_dec * elapsedyears / 3600000.0;
+            // NOTE: SIMBAD proper motions are from the Hipparcos mission, the right ascension value is already multiplied by cos(s.dec)
+            //double ra = s.ra + s.pm_ra / cos(deg2rad * s.dec) * elapsedyears / 3600000.0;
+            double ra = s.ra + s.pm_ra * elapsedyears / 3600000.0;
+            return { rad ? deg2rad * dec : dec, rad ? deg2rad * ra : ra, 0.0 }; // File was loaded in degrees
+        }
+    }
+    std::cout << "ERROR! Astronomy::getDecRAwithPMbyName() - Unknown name supplied: " << starname << '\n';
+    return { 0.0, 0.0, NO_DOUBLE };
+}
+glm::vec4 Astronomy::getColorbyName(const std::string starname) {
+    std::string sname = starname;
+    for (auto& n : Astronomy::stellarobject_xrefs) {
+        //std::cout << n.popular_name << "|" << n.identifier << '\n';
+        if (n.popular_name == sname) {
+            sname = n.identifier;
+            break;
+        }
+    }
+    for (auto& s : Astronomy::stellarobjects) {
+        if (s.identifier == sname) {
+            return glm::vec4((float)s.red, (float)s.green, (float)s.blue, 1.0f); // File was loaded in degrees
+        }
+    }
+    std::cout << "ERROR! Astronomy::getColorbyName() - Unknown name supplied: " << starname << '\n';
+    return NO_COLOR;
+}
+
 void Astronomy::setTime(long yr, long mo, double da, double hr, double mi, double se, bool gre) {
+    eot = 0.0;
     // TODO: Normalize entries !!!
     //while (hr >= 24.0) { hr -= 24.0; da += 1.0; }  // !!! Untested...
     //while (hr < 0.0) { hr += 24.0; da -= 1.0; }    // !!! Untested...
@@ -104,6 +387,7 @@ void Astronomy::setTimeNow() {
         (double)utc_tm.tm_hour, (double)utc_tm.tm_min, (double)utc_tm.tm_sec, true);
 }
 void Astronomy::setJD(double jd, bool gregorian) {
+    eot = 0.0;
     m_jd = jd;
     m_gregorian = gregorian;
     m_date = CAADate(m_jd, m_gregorian);  // When we have m_date, do we really need to keep all the below around too?
@@ -119,25 +403,56 @@ double Astronomy::getJD() {
     //std::cout << "Astronomy{" << this << "}::getJD()\n";
     return m_jd;
 }
-void Astronomy::addTime(double d, double h, double min, double sec) {
+void Astronomy::addTime(double d, double h, double min, double sec, bool do_eot) {
     /// <summary>
     /// Public method to increase (or decrease if negative) the current time. It will automatically update internal state.
     /// </summary>
-    // No sense in adding years and months, those are not consistent durations.
+    // No sense in adding years and months, those are not consistent durations. Well, they still advance time, and CAADate() is duration aware.
+    if (do_eot && eot == 0.0) eot = CAAEquationOfTime::Calculate(m_jd, true);
+    if (eot != 0.0 && do_eot) m_minute += eot; // If EoT was applied last time update, remove it.
+    //std::cout << "Astronomy::addTime() - Remove EoT: " << eot << '\n';
+    if (!do_eot) eot = 0.0;
     m_day += d;
     m_hour += h;
     m_minute += min;
     m_second += sec;
-    m_date = CAADate(m_year, m_month, m_day, m_hour, m_minute, m_second + 0.01, m_gregorian);
+    if (do_eot) {
+        m_date = CAADate(m_year, m_month, m_day, m_hour, m_minute, m_second, m_gregorian);
+        m_jd = m_date.Julian();
+        eot = CAAEquationOfTime::Calculate(m_jd, true);
+        //std::cout << "Astronomy::addTime() -  Apply EoT: " << eot << '\n';
+        m_minute -= eot;
+    }
+    // Time variables are most likely not within bounds anymore, so recalculate them all via CAADate()
+    // Note: This introduces some small inaccuracies around 0.000006 seconds.
+    m_date = CAADate(m_year, m_month, m_day, m_hour, m_minute, m_second, m_gregorian);
     m_jd = m_date.Julian();
+    m_year = m_date.Year();
+    m_month = m_date.Month();
+    m_day = m_date.Day();
+    m_hour = m_date.Hour();
+    m_minute = m_date.Minute();
+    m_second = m_date.Second();
     update();
+}
+void Astronomy::dumpCurrentTime(unsigned int frame) {
+    if (frame == NO_UINT) std::cout << "Current astronomical time at frame none:\n";
+    else std::cout << "Current astronomical time at frame " << frame << ":\n";
+    std::cout << " - Gregorian: " << (m_gregorian ? "true" : "false") << '\n';
+    std::cout << " - Year: " << m_year << '\n';
+    std::cout << " - Month: " << m_month << '\n';
+    std::cout << " - Day: " << m_day << '\n';
+    std::cout << " - Hour: " << m_hour << '\n';
+    std::cout << " - Minute: " << m_minute << '\n';
+    std::cout << " - Second: " << m_second << '\n';
+    // std::cout << "Astronomy::setTime("<<m_year<<", "<<m_month
 }
 void Astronomy::setUnixTime(double utime) {
     setJD(getUnixTime2JD(utime), true); // NOTE: Assuming gregorian due to the valid range of Unix timestamps
 }
 double Astronomy::calculateGsid(double jd) {
     /// <summary>
-    /// Public method to obtain Greenwich Sidereal Time from Julian Date. If no Julian Date is supplied, current time is used.
+    /// Public method to obtain Greenwich Sidereal Time from Julian Date.
     /// </summary>
     return hrs2rad * CAASidereal::ApparentGreenwichSiderealTime(jd);
 }
@@ -147,6 +462,10 @@ double Astronomy::getGsid(double jd) {
     /// </summary>
     if (jd == 0.0 || jd == m_jd) return m_gsidtime;
     else return calculateGsid(jd);
+}
+double Astronomy::getEoT(double jd) {
+    if (jd == 0.0) jd = m_jd;
+    return CAAEquationOfTime::Calculate(jd, true);
 }
 void Astronomy::getTimeString(char* dstring) {
     // Builds and returns a date time string from current JD
@@ -225,11 +544,12 @@ LLH Astronomy::getDecRA(unsigned int planet, double jd) {
     CelestialDetail details = getDetails(jd, planet, ECGEO);
     return { details.geodec, details.geora, 0.0 };
 }
-LLH Astronomy::getDecGHA(unsigned int planet, double jd) {
+LLH Astronomy::getDecGHA(unsigned int planet, double jd, bool rad) {
     if (jd == 0.0) jd = m_jd;
     if (jd == planet_jd[planet]) return { planet_dec[planet], planet_gha[planet], 0.0 };
     CelestialDetail details = getDetails(jd, planet, ECGEO);
-    return { details.geodec, details.geogha, 0.0 };
+    if (!rad) return { rad2deg * details.geodec, rad2deg * details.geogha, 0.0 };
+    else return { details.geodec, details.geogha, 0.0 };
 }
 void Astronomy::updateGeocentric(unsigned int planet) {
     if (planet_jd[planet] == m_jd) return;  // Skip if time has not updated. Ideally we should never be called at all in that case.
@@ -253,7 +573,7 @@ LLH Astronomy::calcEc2Geo(double Lambda, double Beta, double Epsilon) {
 LLH Astronomy::calcGeo2Topo(LLH pos, LLH loc) {
     // TODO: Does NOT account for altitude of observer !!!
     // pos is DecGHA, loc is LatLon
-    // NOTE: No caching, not likely to be called with same location twice for same JD
+    // NOTE: No caching, not likely to be called with same position twice for same JD
     double LocalHourAngle = pos.lon + loc.lon;
     // from CAACoordinateTransformation::Equatorial2Horizontal(rad2hrs * LocalHourAngle, rad2deg * pos.lat, rad2deg * loc.lat);
     LLH topo;
@@ -309,6 +629,11 @@ void Astronomy::stringDeg2DMS(double deg, char* dstring) {
     int d = (int)dg;
     int m = (int)mi;
     sprintf(dstring, "%03d\xF8%02d\'%02.2f\"", d, m, sec);
+}
+double Astronomy::getEclipticObliquity(double jd, bool rad) {
+    // jd defaults to current time, rad defaults to false
+    if (jd == NO_DOUBLE) jd = m_jd;
+    return rad ? CAANutation::TrueObliquityOfEcliptic(jd) * deg2rad : CAANutation::TrueObliquityOfEcliptic(jd);
 }
 CelestialDetail Astronomy::getDetails(double JD, unsigned int planet, unsigned int type) {
     CelestialDetail details;
@@ -452,7 +777,7 @@ CelestialDetail Astronomy::getDetails(double JD, unsigned int planet, unsigned i
     return details;
 }
 CelestialPath* Astronomy::getCelestialPath(unsigned int planet, double startoffset, double endoffset, unsigned int steps, unsigned int type, bool fixed) {
-    // Optional param fixed determined whether path will evolve with time or remain with initial values
+    // Optional param fixed determines whether path will evolve with time or remain with initial values
     // Check if there is a matching CelestialPath already
     for (auto cp : cacheCP.m_Elements) {
         // Maybe upgrade type from ec to ecgeo if other params match
@@ -484,7 +809,7 @@ void Astronomy::updateCelestialPaths() {
 }
 CAA2DCoordinate Astronomy::EclipticAberration(double Lambda, double Beta, double JD) {
     // From CAAAberration::EclipticAberration() converted to accept radians
-    const double T = (JD - 2451545) / 36525;
+    const double T = (JD - JD2000) / 36525;
     const double e = 0.016708634 - T * (0.000042037 + 0.0000001267 * T);
     double pi = deg2rad * (102.93735 + T * (1.71946 + 0.00046 * T));
     constexpr double k = 20.49552;
@@ -495,8 +820,21 @@ CAA2DCoordinate Astronomy::EclipticAberration(double Lambda, double Beta, double
     aberration.Y = -k * sin(Beta) * (sin(SunLongitude - Lambda) - e * sin(pi - Lambda)) / 3600;
     return aberration;
 }
+CAA2DCoordinate Astronomy::EquatorialAberration(double ra, double dec, double JD, bool bHighPrecision) {
+    const double cosAlpha = cos(ra);
+    const double sinAlpha = sin(ra);
+    const double cosDelta = cos(dec);
+    const double sinDelta = sin(dec);
+ 
+    const CAA3DCoordinate velocity = CAAAberration::EarthVelocity(JD, bHighPrecision);
+    CAA2DCoordinate aberration;
+    aberration.X = (velocity.Y * cosAlpha - velocity.X * sinAlpha) / (17314463350.0 * cosDelta);
+    aberration.Y = -(((velocity.X * cosAlpha + velocity.Y * sinAlpha) * sinDelta - velocity.Z * cosDelta) / 17314463350.0);
+    return aberration;
+    // retval in radians
+}
 CAA2DCoordinate Astronomy::FK5Correction(double Longitude, double Latitude, double JD) {
-    const double T = (JD - 2451545) / 36525;
+    const double T = (JD - JD2000) / 36525;
     double Ldash = Longitude - deg2rad * T * (1.397 + 0.00031 * T);
     CAA2DCoordinate fk5corr;
     const double loncor = -0.09033 + 0.03916 * (std::cos(Ldash) + std::sin(Ldash)) * tan(Latitude);
@@ -506,7 +844,7 @@ CAA2DCoordinate Astronomy::FK5Correction(double Longitude, double Latitude, doub
     return fk5corr;
 }
 double Astronomy::NutationInLongitude(double JD) {
-    const double T = (JD - 2451545) / 36525;
+    const double T = (JD - JD2000) / 36525;
     const double Tsquared = T * T;
     const double Tcubed = Tsquared * T;
     double D = 297.85036 + (445267.111480 * T) - (0.0019142 * Tsquared) + (Tcubed / 189474);
@@ -526,6 +864,7 @@ double Astronomy::NutationInLongitude(double JD) {
         value += (coeff.sincoeff1 + (coeff.sincoeff2 * T)) * sin(deg2rad * argument) * 0.0001;
     }
     return value;
+    // retval is in arc seconds of degrees - could convert to radians or make bool rad flag
 }
 double Astronomy::TrueObliquityOfEcliptic(double JD) {
     // Despite the method name, this is typically called mean obliquity, and is without lunar nutation (18.6yr) and other shortterm variations
@@ -533,7 +872,7 @@ double Astronomy::TrueObliquityOfEcliptic(double JD) {
     // Original Source:  http://articles.adsabs.harvard.edu/pdf/1986A%26A...157...59L
     // Original Erratum: http://articles.adsabs.harvard.edu/pdf/1986A%26A...164..437L
     // Good to 0.02" over 1000 years, several arc seconds over 10000 years (around J2000.0)
-    const double U = (JD - 2451545) / 3652500;  // U is JD in deca millenia, from J2000.0
+    const double U = (JD - JD2000) / 3652500;  // U is JD in deca millenia, from J2000.0
     const double Usquared = U * U;
     const double Ucubed = Usquared * U;
     const double U4 = Ucubed * U;
@@ -557,7 +896,7 @@ double Astronomy::TrueObliquityOfEcliptic(double JD) {
         + secs2deg(NutationInObliquity(JD));
 }
 double Astronomy::NutationInObliquity(double JD) {
-    const double T = (JD - 2451545) / 36525;
+    const double T = (JD - JD2000) / 36525;
     const double Tsquared = T * T;
     const double Tcubed = Tsquared * T;
     double D = 297.85036 + (445267.111480 * T) - (0.0019142 * Tsquared) + (Tcubed / 189474);
@@ -576,8 +915,92 @@ double Astronomy::NutationInObliquity(double JD) {
         //const double radargument = CAACoordinateTransformation::DegreesToRadians(argument);
         value += (coeff.coscoeff1 + (coeff.coscoeff2 * T)) * cos(deg2rad * argument) * 0.0001;
     }
+    // value is in arc seconds of degree - convert? No because TrueObliquityOfEcliptic() uses degrees - Or use bool rad flag !!!
     return value;
 }
+double Astronomy::NutationInRightAscension(double ra, double dec, double obliq, double nut_lon, double nut_obl) {
+    // Already in radians
+    return deg2rad * ((cos(obliq) + (sin(obliq) * sin(ra) * tan(dec))) * nut_lon) - (cos(ra) * tan(dec) * nut_obl) / 3600.0;
+    // retval is in radians
+}
+double Astronomy::NutationInDeclination(double ra, double obliq, double nut_lon, double nut_obl) {
+    // Already in radians
+    return deg2rad * (sin(obliq) * cos(ra) * nut_lon + sin(ra) * nut_obl) / 3600.0;
+    // retval is in radians
+}
+
+LLH Astronomy::getTrueDecRAbyName(const std::string starname, bool rad) {
+    // Apply Proper Motion
+    LLH decra = getDecRAwithPMbyName(starname, m_jd, true); // Always calculate from radians, convert at end to what bool rad indicates
+    std::cout << "Astronomy::getTrueDecRAbyName(): Catalogue RA(hrs), Dec(deg): " << rad2hrs * decra.lon << ", " << rad2deg * decra.lat << '\n';
+
+    // Apply Precession
+    double JD0 = JD2000; // Epoch 2000.0 - The epoch of the catalogue
+    const double T = (JD0 - JD2000) / 36525;
+    const double Tsquared = T * T;
+    const double t = (m_jd - JD0) / 36525;
+    const double tsquared = t * t;
+    const double tcubed = tsquared * t;
+    // Precession parameters sigma, zeta & phi in arc seconds
+    // NOTE: Since the Epoch of the star database is J2000, T and Tsquared are zero, so this could be simplified.
+    //       The -O3 compiler flag probably optimizes this?
+    const double sigma = deg2rad * ((2306.2181 + 1.39656 * T - 0.000139 * Tsquared) * t + (0.30188 - 0.000344 * T) * tsquared + 0.017998 * tcubed) / 3600.0;
+    const double zeta = deg2rad * ((2306.2181 + 1.39656 * T - 0.000139 * Tsquared) * t + (1.09468 + 0.000066 * T) * tsquared + 0.018203 * tcubed) / 3600.0;
+    const double phi = deg2rad * ((2004.3109 - 0.8533 * T - 0.000217 * Tsquared) * t - (0.42665 + 0.000217 * T) * tsquared - 0.041833 * tcubed) / 3600.0;
+    const double A = cos(decra.lat) * sin(decra.lon + sigma);
+    const double B = cos(phi) * cos(decra.lat) * cos(decra.lon + sigma) - sin(phi) * sin(decra.lat);
+    const double C = sin(phi) * cos(decra.lat) * cos(decra.lon + sigma) + cos(phi) * sin(decra.lat);
+    // Precessed decra in radians
+    decra.lon = atan2(A, B) + zeta;
+    decra.lat = asin(C); // If star is close to pole, this should ideally use acos(sqrt(A*A+B*B);
+    std::cout << "Astronomy::getTrueDecRAbyName(): Precessed RA(hrs), Dec(deg): " << rad2hrs * decra.lon << ", " << rad2deg * decra.lat << '\n';
+    // Apply nutation
+    double obliq = getEclipticObliquity(m_jd, true);
+    double nut_lon = deg2rad * NutationInLongitude(m_jd) / 3600.0; // Add bool rad flag !!!
+    double nut_obl = deg2rad * NutationInObliquity(m_jd) / 3600.0;
+    double nut_ra = NutationInRightAscension(decra.lon, decra.lat, obliq, nut_lon, nut_obl);
+    double nut_dec =NutationInDeclination(decra.lon, obliq, nut_lon, nut_obl);
+    decra.lon += nut_ra;
+    decra.lat += nut_dec;
+    std::cout << "Astronomy::getTrueDecRAbyName(): Nutated RA(hrs), Dec(deg): " << rad2hrs * decra.lon << ", " << rad2deg * decra.lat << '\n';
+    // Apply aberration
+    CAA2DCoordinate aberration = EquatorialAberration(decra.lon, decra.lat, m_jd, true);
+    decra.lon += aberration.X;
+    decra.lat += aberration.Y;
+    std::cout << "Astronomy::getTrueDecRAbyName(): Aberrated RA(hrs), Dec(deg): " << rad2hrs * decra.lon << ", " << rad2deg * decra.lat << '\n';
+    // Ignore annual parallax
+    if (!rad) {
+        decra.lat *= rad2deg;
+        decra.lon *= rad2deg;
+    }
+    return decra;
+}
+LLH Astronomy::calcTrueDecRa(const LLH decra, const double jd, const double JD0) {
+    // JD0 is Epoch, defaults to J2000 (via JD2000 macro)
+    // jd is desired Julian Day, default to current JD in relevant Astronomy object
+    double JD = jd == NO_DOUBLE ? getJD() : jd;
+    const double T = (JD0 - JD2000) / 36525;
+    const double Tsquared = T * T;
+    const double t = (JD - JD0) / 36525;
+    const double tsquared = t * t;
+    const double tcubed = tsquared * t;
+
+    const double sigma = CAACoordinateTransformation::DegreesToRadians(CAACoordinateTransformation::DMSToDegrees(0, 0, (2306.2181 + 1.39656 * T - 0.000139 * Tsquared) * t + (0.30188 - 0.000344 * T) * tsquared + 0.017998 * tcubed));
+    const double zeta = CAACoordinateTransformation::DegreesToRadians(CAACoordinateTransformation::DMSToDegrees(0, 0, (2306.2181 + 1.39656 * T - 0.000139 * Tsquared) * t + (1.09468 + 0.000066 * T) * tsquared + 0.018203 * tcubed));
+    const double phi = CAACoordinateTransformation::DegreesToRadians(CAACoordinateTransformation::DMSToDegrees(0, 0, (2004.3109 - 0.8533 * T - 0.000217 * Tsquared) * t - (0.42665 + 0.000217 * T) * tsquared - 0.041833 * tcubed));
+    const double A = cos(decra.lat) * sin(decra.lon + sigma);
+    const double B = cos(phi) * cos(decra.lat) * cos(decra.lon + sigma) - sin(phi) * sin(decra.lat);
+    const double C = sin(phi) * cos(decra.lat) * cos(decra.lon + sigma) + cos(phi) * sin(decra.lat);
+
+    LLH value;
+    value.lon = atan2(A, B) + zeta;
+    //std::cout << "JD: " << JD << "Ra Dec : " << decra.lon << ", " << decra.lat << "->" << value.lon << ", " << value.lat << '\n';
+    value.lat = asin(C);
+
+    return value;
+}
+
+
 double Astronomy::getEcLat(unsigned int planet, double jd) {
     // Heliocentric Ecliptic Latitude (ref. Equinox of Epoch) in radians
     // Unconditionally caching may or may not be desired. Consider a flag, or rename the function so it is clear that getEcLat{planet}() may be preferable. !!!

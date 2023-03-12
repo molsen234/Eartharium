@@ -19,6 +19,7 @@
 #include <ctime>
 #include <cstddef> // for AAMoon.cpp
 #include <algorithm>
+#include <set>
 
 // OpenGL specific library includes
 #include <glad/glad.h>                   // Platform specific OpenGL call encapsulation
@@ -60,6 +61,8 @@
 #include "AAplus/AAEquationOfTime.h"
 #include "AAplus/AAPlanetaryPhenomena.h"
 #include "AAplus/AAPlanetaryPhenomena2.h"
+#include "AAplus/AADiameters.h"
+#include "AAplus/AARefraction.h"
 
 // My includes
 #include "config.h"
@@ -67,7 +70,7 @@
 // Protos
 GLFWwindow* setupEnv(unsigned int width, unsigned int height, GLint major, GLint minor, bool fullscreen);
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void processInput(GLFWwindow* window);
+//void processInput(GLFWwindow* window);
 void saveImage(std::string& filepath, GLFWwindow* w, unsigned int framebuffer = 0, int width = 0, int height = 0);
 
 // Actually still in Application.cpp because it uses global vars (the callback cannot be in a class, it is C and not C++)
@@ -77,6 +80,9 @@ void GLAPIENTRY MessageCallback(GLenum source, GLenum type, GLuint id, GLenum se
 
 // TEMPORARY Protos
 class Scene;
+class World;
+class Camera;
+
 
 // ----------------------
 //  Vertex Buffer Layout
@@ -104,7 +110,7 @@ public:
 	{}
 	template<typename T>
 	void Push(unsigned int count) {
-		static_assert(false);
+		//static_assert(false);
 	}
 	template<>
 	void Push<float>(unsigned int count) {
@@ -264,18 +270,18 @@ class ShaderLibrary {
 		std::string file;
 	};
 	std::array<ShaderEntry, 12> shaders = { {
-		{ EARTH_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\earth.shader" },
-		{ EARTH_SHADOW_MAP_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitiveshadow.shader" },
-		{ EARTH_SHADOW_BOX_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitivesdwbox.shader" },
-		{ PRIMITIVE_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitive.shader" },
-		{ LINE_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\line.shader" },
-		{ PRIMITIVE_SHADOW_MAP_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitiveshadow.shader" },
-		{ PRIMITIVE_SHADOW_BOX_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitivesdwbox.shader" },
-		{ BLIT_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\blit.shader" },
-		{ GLYPH_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\glyph.shader" },
-		{ PLANETOID_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\planetoid.shader" },
-		{ SKY_BOX_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\skybox.shader" },
-		{ SKY_SPHERE_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\skysphere.shader" }
+		{ EARTH_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\earth.glsl" },
+		{ EARTH_SHADOW_MAP_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitiveshadow.glsl" },
+		{ EARTH_SHADOW_BOX_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitivesdwbox.glsl" },
+		{ PRIMITIVE_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitive.glsl" },
+		{ LINE_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\line.glsl" },
+		{ PRIMITIVE_SHADOW_MAP_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitiveshadow.glsl" },
+		{ PRIMITIVE_SHADOW_BOX_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitivesdwbox.glsl" },
+		{ BLIT_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\blit.glsl" },
+		{ GLYPH_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\glyph.glsl" },
+		{ PLANETOID_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\planetoid.glsl" },
+		{ SKY_BOX_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\skybox.glsl" },
+		{ SKY_SPHERE_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\skysphere.glsl" }
 	} };
 public:
 	//ShaderLibrary() = default;
@@ -284,7 +290,6 @@ public:
 };
 
 
-class World;
 // ------------
 //  ShadowBox
 // ------------
@@ -301,7 +306,7 @@ public:
 	float far = 20.0f;
 	ShadowBox(Scene* scene, unsigned int w, unsigned int h);
 	~ShadowBox();
-	void Render(glm::vec3 lightPos);
+	void Render(Camera* cam, glm::vec3 lightPos);
 };
 
 
@@ -322,7 +327,7 @@ public:
 	~ShadowMap();
 	void Bind();
 	void Unbind();
-	void Render();
+	void Render(Camera* cam);
 };
 
 #endif // _MDO_OPENGL_H

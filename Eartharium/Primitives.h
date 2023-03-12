@@ -1,6 +1,9 @@
 #pragma once
+
 #include "mdoOpenGL.h"
+#include "Utilities.h"
 #include <iterator>
+#include <queue>
 
 struct LLH {
     double lat = 0.0;
@@ -46,9 +49,11 @@ enum itemtype {
     NORTH,
     EAST,
     NORMAL,  // Calculated differently than Zenith
-    FLATEARTH_GP, // GP mode for placing celestial bodies over Earth
-    FLATEARTH_LC_DOME, // LC places everything at the correct AziEle for one particular location. If used on more than one location, objects are duplicated.
-    FLATEARTH_LC_PLANE,// DOME projects to a hemisphere, PLANE to a flat ceiling.
+    FLATSKY_SP,
+    FLATSKY_GP, // GP mode for placing celestial bodies over Earth
+    FLATSKY_LC_DOME, // LC places everything at the correct AziEle for one particular location. If used on more than one location, objects are duplicated.
+    FLATSKY_LC_PLANE,// DOME projects to a hemisphere, PLANE to a flat ceiling.
+    FLATSKY_HD, // HALFDOME - Not a local setting
     LOCSKY,
     TRUESUN3D,
     TRUEANALEMMA3D,
@@ -56,6 +61,7 @@ enum itemtype {
     FLATANALEMMA3D,
     SUNSECTOR,  // Corey Kell's 45 degree Sectors
     TRUEMOON3D,
+    TRUELUNALEMMA3D,
     TRUEPLANET3D,
     SIDPLANET3D,
     AZIELE3D,
@@ -72,6 +78,8 @@ enum itemtype {
     TROPIC,
     LATITUDE,
     LONGITUDE,
+    HORIZON,
+    CIRCUMPOLAR,
     DOT,
     CURVE,
     GREATARC,
@@ -79,6 +87,8 @@ enum itemtype {
     FLATARC,    // Aka Derp Arc - shortest distance on AE map
     SUNTERMINATOR,
     MOONTERMINATOR,
+    TISSOT,
+    SEMITERMINATOR,
     FB_PLAIN,
     FB_CUBEMAP,
     SHADOW_MAP,
@@ -89,6 +99,11 @@ enum itemtype {
     LAYERTEXT,
     LAYERGUI,
     LAYERPLOT,
+    HALT,        // These three are PathTracker modes
+    LOOP,
+    BOUNCE,
+    REFR_BENNETT, // J.Meeus
+    REFR_ALMANAC, // https://www.madinstro.net/sundry/navsext.html
     ALL,
     NONE = maxuint,
 };
@@ -109,6 +124,7 @@ class Minifigs;
 class SkyBox;
 class SkySphere;
 class Earth;
+class Earth2;
 class Location;
 class SphereUV;
 class SolarSystem;
@@ -121,9 +137,12 @@ class PolyCurve;
 class PolyLine;
 class AngleArcs;
 class CountryBorders;
+class TimeZones;
 class Font;
 class TextString;
 class TextFactory;
+class SceneObject;
+class SceneTree;
 
 
 // --------
@@ -170,9 +189,9 @@ T Lerper<T>::getNextSmooth() {
     // y smoothed increasing between
     // See: https://www.youtube.com/watch?v=60VoL-F-jIQ for details
     if (m_counter < m_steps) {
-        double k = std::max(0.0, std::min(1.0, (double)(m_counter - 1) / (double)(m_steps - 1)));
+        double k = std::max(0.0, std::min(1.0, ((double)m_counter - 1.0) / ((double)m_steps - 1.0)));
         double s = k * k * (3.0 - 2.0 * k);
-        return (T)(s * (double)m_last + (1 - s) * (double)m_first);
+        return (T)(s * (double)m_last + (1.0 - s) * (double)m_first);
     }
     if (m_restart) m_counter = 0;
     return m_last;
@@ -326,12 +345,99 @@ void tightvec<T>::remove(unsigned int oid, bool debug) {
 };
 
 
+//struct Animation {
+//    // Should be templated so it can work with different objects: floats, doubles, vec3, vec4, LLH, etc.
+//    // To work with LLH, LLH will need at least a + operator
+//    double* param = nullptr;      // Pointer to parameter to be animated
+//    //Lerper<T>* lerper = nullptr;  // Lerper that delivers the next value, constructed by Animator
+//    double startvalue = 0.0;
+//    double endvalue = 0.0;
+//    double step = 0.0;
+//    unsigned int sequence = 0;    // The sequence in which it is active
+//    unsigned int startframe = 0;  // Frame to start on
+//    unsigned int endframe = 0;    // Frame to end on
+//    // Is it necessary to allow it to extend across sequences?
+//    //  - No because it is unknown how many frames will be in current seq, so impossible to calculate a step size
+//    //    Or, pass in a step value and end when reaching endvalue, leaving the frame count undetermined, thus a different mode.
+//    // Might also take a PathTracker instead of a Lerper, controlled via a type field
+//    // How about Astronomy time animations?
+//    // Or to be a bit crazy, animated creation of objects?
+//};
+//class Animator {
+//    // Contains a collection of Animation objects and advances them by one frame on animate() call
+//    // Should be instantiated by Scene
+//public:
+//    Animator(Scene* scene) : m_scene(scene) {
+//
+//    }
+//    Animation* addAnimation(double* parameter, double startval, double endval, unsigned int sequence, unsigned int startframe, unsigned int endframe) {
+//        animations.push_back(new Animation());
+//        animations.back()->param = parameter;
+//        animations.back()->sequence = sequence;
+//        animations.back()->startframe = startframe;
+//        animations.back()->endframe = endframe;
+//        animations.back()->startvalue = startval;
+//        animations.back()->endvalue = endval;
+//        animations.back()->step = (endval - startval) / (endframe - startframe);
+//        return animations.back();
+//    }
+//    void animate() {
+//        for (auto& a : animations) {
+//            // If this simply adds step to param, then the first time inside the active interval must set the startvalue.
+//            // That will possibly cause a sudden shift, so maybe implement an animateTo() where only the end value is given.
+//            if (a->sequence == m_scene->m_app->currentseq && a->startframe <= m_scene->m_app->currentframe && a->endframe >= m_scene->m_app->currentframe) {
+//                *a->param = *a->param + a->step;
+//            }
+//        }
+//    }
+//private:
+//    Scene* m_scene = nullptr;
+//    std::vector<Animation*> animations;
+//};
+
+
+// -------------
+//  SceneObject
+// -------------
+// Being implemented
+// Meant to facilitate measuring distances and angles between any two objects, as well as implementing parenting of transformations
+// The plan is to have locations be children of a planetary object, arrows be children of locations, angle/distance texts be children of arrows,
+// and offer a way to indicate what to measure to etc. I have yet to work out the requirements ...
+class SceneObject {
+    glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f);
+    glm::vec4 orientation = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f); // Up vec3 + rotation about up, from which angle?
+    glm::vec4 color = WHITE;
+    //Material* material = nullptr;
+    //glm::mat4 worldmatrix = glm::mat4(1.0f);
+    unsigned int id = 0;
+    //unsigned int type = 0;
+    //primobj primitiveobject;            // The geometry etc of this object (of type SceneObject::type)
+    // std::vector<SceneObject*> children;
+public:
+    glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
+    std::string name = "Object";
+    Scene* m_scene = nullptr;
+    SceneObject* parent = nullptr;
+    std::list<SceneObject*> children;
+    void addChild(SceneObject* object) {
+        children.push_back(object);
+    }
+    void setParent(SceneObject* oid) { parent = oid; }
+    SceneObject* getParent() { return parent; }
+    void setID(unsigned int oid) { id = oid; }
+    unsigned int getID() { return id; }
+    virtual void update() {
+        std::cout << "SceneObject::update(): derived object \"" << name << "\" has not overridden the update() function, and will not be updated.\n";
+    }
+};
+
+
 // --------
 //  Camera
 // --------
-class Camera {
+class Camera : public SceneObject {
 public:
-    glm::vec3 m_position = glm::vec3(0.0f);
+    //glm::vec3 m_position = glm::vec3(0.0f);
     // Used by GUI and keyboard, as well as programming from C++ and Python
     float camLat = 0.0;
     float camLon = 0.0;
@@ -343,20 +449,21 @@ public:
     glm::vec3 CamLightDir = glm::vec3(0.0f);
     float camlightsep = 0.1f;
 private:
-    Scene* m_scene = nullptr;
+    //Scene* m_scene = nullptr;
     glm::mat4 ProjMat = glm::mat4(1.0f);
     glm::mat4 ViewMat = glm::mat4(1.0f);
     glm::vec3 m_target = glm::vec3(0.0f);
     glm::vec3 m_direction = glm::vec3(0.0f);
     glm::vec3 worldUp = glm::vec3(0.0f, 0.0f, 1.0f);
     glm::vec3 cameraRight = glm::vec3(1.0f, 0.0f, 0.0f);
-    glm::vec3 cameraUp = glm::vec3(0.0, 1.0, 0.0); // Part of worldUp that fits with cameraDirection
+    glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f); // Part of worldUp that fits with cameraDirection
 public:
     Camera(Scene* scene);
     void setLatLonFovDist(float lat, float lon, float fov, float dst);
     void setCamLightPos(glm::vec3 lPos);
     void setLatLon(float lat, float lon);
-    void update();
+    void update(); // Override SceneObject::update()
+    void updateLight();
     void setLookAt(glm::vec3 position, glm::vec3 target, glm::vec3 upwards);
     void setPosXYZ(glm::vec3 pos);
     void setPosLLH(LLH llh);
@@ -370,6 +477,7 @@ public:
     glm::vec3 getRight();
     glm::vec3 getUp();
     glm::vec3 getPosition();
+    void dumpParameters(unsigned int frame = 0);
 private:
     void Recalc();
     //Application* m_app = nullptr;
@@ -391,6 +499,7 @@ struct Viewport { // Currently unused, but intended for the RenderLayers
 class Scene {
     // A Scene holds all the 3D Primitives, Objects, and Camera(s) - basically everything that has spatial or temporal relationships
 public:
+    SceneTree* scenetree = nullptr;
     Application* m_app = nullptr;
     Astronomy* m_astro = nullptr; // Why is this here? Oh, so Earth can look it up. Probably should have a RenderLayer3D pointer instead.
     Camera* w_camera = nullptr;
@@ -416,17 +525,19 @@ private:
     AngleArcs* m_anglearcsOb = nullptr;
     SkyBox* m_skyboxOb = nullptr;
     CountryBorders* m_countrybordersOb = nullptr;
+    TimeZones* m_timezonesOb = nullptr;
     ShadowMap* m_shadowmap = nullptr;
     ShadowBox* m_shadowbox = nullptr;
     TextFactory* m_textFactory = nullptr;
+    Earth2* earth = nullptr;
 public:
     Scene(Application* app);
     ~Scene();
-    Camera* newCamera();
+    Camera* newCamera(const std::string name = "Camera");
     void setAspect(float aspect);
     float getAspect();
     void clearScene();  // ToDo !!!
-    void render();
+    void render(Camera* cam = nullptr);
     // Primitive Factories
     Dots* getDotsFactory();
     SkyDots* getSkyDotsFactory();
@@ -439,6 +550,7 @@ public:
     Arrows* getArrowsFactory();
     AngleArcs* getAngleArcsFactory();
     CountryBorders* getCountryBordersFactory();
+    TimeZones* getTimeZonesFactory();
     // Full objects - revise names !!!
     SkySphere* newSkysphere(unsigned int mU, unsigned int mV, bool texture);
     SkySphere* getSkysphere();
@@ -453,6 +565,62 @@ public:
     void deletePolyCurve(PolyCurve* curve);
     PolyLine* newPolyLine(glm::vec4 color, float width, unsigned int reserve = NO_UINT);
     void deletePolyLine(PolyLine* curve);
+    Earth2* newEarth2(std::string mode, const unsigned int mU, const unsigned int mV, SceneObject* parent = nullptr);
+};
+
+
+// -----------
+//  SceneTree
+// -----------
+// Meant to facilitate measuring distances and angles between any two objects, as well as implementing parenting of transformations and GUI traversal
+class SceneTree {
+    SceneObject* root = nullptr;
+    //Camera* camera = nullptr;
+    //tightvec<SceneObject*> objects; // tightvec, because erase()ing elements from std::vector is quite inefficient. Consider a std::list?
+    std::queue<SceneObject*> breathfirst;
+public:
+    SceneTree() {
+        root = new SceneObject();
+        root->name = "root";
+        //objects.reserve(20); // Could not figure out how to pass the reserve value in constructor
+        return;
+    }
+    ~SceneTree() {
+        delete root; // cascaded delete in SceneObject?
+    }
+    void updateBreathFirst() {
+        //std::cout << "SceneTree::updateBreathFirst()\n";
+        for (auto c : root->children) { // root is not a real scene object, so just add the children directly.
+            breathfirst.push(c);
+        }
+        while (!breathfirst.empty()) {
+        breathfirst.front()->update();
+        for (auto c : breathfirst.front()->children) {
+            breathfirst.push(c);
+        }
+        breathfirst.pop();
+        }
+    }
+    void addSceneObject(SceneObject* object, SceneObject* parent) {
+        if (parent == nullptr) parent = root;
+        parent->addChild(object);
+    }
+    //void addObject(SceneObject* ob) {
+    //    unsigned int id = objects.store(ob);
+    //    ob->setID(id);
+    //}
+    //void removeObject(SceneObject* ob) {
+    //    objects.remove(ob->getID());
+    //}
+    //void printObjects() {
+    //    for (auto& o : objects.m_Elements) {    // iterator runs over inner id directly, i.e. o is in underlying std::vector order.
+    //        std::cout << "Object: " << o->name << " " << o->getID() << "\n";
+    //    }
+    //    std::cout << "\n";
+    //    for (unsigned int oid = 0; oid < objects.size(); oid++) {   // Iterates over outer id, i.e. tightvec translates the [] index internally.
+    //        std::cout << "Object: " << objects[oid]->name << " " << objects[oid]->getID() << "\n";
+    //    }
+    //}
 };
 
 
@@ -507,8 +675,10 @@ public:
     Scene* m_scene = nullptr;
     Camera* m_cam = nullptr;
     Astronomy* m_astro = nullptr;
+    bool m_overlay = true; // true = don't clear background before drawing, false = clear to black. Set color somewhere !!!
 
-    RenderLayer3D(float vpx, float vpy, float vpw, float vph, Scene* scene, Astronomy* astro, Camera* cam = nullptr);
+    RenderLayer3D(float vpx, float vpy, float vpw, float vph, Scene* scene, Astronomy* astro, Camera* cam = nullptr, bool overlay = true);
+    void setCamera(Camera* cam);
     void updateViewport(float width, float height);
     void animateViewport();
     void render();
@@ -561,10 +731,14 @@ public:
 
     // Time Controls
     bool do_eot = false;
-    bool minusday = false;
-    bool plusday = false;
+    bool m_do_eot = false;
+    //bool minusday = false;
+    //bool plusday = false;
     float slideday = 0.0f;
     float prevslideday = 0.0f;
+
+    float timeoffset = 0.0f;
+    float prevtimeoffset = 0.0f;
 
     // Earth Controls
     float param = 0.0f;  // Make an Earth control struct, so GUI can display multiple Earths - include a name
@@ -635,8 +809,8 @@ class Application { // Act as an object factory, like world used to do
 public:
     bool start_fullscreen = false;
     GLFWwindow* window = nullptr;
-    int w_width = 1067;      // Keeps current width and height, whether full screen or windowed
-    int w_height = 600;
+    int w_width = 1280;      // Keeps current width and height, whether full screen or windowed
+    int w_height = 720;
 
     // ImGUI
     bool imgui_ready = false; // ImGui and ImPlot have been initialized successfully
@@ -645,7 +819,9 @@ public:
 
     // Keyboard activated items
     Camera* currentCam = nullptr;
+    Camera* locationCam = nullptr;
     Earth* currentEarth = nullptr;
+    Earth2* currentEarth2 = nullptr;
     bool togglefullwin = false;
     bool isfullscreen = false;
 
@@ -653,12 +829,27 @@ public:
     bool interactive = false;
     bool breakpoint = false;
     bool dumpcam = false;
+    bool dumptime = false;
 
     // Scripting
     bool ipython = false;
     bool gui = false;
     bool anim = false;
     bool do_eot = false;
+
+    // Lunalemma parameters - here because lunalemma is simply a path allocated by a location
+    float lunalemmaOffset = 0.0f;
+
+    // Temporary variables for Science It Out response
+    bool sio_dip = false;
+    bool sio_refract = false;
+    bool sio_sunlimb = false;
+    bool sio_local_weather = false;
+    unsigned int sio_refmethod = 1;
+    float sio_pressure = 1013.25f;
+    float sio_temperature = 15.0f;
+    float sio_height = 50.0f;
+    float sio_pathwidth = 0.002f;
 
     // Custom parameters - can be used for anything temporary
     float customparam1 = 0.0f;
@@ -684,8 +875,8 @@ private:
     // For windowed / fullscreen control
     GLFWmonitor* monitor = nullptr;    // monitor handle, used when setting full screen mode
     const GLFWvidmode* mode = nullptr;
-    int win_width = 1067;    // Stores Windowed width/height while in fullscreen
-    int win_height = 600;
+    int win_width = 1280;    // Stores Windowed width/height while in fullscreen
+    int win_height = 720;
     int w_posx = 100;        // Ditto for position
     int w_posy = 100;
 
@@ -708,11 +899,8 @@ private:
      1.0f, -1.0f,  1.0f, 0.0f,
      1.0f,  1.0f,  1.0f, 1.0f
     };
-
     unsigned int quadVAO = 0;
     unsigned int quadVBO = 0;
-
-
 public:
     Application();
     ShaderLibrary* getShaderLib();
@@ -730,7 +918,7 @@ public:
     void beginImGUI();
     void endImGUI();
 
-    RenderLayer3D* newLayer3D(float vpx1, float vpy1, float vpx2, float vpy2, Scene* scene, Astronomy* astro, Camera* cam = nullptr);
+    RenderLayer3D* newLayer3D(float vpx1, float vpy1, float vpx2, float vpy2, Scene* scene, Astronomy* astro, Camera* cam = nullptr, bool overlay = true);
     void deleteLayer3D(RenderLayer3D* layer);
     RenderLayerText* newLayerText(float vpx1, float vpy1, float vpx2, float vpy2, RenderLayerTextLines* lines = nullptr);
     void deleteLayerText(RenderLayerText* layer);
@@ -754,7 +942,7 @@ class TextFactory {
 public:
     TextFactory(Scene* scene);
     ~TextFactory();
-    TextString* newText(Font* font, std::string& text, float size, glm::vec4 color, glm::vec3& position, glm::vec3& direction, glm::vec3& up);
+    TextString* newText(Font* font, const std::string& text, const float size, const glm::vec4 color, glm::vec3& position, glm::vec3& direction, glm::vec3& up);
     void draw();
 private:
     Scene* m_scene = nullptr;
@@ -822,6 +1010,7 @@ private:
     bool loadFont(const std::string& font);
 };
 
+
 // --------
 //  Glyphs
 // --------
@@ -856,24 +1045,97 @@ public:
 };
 
 
+// ------------
+//  Bill Board
+// ------------
+class BillBoard {
+public:
+    // Builds a TextString and keeps it oriented towards the camera.
+    BillBoard(Scene* scene, Font* font, std::string text, glm::vec3 position, glm::vec4 color, float size) : m_scene(scene), m_font(font), m_text(text), m_pos(position) {
+        glm::vec3 up = m_scene->w_camera->getUp(); // glm::vec3(0.0f, 0.0f, 1.0f);
+        glm::vec3 camdir = glm::normalize(m_scene->w_camera->position - m_pos);
+        glm::vec3 dir = glm::cross(up, camdir);
+        m_textstring = m_scene->getTextFactory()->newText(m_font, "Sample Text", size, color, m_pos, dir, up);
+        m_textstring->updatePosDirUp(m_pos, dir, up);
+        m_textstring->updateText(m_text);
+    }
+    void update(glm::vec3 position = NO_VEC3) {
+        if (position != NO_VEC3) m_pos = position;
+        glm::vec3 up = m_scene->w_camera->getUp(); // glm::vec3(0.0f, 0.0f, 1.0f);
+        glm::vec3 camdir = glm::normalize(m_scene->w_camera->position - m_pos);
+        glm::vec3 dir = glm::cross(up, camdir);
+        //m_textstring = m_scene->getTextFactory()->newText(m_font, "Sample Text", 0.08f, YELLOW, m_pos, dir, up);
+        m_textstring->updatePosDirUp(m_pos, dir, up);
+    }
+    void changeColorSize(glm::vec4 color, float size) {
+        if (color != NO_COLOR) m_textstring->m_color = color;
+        if (size == NO_FLOAT) m_textstring->m_size = size;
+    }
+private:
+    Scene* m_scene = nullptr;
+    Font* m_font = nullptr;
+    glm::vec3 m_pos = glm::vec3(0.0f);
+    std::string m_text;
+    TextString* m_textstring = nullptr;
+};
+
+
+// ------------
+//  Time Zones
+// ------------
+class TimeZones {
+public:
+    // For the time zone shapes
+    struct TimeZoneName {
+        unsigned int index = 0;
+        std::string searchname;
+        //std::string displayname;
+    };
+    struct timezonepartcache {
+        unsigned int timezone_id = 0;
+        ShapeFile::ShapePart* part = nullptr;
+        PolyLine* polyline = nullptr;
+        Earth* earth = nullptr;
+    };
+    // IANA timezone db
+    tzFile::iana_tz timezonedb;
+private:
+    Scene* m_scene = nullptr;
+    // For the ESRI data
+    std::vector<ShapeFile::ShapeRecord*> records;
+    uint32_t bytecnt = 0;
+    // For country names and index
+    std::vector<TimeZoneName> timezonenames;
+    // For drawn borders
+    std::vector<timezonepartcache*> timezoneparts;
+public:
+    // Functions for timezone outlines
+    TimeZones(Scene* scene, const std::string& shapefile = "C:\\Coding\\combined-shapefile-with-oceans");
+    void addTimeZone(Earth& earth, const std::string timezonename);
+    void addTimeZone(Earth& earth, unsigned int rindex);
+    void update();
+    void draw();
+    int parseNames(const std::string& namefile);
+    // Functions for IANA timezone db
+    std::string getLocalTime(const std::string& timezone, const DateTime& datetime);
+    std::string getLocalTime(const std::string& timezone, long year, long month, double day, double hour, double minute, double second);
+    void dumpTimeZoneDetails(const std::string& timezone);
+};
+
+
 // -----------------
 //  Country Borders
 // -----------------
-struct ShapePart {
-    unsigned int partnum = 0;
-    unsigned int startindex = 0;
-    unsigned int length = 0; // Number of points in this part
+struct CountryName {
+    unsigned int index = 0;
+    std::string searchname;
+    std::string displayname;
 };
-struct LatLon {
-    double latitude = 0.0;
-    double longitude = 0.0;
-};
-struct ShapeRecord {
-    unsigned int recordnum = 0;
-    unsigned int type = 0;
-    unsigned int numparts = 0;
-    std::vector<LatLon> points;
-    std::vector<ShapePart> parts;
+struct borderpartcache {
+    unsigned int country_id = 0;
+    ShapeFile::ShapePart* part = nullptr;
+    PolyLine* polyline = nullptr;
+    Earth* earth = nullptr;
 };
 class CountryBorders {
 public:
@@ -881,21 +1143,19 @@ public:
 private:
     Scene* m_scene = nullptr;
     // For the ESRI data
-    std::vector<ShapeRecord*> records;
+    std::vector<ShapeFile::ShapeRecord*> records;
     uint32_t bytecnt = 0;
+    // For country names and index
+    std::vector<CountryName> countrynames;
     // For drawn borders
-    std::vector<PolyLine*> borderparts;
+    std::vector<borderpartcache*> borderparts;
 public:
-    CountryBorders(Scene* scene, const std::string& shapefile = "C:\\Coding\\ne_10m_admin_0_countries.shp");
-    void addBorder(Earth& earth, unsigned int rindex /* Country Name String when dBASE data loader is done */);
+    CountryBorders(Scene* scene, const std::string& shapefile = "C:\\Coding\\ne_10m_admin_0_countries");
+    void addBorder(Earth& earth, const std::string countryname);
+    void addBorder(Earth& earth, unsigned int rindex);
+    void update();
     void draw();
-    void printRecord(unsigned int rindex);
-    int parseFile(const std::string& shapefile);
-private:
-    double readDoubleBig(std::istream& infile);
-    double readDoubleLittle(std::istream& infile);
-    uint32_t readIntBig(std::istream& infile);
-    uint32_t readIntLittle(std::istream& infile);
+    int parseNames(const std::string& namefile);
 };
 
 
@@ -955,22 +1215,22 @@ private:
         -skyboxR, -skyboxR,  skyboxR,
          skyboxR, -skyboxR,  skyboxR
     };
-    //std::vector<std::string> m_faces = {
-    //    "C:\\Coding\\Eartharium\\Eartharium\\textures\\starmap_8k_right.png",
-    //    "C:\\Coding\\Eartharium\\Eartharium\\textures\\starmap_8k_left.png",
-    //    "C:\\Coding\\Eartharium\\Eartharium\\textures\\starmap_8k_top.png",
-    //    "C:\\Coding\\Eartharium\\Eartharium\\textures\\starmap_8k_bottom.png",
-    //    "C:\\Coding\\Eartharium\\Eartharium\\textures\\starmap_8k_front.png",
-    //    "C:\\Coding\\Eartharium\\Eartharium\\textures\\starmap_8k_back.png"
-    //};
     std::vector<std::string> m_faces = {
-        "C:\\Coding\\Eartharium\\Eartharium\\textures\\cubemap_front.png",    // +x
-        "C:\\Coding\\Eartharium\\Eartharium\\textures\\cubemap_back.png",     // -x
-        "C:\\Coding\\Eartharium\\Eartharium\\textures\\cubemap_right.png",    // +y
-        "C:\\Coding\\Eartharium\\Eartharium\\textures\\cubemap_left.png",     // -y
-        "C:\\Coding\\Eartharium\\Eartharium\\textures\\cubemap_top.png",      // +z
-        "C:\\Coding\\Eartharium\\Eartharium\\textures\\cubemap_bottom.png"    // -z
+        "C:\\Coding\\Eartharium\\Eartharium\\textures\\starmap_8k_right.png",
+        "C:\\Coding\\Eartharium\\Eartharium\\textures\\starmap_8k_left.png",
+        "C:\\Coding\\Eartharium\\Eartharium\\textures\\starmap_8k_top.png",
+        "C:\\Coding\\Eartharium\\Eartharium\\textures\\starmap_8k_bottom.png",
+        "C:\\Coding\\Eartharium\\Eartharium\\textures\\starmap_8k_front.png",
+        "C:\\Coding\\Eartharium\\Eartharium\\textures\\starmap_8k_back.png"
     };
+    //std::vector<std::string> m_faces = {
+    //    "C:\\Coding\\Eartharium\\Eartharium\\textures\\cubemap_front.png",    // +x
+    //    "C:\\Coding\\Eartharium\\Eartharium\\textures\\cubemap_back.png",     // -x
+    //    "C:\\Coding\\Eartharium\\Eartharium\\textures\\cubemap_right.png",    // +y
+    //    "C:\\Coding\\Eartharium\\Eartharium\\textures\\cubemap_left.png",     // -y
+    //    "C:\\Coding\\Eartharium\\Eartharium\\textures\\cubemap_top.png",      // +z
+    //    "C:\\Coding\\Eartharium\\Eartharium\\textures\\cubemap_bottom.png"    // -z
+    //};
 public:
     SkyBox(Scene* scene);
     ~SkyBox();
@@ -997,10 +1257,10 @@ private:
     unsigned int m_spacing = 0;
     unsigned int m_gap = 0;
     double m_sizefactor = 1.0;
+    bool m_taper = true; // apply scalefactor
     std::deque<particle> m_queue;
-
 public:
-    ParticleTrail(Scene* scene, unsigned int number, glm::vec4 color, unsigned int spacing = 0);
+    ParticleTrail(Scene* scene, unsigned int number, glm::vec4 color, float size = 0.02f, unsigned int spacing = 0, bool taper = true);
     ~ParticleTrail();
     void push(glm::vec3 pos);
     void clear();
@@ -1014,6 +1274,7 @@ public:
 //  AngleArc
 // ----------
 class AngleArcs {
+    // Add an optional arrowhead !!!
     // This is a circlearc between two objects, such as two arrows or an arrow and a plane.
     // Ideally it has an arrow head showing the direction of angle measure.
     // Parameters could include a position and two vectors "spanning" the arc by pointing to the start and end points.
@@ -1033,15 +1294,17 @@ private:
         float width;
         double angle;
         bool expired = false;
+        bool wide = false;                // false = always shortest angle, true = always clockwise wrt pole
+        glm::vec3 pole = glm::vec3(0.0f); // Pole to determine 
     };
     std::vector<AngleArc> m_arcs;
 public:
     AngleArcs(Scene* scene);
     ~AngleArcs();
     double getAngle(unsigned int index);
-    unsigned int add(glm::vec3 position, glm::vec3 start, glm::vec3 stop, float length, glm::vec4 color = LIGHT_GREY, float width = 0.001f);
+    unsigned int add(glm::vec3 position, glm::vec3 start, glm::vec3 stop, float length, glm::vec4 color = LIGHT_GREY, float width = 0.001f, bool wide = false, glm::vec3 pole = glm::vec3(0.0f));
     void remove(unsigned int index);
-    void update(unsigned int index, glm::vec3 position, glm::vec3 start, glm::vec3 stop, float length, glm::vec4 color = LIGHT_GREY, float width = 0.001f);
+    void update(unsigned int index, glm::vec3 position, glm::vec3 start, glm::vec3 stop, float length, glm::vec4 color = LIGHT_GREY, float width = 0.001f, bool wide = false, glm::vec3 pole = glm::vec3(0.0f));
     void draw();
 
 };
@@ -1069,6 +1332,7 @@ private:
 public:
     PolyLine(Scene* scene, glm::vec4 color, float width, size_t reserve = NO_UINT);
     ~PolyLine();
+    void change(glm::vec4 color, float width);
     void addPoint(glm::vec3 point);
     void clearPoints();
     void generate();
@@ -1085,7 +1349,6 @@ private:
     glm::vec4 m_color = NO_COLOR;
     float m_width = 0.0f;
     unsigned int facets = 8;
-    std::vector<glm::vec3> m_points;
     std::vector<Vertex> m_verts;
     std::vector<Tri> m_tris;
     std::vector<Primitive3D> m_segments;
@@ -1098,14 +1361,84 @@ private:
     IndexBuffer* ib = nullptr;
     //bool limit = false; // For debugging reserve() issues 
 public:
+    std::vector<glm::vec3> m_points; // Public so we can use it as track for objects (PathTracker in Earth.h)
     PolyCurve(Scene* scene, glm::vec4 color, float width, size_t reserve = NO_UINT);
     ~PolyCurve();
+    void changePolyCurve(glm::vec4 color = NO_COLOR, float width = NO_FLOAT);
     void addPoint(glm::vec3 point);
     void clearPoints();
     void generate();
-    void draw();
+    void draw(Camera* cam);
     void genGeom();
 };
+
+
+// --------------
+//  Generic Path
+// --------------
+class GenericPath : SceneObject {
+    // Flexibly allocates additional PolyCurve objects when addSplit() is called
+    // Since PolyCurves are obtained from Scene, they are drawn automatically
+    // - Add method to change color and width
+    // - Add a way to traverse paths backwards and forwards, see Earth.h:ParticleTracker
+public:
+    GenericPath(Scene* scene, glm::vec4 color = NO_COLOR, float width = NO_FLOAT) {
+        if (scene == nullptr) return;
+        if (color == NO_COLOR) color = GREEN;
+        if (width == NO_FLOAT) width = 0.005f;
+        m_scene = scene;
+        m_color = color;
+        m_width = width;
+        m_curves.emplace_back(m_scene->newPolyCurve(m_color, m_width, NO_UINT));
+        m_curve = 0;
+    }
+    ~GenericPath() {
+        for (auto& c : m_curves) {
+            m_scene->deletePolyCurve(c);
+        }
+        m_curves.clear();
+    }
+    void addPoint(glm::vec3 point) {
+        m_curves[m_curve]->addPoint(point);
+    }
+    void addSplit(glm::vec3 point1, glm::vec3 point2) {
+        // point1 is last point in current PolyCurve, point2 is first point in next PolyCurve
+        m_curves[m_curve]->addPoint(point1);
+        if (m_curves.size() - 1 <= m_curve) m_curves.emplace_back(m_scene->newPolyCurve(m_color, m_width, NO_UINT));
+        m_curve++;
+        m_curves[m_curve]->addPoint(point2);
+    }
+    void clearPoints() {
+        // Don't delete PolyCurve objects, reuse them as needed. Empty PolyCurve will be skipped in PolyCurve::draw()
+        for (auto& c : m_curves) {
+            c->clearPoints();
+        }
+        m_curve = 0;
+    }
+    void generate() {
+        for (auto& c : m_curves) {
+            c->generate();
+        }
+    }
+private:
+    glm::vec4 m_color = NO_COLOR;
+    float m_width = NO_FLOAT;
+    std::vector<PolyCurve*> m_curves;
+    unsigned int m_curve = 0;
+};
+
+
+// --------------
+//  Path Builder
+// --------------
+// Utility function to build all the many varied paths that are used by Earth and Location
+// Should help refactor those chunky classes.
+//class PathBuilder {
+//public:
+//    static void generate(LLH llh1, LLH llh2, ) {
+//
+//    }
+//};
 
 
 // --------
@@ -1164,7 +1497,7 @@ private:
     friend class SkyDots;
     friend class Glyphs;
 public:
-    void draw(unsigned int shadow);
+    void draw(Camera* cam, unsigned int shadow);
     void clear();
     glm::vec4 getColor(unsigned int index);
     void setColor(unsigned int index, glm::vec4 color);
@@ -1178,8 +1511,6 @@ protected:
     void update(unsigned int oid, Primitive3D p);
     void virtual genGeom() = 0;
 };
-
-
 
 
 // ----------
@@ -1211,8 +1542,8 @@ public:
     void changeStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
     void changeStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
     void removeSphereUV(unsigned int index);
-    glm::vec3 getLoc3D_NS(float lat, float lon, float height);
 private:
+    glm::vec3 getLoc3D_NS(float lat, float lon, float height);
     void genGeom() override;
 };
 
@@ -1326,7 +1657,7 @@ public:
     void changeXYZ(unsigned int index, glm::vec3 pos, glm::vec4 color, float size);
     void changeDot(unsigned int index, glm::vec4 color, float size);
     void removeDot(unsigned int index);
-    void draw();
+    void draw(Camera* cam);
 private:
     void genGeom() override;
     TriangleList subdivide(VertexList& vertices, TriangleList triangles);
@@ -1373,5 +1704,3 @@ private:
     TriangleList subdivide(VertexList& vertices, TriangleList triangles);
     Index vertex_for_edge(Lookup& lookup, VertexList& vertices, Index first, Index second);
 };
-
-

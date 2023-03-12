@@ -11,10 +11,14 @@
 // See Primitives.h = class templates like to live in *.h files rather than *.cpp
 
 
+
+
+
 // --------
 //  Camera
 // --------
-Camera::Camera(Scene* scene) : m_scene(scene) {
+Camera::Camera(Scene* scene) {
+    m_scene = scene;
     update();
     //Recalc();   NOTE: Set reasonable defaults in Primitives.h and do Recalc() so cam starts in well defined configuration !!!
 }
@@ -25,7 +29,9 @@ void Camera::setLatLonFovDist(float lat, float lon, float fov, float dst) {
     camDst = dst;
     update();
 }
-void Camera::setCamLightPos(glm::vec3 lPos) { CamLightDir = glm::normalize(lPos); }
+void Camera::setCamLightPos(glm::vec3 lPos) {
+    CamLightDir = glm::normalize(lPos - m_target);
+}
 void Camera::setLatLon(float lat, float lon) {
     if (lat != NO_FLOAT) camLat = lat;
     if (lon != NO_FLOAT) camLon = lon;
@@ -33,19 +39,22 @@ void Camera::setLatLon(float lat, float lon) {
 }
 void Camera::update() {
     setPosLLH({ camLat, camLon, camDst });
+    updateLight();
+}
+void Camera::updateLight() {
     glm::vec3 lPos = getPosXYZ();
     lPos += getRight() * -camlightsep;
     lPos += getUp() * camlightsep;
     setCamLightPos(lPos);
 }
 void Camera::setLookAt(glm::vec3 position, glm::vec3 target, glm::vec3 upwards) {
-    m_position = position;
+    this->position = position;
     m_target = target;
     worldUp = upwards;
     Recalc();
 }
-void Camera::setPosXYZ(glm::vec3 pos) {
-    m_position = pos;
+void Camera::setPosXYZ(glm::vec3 position) {
+    this->position = position;
     Recalc();
 }
 void Camera::setPosLLH(LLH llh) {
@@ -56,15 +65,15 @@ void Camera::setPosLLH(LLH llh) {
     if (camLat > 90.0) camLat = 90.0;
     if (camLat < -90.0) camLat = -90.0;
     float camW = (float)cos(deg2rad * llh.lat) * (float)llh.dst;
-    m_position.x = (float)cos(deg2rad * llh.lon) * camW;
-    m_position.y = (float)sin(deg2rad * llh.lon) * camW;
-    m_position.z = (float)sin(deg2rad * llh.lat) * (float)llh.dst;
+    position.x = (float)cos(deg2rad * llh.lon) * camW;
+    position.y = (float)sin(deg2rad * llh.lon) * camW;
+    position.z = (float)sin(deg2rad * llh.lat) * (float)llh.dst;
     Recalc();
 }
-glm::vec3 Camera::getPosXYZ() { return m_position; }
+glm::vec3 Camera::getPosXYZ() { return position; }
 void Camera::setTarget(glm::vec3 target) {
     m_target = target;
-    ViewMat = glm::lookAt(m_position, m_target, cameraUp);
+    ViewMat = glm::lookAt(position, m_target, cameraUp);
     //Recalc();
 }
 void Camera::setFoV(float fov) { // !!! Is a public variable, so probably get rid of get/set methods and do one Recalc() every frame (after GUI etc)
@@ -74,17 +83,26 @@ void Camera::setFoV(float fov) { // !!! Is a public variable, so probably get ri
 }
 float Camera::getFoV() { return camFoV; }
 glm::mat4 Camera::getViewMat() { return ViewMat; }
-glm::mat4 Camera::getSkyViewMat() { return glm::lookAt(glm::vec3(0.0f), m_target - m_position, cameraUp); }
+glm::mat4 Camera::getSkyViewMat() { return glm::lookAt(glm::vec3(0.0f), m_target - position, cameraUp); }
 glm::mat4 Camera::getProjMat() { return ProjMat; }
 glm::vec3 Camera::getRight() { return cameraRight; }
 glm::vec3 Camera::getUp() { return cameraUp; }
-glm::vec3 Camera::getPosition() { return m_position; }
+glm::vec3 Camera::getPosition() { return position; }
+void Camera::dumpParameters(unsigned int frame) {
+    if (frame == 0) std::cout << "Camera dump at frame: none \n";
+    std::cout << "Camera dump at frame: " << frame << "\n";
+    std::cout << " - camFoV = " << camFoV << "f\n";  // TODO: Add .0f formatting
+    std::cout << " - camLat = " << camLat << "f\n";
+    std::cout << " - camLon = " << camLon << "f\n";
+    std::cout << " - camDst = " << camDst << "f\n";
+}
 void Camera::Recalc() {
-    m_direction = glm::normalize(m_position - m_target);
+    m_direction = glm::normalize(position - m_target);
     cameraRight = glm::normalize(glm::cross(worldUp, m_direction));
     cameraUp = glm::cross(m_direction, cameraRight); // Part of worldUp that fits with cameraDirection
-    ViewMat = glm::lookAt(m_position, m_target, cameraUp);
+    ViewMat = glm::lookAt(position, m_target, cameraUp);
     ProjMat = glm::perspective(glm::radians(camFoV), m_scene->getAspect(), camNear, camFar);
+    updateLight();
 }
 
 
@@ -92,11 +110,12 @@ void Camera::Recalc() {
 //  Scene
 // -------
 Scene::Scene(Application* app) : m_app(app) {
-    // Set up a default Camera
-    w_camera = newCamera();  // Will also be m_cameras[0]
+    // Set up a default Camera - Why? It doesn't save a lot of work, and is rather inconsistent. Well, to satisfy the keyboard controller.
+    w_camera = newCamera("Default Cam");  // Will also be m_cameras[0]
     if (m_app->currentCam == nullptr) m_app->currentCam = w_camera;
     // Cameras need a scene to look at, so they should be derived from Scene::newCamera() or similar
     // Need to support more than one Camera per scene, so it should return a reference that can be passed to RenderLayer3D
+    scenetree = new SceneTree;
 }
 Scene::~Scene() {
     // Verify that all objects are deleted here !!!
@@ -109,10 +128,11 @@ Scene::~Scene() {
     if (m_viewconesOb != nullptr) delete m_viewconesOb;
     if (m_skydotsOb != nullptr) delete m_skydotsOb;
     if (m_dotsOb != nullptr) delete m_dotsOb;
-    if (m_astro != nullptr) delete m_astro;
+    delete scenetree; // Always created in constructor
 }
-Camera* Scene::newCamera() {
+Camera* Scene::newCamera(const std::string name) {
     Camera* cam = new Camera(this);
+    cam->name = name;
     m_cameras.push_back(cam);
     return cam;
 }
@@ -150,43 +170,67 @@ void Scene::clearScene() {
     if (m_conesOb != nullptr) { m_conesOb->clear(); }
     if (m_viewconesOb != nullptr) { m_viewconesOb->clear(); }
     if (m_planesOb != nullptr) { m_planesOb->clear(); }
-    // Should delete shader library here !!!
 }
-void Scene::render() {
+void Scene::render(Camera* cam) {
+    // Might split into an update() member function? Or do all updates via SceneTree?
+    if (!cam) cam = w_camera;
+    scenetree->updateBreathFirst();
     // Should take fbo render target !!!
-    // Might take CelestialMech to be able to switch between eras? 
     if (m_earthOb != nullptr) m_earthOb->Update(); // Make sure primitives are up to date before casting their shadows (Earth updates Locations)
+    if (m_solsysOb != nullptr) m_solsysOb->Update();
+    if (m_skysphereOb != nullptr) m_skysphereOb->UpdateTime(0.0); // Default time
     // Do shadow pass here
     if (shadows == SHADOW_MAP) {
-        if (m_shadowmap != nullptr) m_shadowmap->Render();
-        else std::cout << "World::do_render(): Map shadows have been enabled, but no ShadowMap object was found.\n";
+        if (m_shadowmap != nullptr) m_shadowmap->Render(cam);
+        else std::cout << "Scene::render(): Map shadows have been enabled, but no ShadowMap object was found.\n";
     }
     if (shadows == SHADOW_BOX) { // For now hardcoded to subsolar point, also in Primitives
-        if (m_shadowbox != nullptr) m_shadowbox->Render(m_earthOb->getSubsolarXYZ());
-        else std::cout << "World::do_render(): Box shadows have been enabled, but no ShadowBox object was found.\n";
+        if (m_shadowbox != nullptr) m_shadowbox->Render(cam, m_earthOb->getSubsolarXYZ());
+        else std::cout << "Scene::render(): Box shadows have been enabled, but no ShadowBox object was found.\n";
     }
     // Do render pass here
     if (m_skyboxOb != nullptr) {
         m_skyboxOb->Draw();
     }
-    if (m_earthOb != nullptr) m_earthOb->Draw();
+    if (earth) earth->draw(cam); // Earth2 experimental
+    if (m_earthOb != nullptr) m_earthOb->draw(cam);
     if (m_solsysOb != nullptr) m_solsysOb->Draw();
-    if (m_minifigsOb != nullptr) m_minifigsOb->draw(NONE);
-    if (m_sphereuvOb != nullptr) m_sphereuvOb->draw(NONE);
-    if (m_cylindersOb != nullptr) m_cylindersOb->draw(NONE);
-    if (m_conesOb != nullptr) m_conesOb->draw(NONE);
-    if (m_dotsOb != nullptr) m_dotsOb->draw(NONE);   // Make second Dots primitive that draws only transparent Dots and place it near end of render chain !!!
-    if (m_skydotsOb != nullptr) m_skydotsOb->draw(); // SkyDots does not need to support shadows. But it does have a customized draw() function
-    if (m_anglearcsOb != nullptr) m_anglearcsOb->draw();
-    for (auto& p : m_polycurves) {
-        p->draw();
-    }
+    if (m_countrybordersOb != nullptr) m_countrybordersOb->update();
+    if (m_timezonesOb != nullptr) m_timezonesOb->update();
     for (auto& p : m_polylines) {
         p->draw();
     }
+    if (m_minifigsOb != nullptr) m_minifigsOb->draw(cam, NONE);
+    if (m_cylindersOb != nullptr) m_cylindersOb->draw(cam, NONE);
+    if (m_conesOb != nullptr) m_conesOb->draw(cam, NONE);
+    if (m_sphereuvOb != nullptr) m_sphereuvOb->draw(cam, NONE);
+    // NOTE: When drawing dots with reduced alpha, they still update the depth buffer
+    //  This has the pleasant effect that when drawing a sky sphere at a Location,
+    //  enabling the LocationSky will prevent the stars (SkyDot) and grid (Scene Paths) from being drawn
+    //  on the far side of the SkySphere. This is a problem that is otherwise harder
+    //  to solve. Thus, be CAREFUL to draw reduced alpha dots BEFORE drawing the SkySphere(s).
+    //  Keep this in mind if creating a separate object for transparent dots!
+
+    // Old - Draw PolyCurves individually
+    // This is slow, as it has an OpenGL draw call for each PolyCurve
+    for (auto& p : m_polycurves) {
+        p->draw(cam);
+    }
+    // New - Collect all PolyCurve meshes into one and draw together
+    //for (auto& p : m_polycurves) {
+    //    p->drawToCollector(m_polycurvemeshes);
+    //    //Implement a VBO = m_polycurvemeshes and set up draw calls here. This is not clean.
+    //}
+
+    if (m_skydotsOb != nullptr) m_skydotsOb->draw(cam); // SkyDots does not need to support shadows. But it does have a customized draw() function
+    if (m_dotsOb != nullptr) m_dotsOb->draw(cam, NONE);   // Make second Dots primitive that draws only transparent Dots and place it near end of render chain !!!
+    if (m_anglearcsOb != nullptr) m_anglearcsOb->draw();
+    //for (auto& p : m_polycurves) {
+    //    p->draw();
+    //}
     if (m_skysphereOb != nullptr) m_skysphereOb->draw();
-    if (m_planesOb != nullptr) m_planesOb->draw(NONE);
-    if (m_viewconesOb != nullptr) m_viewconesOb->draw(NONE);
+    if (m_planesOb != nullptr) m_planesOb->draw(cam, NONE);
+    if (m_viewconesOb != nullptr) m_viewconesOb->draw(cam, NONE);
     if (m_textFactory != nullptr) m_textFactory->draw();
 }
 Dots* Scene::getDotsFactory() {
@@ -233,6 +277,10 @@ CountryBorders* Scene::getCountryBordersFactory() {
     if (m_countrybordersOb == nullptr) m_countrybordersOb = new CountryBorders(this);
     return m_countrybordersOb;
 }
+TimeZones* Scene::getTimeZonesFactory() {
+    if (m_timezonesOb == nullptr) m_timezonesOb = new TimeZones(this);
+    return m_timezonesOb;
+}
 SkySphere* Scene::newSkysphere(unsigned int mU, unsigned int mV, bool texture) {
     if (m_skysphereOb == nullptr) m_skysphereOb = new SkySphere(this, mU, mV, texture);  // Make geometry configurable
     return m_skysphereOb;
@@ -274,16 +322,15 @@ Minifigs* Scene::newMinifigs() { // Only single observer at the moment, fix this
     return m_minifigsOb;
 }
 PolyCurve* Scene::newPolyCurve(glm::vec4 color, float width, unsigned int reserve) {
+    //std::cout << "Scene::newPolyCurve(): " << this << "\n";
     m_polycurves.emplace_back(new PolyCurve(this, color, width, reserve));
     return m_polycurves.back();
 }
 void Scene::deletePolyCurve(PolyCurve* curve) {
     auto it = std::find(m_polycurves.begin(), m_polycurves.end(), curve);
-    if (it != m_polycurves.end()) {
-        std::swap(*it, m_polycurves.back());
-        m_polycurves.pop_back();
-        delete curve;
-    }
+    if (it != m_polycurves.end()) std::swap(*it, m_polycurves.back());
+    m_polycurves.pop_back();
+    delete curve;
 }
 PolyLine* Scene::newPolyLine(glm::vec4 color, float width, unsigned int reserve) {
     m_polylines.emplace_back(new PolyLine(this, color, width, reserve));
@@ -295,8 +342,19 @@ void Scene::deletePolyLine(PolyLine* curve) {
         std::swap(*it, m_polylines.back());
         m_polylines.pop_back();
         delete curve;
+    } else {
+        m_polylines.pop_back();
+        delete curve;
     }
 }
+
+Earth2* Scene::newEarth2(std::string mode, const unsigned int mU, const unsigned int mV, SceneObject* parent) {
+    earth = new Earth2(this, mode, mU, mV);
+    earth->setParent(parent);
+    scenetree->addSceneObject(earth, parent);
+    return earth;
+}
+
 
 
 // -------------
@@ -337,8 +395,8 @@ void RenderLayer::animate() {
 // ---------------
 //  RenderLayer3D
 // ---------------
-RenderLayer3D::RenderLayer3D(float vpx1, float vpy1, float vpx2, float vpy2, Scene* scene, Astronomy* astro, Camera* cam)
-    : m_scene(scene), m_astro(astro), RenderLayer(vpx1, vpy1, vpx2, vpy2) {
+RenderLayer3D::RenderLayer3D(float vpx1, float vpy1, float vpx2, float vpy2, Scene* scene, Astronomy* astro, Camera* cam, bool overlay)
+    : m_scene(scene), m_astro(astro), m_cam(cam), m_overlay(overlay), RenderLayer(vpx1, vpy1, vpx2, vpy2) {
     m_scene->m_astro = m_astro;
     float w = (float)m_scene->m_app->getWidth();
     float h = (float)m_scene->m_app->getHeight();
@@ -351,10 +409,20 @@ RenderLayer3D::RenderLayer3D(float vpx1, float vpy1, float vpx2, float vpy2, Sce
     // In that case, the constructor might be protected, and RenderChain a friend.
     type = LAYER3D;
 }
+void RenderLayer3D::setCamera(Camera* cam) {
+    m_cam = cam;
+}
 void RenderLayer3D::render() {
     glViewport((GLint)vp_x, (GLint)vp_y, (GLsizei)vp_w, (GLsizei)vp_h);
-    glClear(GL_DEPTH_BUFFER_BIT);
-    m_scene->render();
+    //std::cout << "RenderLayer3D vp: " << vp_x << ", " << vp_y << ", " << vp_w << ", " << vp_h << "\n";
+    if (!m_overlay) {
+        glScissor((GLint)vp_x, (GLint)vp_y, (GLsizei)vp_w, (GLsizei)vp_h);
+        glEnable(GL_SCISSOR_TEST);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // GL_COLOR_BUFFER_BIT |  Does not clear correctly, it blanks the whole window instead !!!
+        glDisable(GL_SCISSOR_TEST);
+    }
+    else { glClear(GL_DEPTH_BUFFER_BIT); }
+    m_scene->render(m_cam);
 }
 void RenderLayer3D::updateViewport(float w, float h) {
     updateView(w, h);
@@ -461,7 +529,7 @@ void RenderLayerGUI::render() {
         ImGui::Text("Computational load:");
         ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
         //ImGui::PopItemWidth();
-
+        
         ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
         if (ImGui::BeginTabBar("MyTabBar", tab_bar_flags)) {
 
@@ -478,16 +546,22 @@ void RenderLayerGUI::render() {
                         ImGui::SliderFloat("Clip Near", &l.layer->m_scene->w_camera->camNear, 0.01f, 5.0f);
                         ImGui::SliderFloat("Clip Far", &l.layer->m_scene->w_camera->camFar, 10.0f, 15000.0f);
                         //ImGui::SliderFloat("Cam<->Light", &camlightsep, 0.0f, 10.0f);  // Edit 1 float using a slider from 0.0f to 1.0f
+                        if (ImGui::Button("Himawari-8")) {
+                            l.layer->m_scene->w_camera->setLatLonFovDist(0.03f, 140.7f, 21.0f, 5.612f);
+                        }
+                        if (ImGui::Button("GOES-17")) {
+                            l.layer->m_scene->w_camera->setLatLonFovDist(0.1f, -137.0f, 21.0f, 5.612f);
+                        }
                     }
                     // Time
+                    static double eot = 0.0;
                     if (ImGui::CollapsingHeader("Time")) {
+                        ImGui::Text(l.layer->m_astro->timestr.c_str()); // At top because it should show the current time. Below may modify time.
                         ImGui::Checkbox("Equation of Time", &do_eot);
-                        if (l.layer->m_scene->m_app->do_eot) ImGui::Text("Local Solar Noon:");
-                        else ImGui::Text("12:00:00 Local Time:");
-                        ImGui::Text(l.layer->m_astro->timestr.c_str());
-                        // This clearly needs more work... For now can select a time interval to step forwards/backwards with buttons.
-                        // Make this work with the slider for 24hrs, EoT, and anim (SPACE)
-                        // Also make a Solar year/day where the Sun returns to the same Longitude
+                        ImGui::SameLine();
+                        if (ImGui::Button("-")) { l.layer->m_astro->addTime(0.0, 0.0, l.layer->m_scene->m_astro->getEoT(), 0.0, do_eot); }
+                        ImGui::SameLine();
+                        if (ImGui::Button("+")) { l.layer->m_astro->addTime(0.0, 0.0, -l.layer->m_scene->m_astro->getEoT(), 0.0, do_eot); }
                         struct DefTimeStep { 
                             long yr; long mo; double da; double hr; double mi;  double se;
                             bool operator==(DefTimeStep& other) {
@@ -501,11 +575,12 @@ void RenderLayerGUI::render() {
                             { { 0, 0, 0.0, 0.0, 0.0, 0.0 }, "None" },
                             { { 0, 0, 365.256363004, 0.0, 0.0, 0.0 }, "Sidereal Year" },
                             { { 0, 0, 365.242190402, 0.0, 0.0, 0.0 }, "Tropical Year" },
+                            { { 0, 0, 365.259636, 0.0, 0.0, 0.0 }, "Anomalistic Year" },
                             // { { 1, 0, 0.0, 0.0, 0.0, 0.0 }, "Calendar Year" },  // Can't pass year or month to Astronomy->addTime() !!!
                             //{ { 0, 1, 0.0, 0.0, 0.0, 0.0 }, "Calendar Month" },
                             { { 0, 0, 0.0, 23.0, 56.0, 4.0905 }, "Sidereal Day" },
                             { { 0, 0, 1.0, 0.0, 0.0, 0.0 }, "Calendar Day" },
-                            //{ { 0, 13, 1.0, 0.0, 0.0, 0.0 }, "Solar Day" }, // Just enable EoT and do calendar day
+                            { { 0, 0, 1.035028, 0.0, 0.0, 0.0 }, "Lunar Day" },
                             { { 0, 0, 0.0, 1.0, 0.0, 0.0 }, "1 Hour" },
                             { { 0, 0, 0.0, 0.0, 15.0, 0.0 }, "15 Minutes" },
                             { { 0, 0, 0.0, 0.0, 4.0, 0.0 }, "4 Minutes" }, // Sun moves ~1 degree
@@ -526,25 +601,18 @@ void RenderLayerGUI::render() {
                                 }
                             ImGui::EndCombo();
                         }
-                        static double eot = 0.0;
-
                         //ImGui::SameLine();
                         if (ImGui::Button("-1 Step")) {
-                            //minusday = true;
-                            l.layer->m_astro->addTime(-mytimestep.da, -mytimestep.hr, -mytimestep.mi + eot, -mytimestep.se);
-                            eot = do_eot ? CAAEquationOfTime::Calculate(l.layer->m_astro->getJD(), true) : 0.0;
-                            l.layer->m_astro->addTime(0.0, 0.0, -eot, 0.0);
+                            l.layer->m_astro->addTime(-mytimestep.da, -mytimestep.hr, -mytimestep.mi, -mytimestep.se, do_eot);
                         }
                         ImGui::SameLine();
                         if (ImGui::Button("+1 Step")) {
-                            //plusday = true;
-                            l.layer->m_astro->addTime(mytimestep.da, mytimestep.hr, mytimestep.mi + eot, mytimestep.se);
-                            eot = do_eot ? CAAEquationOfTime::Calculate(l.layer->m_astro->getJD(), true) : 0.0;
-                            l.layer->m_astro->addTime(0.0, 0.0, -eot, 0.0);
+                            l.layer->m_astro->addTime(mytimestep.da, mytimestep.hr, mytimestep.mi, mytimestep.se, do_eot);
                         }
                         ImGui::SliderFloat("Time of Day", &slideday, 0.0f, 24.0f);
                         if (prevslideday != slideday) {
-                            l.layer->m_astro->addTime(0.0, (double)slideday - (double)prevslideday, 0.0, 0.0);
+                            // Should probably do two addTime() passes (-prev, then +curr), due to EoT I think.
+                            l.layer->m_astro->addTime(0.0, (double)slideday - (double)prevslideday, 0.0, 0.0, do_eot);
                             prevslideday = slideday;
                         }
                         //ImGui::SliderFloat("year", &slideyear, 0.0f, 365.0f);
@@ -568,10 +636,8 @@ void RenderLayerGUI::render() {
                             ImGui::SliderFloat("Tex X", &l.layer->m_scene->m_app->currentEarth->texture_x, -10.0f, 10.0f);
                             ImGui::SliderFloat("Tex Y", &l.layer->m_scene->m_app->currentEarth->texture_y, -10.0f, 10.0f);
                             const char* items[] = { "AENS", "AEER", "AERC", "AEE8", "NSER", "NSRC", "NSE8", "ERRC", "ERE8", "RCE8" };
-                            if (ImGui::BeginCombo("Earth type", l.layer->m_scene->m_app->currentEarth->current_earth.c_str()))
-                            {
-                                for (int n = 0; n < IM_ARRAYSIZE(items); n++)
-                                {
+                            if (ImGui::BeginCombo("Earth type", l.layer->m_scene->m_app->currentEarth->current_earth.c_str())) {
+                                for (int n = 0; n < IM_ARRAYSIZE(items); n++) {
                                     bool is_selected = (l.layer->m_scene->m_app->currentEarth->current_earth == items[n]);
                                     if (ImGui::Selectable(items[n], is_selected)) {
                                         l.layer->m_scene->m_app->currentEarth->current_earth = (std::string)items[n];
@@ -598,16 +664,36 @@ void RenderLayerGUI::render() {
                             ImGui::SliderFloat("Sun Height", &l.layer->m_scene->m_app->currentEarth->flatsunheight, 0.0f, 100000.0f);
                         }
                     }
-                    // Sky Sphere object
+                    // Sky Sphere object - must revise to allow multiple SkySphere objects !!!
                     if (l.layer->m_scene->m_skysphereOb != nullptr) { // Oh, referencing m_scene without a scene added is causing a crash
                         if (ImGui::CollapsingHeader("Sky Sphere")) {
                             ImGui::Checkbox("Textured", &l.layer->m_scene->m_skysphereOb->m_texture);
                             ImGui::Checkbox("Sky Dots", &l.layer->m_scene->getSkyDotsFactory()->visible);
+                            // FIXME: Mode selector here !!!
+                            ImGui::SliderFloat("Dome Height", &l.layer->m_scene->m_skysphereOb->domeheight, 0.1f, 10000.0f);
+
                         }
+                    }
+                    if (ImGui::CollapsingHeader("SIO Sextant")) {
+                        ImGui::Checkbox("Dip correction", &l.layer->m_scene->m_app->sio_dip);
+                        ImGui::Checkbox("Refraction", &l.layer->m_scene->m_app->sio_refract);
+                        ImGui::Checkbox("Solar Limb", &l.layer->m_scene->m_app->sio_sunlimb);
+                        ImGui::Checkbox("Local Weather", &l.layer->m_scene->m_app->sio_local_weather);
+                        if (ImGui::RadioButton("Bennett", (l.layer->m_scene->m_app->sio_refmethod == REFR_BENNETT))) l.layer->m_scene->m_app->sio_refmethod = REFR_BENNETT;
+                        if (ImGui::RadioButton("Almanac", (l.layer->m_scene->m_app->sio_refmethod == REFR_ALMANAC))) l.layer->m_scene->m_app->sio_refmethod = REFR_ALMANAC;
+                        ImGui::SliderFloat("Pressure", &l.layer->m_scene->m_app->sio_pressure, 800.0f, 1100.0f);
+                        ImGui::SliderFloat("Temperature", &l.layer->m_scene->m_app->sio_temperature, -40.0f, 50.0f);
+                        ImGui::SliderFloat("Obs. Height", &l.layer->m_scene->m_app->sio_height, 0.0f, 250.0f);
+                        ImGui::SliderFloat("Curve width", &l.layer->m_scene->m_app->sio_pathwidth, 0.0001f, 0.0010f, "%.4g");
+                    }
+                    // Lunalemma object
+                    if (ImGui::CollapsingHeader("Lunalemma")) {
+                        ImGui::SliderFloat("Seconds offset: ", &l.layer->m_scene->m_app->lunalemmaOffset, -600.0f, 600.0f);
                     }
                     ImGui::EndTabItem();
                 }
             }
+
             ImGui::SliderFloat("Custom 1", &m_app->customparam1, m_app->customlow1, m_app->customhigh1);
             ImGui::SliderFloat("Custom 2", &m_app->customparam2, m_app->customlow2, m_app->customhigh2);
             ImGui::EndTabBar();
@@ -620,7 +706,7 @@ void RenderLayerGUI::render() {
         //        //ImGui::SliderFloat("Cam<->Light", &camlightsep, 0.0f, 10.0f);
         //    }
         //}
-        // ImGui::ShowDemoWindow();
+        ImGui::ShowDemoWindow();
         ImGui::End();
     }
 }
@@ -717,9 +803,9 @@ Astronomy* Application::newAstronomy() { return new Astronomy(); }  // These may
 Scene* Application::newScene() { return new Scene(this); }
 int Application::initWindow() {
     if (start_fullscreen) w_width = 1920;
-    else w_width = 1067;
+    else w_width = 1280;
     if (start_fullscreen) w_height = 1080;
-    else w_height = 600;
+    else w_height = 720;
 
     // Setup platform environment
     window = setupEnv(w_width, w_height, 4, 6, start_fullscreen);
@@ -779,17 +865,18 @@ void Application::update() {
     if (togglefullwin && isfullscreen) { setWindowed(win_width, win_height); }
     if (currentCam != nullptr) currentCam->update();
     if (dumpcam && currentCam != nullptr) {
-        std::cout << "Camera dump at frame: " << currentframe << "\n";
-        std::cout << "camFoV = " << currentCam->camFoV << "f\n";  // TODO: Add .0f formatting
-        std::cout << "camLat = " << currentCam->camLat << "f\n";
-        std::cout << "camLon = " << currentCam->camLon << "f\n";
-        std::cout << "camDst = " << currentCam->camDst << "f\n";
+        currentCam->dumpParameters(currentframe);
         dumpcam = false;
+    }
+    if (dumptime&& currentEarth != nullptr) {
+        currentEarth->m_scene->m_astro->dumpCurrentTime(currentframe);
+        dumptime = false;
     }
 }
 float Application::getAspect() {
+    // When rendering to the application window, and that window is out of focus/view on the screen, this returns 0.0f !!!
     if (w_height == 0) {
-        std::cout << "ERROR! Application::getAspect(): m_winVP.vp_h is zero, so aspect ratio will cause DIV0 exception! Returning 0.0f instead.\n";
+        //std::cout << "ERROR! Application::getAspect(): m_winVP.vp_h is zero, so aspect ratio will cause DIV0 exception! Returning 0.0f instead.\n";
         return 0.0f;
     }
     return (float)w_width / (float)w_height;
@@ -821,9 +908,9 @@ void Application::endImGUI() {
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
-RenderLayer3D* Application::newLayer3D(float vpx1, float vpy1, float vpx2, float vpy2, Scene* scene, Astronomy* astro, Camera* cam) {
+RenderLayer3D* Application::newLayer3D(float vpx1, float vpy1, float vpx2, float vpy2, Scene* scene, Astronomy* astro, Camera* cam, bool overlay) {
     if (cam == nullptr) cam = scene->w_camera;
-    RenderLayer3D* layer = new RenderLayer3D(vpx1, vpy1, vpx2, vpy2, scene, astro, cam);
+    RenderLayer3D* layer = new RenderLayer3D(vpx1, vpy1, vpx2, vpy2, scene, astro, cam, overlay);
     m_layers.push_back(layer);
     return layer;
 }
@@ -870,6 +957,7 @@ void Application::updateView(int w, int h) {
     }
 }
 void Application::render() {
+    // Avoid to render to a window that is minimized or fully obscured, as that will have zero aspect ratio !!!
     update();
     if (output_fbo != 0 && renderoutput == true) {
         glBindFramebuffer(GL_FRAMEBUFFER, output_fbo);
@@ -1069,7 +1157,7 @@ TextFactory::TextFactory(Scene* scene) : m_scene(scene) {
     m_texts.clear();
 }
 TextFactory::~TextFactory() {}
-TextString* TextFactory::newText(Font* font, std::string& text, float size, glm::vec4 color, glm::vec3& position, glm::vec3& direction, glm::vec3& up) {
+TextString* TextFactory::newText(Font* font, const std::string& text, const float size, const glm::vec4 color, glm::vec3& position, glm::vec3& direction, glm::vec3& up) {
     m_texts.push_back(new TextString(m_scene, font, text, size, color, position, direction, up));
     return m_texts.back();
 }
@@ -1273,196 +1361,239 @@ void Glyphs::drawGlyphs() {
 } 
 
 
-// -----------------
-//  Country Borders
-// -----------------
-CountryBorders::CountryBorders(Scene* scene, const std::string& shapefile) : m_scene(scene) {
-    parseFile(shapefile);
+// ------------
+//  Time Zones
+// ------------
+// To make a geographically based time zone picker:
+// https://github.com/BertoldVdb/ZoneDetect
+// Quick sanity check: https://cdn.bertold.org/demo/timezone.html
+// https://www.iana.org/time-zones
+// https://github.com/evansiroky/timezone-boundary-builder
+// https://github.com/evansiroky/timezone-boundary-builder/releases
+// - It's complicated -
+// It is better to let a Location "pick" a time zone, either manually or by checking bounding boxes,
+// and then actual outlines in shapefile from https://github.com/evansiroky/timezone-boundary-builder
+// Once a time zone is selected, the Location needs to pick up the local time for the current UTC time
+// This is done by first checking the Links data for any redirects of the time zone, then parsing the
+// Time zone arrived at, while applying any rules listed. There can be multiple lists of named rules
+// involved, see Ireland for a complex example.
+// Both Zones and Rules have complex formats that require careful parsing. Additionally some rules may
+// overlap, and resolution is done first by time, and if equal, by earliest in zone file. Thus, parse
+// the IANA zone files sequentially and assign sequence numbers in addition to indices (in case a storage
+// container that might reorder entries is used, or sorting is desirable at some point).
+// Apply the Zone offset appropriate to the UTC time, then apply any additional shifts specified in the
+// applicable Rule (if any).
+// zic, the sample code from IANA tz, compiles the Zones & Rules into a different format. Look into this,
+// as that may be easier to parse, thus foregoing subtle parsing bugs.
+//
+// For geographic zone matching, see: https://web.archive.org/web/20130126163405/http://geomalgorithms.com/a03-_inclusion.html
+// Alternatively use this librarry: https://github.com/BertoldVdb/ZoneDetect
+TimeZones::TimeZones(Scene* scene, const std::string& filebase) : m_scene(scene) {
+    // Data source: https://github.com/evansiroky/timezone-boundary-builder
+    // ESRI .shp file format:
+    // https://en.wikipedia.org/wiki/Shapefile (basic explanation, enough to get started)
+    // https://www.esri.com/content/dam/esrisites/sitecore-archive/Files/Pdfs/library/whitepapers/pdfs/shapefile.pdf (full spec)
+    // dBASE XBase .dbf format:
+    // https://www.clicketyclick.dk/databases/xbase/format/index.html
+    // (for now, just using Excel to open and read the row number (subtract 1 for header before using).
+    // Could make a summary CSV file, or build a full .dbl parser. Would it be an interesting challenge, or perhaps even useful?
+    // o For now, make a CSV file, the source data is not updated very often.
+    // Note: There are libraries available for these sort of things too.
+     
+    // Load and parse the ShapeFile with time zone outlines
+    ShapeFile::parseFile(records, filebase + ".shp");
+    // Load and parse the time zone outline names
+    parseNames(filebase + ".csv");
+    // Load IANA tz database
+    tzFile::loadFiles(timezonedb, "C:\\Coding\\IANA-tzdb\\");
 }
-void CountryBorders::addBorder(Earth& earth, unsigned int rindex /* Country Name String when dBASE data loader is done */) {
-    // BUG?: Seems to be shifted rigth and down by one pixel in the texture. Does the texture lookup in earth.shader needs adjusting?
-    
+void TimeZones::addTimeZone(Earth& earth, const std::string timezonename) {
+    // Check CSV file for spelling of countries, this does NOT have fuzzy search.
+    // Alternatively look up the index manually and pass that instead (as unsigned int)
+    unsigned int index = 0;
+    for (auto& cn : timezonenames) { // Should probably use a std::find, this is the 21st century.
+        if (timezonename == cn.searchname) index = cn.index; // If there are duplicates, this returns the last
+    }
+    if (index == 0) {
+        std::cout << "WARNING: TimeZones::addTimeZones(): No match found for timezone name: " << timezonename << ", defaulting to timezone_id = 1\n";
+        index = 1;
+    }
+    // A better failure mode is to return NO_UINT or zero instead of a different time zone than the one requested.
+    addTimeZone(earth, index);
+}
+void TimeZones::addTimeZone(Earth& earth, unsigned int rindex) {
     // This could take Earth (for getLoc3D()) and an array where to drop the points.
     // Ideally I want to be able to draw a border on a globe, then unlink it from the geometry,
     //  have it float up while Earth morphs, and settle down to compare to the new size.
     //  (Of course this requires two borders, one that remains linked and one that floats)
     // But start by simply getting a border onto Earth, then make it morph. I can add a duplicate
     //  function to whatever object ends up holding a border. Begin by using a PolyCurve, change to GL_LINE later.
+    // UPD: Now using PolyLine, which is always flat and has width in screen space rather than world space.
+    // Note: The GMT offset zones ONLY cover the international waters. So to get the complete zone displayed
+    //       I need to collect all the zones where that offset is used at the current time. This would then
+    //       display all areas with the same wall clock time I think. Or probably DST is not applied in international waters?
 
     // Should scan borderparts vector to see if the requested border exists already !!!
+    //  o That may conflict with creating floating duplicate as pondered above.
     rindex--;  // Array indices assume array starts at 1
     for (auto& part : records[rindex]->parts) {
-        //std::cout << "addBorder(): part: " << part.partnum << " start: " << part.startindex << " length: " << part.length << "\n";
-        borderparts.push_back(m_scene->newPolyLine(LIGHT_RED, 0.001f, part.length));
+        //std::cout << "CountryBorder::addBorder(): part: " << part.partnum << " start: " << part.startindex << " length: " << part.length << "\n";
+        timezoneparts.push_back(new timezonepartcache());
+        timezoneparts.back()->timezone_id = rindex + 1;
+        timezoneparts.back()->part = &part;
+        timezoneparts.back()->polyline = m_scene->newPolyLine(LIGHT_RED, 0.001f, part.length);
+        timezoneparts.back()->earth = &earth;
         for (unsigned int i = part.startindex; i < (part.startindex + part.length); i++) {
-            borderparts.back()->addPoint(earth.getLoc3D(deg2rad * records[rindex]->points[i].latitude, deg2rad * records[rindex]->points[i].longitude));
+            timezoneparts.back()->polyline->addPoint(earth.getLoc3D(deg2rad * records[rindex]->points[i].latitude, deg2rad * records[rindex]->points[i].longitude, surface_offset));
         }
-        borderparts.back()->generate();
+        timezoneparts.back()->polyline->generate();
     }
-    std::cout << "";
+}
+void TimeZones::update() { // Updates all of the time zone outline parts at once
+    // This is even prepared to update "countries" on other planets, if they have a getLoc3D() function (or separate instances of Earth)
+    // NOTE: Since this is plotted at 0.0f terrain height, it will intersect Earth tris !!!
+    for (auto& pcache : timezoneparts) {
+        //std::cout << "TimeZone::update(): timezone_id = " << pcache->timezone_id << ", polyline = " << pcache->polyline << ", earth = " << pcache->earth << '\n';
+        pcache->polyline->clearPoints();
+        //std::cout << "TimeZone::update(): part: " << part.partnum << " start: " << part.startindex << " length: " << part.length << "\n";
+        for (unsigned int i = pcache->part->startindex; i < (pcache->part->startindex + pcache->part->length); i++) {
+            pcache->polyline->addPoint(pcache->earth->getLoc3D(deg2rad * records[pcache->timezone_id - 1]->points[i].latitude, deg2rad * records[pcache->timezone_id - 1]->points[i].longitude, surface_offset));
+        }
+        pcache->polyline->generate();
+    }
+}
+void TimeZones::draw() {
+    std::cout << "TimeZones::draw(): no need to call draw(), PolyLines were allocated via Scene, so will be drawn there.\n";
+    //for (auto& pcache : borderparts) {
+    //    pcache->polyline->draw();
+    //}
+}
+int TimeZones::parseNames(const std::string& namefile) {
+    std::cout << "TimeZones::parseNames() - Processing file: " << namefile << '\n';
+    std::istringstream parse;
+    std::string line;
+    std::ifstream stream(namefile);
+    getline(stream, line); // Skip headers
+    unsigned int i = 0;
+    while (getline(stream, line)) {
+        //std::cout << line << '\n';
+        i++;
+        timezonenames.emplace_back(TimeZoneName());
+        timezonenames.back().index = i;
+        parse.clear();
+        parse.str(line);
+        std::getline(parse, timezonenames.back().searchname, ',');
+        //std::getline(parse, timezonenames.back().displayname, ',');
+    }
+    return 0;
+}
+std::string TimeZones::getLocalTime(const std::string& timezone, const DateTime& datetime) {
+    return tzFile::getLocalTime(timezonedb, timezone, datetime);
+}
+std::string TimeZones::getLocalTime(const std::string& timezone, long year, long month, double day, double hour, double minute, double second) {
+    return tzFile::getLocalTime(timezonedb, timezone, year, month, day, hour, minute, second);
+}
+void TimeZones::dumpTimeZoneDetails(const std::string& timezone) {
+    tzFile::dumpTimeZoneDetails(timezonedb, timezone);
+}
+
+
+// -----------------
+//  Country Borders
+// -----------------
+// Strictly speaking this is Country Outlines
+CountryBorders::CountryBorders(Scene* scene, const std::string& filebase) : m_scene(scene) {
+    // Data source: http://www.naturalearthdata.com/downloads/
+    // ESRI .shp file format:
+    // https://en.wikipedia.org/wiki/Shapefile (basic explanation, enough to get started)
+    // https://www.esri.com/content/dam/esrisites/sitecore-archive/Files/Pdfs/library/whitepapers/pdfs/shapefile.pdf (full spec)
+    // dBASE XBase .dbf format:
+    // https://www.clicketyclick.dk/databases/xbase/format/index.html
+    // (for now, just using Excel to open and read the row number (subtract 1 for header before using).
+    // Could make a summary CSV file, or build a full .dbl parser. Would it be an interesting challenge, or perhaps even useful?
+    // o For now, make a CSV file, the source data is not updated very often.
+    // Note: There are libraries available for these sort of things too.
+    //parseFile(filebase + ".shp");
+    ShapeFile::parseFile(records, filebase + ".shp");
+    // If a generic shapefile loader is made, pass std::vector<ShapeRecord*> records by reference.
+    parseNames(filebase + ".csv");
+
+}
+void CountryBorders::addBorder(Earth& earth, const std::string countryname) {
+    // Check CSV file for spelling of countries, this does NOT have fuzzy search.
+    // Alternatively look up the index manually and pass that instead (as unsigned int)
+    unsigned int index = 0;
+    for (auto& cn : countrynames) { // Should probably use a std::find, this is the 21st century.
+        if (countryname == cn.searchname) index = cn.index; // If there are duplicates, this returns the last
+    }
+    if (index == 0) {
+        std::cout << "WARNING: CountryBorders::addBorder(): No match found for country name: " << countryname << ", defaulting to country_id = 1\n";
+        index = 1;
+    }
+    addBorder(earth, index);
+}
+void CountryBorders::addBorder(Earth& earth, unsigned int rindex) {
+    // This could take Earth (for getLoc3D()) and an array where to drop the points.
+    // Ideally I want to be able to draw a border on a globe, then unlink it from the geometry,
+    //  have it float up while Earth morphs, and settle down to compare to the new size.
+    //  (Of course this requires two borders, one that remains linked and one that floats)
+    // But start by simply getting a border onto Earth, then make it morph. I can add a duplicate
+    //  function to whatever object ends up holding a border. Begin by using a PolyCurve, change to GL_LINE later.
+    // UPD: Now using PolyLine, which is always flat and has width in screen space rather than world space.
+    // Make an update function for morphing.
+
+    // Should scan borderparts vector to see if the requested border exists already !!!
+    //  o That may conflict with creating floating duplicate as pondered above.
+    rindex--;  // Array indices assume array starts at 1
+    for (auto& part : records[rindex]->parts) {
+        //std::cout << "CountryBorder::addBorder(): part: " << part.partnum << " start: " << part.startindex << " length: " << part.length << "\n";
+        borderparts.push_back(new borderpartcache());
+        borderparts.back()->country_id = rindex + 1;
+        borderparts.back()->part = &part;
+        borderparts.back()->polyline = m_scene->newPolyLine(LIGHT_RED, 0.001f, part.length);
+        borderparts.back()->earth = &earth;
+        for (unsigned int i = part.startindex; i < (part.startindex + part.length); i++) {
+            borderparts.back()->polyline->addPoint(earth.getLoc3D(deg2rad * records[rindex]->points[i].latitude, deg2rad * records[rindex]->points[i].longitude, surface_offset));
+        }
+        borderparts.back()->polyline->generate();
+    }
+}
+void CountryBorders::update() { // Updates all of the country border parts at once
+    // This is even prepared to update "countries" on other planets, if they have a getLoc3D() function (or separate instances of Earth)
+    // NOTE: Since this is plotted at 0.0f terrain height, it will intersect Earth tris !!!
+    for (auto& pcache : borderparts) {
+        //std::cout << "CountryBorder::update(): country_id = " << pcache->country_id << ", polyline = " << pcache->polyline << ", earth = " << pcache->earth << '\n';
+        pcache->polyline->clearPoints();
+        //std::cout << "CountryBorder::update(): part: " << part.partnum << " start: " << part.startindex << " length: " << part.length << "\n";
+        for (unsigned int i = pcache->part->startindex; i < (pcache->part->startindex + pcache->part->length); i++) {
+            pcache->polyline->addPoint(pcache->earth->getLoc3D(deg2rad * records[pcache->country_id - 1]->points[i].latitude, deg2rad * records[pcache->country_id - 1]->points[i].longitude, surface_offset));
+        }
+        pcache->polyline->generate();
+    }
 }
 void CountryBorders::draw() {
-    for (auto& poly : borderparts) {
-        poly->draw();
-    }
+    std::cout << "CountryBorders::draw(): no need to call draw(), PolyLines were allocated via Scene, so will be drawn there.\n";
+    //for (auto& pcache : borderparts) {
+    //    pcache->polyline->draw();
+    //}
 }
-void CountryBorders::printRecord(unsigned int rindex) {
-    rindex--; // IMPORTANT! Record numbers start at 1 !!!
-    std::cout << "Record number: " << records[rindex]->recordnum << '\n';
-    std::cout << " Type: " << records[rindex]->type << '\n';
-    std::cout << " Number of parts: " << records[rindex]->numparts << '\n';
-    for (auto& part : records[rindex]->parts) {
-        std::cout << "  Part number: " << part.partnum;
-        std::cout << "  Start Index: " << part.startindex;
-        std::cout << "  Length: " << part.length;
-        std::cout << "  End Index: " << part.startindex + part.length - 1 << '\n'; // so iterate to > parts.length, not >=
+int CountryBorders::parseNames(const std::string& namefile) {
+    std::istringstream parse;
+    std::string line;
+    std::ifstream stream(namefile);
+    getline(stream, line); // Skip headers
+    unsigned int i = 0;
+    while (getline(stream, line)) {
+        i++;
+        countrynames.emplace_back(CountryName());
+        countrynames.back().index = i;
+        parse.clear();
+        parse.str(line);
+        std::getline(parse, countrynames.back().searchname, ',');
+        std::getline(parse, countrynames.back().displayname, ',');
     }
-    std::cout << " Number of points: " << records[rindex]->points.size() << '\n';
-    for (unsigned int i = 0; i < records[rindex]->points.size(); i++) {
-        //std::cout << "  Point number " << i << " (" << records[rindex]->points[i].latitude << "," << records[rindex]->points[i].longitude << ")\n";
-    }
+    return 0;
 }
-int CountryBorders::parseFile(const std::string& shapefile) {
-    // IMPORTANT: Determine std::vector sizes and reserve(), or this will be slow !!!
-    std::ifstream infile(shapefile, std::ifstream::in | std::ifstream::binary);
-    if (!infile.is_open()) {
-        std::cout << "Did not manage to open Shapefile!\n";
-        return -1;
-    }
-    uint32_t valint = 0;
-    double valdbl = 0.0;
-    unsigned int record = 1;
-    valint = readIntBig(infile); // magic number, is always 0x0000270A
-    //std::cout << "Magic number: " << valint << '\n';
-    if (valint != 9994) {
-        std::cout << "Was expecting Magic number 9994 (0x0000270A), got: " << valint << " !Not sure how to proceed, so bailing.\n";
-        infile.close();
-        return -1;
-    }
-    valint = readIntBig(infile); // 5 Unused ints
-    valint = readIntBig(infile);
-    valint = readIntBig(infile);
-    valint = readIntBig(infile);
-    valint = readIntBig(infile);
-    uint32_t filesize = 2 * readIntBig(infile); // File length in 16 bit words, including header, int32 big endian
-    //std::cout << "File Size: " << valint << '\n';
-    fileversion = readIntLittle(infile); // Version, int32 little endian
-    //std::cout << "Version: " << fileversion << '\n';
-    valint = readIntLittle(infile); // Shape Type, int32 little endian
-    //std::cout << "Shape Type: " << valint << '\n';
-    if (valint != 5) {
-        std::cout << "Was expecting Shape Type 5! Not sure how to proceed, so bailing.\n";
-        infile.close();
-        return -1;
-    }
-    double minX = readDoubleLittle(infile);
-    double minY = readDoubleLittle(infile);
-    double maxX = readDoubleLittle(infile);
-    double maxY = readDoubleLittle(infile);
-    double minZ = readDoubleLittle(infile);
-    double maxZ = readDoubleLittle(infile);
-    double minM = readDoubleLittle(infile);
-    double maxM = readDoubleLittle(infile);
-    //std::cout << "MBR - Minimum Bounding Box:\n";
-    //std::cout << " minX: " << minX << ", minY: " << minY << '\n';
-    //std::cout << " maxX: " << maxX << ", maxY: " << maxY << '\n';
-    //std::cout << "Z range: " << minZ << ", " << maxZ << '\n';
-    //std::cout << "M range: " << minM << ", " << maxM << '\n';
-    uint32_t rnum = 0;
-    uint32_t temp = 0;
-    uint32_t recordlen = 0;
-    unsigned int pcnt = 0;
-    while (bytecnt < filesize) { // Run until the anticipated end of file
-        records.push_back(new ShapeRecord());
-        records.back()->recordnum = readIntBig(infile);
-        //std::cout << " Record Number: " << records.back()->recordnum << '\n';
-        recordlen = 2 * readIntBig(infile);
-        //std::cout << " Record Length: " << recordlen << '\n'; // length is counted in 16 bit words for some reason
-        unsigned int recordend = bytecnt + recordlen;
-
-        records.back()->type = readIntLittle(infile);
-        //std::cout << "Shape Type: " << valint << '\n';
-        if (records.back()->type != 5) {
-            std::cout << "Was expecting Shape Type 5! Not sure how to proceed, so bailing.\n";
-            infile.close();
-            return -1;
-        }
-        double minX = readDoubleLittle(infile);
-        double minY = readDoubleLittle(infile);
-        double maxX = readDoubleLittle(infile);
-        double maxY = readDoubleLittle(infile);
-        //std::cout << "  MBR - Minimum Bounding Box:\n";
-        //std::cout << "   minX: " << minX << ", minY: " << minY << '\n';
-        //std::cout << "   maxX: " << maxX << ", maxY: " << maxY << '\n';
-        records.back()->numparts = readIntLittle(infile);
-        uint32_t numpoints = readIntLittle(infile); // Needed later when capping last part index
-        //std::cout << "  Number of parts: " << numparts << '\n';
-        //std::cout << "  Number of points: " << numpoints << '\n';
-        unsigned int index;
-        for (unsigned int i = 1; i <= records.back()->numparts; i++) {
-            // Get parts array indices
-            index = readIntLittle(infile); // index into point array where this part starts
-            if (i > 1) records.back()->parts.back().length = index - records.back()->parts.back().startindex; // finish previous part
-            records.back()->parts.push_back(ShapePart()); // start new part
-            records.back()->parts.back().startindex = index;
-            records.back()->parts.back().partnum = i;
-            //std::cout << "  Part " << i << " point data array index: " << records.back()->parts.back().arrayindex << '\n';
-        }
-        records.back()->parts.back().length = numpoints - records.back()->parts.back().startindex;
-
-        pcnt = 0;
-        while (bytecnt < recordend) {
-            // Stuff points for all parts into array
-            records.back()->points.emplace_back(LatLon());
-            records.back()->points.back().longitude = readDoubleLittle(infile);
-            records.back()->points.back().latitude = readDoubleLittle(infile);
-            //std::cout << "    Point: (" << records.back()->points.back().latitude << ", " << records.back()->points.back().longitude << ")\n";
-            pcnt++;
-        }
-        // Now save the count of points for this part
-        records.back()->parts.back().length = pcnt - records.back()->parts.back().startindex;
-        //std::cout << "Last part length: " << records.back()->parts.back().length << '\n';
-        //temp++;
-        //if (temp > 4) break; // It goes on and on without this...
-        // This successfully parses the whole current file, including multiple parts in records. Now consider how to organize the data in memory!
-        return 0;
-    }
-}
-double CountryBorders::readDoubleBig(std::istream& infile) {
-    uint8_t b[8];
-    infile.read((char*)b, 8);
-    uint64_t val = (uint64_t)b[7] | ((uint64_t)b[6] << 8) | ((uint64_t)b[5] << 16) | ((uint64_t)b[4] << 24) |
-        ((uint64_t)b[3] << 32) | ((uint64_t)b[2] << 40) | ((uint64_t)b[1] << 48) | ((uint64_t)b[0] << 56);
-
-    double dbl = *(double*)&val;
-    bytecnt += 8;
-    return dbl;
-}
-double CountryBorders::readDoubleLittle(std::istream& infile) {
-    uint8_t b[8];
-    infile.read((char*)b, 8);
-    uint64_t val = (uint64_t)b[0] | ((uint64_t)b[1] << 8) | ((uint64_t)b[2] << 16) | ((uint64_t)b[3] << 24) |
-        ((uint64_t)b[4] << 32) | ((uint64_t)b[5] << 40) | ((uint64_t)b[6] << 48) | ((uint64_t)b[7] << 56);
-
-    double dbl = *(double*)&val;
-    bytecnt += 8;
-    return dbl;
-}
-uint32_t CountryBorders::readIntBig(std::istream& infile) {
-    uint8_t bytes[4];
-    infile.read((char*)bytes, 4);
-    uint32_t val = bytes[3] | (bytes[2] << 8) | (bytes[1] << 16) | (bytes[0] << 24);
-    bytecnt += 4;
-    return val;
-}
-uint32_t CountryBorders::readIntLittle(std::istream& infile) {
-    uint8_t bytes[4];
-    infile.read((char*)bytes, 4);
-    uint32_t val = bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24);
-    bytecnt += 4;
-    return val;
-}
-
 
 
 // --------
@@ -1488,12 +1619,12 @@ SkyBox::~SkyBox() {
 }
 void SkyBox::Draw() {
     glm::mat4 proj =  glm::perspective(glm::radians(70.0f), m_scene->m_app->getAspect(), 0.1f, 100.0f);
-    double timerot = hrs2rad * rad2deg * -m_scene->m_astro->getGsid(); //  -100.0; NOTE: Probably because cubemap is loaded incorrectly !!!
-    m_scene->w_camera->camLon -= (float)timerot;
-    m_scene->w_camera->update();
+    //double timerot = hrs2rad * rad2deg * -m_scene->m_astro->getGsid(); //  -100.0; NOTE: Probably because cubemap is loaded incorrectly !!!
+    //m_scene->w_camera->camLon -= (float)timerot;
+    //m_scene->w_camera->update();
     glm::mat4 view = glm::mat4(glm::mat3(m_scene->w_camera->getViewMat()));
-    m_scene->w_camera->camLon += (float)timerot;
-    m_scene->w_camera->update();
+    //m_scene->w_camera->camLon += (float)timerot;
+    //m_scene->w_camera->update();
     glFrontFace(GL_CCW);
     glDepthMask(GL_FALSE);
     glDepthFunc(GL_LEQUAL);
@@ -1538,10 +1669,11 @@ void SkyBox::loadCubemap(std::vector<std::string> faces) {
 //  ParticleTrail
 // ---------------
 // NOTE: Implement ability to trim() trail, and possibly to fade out whole trail
-ParticleTrail::ParticleTrail(Scene* scene, unsigned int number, glm::vec4 color, unsigned int spacing) : m_scene(scene) {
+ParticleTrail::ParticleTrail(Scene* scene, unsigned int number, glm::vec4 color, float size, unsigned int spacing, bool taper) : m_scene(scene) {
+    m_taper = taper;
     m_number = number;
     m_color = color;
-    m_size = 0.02f;
+    m_size = size;
     m_spacing = spacing;  // Intermediate frames where dots are skipped. 0 = plot every time.
     m_gap = m_spacing;
     m_sizefactor = pow(10, (log10(0.1) / (double)m_number));
@@ -1555,11 +1687,13 @@ void ParticleTrail::push(glm::vec3 pos) {
         return;
     }
     float size = m_size;
-    // Reduce size and opacity of trail
-    for (auto& p : m_queue) {  // Here whole trail could be faded out when desired
-        p.size *= (float)m_sizefactor;
-        //p.color.a *= 0.95f;
-        m_scene->getDotsFactory()->changeXYZ(p.index, p.position, p.color, p.size);
+    if (m_taper) {
+        // Reduce size and opacity of trail
+        for (auto& p : m_queue) {  // Here whole trail could be faded out when desired
+            p.size *= (float)m_sizefactor;
+            //p.color.a *= 0.95f;
+            m_scene->getDotsFactory()->changeXYZ(p.index, p.position, p.color, p.size);
+        }
     }
     if (m_queue.size() >= m_number) {
         m_scene->getDotsFactory()->remove(m_queue.back().index);
@@ -1606,14 +1740,25 @@ AngleArcs::~AngleArcs() {}
 double AngleArcs::getAngle(unsigned int index) {
     return m_arcs[index].angle;
 }
-unsigned int AngleArcs::add(glm::vec3 position, glm::vec3 start, glm::vec3 stop, float length, glm::vec4 color, float width) {
+unsigned int AngleArcs::add(glm::vec3 position, glm::vec3 start, glm::vec3 stop, float length, glm::vec4 color, float width, bool wide, glm::vec3 pole) {
+    // bool wide enables angles above pi, requires a vec3 pole to tell which direction is clockwise
     glm::vec3 nstart = glm::normalize(start);
     glm::vec3 nstop = glm::normalize(stop);
-    glm::vec3 axis = glm::cross(nstart, nstop); // Use nstart early, it is rescaled later when generating points!
-    double rangle = acos(glm::dot(nstart, nstop)); // angle in radians
-
-    m_arcs.push_back({ nullptr, 0, color, position, start, stop, length, width, rad2deg * rangle, false });
-
+    glm::vec3 axis = glm::vec3(0.0f);
+    double rangle = 0.0;
+    if (wide) {
+        // From: https://stackoverflow.com/questions/14066933/direct-way-of-computing-clockwise-angle-between-2-vectors
+        // det = n · (v1 × v2) // triple product
+        // angle = atan2(det, v1 · v2)
+        rangle = atan2(glm::dot(pole, glm::cross(nstart, nstop)), glm::dot(nstart, nstop)); // det = glm::dot(axis, glm::cross(nstart, nstop))
+        if (rangle < 0) rangle += tau;
+        axis = pole;
+    }
+    else {
+        rangle = acos(glm::dot(nstart, nstop)); // angle in radians
+        axis = glm::cross(nstart, nstop);
+    }
+    m_arcs.push_back({ nullptr, 0, color, position, start, stop, length, width, rad2deg * rangle, false, wide, pole });
     m_arcs.back().polycurve = m_scene->newPolyCurve(color, width);
     // loop from 0 to rangle in steps of deg2rad (one degree in radians)
     glm::vec3 point = glm::vec3(0.0f);
@@ -1630,7 +1775,7 @@ void AngleArcs::remove(unsigned int index) {
     m_scene->deletePolyCurve(m_arcs[index].polycurve);
     m_arcs[index].expired = true;
 }
-void AngleArcs::update(unsigned int index, glm::vec3 position, glm::vec3 start, glm::vec3 stop, float length, glm::vec4 color, float width) {
+void AngleArcs::update(unsigned int index, glm::vec3 position, glm::vec3 start, glm::vec3 stop, float length, glm::vec4 color, float width, bool wide, glm::vec3 pole) {
     bool dirty = (position != m_arcs[index].position || start != m_arcs[index].start || stop != m_arcs[index].stop || length != m_arcs[index].length || width != m_arcs[index].width);
     if (position != NO_VEC3) m_arcs[index].position = position;
     if (start != NO_VEC3) m_arcs[index].start = start;
@@ -1638,28 +1783,37 @@ void AngleArcs::update(unsigned int index, glm::vec3 position, glm::vec3 start, 
     if (length != NO_FLOAT) m_arcs[index].length = length;
     if (color != NO_COLOR) m_arcs[index].color = color;
     if (width != NO_FLOAT) m_arcs[index].width = width;
-    // could check if position/start/stop have changed, and skip generator.
-    if (true) {
-        glm::vec3 nstart = glm::normalize(m_arcs[index].start);
-        glm::vec3 nstop = glm::normalize(m_arcs[index].stop);
-        glm::vec3 axis = glm::cross(nstart, nstop); // Use nstart early, it is rescaled later when generating points!
-        double rangle = acos(glm::dot(nstart, nstop)); // angle in radians
-        m_arcs[index].angle = rad2deg * rangle;
-        //std::cout << "Angle is: " << m_arcs[index].angle << "\n";
-        m_arcs[index].polycurve->clearPoints();
-        glm::vec3 point = glm::vec3(0.0f);
-        nstart *= m_arcs[index].length;
-        for (double a = 0.0; a < rangle; a += deg2rad) {
-            point = glm::rotate(nstart, (float)a, axis);
-            m_arcs[index].polycurve->addPoint(point + position);
-        }
-        m_arcs[index].polycurve->generate();
+    glm::vec3 nstart = glm::normalize(m_arcs[index].start);
+    glm::vec3 nstop = glm::normalize(m_arcs[index].stop);
+    glm::vec3 axis = glm::vec3(0.0f);
+    double rangle = 0.0;
+    if (wide) {
+        // From: https://stackoverflow.com/questions/14066933/direct-way-of-computing-clockwise-angle-between-2-vectors
+        // det = n · (v1 × v2) // triple product
+        // angle = atan2(det, v1 · v2)
+        rangle = atan2(glm::dot(pole, glm::cross(nstart, nstop)), glm::dot(nstart, nstop)); // det = glm::dot(axis, glm::cross(nstart, nstop))
+        if (rangle < 0) rangle += tau;
+        axis = pole;
     }
+    else {
+        rangle = acos(glm::dot(nstart, nstop)); // angle in radians
+        axis = glm::cross(nstart, nstop);
+    }
+    m_arcs[index].angle = rad2deg * rangle;
+    //std::cout << "Angle is: " << m_arcs[index].angle << "\n";
+    m_arcs[index].polycurve->clearPoints();
+    glm::vec3 point = glm::vec3(0.0f);
+    nstart *= m_arcs[index].length;
+    for (double a = 0.0; a < rangle; a += deg2rad) {
+        point = glm::rotate(nstart, (float)a, axis);
+        m_arcs[index].polycurve->addPoint(point + position);
+    }
+    m_arcs[index].polycurve->generate();
 }
 
 void AngleArcs::draw() {
     for (auto& a : m_arcs) {
-        a.polycurve->draw();
+        a.polycurve->draw(m_scene->w_camera); // Move to be rendered in Scene, default Camera is not always right !!!
     }
 }
 
@@ -1681,11 +1835,15 @@ PolyLine::PolyLine(Scene* scene, glm::vec4 color, float width, size_t reserve) :
 }
 PolyLine::~PolyLine() {
 }
+void PolyLine::change(glm::vec4 color, float width) {
+    if (color != NO_COLOR) m_color = color;
+    if (width != NO_FLOAT) m_width = width;
+}
 void PolyLine::addPoint(glm::vec3 point) {
     //if (limit) std::cout << "WARNING PolyPolyCurve (" << this << ") adding beyond capacity, resizing!\n"; // only triggers if coming back after setting limit flag
     m_points.push_back(point);
     if (m_points.size() == m_points.capacity()) {
-        std::cout << "WARNING: PolyCurve (" << this << ") capacity: " << m_points.capacity() << " reached. It will be SLOW to add new points now!\n";
+        std::cout << "WARNING: PolyLine (" << this << ") capacity: " << m_points.capacity() << " reached. It will be SLOW to add new points now!\n";
         //    limit = true;
     }
 }
@@ -1706,9 +1864,9 @@ void PolyLine::draw() {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
     glLineWidth(4.0f);
-    glDisable(GL_DEPTH_TEST);
+    //glDisable(GL_DEPTH_TEST);
     glDrawArrays(GL_LINE_LOOP, 0, (GLsizei)m_points.size());  // ESRI Polygons are closed, so use GL_LINE_LOOP
-    glEnable(GL_DEPTH_TEST);
+    //glEnable(GL_DEPTH_TEST);
     //glDrawElementsInstanced(GL_LINES, ib->GetCount(), GL_UNSIGNED_INT, 0, (GLsizei)m_segments.size());
 }
 
@@ -1716,6 +1874,7 @@ void PolyLine::draw() {
 // -----------
 //  PolyCurve
 // -----------
+// ToDo: !!! Make a PolyCurve factory that can render all the PolyCurves in one draw call, it will massively improve performance !!!
 PolyCurve::PolyCurve(Scene* scene, glm::vec4 color, float width, size_t reserve) : m_scene(scene) {
     // NOTE: It is preferred to instantiate these via the Scene object!
     if (reserve == NO_UINT) reserve = polycurvereserve; 
@@ -1752,6 +1911,11 @@ PolyCurve::~PolyCurve() {
     // delete vb2;  // Is deleted on every Draw() call completion
     delete va;
 }
+void PolyCurve::changePolyCurve(glm::vec4 color, float width) {
+    if (color != NO_COLOR) m_color = color;
+    if (width != NO_FLOAT) m_width = width;
+    generate();
+}
 void PolyCurve::addPoint(glm::vec3 point) {
     //if (limit) std::cout << "WARNING PolyPolyCurve (" << this << ") adding beyond capacity, resizing!\n"; // only triggers if coming back after setting limit flag
     m_points.push_back(point);
@@ -1761,28 +1925,37 @@ void PolyCurve::addPoint(glm::vec3 point) {
     }
 }
 void PolyCurve::clearPoints() {
+    //std::cout << "Points: " << m_points.size() << ", Segments: " << m_segments.size() << "\n";
     m_points.clear();
     m_segments.clear(); // Just in case someone would clear the points and not call generate() to update segments.
     //limit = false;
 }
 void PolyCurve::generate() {
+    bool debug = false; // Set to true to get green start and red end markers
     // Simply figure out the position, orientation and scale of each cylinder segment
     // and build instance table. Cylinders are actually instantiated on GPU
     m_segments.clear();
-    for (unsigned int i = 1; i < m_points.size(); i++) {
+    if (m_points.size() == 0) return;
+    for (size_t i = 1; i < m_points.size(); i++) {
         glm::vec3 pos = m_points[i - 1];
         glm::vec3 dir = m_points[i] - m_points[i - 1];
         glm::vec3 scale = glm::vec3(m_width, glm::length(dir), m_width);
-        // color(4), pos(3), dir(3), scale(3)
-        m_segments.push_back({ m_color, pos, dir, scale, 0.0 });
+        // color(4), pos(3), dir(3), scale(3), rot(1)
+        if (debug) {
+            if (i == 1) m_segments.push_back({ GREEN, pos, dir, scale, 0.0 });
+            else if (i == m_points.size() - 1) m_segments.push_back({ RED, pos, dir, scale, 0.0 });
+            else m_segments.push_back({ m_color, pos, dir, scale, 0.0 });
+        }
+        else m_segments.push_back({ m_color, pos, dir, scale, 0.0 });
     }
 }
-void PolyCurve::draw() {
+void PolyCurve::draw(Camera* cam) {
+    //if (m_color == ORANGE) std::cout << "Sumner\n";
     if (m_segments.size() == 0) return;
     shdr->Bind();
-    shdr->SetUniformMatrix4f("view", m_scene->w_camera->getViewMat());
-    shdr->SetUniformMatrix4f("projection", m_scene->w_camera->getProjMat());
-    shdr->SetUniform3f("lightDir", m_scene->w_camera->CamLightDir.x, m_scene->w_camera->CamLightDir.y, m_scene->w_camera->CamLightDir.z);
+    shdr->SetUniformMatrix4f("view", cam->getViewMat());
+    shdr->SetUniformMatrix4f("projection", cam->getProjMat());
+    shdr->SetUniform3f("lightDir", cam->CamLightDir.x, cam->CamLightDir.y, cam->CamLightDir.z);
     vb1->Bind();
     va->Bind();
     ib->Bind();
@@ -1956,7 +2129,7 @@ void Primitives::remove(unsigned int oid) {
 void Primitives::clear() {
     m_Primitives.clear();
 }
-void Primitives::draw(unsigned int shadow) {
+void Primitives::draw(Camera* cam, unsigned int shadow) {
     if (m_Primitives.size() == 0) return;
     // Create an instance array and render using one allocated Primitive
     // - color4
@@ -1967,9 +2140,9 @@ void Primitives::draw(unsigned int shadow) {
 
     if (shadow == SHADOW_MAP) { // Directional light source using square depth texture
         smshdr->Bind();
-        smshdr->SetUniformMatrix4f("view", m_scene->w_camera->getViewMat());
-        smshdr->SetUniformMatrix4f("projection", m_scene->w_camera->getProjMat());
-        smshdr->SetUniform3f("lightDir", m_scene->w_camera->CamLightDir.x, m_scene->w_camera->CamLightDir.y, m_scene->w_camera->CamLightDir.z);
+        smshdr->SetUniformMatrix4f("view", cam->getViewMat());
+        smshdr->SetUniformMatrix4f("projection", cam->getProjMat());
+        smshdr->SetUniform3f("lightDir", cam->CamLightDir.x, cam->CamLightDir.y, cam->CamLightDir.z);
         smshdr->SetUniformMatrix4f("lightSpaceMatrix", m_scene->getShadowmapOb()->lightSpaceMatrix);
     }
     else if (shadow == SHADOW_BOX) { // Omnidirectional lightsource using cubemap depth texture
@@ -1984,9 +2157,9 @@ void Primitives::draw(unsigned int shadow) {
     else { // NONE
         shdr->Bind();
         // NOTE: Consider passing in 1 multiplied matrix instead of these:
-        shdr->SetUniformMatrix4f("view", m_scene->w_camera->getViewMat());
-        shdr->SetUniformMatrix4f("projection", m_scene->w_camera->getProjMat());
-        shdr->SetUniform3f("lightDir", m_scene->w_camera->CamLightDir.x, m_scene->w_camera->CamLightDir.y, m_scene->w_camera->CamLightDir.z);
+        shdr->SetUniformMatrix4f("view", cam->getViewMat());
+        shdr->SetUniformMatrix4f("projection", cam->getProjMat());
+        shdr->SetUniform3f("lightDir", cam->CamLightDir.x, cam->CamLightDir.y, cam->CamLightDir.z);
     }
     // Set up and draw
     vb1->Bind();
@@ -2146,11 +2319,11 @@ void Minifigs::genGeom() {
     //std::cout << "Min x, y, z: " << mix << ", " << miy << ", " << miz << "\n";
 }
 
+
 // -----------
 //  UV Sphere
 // -----------
 SphereUV::SphereUV(Scene* scene) : Primitives(scene, 1000, 1000) {
-    // Cones specific
     m_Primitives.reserve(5000);
     genGeom();
     init();
@@ -2171,7 +2344,6 @@ unsigned int SphereUV::addStartEnd(glm::vec3 pos, glm::vec3 end, float width, gl
     glm::vec3 dir = end - pos;
     return store({ color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
 }
-//unsigned int SphereUV::FromStartEleAzi(glm::vec3 pos, float ele, float azi, glm::vec4 color) {}
 void SphereUV::changeStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float length, float width, glm::vec4 color) {
     Primitive3D* prim = getDetails(index);
     if (color == NO_COLOR) color = prim->color;
@@ -2187,7 +2359,6 @@ void SphereUV::changeStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, 
     update(index, { color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
 }
 void SphereUV::removeSphereUV(unsigned int index) { remove(index); }
-//void SphereUV::UpdateStartEleAzi(unsigned int index, glm::vec3 pos, float ele, float azi, glm::vec4 color) {}
 glm::vec3 SphereUV::getLoc3D_NS(float lat, float lon, float height) {
     float m_Radius = 1.0f;
     float w = cos(lat) * (m_Radius + height);
@@ -2198,8 +2369,8 @@ glm::vec3 SphereUV::getLoc3D_NS(float lat, float lon, float height) {
 }
 void SphereUV::genGeom() {
     float lat, lon;
-    unsigned int meshV = 16; // Bands
-    unsigned int meshU = 32; // Facets
+    unsigned int meshV = 32; // Bands
+    unsigned int meshU = 64; // Facets
     for (unsigned int v = 0; v <= meshV; v++) {  // -pi/2 to pi/2 => (v/m_meshV)*pi -pi/2
         lat = (pif * v / meshV) - pi2f;
         for (unsigned int u = 0; u <= meshU; u++) {
@@ -2491,7 +2662,7 @@ SkyDots::SkyDots(Scene* scene) : Primitives(scene, 2000, 1000) {
     init();
 }
 unsigned int SkyDots::addXYZ(glm::vec3 pos, glm::vec4 color, float size) {
-    return store({ color, pos, glm::vec3(0.0f,0.0f,1.0f), glm::vec3(size,size,size), 0.0f }); // col,pos,dir,scale
+    return store({ color, pos, glm::vec3(0.0f,0.0f,1.0f), glm::vec3(size,size,size), 0.0f }); // col,pos,dir,scale,rot
 }
 void SkyDots::changeXYZ(unsigned int index, glm::vec3 pos, glm::vec4 color, float size) {
     Primitive3D* prim = getDetails(index);
@@ -2507,7 +2678,7 @@ void SkyDots::changeDot(unsigned int index, glm::vec4 color, float size) {
     prim->scale = glm::vec3(size);
 }
 void SkyDots::removeDot(unsigned int index) { remove(index); }
-void SkyDots::draw() {
+void SkyDots::draw(Camera* cam) {
     if (!visible) return;
     if (m_Primitives.size() == 0) return;
     // Create an instance array and render using one allocated Primitive
@@ -2519,16 +2690,17 @@ void SkyDots::draw() {
 
     shdr->Bind();
     // NOTE: Consider passing in 1 multiplied matrix instead of these:
-    shdr->SetUniformMatrix4f("view", m_scene->w_camera->getSkyViewMat());
-    shdr->SetUniformMatrix4f("projection", m_scene->w_camera->getProjMat());
-    shdr->SetUniform3f("lightDir", m_scene->w_camera->CamLightDir.x, m_scene->w_camera->CamLightDir.y, m_scene->w_camera->CamLightDir.z);
+    //shdr->SetUniformMatrix4f("view", cam->getSkyViewMat());
+    shdr->SetUniformMatrix4f("view", cam->getViewMat());
+    shdr->SetUniformMatrix4f("projection", cam->getProjMat());
+    shdr->SetUniform3f("lightDir", cam->CamLightDir.x, cam->CamLightDir.y, cam->CamLightDir.z);
 
     // Set up and draw
     vb1->Bind();
     va->Bind();
     ib->Bind();
     // Make new vb2 every draw, since primitives might have been added.
-    // NOTE: Or keep flag to track if priimitives were added?
+    // NOTE: Or keep flag to track if primitives were added?
     //       Even if none were added, they may well have been modified.
     va->AddBuffer(*vb1, *vbl1, true);
     vb2 = new VertexBuffer(&m_Primitives[0], (unsigned int)m_Primitives.size() * sizeof(Primitive3D));
@@ -2556,7 +2728,7 @@ void SkyDots::genGeom() {
     // IcoSphere generation from: https://schneide.blog/2016/07/15/generating-an-icosphere-in-c/
     // See also: http://blog.andreaskahler.com/2009/06/creating-icosphere-mesh-in-code.html
     // and: https://observablehq.com/@mourner/fast-icosphere-mesh
-    unsigned int order = 2;
+    unsigned int order = 3;
     float scale = 1.0f;
     m_verts.reserve((size_t)(10 * pow(4, order) + 2));
     m_tris.reserve((size_t)(20 * pow(4, order)));
@@ -2578,7 +2750,7 @@ SkyDots::TriangleList SkyDots::subdivide(VertexList& vertices, TriangleList tria
     Lookup lookup;
     TriangleList result;
     for (auto&& each : triangles) {
-        std::array<SkyDots::Index, 3> mid;      // Index is simply a typedef unsigned int
+        std::array<SkyDots::Index, 3> mid = { 0, 0, 0 };      // Index is simply a typedef unsigned int
         for (int edge = 0; edge < 3; ++edge) {
             mid[edge] = vertex_for_edge(lookup, vertices, each.vertex[edge], each.vertex[(edge + 1) % 3]);
         }
@@ -2613,7 +2785,7 @@ Dots::Dots(Scene* scene) : Primitives(scene, 2000, 1000) {
     init();
 }
 unsigned int Dots::addXYZ(glm::vec3 pos, glm::vec4 color, float size) {
-    return store({ color, pos, glm::vec3(0.0f,0.0f,1.0f), glm::vec3(size,size,size), 0.0f }); // col,pos,dir,scale
+    return store({ color, pos, glm::vec3(0.0f,0.0f,1.0f), glm::vec3(size,size,size), 0.0f }); // col,pos,dir,scale,rot
 }
 void Dots::changeXYZ(unsigned int index, glm::vec3 pos, glm::vec4 color, float size) {
     Primitive3D* prim = getDetails(index);
@@ -2655,7 +2827,7 @@ Dots::TriangleList Dots::subdivide(VertexList& vertices, TriangleList triangles)
     Lookup lookup;
     TriangleList result;
     for (auto&& each : triangles) {
-        std::array<Dots::Index, 3> mid;      // Index is simply a typedef unsigned int
+        std::array<Dots::Index, 3> mid = { 0, 0, 0 };      // Index is simply a typedef unsigned int
         for (int edge = 0; edge < 3; ++edge) {
             mid[edge] = vertex_for_edge(lookup, vertices, each.vertex[edge], each.vertex[(edge + 1) % 3]);
         }

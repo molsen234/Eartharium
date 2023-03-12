@@ -2033,7 +2033,7 @@ constexpr array<VSOP87Coefficient, 7> g_VSOP87D_R4_NEPTUNE
   {        0.00000002295,        5.67776133184,      168.05251279940 }
 } };
 
-array<VSOP87Coefficient2, 6> g_VSOP87D_L_NEPTUNE
+constexpr array<VSOP87Coefficient2, 6> g_VSOP87D_L_NEPTUNE
 { {
   { g_VSOP87D_L0_NEPTUNE.data(), g_VSOP87D_L0_NEPTUNE.size() },
   { g_VSOP87D_L1_NEPTUNE.data(), g_VSOP87D_L1_NEPTUNE.size() },
@@ -2043,7 +2043,7 @@ array<VSOP87Coefficient2, 6> g_VSOP87D_L_NEPTUNE
   { g_VSOP87D_L5_NEPTUNE.data(), g_VSOP87D_L5_NEPTUNE.size() }
 } };
 
-array<VSOP87Coefficient2, 6> g_VSOP87D_B_NEPTUNE
+constexpr array<VSOP87Coefficient2, 6> g_VSOP87D_B_NEPTUNE
 { {
   { g_VSOP87D_B0_NEPTUNE.data(), g_VSOP87D_B0_NEPTUNE.size() },
   { g_VSOP87D_B1_NEPTUNE.data(), g_VSOP87D_B1_NEPTUNE.size() },
@@ -2053,7 +2053,7 @@ array<VSOP87Coefficient2, 6> g_VSOP87D_B_NEPTUNE
   { g_VSOP87D_B5_NEPTUNE.data(), g_VSOP87D_B5_NEPTUNE.size() }
 } };
 
-array<VSOP87Coefficient2, 5> g_VSOP87D_R_NEPTUNE
+constexpr array<VSOP87Coefficient2, 5> g_VSOP87D_R_NEPTUNE
 { {
   { g_VSOP87D_R0_NEPTUNE.data(), g_VSOP87D_R0_NEPTUNE.size() },
   { g_VSOP87D_R1_NEPTUNE.data(), g_VSOP87D_R1_NEPTUNE.size() },

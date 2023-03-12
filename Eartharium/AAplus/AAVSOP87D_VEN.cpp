@@ -1790,7 +1790,7 @@ constexpr array<VSOP87Coefficient, 2> g_VSOP87D_R5_VENUS
   {        0.00000000002,        5.29627718483,    20426.57109242200 }
 } };
 
-array<VSOP87Coefficient2, 6> g_VSOP87D_L_VENUS
+constexpr array<VSOP87Coefficient2, 6> g_VSOP87D_L_VENUS
 { {
   { g_VSOP87D_L0_VENUS.data(), g_VSOP87D_L0_VENUS.size() },
   { g_VSOP87D_L1_VENUS.data(), g_VSOP87D_L1_VENUS.size() },
@@ -1800,7 +1800,7 @@ array<VSOP87Coefficient2, 6> g_VSOP87D_L_VENUS
   { g_VSOP87D_L5_VENUS.data(), g_VSOP87D_L5_VENUS.size() }
 } };
 
-array<VSOP87Coefficient2, 6> g_VSOP87D_B_VENUS
+constexpr array<VSOP87Coefficient2, 6> g_VSOP87D_B_VENUS
 { {
   { g_VSOP87D_B0_VENUS.data(), g_VSOP87D_B0_VENUS.size() },
   { g_VSOP87D_B1_VENUS.data(), g_VSOP87D_B1_VENUS.size() },
@@ -1810,7 +1810,7 @@ array<VSOP87Coefficient2, 6> g_VSOP87D_B_VENUS
   { g_VSOP87D_B5_VENUS.data(), g_VSOP87D_B5_VENUS.size() }
 } };
 
-array<VSOP87Coefficient2, 6> g_VSOP87D_R_VENUS
+constexpr array<VSOP87Coefficient2, 6> g_VSOP87D_R_VENUS
 { {
   { g_VSOP87D_R0_VENUS.data(), g_VSOP87D_R0_VENUS.size() },
   { g_VSOP87D_R1_VENUS.data(), g_VSOP87D_R1_VENUS.size() },

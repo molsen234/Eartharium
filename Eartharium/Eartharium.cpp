@@ -59,89 +59,9 @@ public:
 };
 
 
-// ------------
-//  BillBoardP
-// ------------
-//  BillBoard text for primitives - currently unused placeholder
-//  Will eventually provide texts hovering above objects, to indicate angles, lengths or names
-class BillBoardP {
-    std::string text = "TEST!";
-public:
-    BillBoardP(std::string t) {
-        text = t;
-    }
-};
-
-
-// -------------
-//  SceneObject
-// -------------
-// Currently unused
-// Meant to facilitate measuring distances and angles between any two objects, as well as implementing parenting of transformations
-// The plan is to have locations be children of a planetary object, arrows be children of locations, angle/distance texts be children of arrows,
-// and offer a way to indicate what to measure to etc. I have yet to work out the requirements ...
-class SceneObject {
-    union primobj { // Allow all types of objects to be SceneObject
-        Primitive3D* primitive;
-        Earth* earth;
-        Location* location;
-        Camera* camera;
-        // add the rest ...
-    };
-    glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);  //PolyCurve, how does this apply???
-    glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f);
-    glm::vec4 orientation = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f); // Up vec3 + rotation about up, from which angle?
-    glm::vec4 color = WHITE;
-    //Material* material = nullptr;
-    glm::mat4 worldmatrix = glm::mat4(1.0f);
-    unsigned int id = 0;
-    unsigned int type = 0;
-    //primobj primitiveobject;            // The geometry etc of this object (of type SceneObject::type)
-    // std::vector<SceneObject*> children;
-public:
-    std::string name = "Object";
-    SceneObject* parent = nullptr;
-    void setParent(SceneObject* oid) { parent = oid; }
-    SceneObject* getParent() { return parent; }
-    unsigned int getID() { return id; }
-    void setID(unsigned int oid) { id = oid; }
-};
-
-
-// -----------
-//  SceneTree
-// -----------
-// Currently unused
-// Meant to facilitate measuring distances and angles between any two objects, as well as implementing parenting of transformations and GUI traversal
-// See SceneObject above for more info
-class SceneTree {
-    Camera* camera = nullptr;
-    tightvec<SceneObject*> objects;
-public:
-    SceneTree() { 
-        objects.reserve(20); // Could not figure out how to pass the reserve value in constructor
-        return;
-    }
-    void addObject(SceneObject* ob) {
-        unsigned int id = objects.store(ob);
-        ob->setID(id);
-    }
-    void removeObject(SceneObject* ob) {
-        objects.remove(ob->getID());
-    }
-    void printObjects() {
-        for (auto o : objects.m_Elements) {    // iterator runs over inner id directly, i.e. o is in underlying std::vector order.
-            std::cout << "Object: " << o->name << " " << o->getID() << "\n";
-        }
-        std::cout << "\n";
-        for (unsigned int oid = 0; oid < objects.size(); oid++) {   // Iterates over outer id, i.e. tightvec translates the [] index internally.
-            std::cout << "Object: " << objects[oid]->name << " " << objects[oid]->getID() << "\n";
-        }
-    }
-};
-
-
-// Idle Area for python
+// ----------------------
+//  Idle Area for python
+// ----------------------
 void IdleArea(Application& myapp) {
     // An Idle function to drop into after a python script has completed, so the scene can be interacted with for planning the next animation steps.
     // Scans for the various elements created by the python script and takes over by adding GUI / keyboard interaction
@@ -165,6 +85,1778 @@ void IdleArea(Application& myapp) {
         myapp.render();
     }
 
+}
+
+void SolSysTest(Application& app) {
+    // Set up required components
+    Astronomy* astro = app.newAstronomy();
+    astro->setTime(2019, 3, 20.0, 12.0, 0.0, 0.0, true);
+    astro->addTime(0.0, 0.0, -CAAEquationOfTime::Calculate(astro->getJD(), true), 0.0); // Set time to 12:00 local solar
+    Scene* scene = app.newScene();
+    Camera* cam = scene->w_camera;
+    app.currentCam = cam;
+    RenderLayer3D* layer = app.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f);
+    text->setFont(app.m_font2);
+    text->setAstronomy(astro);
+    RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    gui->addLayer3D(layer, "Scene 1");
+
+    std::string fontname = "CascadiaMono";
+    Font* font = new Font(fontname);
+
+    SolarSystem* solsys = scene->getSolsysOb();
+
+    app.anim = false;
+    app.renderoutput = false;
+    while (!glfwWindowShouldClose(app.window)) {
+
+        app.update();
+        if (app.anim) astro->addTime(0.0, 10.0, 0.0, 0.0);
+
+        //if (app.anim) astro->setTimeNow();
+        scene->w_camera->update();
+
+        app.render();
+    }
+
+}
+
+
+// ---------------------
+//  Refraction function
+// ---------------------
+double calcRefraction(Application& app, double altitude, double pressure = 1013.25, double temperature = 15.0) {
+    // pressure in mBar, temperature in Celsius, altitude in degrees, returns arc minutes
+    // Source: Almanac method https://www.madinstro.net/sundry/navsext.html
+    // Bennett method described in J.Meeus, implemented in AA+
+    if (app.sio_refmethod == REFR_BENNETT) return 60.0 * CAARefraction::RefractionFromApparent(altitude, pressure, temperature);
+    if (app.sio_refmethod == REFR_ALMANAC) return (0.267 * pressure / (temperature+273.15))
+        / tan(deg2rad * (altitude + 0.04848 / (tan(deg2rad * altitude) + 0.028)));
+}
+
+void basic_geometry(Application& app) {
+    Scene* scene = app.newScene();
+    Camera* cam = scene->w_camera;
+    app.currentCam = cam;
+
+    RenderLayer3D* layer = app.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, nullptr, cam);
+
+    glm::vec4 spherecolor = LIGHT_RED;
+    spherecolor.a = 0.7f;
+    scene->getSphereUVFactory()->addStartEnd(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), 1.0f, spherecolor);
+    //scene->getDotsFactory()->addXYZ(glm::vec3(0.0f), spherecolor, 1.0f);
+    scene->getArrowsFactory()->addStartEnd(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -2.5f, 0.0f), 0.01f, YELLOW);
+    glm::vec4 tangentcolor = LIGHT_GREEN;
+    tangentcolor.a = 0.5f;
+    scene->getPlanesFactory()->addStartUV(glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(1.0f, 0.0f, 0.0f),tangentcolor);
+
+    while (!glfwWindowShouldClose(app.window)) {
+        app.render();
+    }
+}
+
+void ScienceItOut_Response1(Application& app) {
+    Astronomy* astro = app.newAstronomy();
+    Scene* scene = app.newScene();
+    Camera* cam = scene->w_camera;
+    app.currentCam = cam;
+    cam->setLatLonFovDist(0.0f, 0.0f, 6.0f, 20.0f);
+    RenderLayer3D* layer = app.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f);
+    text->setFont(app.m_font2);
+    text->setAstronomy(astro);
+    RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    gui->addLayer3D(layer, "Scene 1");
+
+    //std::string fontname = "arialbd";
+    //std::string fontname = "CourierNew";
+    std::string fontname = "CascadiaMono";
+    Font* font = new Font(fontname);
+
+    app.basefname = "SIO1 ";
+
+    Earth* earth = scene->newEarth("NSAE", 720, 360);
+    app.currentEarth = earth;
+    unsigned int lg = earth->addLocGroup();
+    earth->w_refract = false;
+    earth->w_sinsol = false;
+    earth->w_twilight = false;
+    earth->flatsunheight = 0.0f;
+
+    glm::vec4 locskycolor = LIGHT_BLUE;
+    locskycolor.a = 0.30f;
+    float locskyradius = 0.3f;
+    double loclat = 0.0; // l_kabul.lat;
+    double loclon = 0.0; // l_kabul.lon;
+    Location* myloc = earth->locgroups[lg]->addLocation(loclat, loclon, false, locskyradius);
+
+    earth->addGrid();
+
+    float pathwidth = 0.002f;
+
+    app.renderoutput = true;
+
+    app.render();
+
+    // Test new SubPointSolver - Example 1
+    SubPointSolver* solver1 = new SubPointSolver(earth);
+    astro->setTime(2021, 12, 17.0, 10.0, 35.0, 27.0);
+    SubStellarPoint* star1 = solver1->addSubStellarPoint("Alkaid", dms2deg(56.0, 7.0, 3.3));
+    SubStellarPoint* star2 = solver1->addSubStellarPoint("Capella", dms2deg(33.0, 42.0, 42.5));
+    SubStellarPoint* star3 = solver1->addSubStellarPoint("Alphard", dms2deg(38.0, 5.0, 46.3));
+    app.render();
+
+    cam->setLatLon((float)star1->m_loc.lat * rad2degf, (float)star1->m_loc.lon * rad2degf);
+    app.render();
+    solver1->showDots(NO_COLOR, 0.02f);
+    app.render();
+    solver1->showNames(font, LIGHT_RED, 0.06f);
+    app.render();
+    solver1->showSumnerLines(RED, pathwidth);
+    app.render();
+    solver1->showSumnerLines(NO_COLOR, pathwidth/10.0f);
+
+    //solver1->showSumnerLines(RED, 0.001f);
+    //solver1->showNames(font, LIGHT_RED, 0.06f);
+    //solver1->showDots(NO_COLOR, 0.02f);
+    LLH point1 = solver1->calcLocation(false);
+    std::cout << "SubPointSolver Ex 1: " << point1.lat << ", " << point1.lon << '\n';
+    earth->addDot(point1.lat, point1.lon, 0.0, 0.002f, LIGHT_GREEN, false);
+
+
+
+    app.anim = false;
+    app.renderoutput = false;
+    while (!glfwWindowShouldClose(app.window)) {
+        app.update();
+        solver1->update();
+        //solver2->update();
+        //solver3->update();
+        //solver4->update();
+        if (app.anim) {
+            astro->addTime(0.0, 0.0, 1.0, 0.0);
+        }
+        scene->w_camera->update();
+        app.render();
+    }
+
+}
+
+void Sandbox2_SIO(Application& app) { //https://www.youtube.com/watch?v=J7XmHIjKaP4&ab_channel=ScienceItOut
+    // Set up required components
+    Astronomy* astro = app.newAstronomy();
+    astro->setTime(2019, 3, 21.0, 7.0, 30.0, 34.0, true);
+    astro->addTime(0.0, 0.0, -CAAEquationOfTime::Calculate(astro->getJD(), true), 0.0); // Set time to 12:00 local solar
+    Scene* scene = app.newScene();
+    Camera* cam = scene->w_camera;
+    //cam->camFoV = 0.14f;
+    //cam->camLat = 41.0f;
+    //cam->camLon = -86.0f;
+    //cam->camDst = 20.0f;
+    app.currentCam = cam;
+    //cam->setLatLonFovDist(41.0f, -86.0f, 0.14f, 20.0f);
+    cam->setLatLonFovDist(0.03f, 140.7f, 21.0f, 5.612f);
+    RenderLayer3D* layer = app.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f);
+    text->setFont(app.m_font2);
+    text->setAstronomy(astro);
+    RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    gui->addLayer3D(layer, "Scene 1");
+
+    //std::string fontname = "arialbd";
+    //std::string fontname = "CourierNew";
+    std::string fontname = "CascadiaMono";
+    Font* font = new Font(fontname);
+
+    app.basefname = "SIO ";
+
+    Earth* earth = scene->newEarth("NSAE", 180, 90);
+    app.currentEarth = earth;
+    unsigned int lg = earth->addLocGroup();
+    earth->w_refract = true;
+    earth->w_sinsol = true;
+    earth->w_twilight = false;
+    earth->flatsunheight = 0.0f;
+
+    earth->addSubsolarPoint();
+    earth->addSublunarPoint();
+
+    glm::vec4 locskycolor = LIGHT_BLUE;
+    locskycolor.a = 0.30f;
+    float locskyradius = 0.3f;
+    double loclat = 0.0; // l_kabul.lat;
+    double loclon = 0.0; // l_kabul.lon;
+    Location* myloc = earth->locgroups[lg]->addLocation(loclat, loclon, false, locskyradius);
+
+    earth->addGrid(30);
+    //earth->addSubsolarPoint(); // Sun at Earth::flatsunheight
+    //earth->addSublunarPoint();
+
+    app.sio_dip = true;
+    app.sio_refract = true;
+    app.sio_sunlimb = true;
+    app.sio_refmethod = 1;
+    app.sio_temperature = -4.6f;
+    app.sio_pressure = 1055.0f;
+    float pathwidth = 0.0002f;
+    double mydip = earth->calcHorizonDip(app.sio_height); // in arcmins
+    double dip = app.sio_dip ? mydip : 0.0;
+    double sunelev = 0.0, sunrefraction = 0.0, sunsemidia = 0.0;
+
+    astro->setTime(2022, 2, 9.0, 14.0, 15.0, 56.0); // 36.716);
+    sunelev = 11 * 60.0 + 25.0; // 11°25.0' in arcmins
+    sunrefraction = app.sio_refract ? calcRefraction(app, (sunelev - dip) / 60.0, app.sio_pressure, app.sio_temperature) : 0.0;
+    sunsemidia = app.sio_sunlimb ? earth->calcSunSemiDiameter() /* use current jd*/ : 0.0;
+    //std::cout << "\nMeasured Sun elevation, lower limb: " << sunelev << "\'\n";
+    //std::cout << "Horizon dip at 50m: " << dip << "\'\n";
+    //std::cout << "Atmospheric refraction for Sun: " << sunrefraction << "\'\n";
+    //std::cout << "Sun SemiDiameter: " << sunsemidia << "\'\n"; // By default it calculates for the current JD, add JD if other is desired
+    //std::cout << "Sun parallax: ignored\n";
+    //std::cout << "Sun augmentation of diameter: ignored\n";
+    //std::cout << "Corrected Sun elevation: " << sunelev - dip - sunrefraction - sunsemidia << "\'\n"; // Measure is lower limb, so add sunsemidia
+    // Compensate for Sun refraction diameter distortion? I.e. refract the sunsemidia?
+    LLH subsol = earth->getSubsolar(astro->getJD(), false);
+    //std::cout << "Subsolar: " << subsol.lat << "," << subsol.lon << "\n";
+    //unsigned int sun1 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction - sunsemidia) / 60.0, false, LIGHT_YELLOW, pathwidth);
+
+    //Example Location 
+    //astro->setTime(2021, 12, 17, 0, 17.0, 33.0, 27.0);
+    //double vega_ele = dms2deg(28.0, 53.0, 12.4);
+    //vega_ele -= earth->calcRefractionBennett(vega_ele, 10.0, 1010.0);
+    //LLH vega_radec = { 38.7836889444, 279.2347347917, 0.0 };
+    //double deneb_ele = dms2deg(50.0, 49.0, 08.3);
+    //deneb_ele -= earth->calcRefractionBennett(deneb_ele, 10.0, 1010.0);
+    //LLH deneb_radec = { 45.2803388056, 310.3579797500, 0.0 };
+    //double polaris_ele = dms2deg(52.0, 46.0, 13.7);
+    //polaris_ele -= earth->calcRefractionBennett(polaris_ele, 10.0, 1010.0);
+    //LLH polaris_radec = { 89.2641089722, 37.9545606667,0.0 };
+    //
+    //LLH vega_gp = earth->calcRADec2LatLon(vega_radec, false);
+    //unsigned int vega = earth->addSumnerLine(vega_gp, vega_ele, false);
+    //unsigned int deneb = earth->addSumnerLine(earth->calcRADec2LatLon(deneb_radec, false), deneb_ele, false);
+    //LLH polaris_gp = earth->calcRADec2LatLon(polaris_radec, false);
+    //unsigned int polaris = earth->addSumnerLine(polaris_gp, polaris_ele, false);
+
+    pathwidth = 0.001f;
+    bool do_refraction = false;
+    double shiftseconds = 0.0;
+
+    //Example #1 
+    // Time     2021-12-17 10:35:27 UTC
+    // Alkaid   56°07’03.3”
+    // Capella  33°42’42.5”
+    // Alphard  38°05’46.3”
+    //astro->setTime(2021, 12, 17.0, 10.0, 35.0, 27.0 + shiftseconds);
+    //std::string star1_name = "Alkaid";
+    //double star1_ele = dms2deg(56.0, 7.0, 3.3);
+    //if (do_refraction) star1_ele -= earth->calcRefractionBennett(star1_ele, 10.0, 1013.0);
+    //unsigned int star1 = earth->addSextantMeasurement(star1_name, star1_ele, NO_DOUBLE, RED, pathwidth, false);
+    //std::string star2_name = "Capella";
+    //double star2_ele = dms2deg(33.0, 42.0, 42.5);
+    //if (do_refraction) star2_ele -= earth->calcRefractionBennett(star2_ele, 10.0, 1013.0);
+    //unsigned int star2 = earth->addSextantMeasurement(star2_name, star2_ele, NO_DOUBLE, RED, pathwidth, false);
+    //std::string star3_name = "Alphard";
+    //double star3_ele = dms2deg(38.0, 5.0, 46.3);
+    //if (do_refraction) star3_ele -= earth->calcRefractionBennett(star3_ele, 10.0, 1013.0);
+    //unsigned int star3 = earth->addSextantMeasurement(star3_name, star3_ele, NO_DOUBLE, RED, pathwidth, false);
+    ////Location* fwayne = earth->locgroups[lg]->addLocation(40.6, -85.4, false, 0.2f);
+    ////fwayne->addLocDot();
+    
+    //LLH sloc1 = earth->getSextantLoc(star1);
+    //LLH sloc2 = earth->getSextantLoc(star2);
+    //Earth::Intersection test = earth->calcSumnerIntersection(sloc1.lat, sloc1.lon, sloc1.dst, sloc2.lat, sloc2.lon, sloc2.dst, true); // Bad: using distance to carry radius
+    //std::cout << "Points: " << rad2deg * test.point1.lat << "," << rad2deg * test.point1.lon << " | " << rad2deg * test.point2.lat << "," << rad2deg * test.point2.lon << '\n';
+    //
+    //sloc1 = earth->getSextantLoc(star2);
+    //sloc2 = earth->getSextantLoc(star3);
+    //test = earth->calcSumnerIntersection(sloc1.lat, sloc1.lon, sloc1.dst, sloc2.lat, sloc2.lon, sloc2.dst, true); // Bad: using distance to carry radius
+    //std::cout << "Points: " << rad2deg * test.point1.lat << "," << rad2deg * test.point1.lon << " | " << rad2deg * test.point2.lat << "," << rad2deg * test.point2.lon << '\n';
+    //
+    //sloc1 = earth->getSextantLoc(star3);
+    //sloc2 = earth->getSextantLoc(star1);
+    //test = earth->calcSumnerIntersection(sloc1.lat, sloc1.lon, sloc1.dst, sloc2.lat, sloc2.lon, sloc2.dst, true); // Bad: using distance to carry radius
+    //std::cout << "Points: " << rad2deg * test.point1.lat << "," << rad2deg * test.point1.lon << " | " << rad2deg * test.point2.lat << "," << rad2deg * test.point2.lon << '\n';
+    
+    
+    //Example #2
+    // Betelgeuse 45°12’13.4”
+    // Canopus    42°36’17.6”
+    // Achernar   46°53’16.4”
+    // Time : 2021-12-17 18:18:15 UTC
+    //astro->setTime(2021, 12, 17.0, 18.0, 18.0, 15.0 + shiftseconds);
+    //
+    //star1_name = "Betelgeuse";
+    //star1_ele = dms2deg(45.0, 12.0, 13.4);
+    //if (do_refraction) star1_ele -= earth->calcRefractionBennett(star1_ele, 10.0, 1013.0);
+    //star1 = earth->addSextantMeasurement(star1_name, star1_ele, NO_DOUBLE, GREEN, pathwidth, false);
+    //
+    //star2_name = "Canopus";
+    //star2_ele = dms2deg(42.0, 36.0, 17.6);
+    //if (do_refraction) star2_ele -= earth->calcRefractionBennett(star2_ele, 10.0, 1013.0);
+    //star2 = earth->addSextantMeasurement(star2_name, star2_ele, NO_DOUBLE, GREEN, pathwidth, false);
+    //
+    //star3_name = "Achernar";
+    //star3_ele = dms2deg(46.0, 53.0, 16.4);
+    //if (do_refraction) star3_ele -= earth->calcRefractionBennett(star3_ele, 10.0, 1013.0);
+    //star3 = earth->addSextantMeasurement(star3_name, star3_ele, NO_DOUBLE, GREEN, pathwidth, false);
+    //
+    //sloc1 = earth->getSextantLoc(star2);
+    //sloc2 = earth->getSextantLoc(star1);
+    //test = earth->calcSumnerIntersection(sloc1.lat, sloc1.lon, sloc1.dst, sloc2.lat, sloc2.lon, sloc2.dst, true); // Bad: using distance to carry radius
+    //std::cout << "Points: " << rad2deg * test.point1.lat << "," << rad2deg * test.point1.lon << " | " << rad2deg * test.point2.lat << "," << rad2deg * test.point2.lon << '\n';
+    //earth->addDot((float)test.point1.lat, (float)test.point1.lon, 0.0f, pathwidth * 2.0f, ORANGE, true);
+    //
+    //sloc1 = earth->getSextantLoc(star3);
+    //sloc2 = earth->getSextantLoc(star2);
+    //test = earth->calcSumnerIntersection(sloc1.lat, sloc1.lon, sloc1.dst, sloc2.lat, sloc2.lon, sloc2.dst, true); // Bad: using distance to carry radius
+    //std::cout << "Points: " << rad2deg * test.point1.lat << "," << rad2deg * test.point1.lon << " | " << rad2deg * test.point2.lat << "," << rad2deg * test.point2.lon << '\n';
+    //earth->addDot((float)test.point1.lat, (float)test.point1.lon, 0.0f, pathwidth * 2.0f, ORANGE, true);
+    //
+    //sloc1 = earth->getSextantLoc(star3);
+    //sloc2 = earth->getSextantLoc(star1);
+    //test = earth->calcSumnerIntersection(sloc1.lat, sloc1.lon, sloc1.dst, sloc2.lat, sloc2.lon, sloc2.dst, true); // Bad: using distance to carry radius
+    //std::cout << "Points: " << rad2deg * test.point1.lat << "," << rad2deg * test.point1.lon << " | " << rad2deg * test.point2.lat << "," << rad2deg * test.point2.lon << '\n';
+    //earth->addDot((float)test.point1.lat, (float)test.point1.lon, 0.0f, pathwidth * 2.0f, ORANGE, true);
+    
+    
+    //Example #3
+    // Diphda     47°39’43.8”
+    // Hamal      84°45’21.7”
+    // Alpheratz  66°42’57.8”
+    // Time  2021-08-12 17:18:15 UTC <- the video says 18:18:15, but that was a mistake on my part!
+    //astro->setTime(2021, 8, 12.0, 17.0, 18.0, 15.0 + shiftseconds);
+    //
+    //star1_name = "Diphda";
+    //star1_ele = dms2deg(47.0, 39.0, 43.8);
+    //if (do_refraction) star1_ele -= earth->calcRefractionBennett(star1_ele, 10.0, 1013.0) / 60.0;
+    //star1 = earth->addSextantMeasurement(star1_name, star1_ele, NO_DOUBLE, BLUE, pathwidth, false);
+    //
+    //star2_name = "Hamal";
+    //star2_ele = dms2deg(84.0, 45.0, 21.7);
+    //if (do_refraction) star2_ele -= earth->calcRefractionBennett(star2_ele, 10.0, 1013.0) / 60.0;
+    //star2 = earth->addSextantMeasurement(star2_name, star2_ele, NO_DOUBLE, BLUE, pathwidth, false);
+    //
+    //star3_name = "Alpheratz";
+    //star3_ele = dms2deg(66.0, 42.0, 57.8);
+    //if (do_refraction) star3_ele -= earth->calcRefractionBennett(star3_ele, 10.0, 1013.0) / 60.0; // Stellarium does not apply refraction
+    //star3 = earth->addSextantMeasurement(star3_name, star3_ele, NO_DOUBLE, BLUE, pathwidth, false);
+    //
+    //sloc1 = earth->getSextantLoc(star1);
+    //sloc2 = earth->getSextantLoc(star2);
+    //test = earth->calcSumnerIntersection(sloc1.lat, sloc1.lon, sloc1.dst, sloc2.lat, sloc2.lon, sloc2.dst, true); // Bad: using distance to carry radius
+    //std::cout << "Points: " << rad2deg * test.point1.lat << "," << rad2deg * test.point1.lon << " | " << rad2deg * test.point2.lat << "," << rad2deg * test.point2.lon << '\n';
+    //
+    //sloc1 = earth->getSextantLoc(star2);
+    //sloc2 = earth->getSextantLoc(star3);
+    //test = earth->calcSumnerIntersection(sloc1.lat, sloc1.lon, sloc1.dst, sloc2.lat, sloc2.lon, sloc2.dst, true); // Bad: using distance to carry radius
+    //std::cout << "Points: " << rad2deg * test.point1.lat << "," << rad2deg * test.point1.lon << " | " << rad2deg * test.point2.lat << "," << rad2deg * test.point2.lon << '\n';
+    //
+    //sloc1 = earth->getSextantLoc(star3);
+    //sloc2 = earth->getSextantLoc(star1);
+    //test = earth->calcSumnerIntersection(sloc1.lat, sloc1.lon, sloc1.dst, sloc2.lat, sloc2.lon, sloc2.dst, true); // Bad: using distance to carry radius
+    //std::cout << "Points: " << rad2deg * test.point1.lat << "," << rad2deg * test.point1.lon << " | " << rad2deg * test.point2.lat << "," << rad2deg * test.point2.lon << '\n';
+    
+    
+    // crowxe counter challenge
+    // Peacock  56° 39' 57.3"
+    // Acrux    63° 12' 52.1"
+    // Achernar 57° 06' 1.3"
+    // Date	19-Jun-2021
+    // Time	23:00:00 UTC
+    //astro->setTime(2021, 6, 19.0, 23.0, 0.0, 0.0 + shiftseconds);
+    //star1_ele = dms2deg(56.0, 39.0, 57.3);
+    //if (do_refraction) star1_ele -= earth->calcRefractionBennett(star1_ele, 10.0, 1013.0) / 60.0;
+    //star1 = earth->addSextantMeasurement("Peacock", star1_ele, NO_DOUBLE, LIGHT_ORANGE, pathwidth, false);
+    //star2_ele = dms2deg(63.0, 12.0, 52.1);
+    //if (do_refraction) star2_ele -= earth->calcRefractionBennett(star2_ele, 10.0, 1013.0) / 60.0;
+    //star2 = earth->addSextantMeasurement("Acrux", star2_ele, NO_DOUBLE, LIGHT_ORANGE, pathwidth, false);
+    //star3_ele = dms2deg(57.0, 6.0, 1.3);
+    //if (do_refraction) star3_ele -= earth->calcRefractionBennett(star3_ele, 10.0, 1013.0) / 60.0;
+    //star3 = earth->addSextantMeasurement("Achernar", star3_ele, NO_DOUBLE, LIGHT_ORANGE, pathwidth, false);
+    //// South Pole
+    //
+    //sloc1 = earth->getSextantLoc(star1);
+    //sloc2 = earth->getSextantLoc(star2);
+    //test = earth->calcSumnerIntersection(sloc1.lat, sloc1.lon, sloc1.dst, sloc2.lat, sloc2.lon, sloc2.dst, true); // Bad: using distance to carry radius
+    //std::cout << "Points: " << rad2deg * test.point1.lat << "," << rad2deg * test.point1.lon << " | " << rad2deg * test.point2.lat << "," << rad2deg * test.point2.lon << '\n';
+    //
+    //sloc1 = earth->getSextantLoc(star2);
+    //sloc2 = earth->getSextantLoc(star3);
+    //test = earth->calcSumnerIntersection(sloc1.lat, sloc1.lon, sloc1.dst, sloc2.lat, sloc2.lon, sloc2.dst, true); // Bad: using distance to carry radius
+    //std::cout << "Points: " << rad2deg * test.point1.lat << "," << rad2deg * test.point1.lon << " | " << rad2deg * test.point2.lat << "," << rad2deg * test.point2.lon << '\n';
+    //
+    //sloc1 = earth->getSextantLoc(star3);
+    //sloc2 = earth->getSextantLoc(star1);
+    //test = earth->calcSumnerIntersection(sloc1.lat, sloc1.lon, sloc1.dst, sloc2.lat, sloc2.lon, sloc2.dst, true); // Bad: using distance to carry radius
+    //std::cout << "Points: " << rad2deg * test.point1.lat << "," << rad2deg * test.point1.lon << " | " << rad2deg * test.point2.lat << "," << rad2deg * test.point2.lon << '\n';
+    //earth->addDot((float)test.point1.lat, (float)test.point1.lon, 0.0f, pathwidth * 2.0f, ORANGE, true);
+
+    // addSextantMeasurement() can show a simple circle of equal elevation for the named star.
+    // addSubStellarPoint() adds a full object, like a mini-location, that can show radius, center point (GP), and text indicators (eventually)
+    // SubStellarPoint is a bit more work to set up, use it when the extra capabilities are needed.
+    // Both should have a getLocation() and getRadius() function so an intersection solver can get what it needs.
+
+    //// Testing new SubStellarPoint
+    ////SubStellarPoint* ssp1 = new SubStellarPoint(*earth, "Sirius", false);  // Direct instantiation
+    //astro->setTime(2021, 8, 12.0, 17.0, 18.0, 15.0 + shiftseconds);
+    //SubStellarPoint* ssp1 = earth->addSubStellarPoint("Diphda", false);   // More elegantly via Earth
+    //ssp1->setElevation(dms2deg(47.0, 39.0, 43.8), false);
+    //ssp1->dot->enable(BLUE, 0.01f);
+    //ssp1->sumner->enable(BLUE, 0.003f);
+    //ssp1->nametag->enable(font, BLUE, 0.06f);
+    //SubStellarPoint* ssp2 = earth->addSubStellarPoint("Hamal", false);
+    //ssp2->setElevation(dms2deg(84.0, 45.0, 21.7), false);
+    //ssp2->dot->enable(BLUE, 0.01f);
+    //ssp2->sumner->enable(BLUE, 0.003f);
+    //ssp2->nametag->enable(font, BLUE, 0.06f);
+    //SubStellarPoint* ssp3 = earth->addSubStellarPoint("Alpheratz", false);
+    //ssp3->setElevation(dms2deg(66.0, 42.0, 57.8), false);
+    //ssp3->dot->enable(BLUE, 0.01f);
+    //ssp3->sumner->enable(BLUE, 0.003f);
+    //ssp3->nametag->enable(font, BLUE, 0.06f);
+    //
+    //Earth::Intersection isect = earth->calcSumnerIntersection(ssp1->getDetails(true), ssp2->getDetails(true), true);
+    //std::cout << "Points: " << rad2deg * isect.point1.lat << "," << rad2deg * isect.point1.lon << " | " << rad2deg * isect.point2.lat << "," << rad2deg * isect.point2.lon << '\n';
+    //ssp1->radius->enable();
+    ////ssp1->radius->changeBearing(0.3822, true);
+    //ssp1->radius->changeBearingTo(isect.point1, true);
+    ////earth->addDot(isect.point1.lat, isect.point1.lon, 0.0, 0.01f, LIGHT_BLUE, true);
+    //isect = earth->calcSumnerIntersection(ssp2->getDetails(true), ssp3->getDetails(true), true);
+    //std::cout << "Points: " << rad2deg * isect.point1.lat << "," << rad2deg * isect.point1.lon << " | " << rad2deg * isect.point2.lat << "," << rad2deg * isect.point2.lon << '\n';
+    //ssp2->radius->enable();
+    //ssp2->radius->changeBearingTo(isect.point1, true);
+    //isect = earth->calcSumnerIntersection(ssp3->getDetails(true), ssp1->getDetails(true), true);
+    //std::cout << "Points: " << rad2deg * isect.point1.lat << "," << rad2deg * isect.point1.lon << " | " << rad2deg * isect.point2.lat << "," << rad2deg * isect.point2.lon << '\n';
+    //ssp3->radius->enable();
+    //ssp3->radius->changeBearingTo(isect.point1, true);
+
+    // Test new SubPointSolver - Example 1
+    //SubPointSolver* solver1 = new SubPointSolver(earth);
+    //astro->setTime(2021, 12, 17.0, 10.0, 35.0, 27.0);
+    //solver1->addSubStellarPoint("Alkaid", dms2deg(56.0, 7.0, 3.3));
+    //solver1->addSubStellarPoint("Capella", dms2deg(33.0, 42.0, 42.5));
+    //solver1->addSubStellarPoint("Alphard", dms2deg(38.0, 5.0, 46.3));
+    //solver1->showSumnerLines(RED, 0.001f);
+    //solver1->showNames(font, LIGHT_RED, 0.06f);
+    //solver1->showDots(NO_COLOR, 0.02f);
+    //LLH point1 = solver1->calcLocation(false);
+    //std::cout << "SubPointSolver Ex 1: " << point1.lat << ", " << point1.lon << '\n';
+    //earth->addDot(point1.lat, point1.lon, 0.0, 0.002f, LIGHT_GREEN, false);
+
+    // Test new SubPointSolver - Example 2
+    //SubPointSolver* solver2 = new SubPointSolver(earth);
+    //astro->setTime(2021, 12, 17.0, 18.0, 18.0, 15.0);
+    //solver2->addSubStellarPoint("Betelgeuse", dms2deg(45.0, 12.0, 13.4));
+    //solver2->addSubStellarPoint("Canopus", dms2deg(42.0, 36.0, 17.6));
+    //solver2->addSubStellarPoint("Achernar", dms2deg(46.0, 53.0, 16.4));
+    //solver2->showSumnerLines(GREEN, 0.001f);
+    //solver2->showNames(font, LIGHT_GREEN, 0.06f);
+    //solver2->showDots(NO_COLOR, 0.02f);
+    //LLH point2 = solver2->calcLocation(false);
+    //std::cout << "SubPointSolver Ex 2: " << point2.lat << ", " << point2.lon << '\n';
+    //earth->addDot(point2.lat, point2.lon, 0.0, 0.002f, LIGHT_BLUE, false);
+
+    // Test new SubPointSolver - Example 3
+    //SubPointSolver* solver3 = new SubPointSolver(earth);
+    //astro->setTime(2021, 8, 12.0, 17.0, 18.0, 15.0);
+    //solver3->addSubStellarPoint("Diphda", dms2deg(47.0, 39.0, 43.8));
+    //solver3->addSubStellarPoint("Hamal", dms2deg(84.0, 45.0, 21.7));
+    //solver3->addSubStellarPoint("Alpheratz", dms2deg(66.0, 42.0, 57.8));
+    //solver3->showSumnerLines(BLUE, 0.001f);
+    //solver3->showNames(font, LIGHT_BLUE, 0.06f);
+    //solver3->showDots(NO_COLOR, 0.02f);
+    //LLH point3 = solver3->calcLocation(false);
+    //std::cout << "SubPointSolver Ex 3: " << point3.lat << ", " << point3.lon << '\n';
+    //earth->addDot(point3.lat, point3.lon, 0.0, 0.002f, LIGHT_RED, false);
+
+    // Test new SubPointSolver - crowxe
+    //SubPointSolver* solver4 = new SubPointSolver(earth);
+    //astro->setTime(2021, 6, 19.0, 23.0, 0.0, 0.0);
+    //solver4->addSubStellarPoint("Peacock", dms2deg(56.0, 39.0, 57.3));
+    //solver4->addSubStellarPoint("Acrux", dms2deg(63.0, 12.0, 52.1));
+    //solver4->addSubStellarPoint("Achernar", dms2deg(57.0, 6.0, 1.3));
+    //solver4->showSumnerLines(ORANGE, 0.001f);
+    //solver4->showNames(font, LIGHT_ORANGE, 0.06f);
+    //solver4->showDots(NO_COLOR, 0.02f);
+    //LLH point4 = solver4->calcLocation(false);
+    //std::cout << "SubPointSolver crowxe: " << point4.lat << ", " << point4.lon << '\n';
+    //earth->addDot(point4.lat, point4.lon, 0.0, 0.002f, YELLOW, false);
+
+    //cam->setLatLon((float)point.lat, (float)point.lon);
+
+    
+    //SubStellarPoint* ssp = earth->addSubStellarPoint("DEBUG!", true);
+    //ssp->setElevation(45.0, false);
+    //ssp->dot->enable(ORANGE, 0.01f);
+    //ssp->sumner->enable(ORANGE, 0.003f);
+    //ssp->nametag->enable(font, ORANGE, 0.06f);
+    //ssp->radius->enable();
+    //
+    //double mylat = pi2/3.0;
+    //double mylon = -pi2;
+    //unsigned int dot = earth->addDot(mylat, mylon, 0.0, 0.01, LIGHT_ORANGE, true);
+    //Lerper<double>* lon = new Lerper<double>(-pi2, pi2, 360, true);
+
+    //earth->addEcliptic();
+    //astro->convertSIMBAD("Test");
+
+    cam->setLatLon(0.03f, 140.7f);
+
+    for (double elev = 0.0; elev <= 90.0; elev += 1.0) {
+        std::cout << "Polaris elevation: " << elev << ", Globe distance: " << (90.0 - elev) * 69.1 << ", Leake adjusted distance: " << earth->calcBrianLeakeDistance(elev, false) << ", Diff: " << (90.0 - elev) * 69.1 - earth->calcBrianLeakeDistance(elev, false) << '\n';
+        //std::cout << "Polaris elevation complement: " << elev << ", Globe distance: " << elev * 69.1 << ", Leake angle: " << earth->calcBrianLeakeAngle(elev, false) << '\n';
+    }
+
+
+    app.anim = false;
+    app.renderoutput = false;
+    while (!glfwWindowShouldClose(app.window)) {
+        app.update();
+        //ssp1->update();
+        //ssp2->update();
+        //ssp3->update();
+        //solver1->update();
+        //solver2->update();
+        //solver3->update();
+        //solver4->update();
+        if (app.anim) {
+            //mylon = lon->getNext();
+            //earth->changeDotLoc(dot, mylat, mylon, 0.0, true);
+            //ssp->radius->changeBearingTo({ mylat, mylon, 0.0 }, true);
+            //astro->addTime(0.0, 0.0, 1.0, 0.0);
+            astro->setTimeNow();
+            //astro->addTime(0.0, 0.0, 0.0, -1030.0);
+        }
+        scene->w_camera->update();
+        app.render();
+    }
+}
+
+void SandboxSIO(Application& app) { // https://www.youtube.com/watch?v=Sq1V98vkfQw&ab_channel=ScienceItOut
+    // Set up required components
+    Astronomy* astro = app.newAstronomy();
+    astro->setTime(2019, 3, 21.0, 7.0, 30.0, 34.0, true);
+    astro->addTime(0.0, 0.0, -CAAEquationOfTime::Calculate(astro->getJD(), true), 0.0); // Set time to 12:00 local solar
+    Scene* scene = app.newScene();
+    Camera* cam = scene->w_camera;
+    cam->camFoV = 0.4f;
+    cam->camLat = 65.0f;
+    cam->camLon = -18.0f;
+    cam->camDst = 20.0f;
+    app.currentCam = cam;
+    RenderLayer3D* layer = app.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f);
+    text->setFont(app.m_font2);
+    text->setAstronomy(astro);
+    RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    gui->addLayer3D(layer, "Scene 1");
+
+    std::string fontname = "CascadiaMono";
+    Font* font = new Font(fontname);
+
+    app.basefname = "SIO ";
+
+    Earth* earth = scene->newEarth("NSAE", 180, 90);
+    app.currentEarth = earth;
+    unsigned int lg = earth->addLocGroup();
+    earth->w_refract = false;
+    earth->w_sinsol = false;
+    earth->w_twilight = false;
+    earth->flatsunheight = 0.0f;
+
+    glm::vec4 locskycolor = LIGHT_BLUE;
+    locskycolor.a = 0.30f;
+    float locskyradius = 0.3f;
+    double loclat = l_kabul.lat;
+    double loclon = l_kabul.lon;
+    earth->locgroups[lg]->addLocation(loclat, loclon, false, locskyradius);
+
+    earth->addGrid();
+    earth->addSubsolarPoint(); // Sun at flatsunheight
+    earth->addSubsolarPole();
+    earth->addSubsolarDot();   // Simple Dot at ground level
+
+    earth->addSublunarPoint();
+
+    app.sio_dip = false;
+    app.sio_refract = false;
+    app.sio_sunlimb = true;
+    app.sio_local_weather = false;
+    app.sio_refmethod = 1;
+    app.sio_temperature = 10.0f;
+    app.sio_pressure = 1010.0f;
+    app.sio_pathwidth = 0.0005f;
+    double mydip = earth->calcHorizonDip(app.sio_height); // in arcmins
+    double dip = app.sio_dip ? mydip : 0.0;
+    double sunelev = 0.0, sunrefraction = 0.0, sunsemidia = 0.0;
+    double temperature = app.sio_temperature, pressure = app.sio_pressure;
+
+    astro->setTime(2022, 2, 9.0, 14.0, 15.0, 56.0); // 36.716);
+    sunelev = 11 * 60.0 + 25.0; // 11°25.0' in arcmins
+    temperature = -3.2;
+    pressure = 980.29;
+    sunrefraction = app.sio_refract ? calcRefraction(app, (sunelev - dip) / 60.0,
+        app.sio_local_weather ? pressure : app.sio_pressure, app.sio_local_weather ? temperature : app.sio_temperature) : 0.0;
+    sunsemidia = app.sio_sunlimb ? earth->calcSunSemiDiameter() : 0.0;
+    std::cout << "\nMeasured Sun elevation, lower limb: " << sunelev << "\'\n";
+    std::cout << "Horizon dip at 50m: " << dip << "\'\n";
+    std::cout << "Atmospheric refraction for Sun: " << sunrefraction << "\'\n";
+    std::cout << "Sun SemiDiameter: " << sunsemidia << "\'\n"; // By default it calculates for the current JD, add JD if other is desired
+    std::cout << "Sun parallax: ignored\n";
+    std::cout << "Sun augmentation of diameter: ignored\n";
+    std::cout << "Corrected Sun elevation: " << sunelev - dip - sunrefraction + sunsemidia << "\'\n"; // Measure is lower limb, so add sunsemidia
+    // Compensate for Sun refraction diameter distortion? I.e. refract the sunsemidia?
+    LLH subsol = earth->getSubsolar(astro->getJD(), false);
+    std::cout << "Subsolar: " << subsol.lat << "," << subsol.lon << "\n";
+    unsigned int sun1 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction + sunsemidia) / 60.0, false, LIGHT_YELLOW, app.sio_pathwidth);
+
+    astro->setTime(2022, 2, 9.0, 17.0, 3.0, 41.0); // 36.716);
+    sunelev = 2 * 60.0 + 8.8; // 11°25.0' in arcmins
+    temperature = -2.7;
+    pressure = 980.36;
+    sunrefraction = app.sio_refract ? calcRefraction(app, (sunelev - dip) / 60.0,
+        app.sio_local_weather ? pressure : app.sio_pressure, app.sio_local_weather ? temperature : app.sio_temperature) : 0.0;
+    sunsemidia = app.sio_sunlimb ? earth->calcSunSemiDiameter() : 0.0;
+    std::cout << "\nMeasured Sun elevation, lower limb: " << sunelev << "\'\n";
+    std::cout << "Horizon dip at 50m: " << dip << "\'\n";
+    std::cout << "Atmospheric refraction for Sun: " << sunrefraction << "\'\n";
+    std::cout << "Sun SemiDiameter: " << sunsemidia << "\'\n"; // By default it calculates for the current JD, add JD if other is desired
+    std::cout << "Sun parallax: ignored\n";
+    std::cout << "Sun augmentation of diameter: ignored\n";
+    std::cout << "Corrected Sun elevation: " << sunelev - dip - sunrefraction + sunsemidia << "\'\n"; // Measure is lower limb, so add sunsemidia
+    // Compensate for Sun refraction diameter distortion? I.e. refract the sunsemidia?
+    subsol = earth->getSubsolar(astro->getJD(), false);
+    std::cout << "Subsolar: " << subsol.lat << "," << subsol.lon << "\n";
+    unsigned int sun2 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction + sunsemidia) / 60.0, false, YELLOW, app.sio_pathwidth);
+
+    astro->setTime(2022, 2, 9.0, 17.0, 10.0, 5.0); // 36.716);
+    sunelev = 1 * 60.0 + 45.7; // 11°25.0' in arcmins
+    temperature = -2.6;
+    pressure = 980.33;
+    sunrefraction = app.sio_refract ? calcRefraction(app, (sunelev - dip) / 60.0,
+        app.sio_local_weather ? pressure : app.sio_pressure, app.sio_local_weather ? temperature : app.sio_temperature) : 0.0;
+    sunsemidia = app.sio_sunlimb ? earth->calcSunSemiDiameter() : 0.0;
+    std::cout << "\nMeasured Sun elevation, lower limb: " << sunelev << "\'\n";
+    std::cout << "Horizon dip at 50m: " << dip << "\'\n";
+    std::cout << "Atmospheric refraction for Sun: " << sunrefraction << "\'\n";
+    std::cout << "Sun SemiDiameter: " << sunsemidia << "\'\n"; // By default it calculates for the current JD, add JD if other is desired
+    std::cout << "Sun parallax: ignored\n";
+    std::cout << "Sun augmentation of diameter: ignored\n";
+    std::cout << "Corrected Sun elevation: " << sunelev - dip - sunrefraction + sunsemidia << "\'\n"; // Measure is lower limb, so add sunsemidia
+    // Compensate for Sun refraction diameter distortion? I.e. refract the sunsemidia?
+    subsol = earth->getSubsolar(astro->getJD(), false);
+    std::cout << "Subsolar: " << subsol.lat << "," << subsol.lon << "\n";
+    unsigned int sun3 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction + sunsemidia) / 60.0, false, LIGHT_ORANGE, app.sio_pathwidth);
+
+    astro->setTime(2022, 2, 9.0, 17.0, 13.0, 30.0); // 36.716);
+    sunelev = 1 * 60.0 + 26.6; // 11°25.0' in arcmins
+    temperature = -1.7;
+    pressure = 980.39;
+    sunrefraction = app.sio_refract ? calcRefraction(app, (sunelev - dip) / 60.0,
+        app.sio_local_weather ? pressure : app.sio_pressure, app.sio_local_weather ? temperature : app.sio_temperature) : 0.0;
+    sunsemidia = app.sio_sunlimb ? earth->calcSunSemiDiameter() : 0.0;
+    std::cout << "\nMeasured Sun elevation, lower limb: " << sunelev << "\'\n";
+    std::cout << "Horizon dip at 50m: " << dip << "\'\n";
+    std::cout << "Atmospheric refraction for Sun: " << sunrefraction << "\'\n";
+    std::cout << "Sun SemiDiameter: " << sunsemidia << "\'\n"; // By default it calculates for the current JD, add JD if other is desired
+    std::cout << "Sun parallax: ignored\n";
+    std::cout << "Sun augmentation of diameter: ignored\n";
+    std::cout << "Corrected Sun elevation: " << sunelev - dip - sunrefraction + sunsemidia << "\'\n"; // Measure is lower limb, so add sunsemidia
+    // Compensate for Sun refraction diameter distortion? I.e. refract the sunsemidia?
+    subsol = earth->getSubsolar(astro->getJD(), false);
+    std::cout << "Subsolar: " << subsol.lat << "," << subsol.lon << "\n";
+    unsigned int sun4 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction + sunsemidia) / 60.0, false, ORANGE, app.sio_pathwidth);
+
+    astro->setTime(2022, 2, 9.0, 17.0, 16.0, 20.0); // 36.716);
+    sunelev = 1 * 60.0 + 14.6; // 11°25.0' in arcmins
+    temperature = -1.7;
+    pressure = 980.39;
+    sunrefraction = app.sio_refract ? calcRefraction(app, (sunelev - dip) / 60.0,
+        app.sio_local_weather ? pressure : app.sio_pressure, app.sio_local_weather ? temperature : app.sio_temperature) : 0.0;
+    sunsemidia = app.sio_sunlimb ? earth->calcSunSemiDiameter() : 0.0;
+    std::cout << "\nMeasured Sun elevation, lower limb: " << sunelev << "\'\n";
+    std::cout << "Horizon dip at 50m: " << dip << "\'\n";
+    std::cout << "Atmospheric refraction for Sun: " << sunrefraction << "\'\n";
+    std::cout << "Sun SemiDiameter: " << sunsemidia << "\'\n"; // By default it calculates for the current JD, add JD if other is desired
+    std::cout << "Sun parallax: ignored\n";
+    std::cout << "Sun augmentation of diameter: ignored\n";
+    std::cout << "Corrected Sun elevation: " << sunelev - dip - sunrefraction + sunsemidia << "\'\n"; // Measure is lower limb, so add sunsemidia
+    // Compensate for Sun refraction diameter distortion? I.e. refract the sunsemidia?
+    subsol = earth->getSubsolar(astro->getJD(), false);
+    std::cout << "Subsolar: " << subsol.lat << "," << subsol.lon << "\n";
+    unsigned int sun5 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction + sunsemidia) / 60.0, false, LIGHT_RED, app.sio_pathwidth);
+
+    astro->setTime(2022, 2, 9.0, 17.0, 21.0, 30.0); // 36.716);
+    sunelev = 1 * 60.0 + 16.6; // 11°25.0' in arcmins
+    temperature = -1.1;
+    pressure = 980.43;
+    sunrefraction = app.sio_refract ? calcRefraction(app, (sunelev - dip) / 60.0,
+        app.sio_local_weather ? pressure : app.sio_pressure, app.sio_local_weather ? temperature : app.sio_temperature) : 0.0;
+    sunsemidia = app.sio_sunlimb ? earth->calcSunSemiDiameter() : 0.0;
+    std::cout << "\nMeasured Sun elevation, upper limb: " << sunelev << "\'\n";
+    std::cout << "Horizon dip at 50m: " << dip << "\'\n";
+    std::cout << "Atmospheric refraction for Sun: " << sunrefraction << "\'\n";
+    std::cout << "Sun SemiDiameter: " << sunsemidia << "\'\n"; // By default it calculates for the current JD, add JD if other is desired
+    std::cout << "Sun parallax: ignored\n";
+    std::cout << "Sun augmentation of diameter: ignored\n";
+    std::cout << "Corrected Sun elevation: " << sunelev - dip - sunrefraction - sunsemidia << "\'\n"; // Measure is lower limb, so add sunsemidia
+    // Compensate for Sun refraction diameter distortion? I.e. refract the sunsemidia?
+    subsol = earth->getSubsolar(astro->getJD(), false);
+    std::cout << "Subsolar: " << subsol.lat << "," << subsol.lon << "\n";
+    unsigned int sun6 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction - sunsemidia) / 60.0, false, RED, app.sio_pathwidth);
+
+    astro->setTime(2022, 2, 9.0, 17.0, 24.0, 25.0); // 36.716);
+    sunelev = 0 * 60.0 + 58.4; // 11°25.0' in arcmins
+    temperature = -0.6;
+    pressure = 980.46;
+    sunrefraction = app.sio_refract ? calcRefraction(app, (sunelev - dip) / 60.0,
+        app.sio_local_weather ? pressure : app.sio_pressure, app.sio_local_weather ? temperature : app.sio_temperature) : 0.0;
+    sunsemidia = app.sio_sunlimb ? earth->calcSunSemiDiameter() : 0.0;
+    std::cout << "\nMeasured Sun elevation, upper limb: " << sunelev << "\'\n";
+    std::cout << "Horizon dip at 50m: " << dip << "\'\n";
+    std::cout << "Atmospheric refraction for Sun: " << sunrefraction << "\'\n";
+    std::cout << "Sun SemiDiameter: " << sunsemidia << "\'\n"; // By default it calculates for the current JD, add JD if other is desired
+    std::cout << "Sun parallax: ignored\n";
+    std::cout << "Sun augmentation of diameter: ignored\n";
+    std::cout << "Corrected Sun elevation: " << sunelev - dip - sunrefraction - sunsemidia << "\'\n"; // Measure is lower limb, so add sunsemidia
+    // Compensate for Sun refraction diameter distortion? I.e. refract the sunsemidia?
+    subsol = earth->getSubsolar(astro->getJD(), false);
+    std::cout << "Subsolar: " << subsol.lat << "," << subsol.lon << "\n";
+    unsigned int sun7 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction - sunsemidia) / 60.0, false, LIGHT_BLUE, app.sio_pathwidth);
+
+
+    astro->setTime(2022, 2, 9.0, 18.0, 28.0, 23.0); // 36.716);
+    double jupelev = 6 * 60.0 + 23.4; // 6°23.4'
+    sunelev = 0 * 60.0 + 58.4; // 11°25.0' in arcmins
+    temperature = 0.0;
+    pressure = 980.94;
+    double juprefraction = app.sio_refract ? calcRefraction(app, (jupelev - dip) / 60.0,
+        app.sio_local_weather ? pressure : app.sio_pressure, app.sio_local_weather ? temperature : app.sio_temperature) : 0.0;
+    std::cout << "\nMeasured Jupiter elevation: " << sunelev << "\'\n";
+    std::cout << "Horizon dip at 50m: " << dip << "\'\n";
+    std::cout << "Atmospheric refraction for Jupiter: " << juprefraction << "\'\n";
+    std::cout << "Jupiter SemiDiameter: ignored\n";
+    std::cout << "Jupiter parallax: ignored\n";
+    std::cout << "Jupiter augmentation of diameter: ignored\n";
+    std::cout << "Corrected Jupiter elevation: " << jupelev - dip - juprefraction << "\'\n"; // Assume Jupiter is point like
+    LLH subjup = earth->calcHADec2LatLon(earth->getPlanet(JUPITER, 0.0, false), false);
+    std::cout << "Subjovian: " << subjup.lat << "," << subjup.lon << "\n";
+    unsigned int jup1 = earth->addTissotIndicatrix(subjup, 90.0 - (jupelev - dip - juprefraction) / 60.0, false, LIGHT_GREEN, app.sio_pathwidth);
+
+    app.anim = false;
+    app.renderoutput = false;
+    while (!glfwWindowShouldClose(app.window)) {
+        app.update();
+        earth->removeTissotIndicatrix(sun1);
+        earth->removeTissotIndicatrix(sun2);
+        earth->removeTissotIndicatrix(sun3);
+        earth->removeTissotIndicatrix(sun4);
+        earth->removeTissotIndicatrix(sun5);
+        earth->removeTissotIndicatrix(sun6);
+        earth->removeTissotIndicatrix(sun7);
+        earth->removeTissotIndicatrix(jup1);
+
+        if (app.anim) astro->addTime(0.0, 0.0, 1.0, 0.0);
+
+        mydip = earth->calcHorizonDip(app.sio_height);
+        dip = app.sio_dip ? mydip : 0.0;
+
+        astro->setTime(2022, 2, 9.0, 14.0, 15.0, 56.0); // 36.716);
+        sunelev = 11 * 60.0 + 25.0; // 11°25.0' in arcmins
+        temperature = -3.2;
+        pressure = 980.29;
+        sunrefraction = app.sio_refract ? calcRefraction(app, (sunelev - dip) / 60.0,
+            app.sio_local_weather ? pressure : app.sio_pressure, app.sio_local_weather ? temperature : app.sio_temperature) : 0.0;
+        sunsemidia = app.sio_sunlimb ? earth->calcSunSemiDiameter() : 0.0;
+        LLH subsol = earth->getSubsolar(astro->getJD(), false);
+        sun1 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction + sunsemidia) / 60.0, false, LIGHT_YELLOW, app.sio_pathwidth);
+
+        astro->setTime(2022, 2, 9.0, 17.0, 3.0, 41.0); // 36.716);
+        sunelev = 2 * 60.0 + 8.8; // 11°25.0' in arcmins
+        temperature = -2.7;
+        pressure = 980.36;
+        sunrefraction = app.sio_refract ? calcRefraction(app, (sunelev - dip) / 60.0,
+            app.sio_local_weather ? pressure : app.sio_pressure, app.sio_local_weather ? temperature : app.sio_temperature) : 0.0;
+        sunsemidia = app.sio_sunlimb ? earth->calcSunSemiDiameter() : 0.0;
+        subsol = earth->getSubsolar(astro->getJD(), false);
+        sun2 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction + sunsemidia) / 60.0, false, YELLOW, app.sio_pathwidth);
+
+        astro->setTime(2022, 2, 9.0, 17.0, 10.0, 5.0); // 36.716);
+        sunelev = 1 * 60.0 + 45.7; // 11°25.0' in arcmins
+        temperature = -2.6;
+        pressure = 980.33;
+        sunrefraction = app.sio_refract ? calcRefraction(app, (sunelev - dip) / 60.0,
+            app.sio_local_weather ? pressure : app.sio_pressure, app.sio_local_weather ? temperature : app.sio_temperature) : 0.0;
+        sunsemidia = app.sio_sunlimb ? earth->calcSunSemiDiameter() : 0.0;
+        subsol = earth->getSubsolar(astro->getJD(), false);
+        sun3 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction + sunsemidia) / 60.0, false, LIGHT_ORANGE, app.sio_pathwidth);
+
+        astro->setTime(2022, 2, 9.0, 17.0, 13.0, 30.0); // 36.716);
+        sunelev = 1 * 60.0 + 26.6; // 11°25.0' in arcmins
+        temperature = -1.7;
+        pressure = 980.39;
+        sunrefraction = app.sio_refract ? calcRefraction(app, (sunelev - dip) / 60.0,
+            app.sio_local_weather ? pressure : app.sio_pressure, app.sio_local_weather ? temperature : app.sio_temperature) : 0.0;
+        sunsemidia = app.sio_sunlimb ? earth->calcSunSemiDiameter() : 0.0;
+        subsol = earth->getSubsolar(astro->getJD(), false);
+        sun4 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction + sunsemidia) / 60.0, false, ORANGE, app.sio_pathwidth);
+
+        astro->setTime(2022, 2, 9.0, 17.0, 16.0, 20.0); // 36.716);
+        sunelev = 1 * 60.0 + 14.6; // 11°25.0' in arcmins
+        temperature = -1.7;
+        pressure = 980.39;
+        sunrefraction = app.sio_refract ? calcRefraction(app, (sunelev - dip) / 60.0,
+            app.sio_local_weather ? pressure : app.sio_pressure, app.sio_local_weather ? temperature : app.sio_temperature) : 0.0;
+        sunsemidia = app.sio_sunlimb ? earth->calcSunSemiDiameter() : 0.0;
+        subsol = earth->getSubsolar(astro->getJD(), false);
+        sun5 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction + sunsemidia) / 60.0, false, LIGHT_RED, app.sio_pathwidth);
+
+        astro->setTime(2022, 2, 9.0, 17.0, 21.0, 30.0); // 36.716);
+        sunelev = 1 * 60.0 + 16.6; // 11°25.0' in arcmins
+        temperature = -1.1;
+        pressure = 980.43;
+        sunrefraction = app.sio_refract ? calcRefraction(app, (sunelev - dip) / 60.0,
+            app.sio_local_weather ? pressure : app.sio_pressure, app.sio_local_weather ? temperature : app.sio_temperature) : 0.0;
+        sunsemidia = app.sio_sunlimb ? earth->calcSunSemiDiameter() : 0.0;
+        subsol = earth->getSubsolar(astro->getJD(), false);
+        sun6 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction - sunsemidia) / 60.0, false, RED, app.sio_pathwidth);
+
+        astro->setTime(2022, 2, 9.0, 17.0, 24.0, 25.0); // 36.716);
+        sunelev = 0 * 60.0 + 58.4; // 11°25.0' in arcmins
+        temperature = -0.6;
+        pressure = 980.46;
+        sunrefraction = app.sio_refract ? calcRefraction(app, (sunelev - dip) / 60.0,
+            app.sio_local_weather ? pressure : app.sio_pressure, app.sio_local_weather ? temperature : app.sio_temperature) : 0.0;
+        sunsemidia = app.sio_sunlimb ? earth->calcSunSemiDiameter() : 0.0;
+        subsol = earth->getSubsolar(astro->getJD(), false);
+        sun7 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction - sunsemidia) / 60.0, false, LIGHT_BLUE, app.sio_pathwidth);
+
+        astro->setTime(2022, 2, 9.0, 18.0, 28.0, 23.0); // 36.716);
+        jupelev = 6 * 60.0 + 23.4; // 6°23.4'
+        temperature = 0.0;
+        pressure = 980.94;
+        juprefraction = app.sio_refract ? calcRefraction(app, (jupelev - dip) / 60.0,
+            app.sio_local_weather ? pressure : app.sio_pressure, app.sio_local_weather ? temperature : app.sio_temperature) : 0.0;
+        LLH subjup = earth->calcHADec2LatLon(earth->getPlanet(JUPITER, 0.0, false), false);
+        jup1 = earth->addTissotIndicatrix(subjup, 90.0 - (jupelev - dip - juprefraction) / 60.0, false, LIGHT_GREEN, app.sio_pathwidth);
+
+        scene->w_camera->update();
+        app.render();
+    }
+}
+
+
+void SunSectorSandbox(Application& app) {
+    // Set up required components
+    Astronomy* astro = app.newAstronomy();
+    astro->setTime(2019, 3, 21.0, 7.0, 30.0, 34.0, true);
+    astro->addTime(0.0, 0.0, -CAAEquationOfTime::Calculate(astro->getJD(), true), 0.0); // Set time to 12:00 local solar
+    Scene* scene = app.newScene();
+    Camera* cam = scene->w_camera;
+    //cam->camFoV = 2.0f;
+    //cam->camLat = 0.0f;
+    cam->camLon = -28.0f;
+    //cam->camDst = 20.0f;
+    app.currentCam = cam;
+    RenderLayer3D* layer = app.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f);
+    text->setFont(app.m_font2);
+    text->setAstronomy(astro);
+    RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    gui->addLayer3D(layer, "Scene 1");
+
+    std::string fontname = "CascadiaMono";
+    Font* font = new Font(fontname);
+
+    app.basefname = "ICSTvsCoreyKell ";
+
+    Earth* earth = scene->newEarth("NSAE", 180, 90);
+    app.currentEarth = earth;
+    unsigned int lg = earth->addLocGroup();
+    earth->w_refract = false;
+    earth->w_sinsol = false;
+    earth->w_twilight = false;
+    earth->flatsunheight = 0.0f;
+
+    glm::vec4 locskycolor = LIGHT_BLUE;
+    locskycolor.a = 0.30f;
+    float locskyradius = 0.3f;
+    double loclat = l_kabul.lat;
+    double loclon = l_kabul.lon;
+    earth->locgroups[lg]->addLocation(loclat, loclon, false, locskyradius);
+
+    // Variables used multiple times during animations - defined here so sequences can be rearranged easily
+    unsigned int frames = 0;
+    unsigned int i = 0;
+    Lerper<float>* lat = nullptr;
+    Lerper<float>* lon = nullptr;
+    Lerper<double>* latd = nullptr;
+    Lerper<double>* lond = nullptr;
+    Lerper<double>* hr = nullptr;
+    Lerper<double>* doy = nullptr;
+
+    glm::vec4 sunindicators = LIGHT_ORANGE;
+    float anglewidth = 0.002f;
+    //app.setFullScreen();
+
+    earth->addGrid();
+    earth->addSubsolarPoint(); // Sun at flatsunheight
+    earth->addSubsolarPole();
+    earth->addSubsolarDot();   // Simple Dot at ground level
+
+    //scene->getCountryBordersFactory()->addBorder(*earth, "Afghanistan"); // No worries, Earth is passed by reference :)
+    //scene->getCountryBordersFactory()->addBorder(*earth, "Denmark"); // No worries, Earth is passed by reference :)
+    //scene->getTimeZonesFactory()->addTimeZone(*earth, "Asia/Kabul");
+    unsigned int longc = earth->addLongitudeCurve(l_kabul.lon, BLUE, 0.005f, false);
+    unsigned int longe = earth->addLongitudeCurve(l_kabul.lon + 45.0, BLUE, 0.005f, false);
+    unsigned int longw = earth->addLongitudeCurve(l_kabul.lon - 45.0, BLUE, 0.005f, false);
+    unsigned int longf = earth->addLongitudeCurve(l_kabul.lon + 90.0, BLUE, 0.005f, false);
+    unsigned int longx = earth->addLongitudeCurve(l_kabul.lon - 90.0, BLUE, 0.005f, false);
+    unsigned int latie = earth->addGreatArc({ 0.0, l_kabul.lon, 0.0 }, { 0.0, l_kabul.lon + 45.0, 0.0 }, BLUE, 0.005f, false);
+    unsigned int latiw = earth->addGreatArc({ 0.0, l_kabul.lon, 0.0 }, { 0.0, l_kabul.lon - 45.0, 0.0 }, BLUE, 0.005f, false);
+
+    astro->setTime(2019, 3, 21.0, 7.0, 30.0, 34.0, true);
+
+    // std::cout << "\nMonth test: " << tzFile::parseMonth("Aug") << "\n\n";
+    
+    //astro->addTime(0.0, 0.0, -CAAEquationOfTime::Calculate(astro->getJD(), true), -0.1); // Set time to 12:00 local solar
+    Location* locplus = earth->locgroups[lg]->addLocation(0.0, l_kabul.lon + 45.0, false, locskyradius);
+    locplus->addLocDot();
+    locplus->truesun->defaultcolor = sunindicators;
+    locplus->truesun->enableArrow3D();
+    locplus->truesun->enableElevationAngle(NO_COLOR, anglewidth);
+    locplus->truesun->enableEleAngText(font);
+    Location* locminus = earth->locgroups[lg]->addLocation(0.0, l_kabul.lon - 45.0, false, locskyradius);
+    locminus->addLocDot();
+    locminus->truesun->defaultcolor = sunindicators;
+    locminus->truesun->enableArrow3D();
+    locminus->truesun->enableElevationAngle(NO_COLOR, anglewidth);
+    locminus->truesun->enableEleAngText(font);
+
+    Location* kabul = earth->locgroups[lg]->addLocation(l_kabul.lat, l_kabul.lon, false, locskyradius);
+    kabul->addLocDot();
+    kabul->truesun->defaultcolor = sunindicators;
+    kabul->truesun->enableArrow3D();
+    kabul->truesun->enableElevationAngle(NO_COLOR, anglewidth);
+    kabul->truesun->enableAzimuthAngle(NO_COLOR, anglewidth);
+    kabul->truesun->enableEleAngText(font);
+
+    earth->addTerminatorTrueSun(sunindicators, 0.005f);
+    earth->addSunSectors(0.005f, sunindicators, 45.0);  // Ugly implementation of updates, but is only used for the Kell's 45 degrees Sector test
+    //earth->addSemiTerminator(165.0, false, sunindicators, 0.005f);
+    //earth->addSemiTerminator(150.0, false, sunindicators, 0.005f);
+    //earth->addSemiTerminator(135.0, false, sunindicators, 0.005f);
+    //earth->addSemiTerminator(120.0, false, sunindicators, 0.005f);
+    //earth->addSemiTerminator(105.0, false, sunindicators, 0.005f);
+    //earth->addSemiTerminator(75.0, false, sunindicators, 0.005f);
+    //earth->addSemiTerminator(60.0, false, sunindicators, 0.005f);
+    unsigned int semiterm = earth->addSemiTerminator(45.0, false, SUNCOLOR, 0.005f);
+    //earth->addSemiTerminator(30.0, false, sunindicators, 0.005f);
+    //earth->addSemiTerminator(15.0, false, sunindicators, 0.005f);
+
+    // Test implementation of PathTracker - IT WORKS!!
+    //PathTracker<Location>* trackert = new PathTracker<Location>(locplus, earth->getPath(semiterm), BOUNCE);
+    //PathTracker<Location>* trackers = new PathTracker<Location>(locminus, earth->getPath(longw), BOUNCE);
+    //for (i = 0; i < 3600; i++) {
+    //    trackert->moveNext();
+    //    trackers->moveNext();
+    //    app.render();
+    //}
+    //delete trackert;
+    //delete trackers;
+
+    astro->setTime(2022, 2, 9.0, 14.0, 15.0, 56.0); // 36.716);
+    //astro->dumpCurrentTime();
+    app.render();
+
+    astro->setTime(2022, 2, 9.0, 17.0, 3.0, 41.0); // 36.716);
+
+    double height = 50.0; // Observer meters above surface
+    double sunelev = 2 * 60.0 + 8.0; // 2°08.8' in arcmins
+    double jupelev = 6 * 60.0 + 23.4; // 6°23.4'
+    double dip = earth->calcHorizonDip(50.0); // in arcmins
+    double sunrefraction = calcRefraction(app, sunelev / 60.0);
+    double juprefraction = calcRefraction(app, jupelev / 60.0);
+    double sunsemidia = earth->calcSunSemiDiameter();
+    std::cout << "Measured Sun elevation, lower limb: " << sunelev << "\'\n";
+    std::cout << "Horizon dip at 50m: " << dip << "\'\n";
+    std::cout << "Atmospheric refraction for Sun: " << sunrefraction << "\'\n";
+    std::cout << "Atmospheric refraction for Jupiter: " << juprefraction << "\'\n";
+    std::cout << "Sun SemiDiameter: " << sunsemidia << "\'\n"; // By default it calculates for the current JD, add JD if other is desired
+    std::cout << "Sun parallax: ignored\n";
+    std::cout << "Sun augmentation of diameter: ignored\n";
+    std::cout << "Corrected Sun elevation: " << sunelev - dip - sunrefraction + sunsemidia << "\'\n"; // Measure is lower limb, so add sunsemidia
+    std::cout << "Corrected Jupiter elevation: " << jupelev - dip - juprefraction << "\'\n"; // Assume Jupiter is point like
+
+    // Compensate for Sun refraction diameter distortion? I.e. refract the sunsemidia?
+
+    astro->setTime(2022, 2, 9.0, 14.0, 15.0, 56.0); // 36.716);
+    LLH subsol = earth->getSubsolar(astro->getJD(), false);
+    std::cout << "Subsolar: " << subsol.lat << "," << subsol.lon << "\n";
+    earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction + sunsemidia) / 60.0, false, LIGHT_RED, 0.005f);
+
+    astro->setTime(2022, 2, 9.0, 18.0, 28.0, 23.0); // 36.716);
+    LLH jupradec = earth->getPlanet(JUPITER, 0.0, false);
+    LLH subjup = earth->calcHADec2LatLon(earth->getPlanet(JUPITER,0.0, false), false);
+    std::cout << "Jupiter RA, Dec: " << jupradec.lon << ", " << jupradec.lat << "\n";
+    std::cout << "Subjovian: " << subjup.lat << "," << subjup.lon << "\n";
+    earth->addTissotIndicatrix(subjup, 90.0 - (jupelev - dip - juprefraction) / 60.0, false, LIGHT_GREEN, 0.005f);
+
+
+    // Current test of Local Time
+    //TimeZones* tz = scene->getTimeZonesFactory();
+    //std::cout << "Local time: " << tz->getLocalTime("Etc/UTC", { 2021, 6, 21.0, 6.0, 0.0, 0.0, 0 }) << '\n'; // Local time: 2021-06-21 08:00:00 CEST
+    //
+    //std::cout << "Local time: " << tz->getLocalTime("Europe/Copenhagen", 2021, 6, 21.0, 6.0, 0.0, 0.0) << '\n'; // Local time: 2021-06-21 08:00:00 CEST
+    //std::cout << "Local time: " << tz->getLocalTime("Europe/Moscow", 1921, 4, 21.0, 6.0, 0.0, 0.0) << '\n'; // Local time: 1921-04-21 11:00:00 +05
+    //std::cout << "Local time: " << tz->getLocalTime("Europe/Dublin", 2021, 6, 21.0, 6.0, 0.0, 0.0) << '\n'; // Local time: 2021-06-21 07:00:00 IST
+    //
+    ////tz->dumpTimeZoneDetails("America/Menominee");
+    //std::cout << "Local time: " << tz->getLocalTime("America/Menominee", 1973, 4, 29.0, 1.0, 0.0, 0.0) << '\n';
+    //std::cout << "Local time: " << tz->getLocalTime("America/Menominee", 1973, 4, 28.0, 2.0, 0.0, 0.0) << '\n';
+    //
+    //
+    //DateTime testdt;
+    //testdt.year = 1971;
+    //testdt.month = 5;
+    //testdt.day = 19;
+    //std::cout << testdt;
+
+
+
+
+
+    app.anim = false;
+    app.renderoutput = false;
+    while (!glfwWindowShouldClose(app.window)) {
+        app.update();
+        if (app.anim) astro->addTime(0.0, 0.0, 1.0, 0.0);
+        scene->w_camera->update();
+        app.render();
+    }
+}
+
+
+void ICSTvsCoreyKell2(Application* app) {
+
+}
+
+void ICSTvsCoreyKell(Application& app) {
+    // Set up required components
+    Astronomy* astro = app.newAstronomy();
+    astro->setTime(2019, 3, 20.0, 12.0, 0.0, 0.0, true);
+    astro->addTime(0.0, 0.0, -CAAEquationOfTime::Calculate(astro->getJD(), true), 0.0); // Set time to 12:00 local solar
+    Scene* scene = app.newScene();
+    Camera* cam = scene->w_camera;
+    app.currentCam = cam;
+    RenderLayer3D* layer = app.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f);
+    text->setFont(app.m_font2);
+    text->setAstronomy(astro);
+    RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    gui->addLayer3D(layer, "Scene 1");
+
+    std::string fontname = "CascadiaMono";
+    Font* font = new Font(fontname);
+
+    app.basefname = "ICSTvsCoreyKell ";
+
+    SkySphere* sky = scene->newSkysphere(180, 90, true);
+
+    Earth* earth = scene->newEarth("NSAE", 180, 90);
+    app.currentEarth = earth;
+    unsigned int lg = earth->addLocGroup();
+    earth->w_refract = false;
+    earth->w_sinsol = false;
+    earth->w_twilight = false;
+    earth->flatsunheight = 0.0f;
+
+    glm::vec4 locskycolor = LIGHT_BLUE;
+    locskycolor.a = 0.30f;
+    float locskyradius = 0.3f;
+    double loclat = l_kabul.lat;
+    double loclon = l_kabul.lon;
+    earth->locgroups[lg]->addLocation(loclat, loclon, false, locskyradius);
+
+    // Variables used multiple times during animations - defined here so sequences can be rearranged easily
+    unsigned int frames = 0;
+    unsigned int i = 0;
+    Lerper<float>* lat = nullptr;
+    Lerper<float>* lon = nullptr;
+    Lerper<double>* latd = nullptr;
+    Lerper<double>* lond = nullptr;
+    Lerper<double>* hr = nullptr;
+    Lerper<double>* doy = nullptr;
+
+    glm::vec4 sunindicators = LIGHT_ORANGE;
+    float anglewidth = 0.002f;
+
+    app.setFullScreen();
+
+    //app.renderoutput = true;
+
+    // Dry run to ensure everything above has been through an update cycle (some items initialize with odd values when allocated, to be fixed in future !!!) 
+    app.update();
+    app.render(); // RenderLayerText does not show the UTC datetime at the top in this frame. Why? !!!
+
+    // -- Sequence 001 - Add basic items such as graticule
+    app.incSequence();
+    earth->addGrid();
+    app.render();
+
+    // -- Sequence 002 - Add Sun indicators
+    app.incSequence();
+    earth->addSubsolarPoint(); // Sun at flatsunheight
+    earth->addSubsolarPole();
+    earth->addSubsolarDot();   // Simple Dot at ground level
+    app.render();
+
+    // -- Sequence 003 - Orbit Sun around Equator
+    app.incSequence();
+    frames = 60;
+    hr = new Lerper<double>(0.0, 24.0, frames, false);
+    for (i = 0; i < frames; i++) {
+        astro->setTime(2019, 3, 20.0, 12.0 + hr->getNext(), 0.0, 0.0, true);
+        astro->addTime(0.0, 0.0, -CAAEquationOfTime::Calculate(astro->getJD(), true), 0.0);
+        app.render();
+    }
+    delete hr;
+
+    app.incSequence(); // Add a still
+    app.render();
+
+    // -- Sequence 005 - Move to view from north pole
+    app.incSequence();
+    frames = 30;
+    lat = new Lerper<float>(0.0f, 90.0f, frames, false);
+    for (i = 0; i < frames; i++) {
+        cam->camLat = lat->getNextSmooth();
+        cam->update();
+        app.render();
+    }
+    delete lat;
+
+    app.incSequence(); // Add a still
+    app.render();
+
+    // -- Sequence 007 - Draw out the blue sector lines, move the Sun +/- 45 degrees
+    app.incSequence();
+    unsigned int longc = earth->addLongitudeCurve(0.0, BLUE, 0.005f, false);
+    unsigned int longe = earth->addLongitudeCurve(0.0 + 45.0, BLUE, 0.005f, false);
+    unsigned int longw = earth->addLongitudeCurve(0.0 - 45.0, BLUE, 0.005f, false);
+    unsigned int longf = earth->addLongitudeCurve(0.0 + 90.0, BLUE, 0.005f, false);
+    unsigned int longx = earth->addLongitudeCurve(0.0 - 90.0, BLUE, 0.005f, false);
+    unsigned int latie = earth->addGreatArc({ 0.0, 0.0, 0.0 }, { 0.0, 45.0, 0.0 }, BLUE, 0.005f, false);
+    unsigned int latiw = earth->addGreatArc({ 0.0, 0.0, 0.0 }, { 0.0, -45.0, 0.0 }, BLUE, 0.005f, false);
+    app.render();
+
+    app.incSequence();
+    app.render();
+
+    // -- Sequence 009 - Rotate to use screen space better
+    app.incSequence();
+    frames = 30;
+    lon = new Lerper<float>(0.0f, -90.0f, frames, false);
+    for (i = 0; i < frames; i++) {
+        cam->camLon = lon->getNextSmooth();
+        cam->update();
+        app.render();
+    }
+    delete lon;
+
+    app.incSequence();
+    app.render();
+
+    // -- Sequence 011 - Add Darkness
+    app.incSequence();
+    earth->w_sinsol = true;
+    //app.render();
+
+    app.incSequence();
+    //app.render();
+
+    // -- Sequence 013 - Add Twilight
+    app.incSequence();
+    earth->w_twilight = true;
+    app.render();
+
+    app.incSequence();
+    app.render();
+
+    // -- Sequence 015 - Remove Twilight
+    app.incSequence();
+    earth->w_twilight = false;
+    app.render();
+
+    app.incSequence();
+    app.render();
+
+    // -- Sequence 017 - Move Sun +/- 45 degrees
+    app.incSequence();
+    astro->setTime(2019, 3, 20.0, 12.0, 0.0, 0.0, true);
+    astro->addTime(0.0, 0.0, -CAAEquationOfTime::Calculate(astro->getJD(), true), -0.1); // Set time to 12:00 local solar
+    Location* locplus = earth->locgroups[lg]->addLocation(0.0, 45.0, false, locskyradius);
+    locplus->addLocDot();
+    locplus->truesun->defaultcolor = sunindicators;
+    locplus->truesun->enableArrow3D();
+    locplus->truesun->enableElevationAngle(NO_COLOR, anglewidth);
+    locplus->truesun->enableEleAngText(font);
+    Location* locminus = earth->locgroups[lg]->addLocation(0.0, -45.0, false, locskyradius);
+    locminus->addLocDot();
+    locminus->truesun->defaultcolor = sunindicators;
+    locminus->truesun->enableArrow3D();
+    locminus->truesun->enableElevationAngle(NO_COLOR, anglewidth);
+    locminus->truesun->enableEleAngText(font);
+    app.render();
+
+    app.incSequence();
+    app.render();
+
+    // -- Sequence 019 - Move Sun +/- 45 degrees, zero to plus
+    app.incSequence();
+    frames = 30;
+    hr = new Lerper<double>(0.0, 3.0, frames, false);
+    for (i = 0; i < frames; i++) {
+        astro->setTime(2019, 3, 20.0, 12.0 + hr->getNextSmooth(), 0.0, 0.0, true);
+        astro->addTime(0.0, 0.0, -CAAEquationOfTime::Calculate(astro->getJD(), true), 0.0);
+        app.render();
+    }
+    delete hr;
+
+    app.incSequence(); // Get a still
+    app.render();
+
+    // -- Sequence 021 - Move Sun +/- 45 degrees, plus to minus
+    app.incSequence();
+    frames = 60;
+    hr = new Lerper<double>(3.0, -3.0, frames, false);
+    for (i = 0; i < frames; i++) {
+        astro->setTime(2019, 3, 20.0, 12.0 + hr->getNextSmooth(), 0.0, 0.0, true);
+        astro->addTime(0.0, 0.0, -CAAEquationOfTime::Calculate(astro->getJD(), true), 0.0);
+        app.render();
+    }
+    delete hr;
+
+    app.incSequence(); // Get a still
+    app.render();
+
+    // -- Sequence 023 - Move Sun +/- 45 degrees, back to zero
+    app.incSequence();
+    frames = 30;
+    hr = new Lerper<double>(-3.0, 0.0, frames, false);
+    for (i = 0; i < frames; i++) {
+        astro->setTime(2019, 3, 20.0, 12.0 + hr->getNextSmooth(), 0.0, 0.0, true);
+        astro->addTime(0.0, 0.0, -CAAEquationOfTime::Calculate(astro->getJD(), true), -0.1);
+        app.render();
+    }
+    delete hr;
+
+    app.incSequence(); // Get a still
+    app.render();
+
+    // -- Sequence 025 - Establish Kabul as Location
+    app.incSequence();
+    scene->getCountryBordersFactory()->addBorder(*earth, "Afghanistan"); // No worries, Earth is passed by reference :)
+
+    Location* kabul = earth->locgroups[lg]->addLocation(l_kabul.lat, l_kabul.lon, false, locskyradius);
+    kabul->addLocDot();
+    kabul->truesun->defaultcolor = sunindicators;
+    kabul->truesun->enableArrow3D();
+    kabul->truesun->enableElevationAngle(NO_COLOR, anglewidth);
+    kabul->truesun->enableEleAngText(font);
+    //camLat = 90f 44f
+    //camLon = -90f 70f
+    frames = 60;
+    lat = new Lerper<float>(90.0f, (float)l_kabul.lat, frames, false);
+    lon = new Lerper<float>(-90.0f, (float)l_kabul.lon, frames, false);
+    for (i = 0; i < frames; i++) {
+        cam->camLat = lat->getNextSmooth();
+        cam->camLon = lon->getNextSmooth();
+        cam->update();
+        app.render();
+    }
+
+    app.incSequence(); // Get a still
+    app.render();
+
+    // -- Sequence 027 - Move ground sectors to Kabul
+    app.incSequence();
+    frames = 30;
+    lond = new Lerper<double>(0.0, l_kabul.lon, frames, false);
+    double alon = 0;
+    for (i = 0; i < frames; i++) {
+        alon = lond->getNextSmooth(); // Don't get multiple times, it increments the return value every time
+        earth->changeLongitudeCurve(longc, alon, BLUE, 0.005f, false);
+        earth->changeLongitudeCurve(longe, alon + 45.0, BLUE, 0.005f, false);
+        earth->changeLongitudeCurve(longw, alon - 45.0, BLUE, 0.005f, false);
+        earth->changeLongitudeCurve(longf, alon + 90.0, BLUE, 0.005f, false);
+        earth->changeLongitudeCurve(longx, alon - 90.0, BLUE, 0.005f, false);
+        earth->changeGreatArc(latie, { 0.0, alon, 0.0 }, { 0.0, alon + 45.0, 0.0 }, false);
+        earth->changeGreatArc(latiw, { 0.0, alon, 0.0 }, { 0.0, alon - 45.0, 0.0 }, false);
+        locplus->moveLoc(0.0, alon + 45.0, false);
+        locminus->moveLoc(0.0, alon - 45.0, false);
+        app.render();
+    }
+
+    app.incSequence(); // Get a still
+    app.render();
+
+    // -- Sequence 029 - Move Sun to Kabul
+    app.incSequence();
+    frames = 60;
+    hr = new Lerper<double>(0.0, 19.388, frames, false);
+    for (i = 0; i < frames; i++) {
+        astro->setTime(2019, 3, 20.0, 12.0 + hr->getNextSmooth(), 0.0, 0.6, true);
+        astro->addTime(0.0, 0.0, -CAAEquationOfTime::Calculate(astro->getJD(), true), 0.0);
+        app.render();
+    }
+    delete hr;
+
+    app.incSequence(); // Get a still
+    app.render();
+
+    // -- Sequence 031 - Move Sun +/- 45 degrees, zero to plus
+    app.incSequence();
+    frames = 30;
+    hr = new Lerper<double>(0.0, 3.0, frames, false);
+    for (i = 0; i < frames; i++) {
+        astro->setTime(2019, 3, 21.0, 7.0 + hr->getNextSmooth(), 30.0, 36.7, true);
+        app.render();
+    }
+    delete hr;
+
+    app.incSequence(); // Get a still
+    app.render();
+
+    // -- Sequence 033 - Move Sun +/- 45 degrees, plus to minus
+    app.incSequence();
+    frames = 60;
+    hr = new Lerper<double>(3.0, -3.0, frames, false);
+    for (i = 0; i < frames; i++) {
+        astro->setTime(2019, 3, 21.0, 7.0 + hr->getNextSmooth(), 30.0, 36.7, true);
+        app.render();
+    }
+    delete hr;
+
+    app.incSequence(); // Get a still
+    app.render();
+
+    // -- Sequence 035 - Move Sun +/- 45 degrees, back to zero
+    app.incSequence();
+    frames = 30;
+    hr = new Lerper<double>(-3.0, 0.0, frames, false);
+    for (i = 0; i < frames; i++) {
+        astro->setTime(2019, 3, 21.0, 7.0 + hr->getNextSmooth(), 30.0, 36.7, true);
+        app.render();
+    }
+    delete hr;
+
+    app.incSequence(); // Get a still
+    app.render();
+
+    // -- Sequence 037 - Add tropics
+    app.incSequence();
+    earth->addTropics(0.005f, SUNCOLOR);
+    app.render();
+    //astro->dumpCurrentTime(37);
+
+    // -- Sequence 038 - Sun analemma over Kabul
+    app.incSequence();
+    // Not using a Lerper, as EoT seems to need applying every day
+    frames = 121;
+    for (i = 0; i < frames; i++) {
+        astro->addTime(3.0, 0.0, 0.0, 0.0, true); // Advance 3 days for a total of 121 * 3 = 363
+        //astro->addTime(1.0, 0.0, 0.0, 0.0, true);
+        //astro->addTime(1.0, 0.0, 0.0, 0.0, true);
+        app.render();
+    }
+    astro->setTime(2019, 3, 21.0, 7.0, 30.0, 36.7, true);  // Fix exact solar noon, actually rewinding a year.
+    app.render();
+    astro->dumpCurrentTime(38);
+
+    app.incSequence();
+    app.render(); // Still for text
+
+    // -- Sequence 040 - Add Sun sectors
+    app.incSequence();
+    unsigned int sunterm = earth->addTerminatorTrueSun(sunindicators, 0.005f);
+    earth->addSunSectors(0.005f, sunindicators, 45.0);  // Ugly implementation of updates, but is only used for the Kell's 45 degrees Sector test
+    app.render();
+
+    app.incSequence();
+    app.render();
+
+    // -- Sequence 042 - Analemma again, with the Sun sectors - I am cheating here, by recycling the time period,
+    //                                                          but ending May 3rd where Kell measured elevation of 49 degrees at 9:02.
+    app.incSequence();
+    frames = 135;
+    for (i = 0; i <= frames; i++) {
+        astro->addTime(3.0, 0.0, 0.0, 0.0, true); // Advance 3 days for a total of 121 * 3 = 363
+        app.render();
+    }
+    astro->setTime(2020, 5, 3.0, 7.0, 20.0, 9.47, true);  // Fix exact solar noon, actually rewinding a year.
+    //astro->dumpCurrentTime(42);
+    app.render();
+
+    app.incSequence(); // Still - "Not quite right either"
+    app.render();
+
+    // -- Sequence 044 - Adjust for EoT to local solar noon in Kabul
+    app.incSequence();
+    //frames = 60;
+    //hr = new Lerper<double>(337.0, 9.47, frames, false); // Misusing hr here to count seconds raher than hours
+    //for (i = 0; i < frames; i++) {
+    //    astro->setTime(2020, 5, 3.0, 7.0, 20.0, hr->getNext(), true);
+    //    app.render();
+    //}
+    //delete hr;
+
+    app.incSequence(); // Still - real solar noon at Kabul on 3rd of May 2020: 7:20:9.47 UTC = 11:50:9.47 Kabul local time
+    //app.render();
+
+    // Kell measured 49 degrees at 9:02, which is 3 hours from 12:02. But real solar noon at Kabul on that day was 11:50:9.47
+    // So first check that his measurement at 9:02 was good.
+    // Then check the measure at 8:50:9.47. It will still show excess.
+
+    // -- Sequence 046 - Show 9:02 local, which is 4:32 UTC
+    app.incSequence();
+    frames = 30;
+    hr = new Lerper<double>(0.0, -3.0, frames, false);
+    for (i = 0; i < frames; i++) {
+        astro->setTime(2020, 5, 3.0, 7.0 + hr->getNextSmooth(), 20.0, 9.47, true);
+        app.render();
+    }
+    delete hr;
+    app.incSequence();
+    app.render();
+    // -- Sequence 048 - Show 9:02 local, which is 4:32 UTC
+    app.incSequence();
+    frames = 60;
+    hr = new Lerper<double>(-3.0, 3.0, frames, false);
+    for (i = 0; i < frames; i++) {
+        astro->setTime(2020, 5, 3.0, 7.0 + hr->getNextSmooth(), 20.0, 9.47, true);
+        app.render();
+    }
+    delete hr;
+    app.incSequence();
+    app.render();
+    // -- Sequence 050 - Show 9:02 local, which is 4:32 UTC
+    app.incSequence();
+    frames = 30;
+    hr = new Lerper<double>(3.0, 0.0, frames, false);
+    for (i = 0; i < frames; i++) {
+        astro->setTime(2020, 5, 3.0, 7.0 + hr->getNextSmooth(), 20.0, 9.47, true);
+        app.render();
+    }
+    delete hr;
+
+    app.incSequence();  // So what do the Sun sectors show? Now sure. Something azimuth related. A misconception of Sun movement.
+    app.render();
+
+    // -- Sequence 052 - Show elevations along ground sectors
+    app.incSequence();
+    Location* locscan = earth->locgroups[lg]->addLocation(0.0, 45.0, false, locskyradius);
+    locscan->addLocDot();
+    locscan->truesun->defaultcolor = sunindicators;
+    locscan->truesun->enableArrow3D();
+    locscan->truesun->enableElevationAngle(NO_COLOR, anglewidth);
+    locscan->truesun->enableEleAngText(font);
+    frames = 180;
+    PathTracker<Location>* trackere = new PathTracker<Location>(locscan, earth->getPath(longe), HALT, frames);
+    // frames is actually desired steps in the tracked path.
+    for (i = 0; i <= frames; i++) {
+        trackere->moveNext();
+        app.render();
+    }
+    delete trackere;
+    trackere = new PathTracker<Location>(locscan, earth->getPath(longw), BOUNCE, frames);
+    // frames is actually desired steps in the tracked path.
+    for (i = 0; i < frames; i++) {
+        trackere->moveNext(); // Scan forward until just before reversal point...
+        //app.render();
+    }
+    for (i = 0; i <= frames; i++) {
+        trackere->moveNext();
+        app.render();
+    }
+    delete trackere;
+
+    app.incSequence();  // So what do the Sun sectors show? Now sure.
+    app.render();
+
+    // -- Sequence 054 - Remove Sun Sectors
+    app.incSequence();
+    //earth->deleteArc(longc);
+    //earth->deleteArc(longe);
+    //earth->deleteArc(longw);
+    //earth->deleteArc(longf);
+    //earth->deleteArc(longx);
+    //earth->deleteArc(latie);
+    //earth->deleteArc(latiw);
+    earth->removeSunSectors();
+    earth->changeArc(sunterm, SUNCOLOR);
+    app.render();
+
+    // -- Sequence 055 - 
+    app.incSequence();
+    unsigned int sunsemi = earth->addSemiTerminator(45.0, false, SUNCOLOR, 0.005f);  // Add default values for color and width
+    app.render();
+
+    // -- Sequence 056 - Loop the Semi Terminator to show elevations are constantly 45 degrees
+    app.incSequence();
+    frames = 180;
+    trackere = new PathTracker<Location>(locscan, earth->getPathCache(sunsemi), LOOP, frames);
+    // frames is actually desired steps in the tracked path.
+    for (i = 0; i <= frames + 1; i++) {
+        trackere->moveNext();
+        app.render();
+    }
+    delete trackere;
+
+    // Still - Remove locscan, or maybe move it to the back of Earth
+    app.incSequence();
+    locscan->moveLoc(-15.0, -100.0, false);
+    app.render();
+
+    // -- Sequence 058 - Show Sun at +3 hours from Kabul
+    app.incSequence();
+    frames = 30;
+    hr = new Lerper<double>(0.0, +3.0, frames, false);
+    for (i = 0; i < frames; i++) {
+        astro->setTime(2020, 5, 3.0, 7.0 + hr->getNextSmooth(), 20.0, 9.47, true);
+        app.render();
+    }
+    delete hr;
+
+    // Still 059
+    app.incSequence();
+    app.render();
+
+    // -- Sequence 060 - Zoom in on Kabul
+    app.incSequence();
+    frames = 30;
+    Lerper<float>* cfov = new Lerper<float>(6.0f, 1.0f, frames, false);
+    lat = new Lerper<float>((float)cam->camLat, (float)l_kabul.lat + 5.0f, frames, false);
+    for (i = 0; i < frames; i++) {
+        cam->camFoV = cfov->getNext();
+        cam->camLat = lat->getNextSmooth();
+        cam->update();
+        app.render();
+    }
+    delete cfov;
+    delete lat;
+    astro->dumpCurrentTime(60);
+    cam->dumpParameters(60);
+    app.incSequence();
+    app.render();
+
+    // -- Sequence 062 - Shift Sun another 199.44 seconds to align SemiTerminator exactly with Kabul
+    app.incSequence();
+    frames = 10;
+    hr = new Lerper<double>(0.0, 199.44, frames, false);
+    for (i = 0; i < frames; i++) {
+        astro->setTime(2020, 5, 3.0, 7.0 + 3.0, 20.0, 9.47 + hr->getNextSmooth(), true);
+        app.render();
+    }
+    delete hr;
+
+    // Still 063
+    app.incSequence();
+    app.render();
+
+
+    // -- Sequence 064 - Zoom out again
+    app.incSequence();
+    frames = 30;
+    cfov = new Lerper<float>(1.0f, 6.0f, frames, false);
+    lat = new Lerper<float>((float)cam->camLat, (float)l_kabul.lat, frames, false);
+
+    for (i = 0; i < frames; i++) {
+        cam->camFoV = cfov->getNext();
+        cam->camLat = lat->getNextSmooth();
+        cam->update();
+        app.render();
+    }
+    delete cfov;
+
+    app.incSequence();
+    app.render();
+
+    // -- Sequence 066 - 3 hours and 199.44 seconds back to Kabul solar noon
+    app.incSequence();
+    frames = 30;
+    hr = new Lerper<double>(3.0, 0.0, frames, false);
+    for (i = 0; i < frames; i++) {
+        astro->setTime(2020, 5, 3.0, 7.0 + hr->getNextSmooth(), 20.0, 9.47, true); // Why use EoT here? No! That is Gregorian!
+        app.render();
+    }
+    delete hr;
+
+    app.incSequence();
+    app.render();
+
+    // -- Sequence 068 - Advance by solar days (eot) to june solstice
+    app.incSequence();
+    frames = 49;
+    for (i = 0; i < frames; i++) {
+        astro->addTime(1.0, 0.0, 0.0, 0.0, true);
+        app.render();
+    }
+    // Time is now 2020-06-21 07:25:9.875 UTC - Kabul solar noon on solstice
+    //astro->dumpCurrentTime();
+
+    app.incSequence();  // Highest elevation of the year at Kabul
+    app.render();
+
+    // -- Sequence 070 - Check -3 hours
+    app.incSequence();
+    frames = 60;
+    hr = new Lerper<double>(0.0, -3.0, frames, false);
+    for (i = 0; i < frames; i++) {
+        astro->setTime(2020, 6, 21.0, 7.0 + hr->getNextSmooth(), 25.0, 9.875, true); // Why use EoT here? No! That is Gregorian!
+        app.render();
+    }
+    delete hr;
+
+    app.incSequence();
+    app.render();
+
+    // -- Sequence 072 - Do a year at sector, daily with eot - Pause at 2020-08-12, 52 days
+    app.incSequence();
+    frames = 52;
+    for (i = 0; i < frames; i++) {
+        astro->addTime(1.0, 0.0, 0.0, 0.0, true);
+        app.render();
+    }
+    // Time is now 2020-08-12 04:28:20.108 UTC - Kabul solar noon on solstice, +3 hours.
+    //astro->dumpCurrentTime(1);
+
+    app.incSequence();
+    app.render();
+
+    // -- Sequence 074 - Do a year at sector daily with eot - Pause at 2020-08-12 and 2021-04-30
+    app.incSequence();
+    frames = 261;
+    for (i = 0; i < frames; i++) {
+        astro->addTime(1.0, 0.0, 0.0, 0.0, true);
+        app.render();
+    }
+    // Time is now 2020-04-30 04:20:36.417 UTC - Kabul solar noon on solstice, +3 hours.
+    //astro->dumpCurrentTime(2);
+
+    app.incSequence();
+    app.render();
+
+    // -- Sequence 076 - Do a year at sector daily with eot - Pause at 2020-08-12 and 2021-04-30
+    app.incSequence();
+    frames = 52;
+    for (i = 0; i < frames; i++) {
+        astro->addTime(1.0, 0.0, 0.0, 0.0, true);
+        app.render();
+    }
+    // Time is now 2021-06-21 04:25:10.325 UTC - Kabul solar noon on solstice, +3 hours.
+    //astro->dumpCurrentTime(3);
+
+    app.incSequence();
+    app.render();
+
+    // -- Sequence 078 - Move to to noon +3hrs
+    app.incSequence();
+    frames = 60;
+    hr = new Lerper<double>(-3.0, 3.0, frames, false);
+    for (i = 0; i < frames; i++) {
+        astro->setTime(2020, 6, 21.0, 7.0 + hr->getNextSmooth(), 25.0, 9.875, true); // Why use EoT here? No! That is Gregorian!
+        app.render();
+    }
+    delete hr;
+
+    app.incSequence();
+    app.render();
+
+    // -- Sequence 080 - Year at +3hrs point (while displaying some text)
+    app.incSequence();
+    frames = 365;
+    for (i = 0; i < frames; i++) {
+        astro->addTime(1.0, 0.0, 0.0, 0.0, true);
+        app.render();
+    }
+    //astro->dumpCurrentTime(1);
+
+    app.incSequence();
+    app.render();
+
+    // -- Sequence 082 - Show that ground sectors are equally wrong - 45 degree circle around Kabul
+    earth->addTissotIndicatrix(l_kabul, 45, false, LIGHT_BLUE, 0.005f);
+
+    app.incSequence(); // 083
+    app.render();
+
+    // -- Sequence 084 - Year at +3hrs point
+    app.incSequence();
+    frames = 365;
+    for (i = 0; i < frames; i++) {
+        astro->addTime(1.0, 0.0, 0.0, 0.0, true);
+        app.render();
+    }
+
+    app.incSequence();
+    app.render();
+
+    // -- Sequence 086 - Sweep +/- 4 hrs to exit Kabul ground circle
+    app.incSequence();
+    frames = 40;
+    hr = new Lerper<double>(3.0, 5.0, frames, false);
+    for (i = 0; i < frames; i++) {
+        astro->setTime(2020, 6, 21.0, 7.0 + hr->getNextSmooth(), 25.0, 9.875, true);
+        app.render();
+    }
+    delete hr;
+
+    // -- Sequence 087 - Sweep +/- 4 hrs to exit Kabul ground circle
+    app.incSequence();
+    frames = 200;
+    hr = new Lerper<double>(5.0, -5.0, frames, false);
+    for (i = 0; i < frames; i++) {
+        astro->setTime(2020, 6, 21.0, 7.0 + hr->getNextSmooth(), 25.0, 9.875, true);
+        app.render();
+    }
+    delete hr;
+
+    // -- Sequence 088 - Sweep +/- 4 hrs to exit Kabul ground circle
+    app.incSequence();
+    frames = 100;
+    hr = new Lerper<double>(-5.0, 0.0, frames, false);
+    for (i = 0; i < frames; i++) {
+        astro->setTime(2020, 6, 21.0, 7.0 + hr->getNextSmooth(), 25.0, 9.875, true);
+        app.render();
+    }
+    delete hr;
+
+    app.incSequence();
+    app.render();
+
+
+
+
+
+    app.anim = false;
+    app.renderoutput = false;
+    while (!glfwWindowShouldClose(app.window)) {
+
+        app.update();
+        if (app.anim) astro->addTime(1.0, 0.0, 0.0, 0.0, true);
+
+        // Do this after updating time, or you obviously get weird lag effects while animating.
+        //subsolar = earth->getSubsolar();
+        //sunloc->moveLoc(subsolar.lat, subsolar.lon, true);
+        //crosspoint->moveLoc((double)app.customparam1, (double)app.customparam2, false);
+
+        //if (app.anim) astro->setTimeNow();
+        scene->w_camera->update();
+
+        app.render();
+    }
 }
 
 
@@ -235,7 +1927,7 @@ void renderFBO(Application& app) {
     //earth->locgroups[lg]->addLocation(l_perth.lat, l_perth.lon, false, locskyradius);
     //earth->locgroups[lg]->addLocation(0.0, 0.0, false, locskyradius);
     for (auto loc : earth->locgroups[lg]->locations) {
-        loc->addLocSky(locskyradius, locskycolor);
+        //loc->addLocSky(locskyradius, locskycolor);
         //loc->flatsun->setGeometry("AE");  // Use "CG" for current geometry, it will then adapt to Earth morph rather than remaining fixed
         //loc->flatsun->enableArrow3D();
         //loc->flatsun->enableDot3D();
@@ -244,7 +1936,7 @@ void renderFBO(Application& app) {
         //loc->flatsun->enableEleAngText(font);
         //loc->flatsun->enablePath24();
         loc->truesun->enableArrow3D();
-        loc->truesun->enableLine3D();
+        //loc->truesun->enableLine3D();
         loc->truesun->enableElevationAngle();
         loc->truesun->enableEleAngText(font);
         loc->truesun->enablePath24();
@@ -262,22 +1954,21 @@ void renderFBO(Application& app) {
 
     earth->addSemiTerminator(45.0, false, SUNCOLOR, 0.005f);
 
-
     Location* sunloc = earth->locgroups[lg]->addLocation(loclat, loclon, false, locskyradius);
     LLH subsolar = earth->getSubsolar(); // Provide JD, or get current Sun
     sunloc->moveLoc(subsolar.lat, subsolar.lon);
     sunloc->addLocDot();
-    sunloc->truesun->enableArrow3D();
+    //sunloc->truesun->enableArrow3D();
     //sunloc->truesun->enableEleAngText(font);
 
     Location* crosspoint = earth->locgroups[lg]->addLocation(subsolar.lat, subsolar.lon + 45.0, false, locskyradius);
     app.customparam1 = (float)subsolar.lat;
     app.customparam2 = (float)(subsolar.lon + pi4);
     crosspoint->addLocDot();
-    crosspoint->addTangentPlane();
-    crosspoint->truesun->enableArrow3D();
-    crosspoint->truesun->enableElevationAngle();
-    crosspoint->truesun->enableEleAngText(font);
+    //crosspoint->addTangentPlane();
+    //crosspoint->truesun->enableArrow3D();
+    //crosspoint->truesun->enableElevationAngle();
+    //crosspoint->truesun->enableEleAngText(font);
 
     //earth->addGreatArc({ -81.0, -170.0, 0.0 }, { -81.0, 10.0, 0.0 }, WHITE, 0.003f, false);
 
@@ -392,7 +2083,7 @@ void Sector45_001(Application& myapp) {
 
 
 
-void TestArea5(Application& myapp) {
+void CoreyKellDetailed(Application& myapp) {
     // Analysis of Corey Kell's Kabul measurements of the Sun's elevation
     struct datapoints {
         int utime;
@@ -441,7 +2132,7 @@ void TestArea5(Application& myapp) {
     glm::vec4 predictioncolor = LIGHT_BLUE;
 
     // Read data file
-    std::cout << "Opening File!\n";
+    //std::cout << "Opening File!\n";
     std::ifstream stream("c:\\flatearthintel.csv");
     getline(stream, line); // Skip headers
     while (getline(stream, line)) {
@@ -648,8 +2339,513 @@ void TestArea5(Application& myapp) {
 
 }
 
+// Brian Leake / Flat Earth Tests / 
+void Brian_Leake_01(Application & app) {
+
+    const float latlonwidth = 0.002f;
+
+    Astronomy* astro = app.newAstronomy();
+    Scene* scene = app.newScene();
+    Camera* cam = scene->w_camera;
+    app.currentCam = cam;
+    RenderLayer3D* layer = app.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, nullptr);
+    text->setFont(app.m_font2);
+    text->setAstronomy(astro);
+    RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    gui->addLayer3D(layer, "Scene1");
+
+    Earth* earth = scene->newEarth("NSAE", 180, 90);
+    app.currentEarth = earth;
+
+    app.basefname = "Brian Leake 01 - ";
+    app.renderoutput = false;
+
+    unsigned int i = 0;       // Used in local loops everywhere
+    double lat = 0.0;
+    double lon = 0.0;
+
+    struct icst {
+        double lat;
+        double ele;
+        double azi;
+    };
+    std::vector<icst> icsts =
+    /* Latitude     Elevation   Azimuth    */
+    { {-45.2000000, 21.2429888, 180.0000000},
+      {-41.8000000, 23.8059435, 180.0000000},
+      {-37.8000000, 28.8022570, 180.0000000},
+      {-35.2000000, 30.8081089, 180.0000000},
+      {-30.0000000, 36.8698977, 180.0000000},
+      {-27.4000000, 39.2373672, 180.0000000},
+      {-27.2000000, 40.5391518, 180.0000000},
+      { 34.0000000, 80.4186013,   0.0000000},
+      { 34.0000000, 81.4225444,   0.0000000},
+      { 34.1000000, 79.6738896,   0.0000000},
+      { 37.0000000, 76.9447529,   0.0000000},
+      { 37.8000000, 75.9637566,   0.0000000},
+      { 42.0000000, 69.0265067,   0.0000000},
+      { 44.1000000, 69.7963849,   0.0000000},
+      { 44.2000000, 69.3602809,   0.0000000},
+      { 45.4000000, 66.8643028,   0.0000000},
+      { 45.6000000, 68.4872942,   0.0000000},
+      { 47.0000000, 65.2604912,   0.0000000},
+      { 50.9000000, 61.3360430,   0.0000000},
+      { 52.2000000, 61.0018777,   0.0000000},
+      { 52.3000000, 60.9592971,   0.0000000},
+      { 52.5000000, 60.7199246,   0.0000000},
+      { 53.4000000, 58.8150254,   0.0000000},
+      { 53.6000000, 60.2093960,   0.0000000},
+      { 53.8000000, 62.8448447,   0.0000000},
+      { 59.2000000, 54.2587455,   0.0000000},
+      { 59.4000000, 53.7461623,   0.0000000},
+      { 61.5000000, 52.3139138,   0.0000000},
+      { 61.5000000, 53.7197466,   0.0000000},
+      { 66.9000000, 46.6683375,   0.0000000} };
+
+    const unsigned int DATA1 = 1; // Unique id for generic location arrows, in case we need more than one kind
+
+    cam->setLatLonFovDist(30.0f, -45.0f, 6.0f, 25.0f);
+    astro->setTime(2022, 3, 5, 12.0, 50.0, 0.0);  // UTC no DST
 
 
+    // Start building frames and sequences
+
+    earth->addEquator(latlonwidth, RED);
+    earth->addPrimeMeridian(latlonwidth, RED);
+    earth->addGrid(15.0f, latlonwidth, WHITE, "LALO", /*rad*/false, /*eq*/false, /*pm*/false);
+    earth->addTropics(latlonwidth, YELLOW);
+
+    earth->flatsunheight = 5769.5f; // https://youtu.be/IiV7UIR1jxI?t=22
+    earth->w_refract = false;
+    earth->w_sinsol = true;
+    earth->w_twilight = true;
+
+    earth->addSubsolarPoint(); // height is earth.m_flatsunheight
+
+    unsigned int lg = earth->addLocGroup();
+
+    // Read data into Locations while adding true and flat Sun arrows (and a locdot)
+    for (auto& d : icsts) {
+        earth->locgroups[lg]->addLocation(d.lat, 0.0, false, 0.02f);
+        earth->locgroups[lg]->locations.back()->addArrow3DEleAzi(DATA1, d.ele, d.azi, 2.0f, 0.003f, LIGHT_GREEN);
+        earth->locgroups[lg]->locations.back()->addLocDot(0.005f, LIGHT_RED);
+        earth->locgroups[lg]->locations.back()->truesun->enableArrow3D();
+        earth->locgroups[lg]->locations.back()->truesun->changeArrow3D(SUNCOLOR, 2.0f, 0.003f);
+        earth->locgroups[lg]->locations.back()->flatsun->enableArrow3D();
+        earth->locgroups[lg]->locations.back()->flatsun->changeArrow3D(LIGHT_ORANGE, 2.0f, 0.003f);
+    }
+
+    //astro->setTime(2021, 12, 21.0, 0.0, 0.0, 0.0);
+    //unsigned int slg = earth->addLocGroup();
+    //Location* sydney = earth->locgroups[slg]->addLocation(l_sydny.lat, l_sydny.lon, false, 0.2f);
+    //sydney->truesun->enableArrow3D();
+    //sydney->addLocDot(0.005f, LIGHT_RED);
+
+    // Animate flatsunheight 0 to 100000 in 1000 frames
+    //Lerper<float>* height = new Lerper<float>(0.0f, 100000.0f, 1000, false);
+    //for (i = 0; i < 1000; i++) {
+    //    earth->flatsunheight = height->getNextSmooth();
+    //    app.render();
+    //}
+
+    // Drop into experimental environment after render, so next scene can be planned
+    app.renderoutput = false;
+
+    while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
+    {
+        //app.update();
+        if (app.anim) {
+            astro->setTimeNow();
+        }
+        app.render();
+    }
+}
+
+
+void Parenting_test(Application& app) {
+
+    Astronomy* astro = app.newAstronomy();
+    //astro->setTimeNow();
+    //for (unsigned int i = 0; i <= 240; i++) {
+    //    astro->addTime(0.0, 0.0, 10.0, 0.0, false);
+    //    astro->updateTimeString();
+    //    std::cout << ": GMST = " << astro->getGsid() << '\n';
+    //}
+
+    Scene* scene = app.newScene();
+    Camera* cam = scene->w_camera;
+    app.currentCam = cam;
+    cam->setLatLonFovDist(40.0f, -2.0f, 1.4f, 20.0f);
+    RenderLayer3D* layer = app.newLayer3D(0.0f, 0.0f, 0.5f, 1.0f, scene, astro, cam);
+    RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, nullptr);
+    text->setFont(app.m_font2);
+    text->setAstronomy(astro);
+    RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    gui->addLayer3D(layer, "Scene1");
+
+    float localskyradius = 0.2f;
+    
+    Earth* earth = scene->newEarth("NSER", 180, 90);
+    app.currentEarth = earth;
+
+    earth->w_sinsol = false;
+    //earth->addGrid();
+    earth->addGreatArc({ 15.0, 170.0, 0.0 }, { 25.0, -10.0, 0.0 }, LIGHT_RED, 0.003f, false);
+    earth->flatsunheight = 0.0f;
+    earth->addSublunarPoint();
+    earth->addTropics();
+    unsigned int lg = earth->addLocGroup();
+    //double loclatitude = l_cph.lat;
+    // Monte Cridola - Bert Rickles lunalemma
+    double loclatitude = 46.4648092781465;
+    double loclongitude = 12.493651276848878;
+    Location* loc = earth->locgroups[lg]->addLocation(loclatitude, loclongitude, false, localskyradius);
+    std::string trackstarname = "Alnilam"; // Very near celestial equator: "Sadalmelik"; // Orion's belt west to east: Mintaka, Alnilam and Alnitak
+    LLH trackstar = astro->getDecRAbyName(trackstarname);
+    glm::vec4 trackcolor = astro->getColorbyName(trackstarname);
+    //astro->setTime(2022, 3, 5.0, 12.0, 50.0, 0.0);
+    //astro->setTime(2022, 3, 27.0, 17.0, 37.0, 55.0);
+    //astro->setTime(2028, 11, 13.0, 19.0, 0.0, 0.0);
+    astro->setTime(2000, 1, 1, 7.0, 30.0, 0.0);  // UTC no DST
+
+    loc->addLocDot(0.005f, LIGHT_RED);
+    loc->addHorizon(RED, 0.001f);
+    //loc->addUpCoord(1.0f);
+    //loc->truesun->enableDot3D();
+    //loc->addArrow3DRADec(9999, trackstar.lon, trackstar.lat, trackcolor, 0.005f, 1.0f);
+    //loc->addTangentPlane(LIGHT_RED, 0.6f);
+    //loc->addHorizon(LIGHT_RED, 0.003f);
+    //loc->addCircumPolar(GREEN, 0.003f);
+    glm::vec4 skycol = BLUE; // BLACK;
+    skycol.a = 0.6f;
+    loc->addLocSky(localskyradius, skycol);
+    //loc->addTruePlanetDot(VENUS, 0.005f, NO_COLOR, false);
+    //loc->addTruePlanetDot(MERCURY, 0.005f, NO_COLOR, false);
+    //loc->addTruePlanetDot(MARS, 0.005f, NO_COLOR, false);
+    //loc->addPlanetTruePathSidYear(VENUS);
+    //loc->addPlanetTruePathSidYear(MERCURY);
+    //loc->addPlanetTruePathSidYear(MARS);
+    loc->addTrueLunalemma(MOONCOLOR, localskyradius/200.0f, localskyradius*tauf/720.0f);
+    //Earth2* earth = scene->newEarth2("NSAE", 180, 90);
+    //earth->name = "Earth2";
+    //app.currentEarth2 = earth;
+
+    SkySphere* sky = scene->newSkysphere(180, 90, true);
+    sky->setMode("SE", earth, loc);
+    sky->setTexture(false);
+    sky->setMovable(true);
+    sky->setRadius(localskyradius);
+    //sky->addStars(-0.5);
+    //sky->addLineStarStar("* alf CMa", "* alf Car");
+
+    //sky->addStarByName(trackstarname);
+    //sky->addStarByName("Mintaka");
+    //sky->addStarByName("Alnitak");
+    //sky->addGrid(0.001f);
+    //earth->addSubsolarPoint();
+    //earth->addSublunarPoint();
+    //earth->addEcliptic();
+    //earth->addTropics();
+    //unsigned int fpa = earth->addFirstPointAries();
+
+    app.customhigh1 = 90.0f;
+    app.customlow1 = -90.0f;
+    app.customparam1 = (float)loclatitude;
+
+    app.customhigh2 = 180.0f;
+    app.customlow2 = -180.0f;
+    app.customparam2 = (float)loclongitude;
+
+    Camera* loccam = scene->newCamera("Location Cam");
+    app.locationCam = loccam;
+    loccam->setFoV(70.0f);
+    loccam->setLookAt(loc->getPosition()*1.01f, loc->getPosition() + loc->getNorth(), loc->getZenith());
+    loccam->camNear = 0.0001f;
+    loccam->camFar = 100.0f;
+
+    LLH decra = astro->getDecRAbyName("* tet Per", false);
+    LLH decrat = astro->getTrueDecRAbyName("* tet Per", false);
+    // NOTE: With rad = false, return values are RA in degrees, Dec in degrees
+    std::cout << "Star catalogue & true RA(deg), Dec(deg): " << decra.lon << ", " << decra.lat << " " << decrat.lon << ", " << decrat.lat << '\n';
+
+    //loccam->dumpParameters();
+    app.newLayer3D(0.5f, 0.0f, 1.0f, 1.0f, scene, astro, loccam, false);
+
+    //app.anim = true;
+    //app.renderoutput = true;
+
+    while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
+    { 
+        //app.update();
+        if (app.anim) {
+            // For satellites, real time -20 minutes
+            //astro->setTimeNow();
+            //astro->addTime(0.0, 0.0, 0.0, -1200.0, false);
+            // For a visually reasonable progression of time in general
+            astro->addTime(1.035050, 0.0, 0.0, 0.0, false);
+            //astro->addTime(sidereald, 0.0, 0.0, 0.0);
+        }
+        //earth->updateFirstPointAries(fpa);
+        //sky->updateGrid();
+        loc->moveLoc((double)app.customparam1, (double)app.customparam2, false);
+        sky->updateGrid();
+        glm::vec3 lcdir = loc->calcEleAzi2Dir({ loccam->camLat, loccam->camLon, 0.0 }, false);
+
+        loccam->setLookAt(loc->getPosition() * 1.0001f, loc->getPosition() + lcdir, loc->getZenith());
+        //loccam->update();
+        //std::cout << "Loccam: "; VPRINT(loccam->getPosition());
+        //std::cout << " Location: "; VPRINT(loc->getPosition());
+        //std::cout << "\n";
+        app.render();
+    }
+}
+
+
+void AxialPrecession(Application& app) {
+    Astronomy* astro = app.newAstronomy();
+    //astro->setTimeNow();
+    Scene* scene = app.newScene();
+    Camera* cam = scene->w_camera;
+    app.currentCam = cam;
+    //cam->setLatLonFovDist(40.0f, -2.0f, 1.4f, 20.0f);
+    cam->setLatLonFovDist(-18.0f, -2.0f, 6.43296194076538f, 20.0f);
+    RenderLayer3D* layer = app.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, nullptr);
+    text->setFont(app.m_font2);
+    text->setAstronomy(astro);
+    RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    gui->addLayer3D(layer, "Scene1");
+
+    float localskyradius = 0.2f;
+
+    Earth* earth = scene->newEarth("NSAE", 180, 90);
+    app.currentEarth = earth;
+    Arrows* arrowFac = scene->getArrowsFactory();
+    float axisWidth = 0.01f;
+    unsigned int axisX = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, 1.0f, axisWidth, RED);
+    unsigned int axisY = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,1.0f,0.0f }, 1.0f, axisWidth, GREEN);
+    unsigned int axisZ = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, 1.0f, axisWidth, BLUE);
+
+    earth->w_sinsol = false;
+    earth->addGrid();
+    //earth->addGreatArc({ 15.0, 170.0, 0.0 }, { 25.0, -10.0, 0.0 }, LIGHT_RED, 0.003f, false);
+    earth->flatsunheight = 0.0f;
+    earth->addSublunarPoint();
+    earth->addTropics();
+    unsigned int lg = earth->addLocGroup();
+    //double loclatitude = l_cph.lat;
+    // Monte Cridola - Bert Rickles lunalemma
+    double loclatitude = 46.4648092781465;
+    double loclongitude = 12.493651276848878;
+    Location* loc = earth->locgroups[lg]->addLocation(loclatitude, loclongitude, false, localskyradius);
+    std::string trackstarname = "Alnilam"; // Very near celestial equator: "Sadalmelik"; // Orion's belt west to east: Mintaka, Alnilam and Alnitak
+    LLH trackstar = astro->getDecRAbyName(trackstarname);
+    glm::vec4 trackcolor = astro->getColorbyName(trackstarname);
+    astro->setTimeNow();
+    std::cout << "Earth axial tilt: " << astro->TrueObliquityOfEcliptic(astro->getJD()) << '\n';
+    //astro->setTime(2022, 3, 27.0, 17.0, 37.0, 55.0);
+    //astro->setTime(2028, 11, 13.0, 19.0, 0.0, 0.0);
+    astro->setTime(-3000, 1, 1, 7.0, 30.0, 0.0);  // UTC no DST
+
+    loc->addLocDot(0.005f, LIGHT_RED);
+    loc->addHorizon(RED, 0.001f);
+    //loc->addUpCoord(1.0f);
+    //loc->truesun->enableDot3D();
+    //loc->addArrow3DRADec(9999, trackstar.lon, trackstar.lat, trackcolor, 0.005f, 1.0f);
+    //loc->addTangentPlane(LIGHT_RED, 0.6f);
+    //loc->addHorizon(LIGHT_RED, 0.003f);
+    //loc->addCircumPolar(GREEN, 0.003f);
+    glm::vec4 skycol = BLACK;
+    skycol.a = 0.6f;
+    loc->addLocSky(localskyradius, skycol);
+    //loc->addTruePlanetDot(VENUS, 0.005f, NO_COLOR, false);
+    //loc->addTruePlanetDot(MERCURY, 0.005f, NO_COLOR, false);
+    //loc->addTruePlanetDot(MARS, 0.005f, NO_COLOR, false);
+    //loc->addPlanetTruePathSidYear(VENUS);
+    //loc->addPlanetTruePathSidYear(MERCURY);
+    //loc->addPlanetTruePathSidYear(MARS);
+
+    SkySphere* sky = scene->newSkysphere(180, 90, true);
+    sky->setMode("SE", earth, loc);
+    sky->setTexture(false);
+    sky->setMovable(true);
+    sky->setRadius(localskyradius);
+    sky->addStars(6.0);
+
+    //sky->addStarByName("Polaris");
+    //sky->addLineStarStar("* alf CMa", "* alf Car");
+    //sky->addStarByName(trackstarname);
+    //sky->addStarByName("Mintaka");
+    //sky->addStarByName("Alnitak");
+    //sky->addGrid(0.001f);
+    //earth->addSubsolarPoint();
+    //earth->addSublunarPoint();
+    //earth->addEcliptic();
+    //earth->addTropics();
+    //unsigned int fpa = earth->addFirstPointAries();
+
+    app.customhigh1 = 90.0f;
+    app.customlow1 = -90.0f;
+    app.customparam1 = (float)loclatitude;
+
+    app.customhigh2 = 180.0f;
+    app.customlow2 = -180.0f;
+    app.customparam2 = (float)loclongitude;
+
+    Camera* loccam = scene->newCamera("Location Cam");
+    app.locationCam = loccam;
+    loccam->setFoV(70.0f);
+    loccam->setLookAt(loc->getPosition() * 1.01f, loc->getPosition() + loc->getNorth(), loc->getZenith());
+    loccam->camNear = 0.0001f;
+    loccam->camFar = 100.0f;
+
+    LLH decra = astro->getDecRAbyName("* tet Per", false);
+    LLH decrat = astro->getTrueDecRAbyName("* tet Per", false);
+    // NOTE: With rad = false, return values are RA in degrees, Dec in degrees
+    std::cout << "Star catalogue & true RA(deg), Dec(deg): " << decra.lon << ", " << decra.lat << " " << decrat.lon << ", " << decrat.lat << '\n';
+
+    //app.anim = true;
+    //app.renderoutput = true;
+
+    astro->setJD(JD2000 - (2500.0 * 365.25), false);
+    std::cout << "Set JD: " << JD2000 - (10000.0*365.25) << ", Got JD: " << astro->getJD() << '\n';
+
+    while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
+    {
+        //app.update();
+        if (app.anim) {
+            // For satellites, real time -20 minutes
+            //astro->setTimeNow();
+            //astro->addTime(0.0, 0.0, 0.0, -1200.0, false);
+            // For a visually reasonable progression of time in general
+            // Lunar period for LunaLemma
+            // astro->addTime(1.035050, 0.0, 0.0, 0.0, false);
+            //astro->addTime(sidereald, 0.0, 0.0, 0.0);
+            //astro->addTime(365.0, 1.0, 1.0, 0.0);
+            astro->setJD(astro->getJD() + 4.0 * 365.25, false);
+        }
+        //earth->updateFirstPointAries(fpa);
+        //sky->updateGrid();
+        loc->moveLoc((double)app.customparam1, (double)app.customparam2, false);
+        sky->updateGrid();
+        glm::vec3 lcdir = loc->calcEleAzi2Dir({ loccam->camLat, loccam->camLon, 0.0 }, false);
+
+        loccam->setLookAt(loc->getPosition() * 1.0001f, loc->getPosition() + lcdir, loc->getZenith());
+        //loccam->update();
+        //std::cout << "Loccam: "; VPRINT(loccam->getPosition());
+        //std::cout << " Location: "; VPRINT(loc->getPosition());
+        //std::cout << "\n";
+        app.render();
+    }
+
+
+}
+
+
+void Lambertian(Application& app) {
+    // It is not possible to implement the Lambertian Equal Area mapping with a quad mesh
+    // because quads antipodal to the projection point (when proj point is not a pole) are
+    // mapped to thin curves along the edge of the map, which will then overlap other parts of the map.
+    // It may be possible to solve this using a different mesh, but I can't imagine one that would work
+    // with the ER texture. The mesh would have to treat the projection point as a pole, making morphing very difficult too.
+    Astronomy* astro = app.newAstronomy();
+    astro->setTimeNow();
+    Scene* scene = app.newScene();
+    Camera* cam = scene->w_camera;
+    app.currentCam = cam;
+
+    cam->setLatLonFovDist(-18.0f, -2.0f, 6.43296194076538f, 20.0f);
+    RenderLayer3D* layer = app.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, nullptr);
+    text->setFont(app.m_font2);
+    text->setAstronomy(astro);
+    RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    gui->addLayer3D(layer, "Scene1");
+
+    Earth* earth = scene->newEarth("ERLB", 180, 90);
+    app.currentEarth = earth;
+    Arrows* arrowFac = scene->getArrowsFactory();
+    float axisWidth = 0.01f;
+    unsigned int axisX = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, 1.0f, axisWidth, RED);
+    unsigned int axisY = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,1.0f,0.0f }, 1.0f, axisWidth, GREEN);
+    unsigned int axisZ = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, 1.0f, axisWidth, BLUE);
+
+    earth->w_sinsol = true;
+    earth->addGrid();
+    earth->addGreatArc({ 90.0-tiny, 180.0, 0.0 }, { -90.0+tiny, 180.0, 0.0 }, LIGHT_RED, 0.003f, false);
+    earth->flatsunheight = 0.0f;
+
+    //app.anim = true;
+    //app.renderoutput = true;
+
+    while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
+    {
+        //app.update();
+        if (app.anim) {
+            //astro->setTimeNow();
+        }
+        app.render();
+    }
+
+
+}
+
+
+void SimpleTest(Application& app) {
+
+    Astronomy* astro = app.newAstronomy();
+    astro->setTimeNow();
+    Scene* scene = app.newScene();
+    Camera* cam = scene->w_camera;
+    app.currentCam = cam;
+
+    cam->setLatLonFovDist(-18.0f, -2.0f, 6.43296194076538f, 20.0f);
+    RenderLayer3D* layer = app.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, nullptr);
+    text->setFont(app.m_font2);
+    text->setAstronomy(astro);
+    RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    gui->addLayer3D(layer, "Scene1");
+
+//    Earth* earth = scene->newEarth("ERRC", 180, 90);
+//    app.currentEarth = earth;
+//    Arrows* arrowFac = scene->getArrowsFactory();
+//    float axisWidth = 0.01f;
+//    unsigned int axisX = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, 1.0f, axisWidth, RED);
+//    unsigned int axisY = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,1.0f,0.0f }, 1.0f, axisWidth, GREEN);
+//    unsigned int axisZ = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, 1.0f, axisWidth, BLUE);
+//
+//    earth->w_sinsol = true;
+//    earth->addGrid();
+//    //earth->addGreatArc({ 90.0-tiny, 180.0, 0.0 }, { -90.0+tiny, 180.0, 0.0 }, LIGHT_RED, 0.003f, false);
+//    earth->flatsunheight = 0.0f;
+//    earth->addSubsolarPath();
+
+    //SkySphere* sky = scene->newSkysphere(180, 90, true);
+    //sky->setTexture(true);
+    SkyBox* sky = scene->getSkyboxOb();
+
+    SolarSystem* solsys = scene->getSolsysOb();
+    float planetlinewidth = 0.005f;
+    solsys->AddDistLine(SUN, EARTH, EARTHCOLOR, planetlinewidth);
+    solsys->AddDistLine(SUN, MERCURY, MERCURYCOLOR, planetlinewidth);
+    solsys->AddDistLine(SUN, VENUS, VENUSCOLOR, planetlinewidth);
+    solsys->AddDistLine(SUN, MARS, MARSCOLOR, planetlinewidth);
+
+    //app.anim = true;
+    //app.renderoutput = true;
+
+    while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
+    {
+        app.update();
+        if (app.anim) {
+            //astro->setTimeNow();
+            astro->addTime(1.0, 0.0, 0.0, 0.0, false);
+        }
+        app.render();
+    }
+}
 
 // Application is a global container for all the rest
 Application app = Application();  // New global after refactor
@@ -701,6 +2897,7 @@ PYBIND11_EMBEDDED_MODULE(eartharium, m) {
         .def("newLayer3D", &Application::newLayer3D, "Creates a new 3D Render Layer",
             py::arg("vpx1"), py::arg("vpy1"), py::arg("vpx2"), py::arg("vpy2"),
             py::arg("scene"), py::arg("astro"), py::arg("cam") = (Camera*) nullptr,
+            py::arg("overlay") = true,
             py::return_value_policy::reference
         )
         .def("newLayerText", &Application::newLayerText, "Creates a new Text Render Layer",
@@ -724,7 +2921,7 @@ PYBIND11_EMBEDDED_MODULE(eartharium, m) {
         )
         .def("getJD", &Astronomy::getJD, "Returns the current JD")
         .def("addTime", &Astronomy::addTime, "Adjusts current time by provided amount",
-            py::arg("d"), py::arg("h"), py::arg("min"), py::arg("sec")
+            py::arg("d"), py::arg("h"), py::arg("min"), py::arg("sec"), py::arg("eot")
         )
         .def("calculateGsid", &Astronomy::calculateGsid, "Returns Greenwich Sidereal Time for provided Julian Day",
             py::arg("jd")
@@ -856,7 +3053,22 @@ int main() {
     // Call scenario
     //Sector45_001(app);
     //TestArea5(app);
-    renderFBO(app);
+    //SolSysTest(app);
+    //basic_geometry(app);
+    //ScienceItOut_Response1(app);
+    //Sandbox2_SIO(app);
+    //SunSectorSandbox(app);
+    //ICSTvsCoreyKell(app);
+    //renderFBO(app);
+    //Brian_Leake_01(app);
+    
+    // Latest workarea - shows 2 views with LunarLemma over time at a given location.
+    //Parenting_test(app);
+
+    // Quick test to see if AA includes Earth axial precession
+    //AxialPrecession(app);
+    //Lambertian(app);
+    SimpleTest(app);
     // Cleanup
     glfwTerminate();
 
@@ -867,6 +3079,7 @@ int main() {
 // Textures - Just a note to remember which texture slots are in use on the GPU
 // --------
 // Shadows = 1, SkyBox = 2, Earth = 3 + 4, Sundot = 5, Moondot = 6, OutputRender = 7, Font = 8.
+// There is probably  no real reason why the textures can't share a texture slot, look into that.
 
 
 // ----------------
@@ -888,24 +3101,34 @@ void keyboard_callback(GLFWwindow*, int key, int scancode, int action, int mods)
         if (key == GLFW_KEY_F) { app.togglefullwin = true; }
         // P - Print Camera Settings - Replace with a button in Camera GUI !!!
         if (key == GLFW_KEY_P) { app.dumpcam = true; }
-        // Morph Plus/Minus
+        // T - Print Current Time - Replace with a button in Time GUI !!!
+        if (key == GLFW_KEY_T) { app.dumptime = true; }
+        // N M - Morph Plus/Minus
         if (key == GLFW_KEY_N && app.currentEarth != nullptr) {
             if (app.currentEarth->param == 0.0f) return;
-            app.currentEarth->param -= 0.05f;
+            app.currentEarth->param -= 0.025f;
             if (app.currentEarth->param < 0.0f) app.currentEarth->param = 0.0f;
+        }
+        if (key == GLFW_KEY_N && app.currentEarth2) {
+            float curmorph = app.currentEarth2->getMorphParameter() - 0.025f;
+            app.currentEarth2->setMorphParameter(curmorph > 0.0f ? curmorph : 0.0f);
         }
         if (key == GLFW_KEY_M && app.currentEarth != nullptr) {
             if (app.currentEarth->param == 1.0) return;
-            app.currentEarth->param += 0.05f;
+            app.currentEarth->param += 0.025f;
             if (app.currentEarth->param > 1.0f) app.currentEarth->param = 1.0f;
         }
-        // Earth Eccentricity Plus / Minus - May remove or replace !!!
-        if (key == GLFW_KEY_H && app.currentEarth != nullptr) {
+        if (key == GLFW_KEY_M && app.currentEarth2) {
+            float curmorph = app.currentEarth2->getMorphParameter() + 0.025f;
+            app.currentEarth2->setMorphParameter(curmorph < 1.0f ? curmorph : 1.0f);
+        }
+        // V B - Earth Eccentricity Plus / Minus - May remove or replace !!!
+        if (key == GLFW_KEY_V && app.currentEarth != nullptr) {
             if (app.currentEarth->eccen == 0.0) return;
             app.currentEarth->eccen -= 0.01;
             if (app.currentEarth->eccen < 0.0) app.currentEarth->eccen = 0.0;
         }
-        if (key == GLFW_KEY_J && app.currentEarth != nullptr) {
+        if (key == GLFW_KEY_B && app.currentEarth != nullptr) {
             if (app.currentEarth->eccen == 1.0) return;
             app.currentEarth->eccen += 0.01;
             if (app.currentEarth->eccen > 1.0) app.currentEarth->eccen = 1.0;
@@ -929,6 +3152,15 @@ void keyboard_callback(GLFWwindow*, int key, int scancode, int action, int mods)
             app.currentCam->camLat -= CAMERA_ANGLE_STEP;
             if (app.currentCam->camLat < CAMERA_MIN_LATIDUDE) app.currentCam->camLat = CAMERA_MIN_LATIDUDE;
         }
+        // Q E - Increase / Decrease Camera FoV
+        if (key == GLFW_KEY_Q && app.currentCam != nullptr) {
+            app.currentCam->camFoV += app.currentCam->camFoV * CAMERA_FOV_FACTOR;
+            if (app.currentCam->camFoV > CAMERA_MAX_FOV) app.currentCam->camFoV = CAMERA_MAX_FOV;
+        }
+        if (key == GLFW_KEY_E && app.currentCam != nullptr) {
+            app.currentCam->camFoV -= app.currentCam->camFoV * CAMERA_FOV_FACTOR;
+            if (app.currentCam->camFoV > CAMERA_MAX_FOV) app.currentCam->camFoV = CAMERA_MAX_FOV;
+        }
         // Z C - Increase / Decrease Camera distance to LookAt point
         if (key == GLFW_KEY_C && app.currentCam != nullptr) {
             app.currentCam->camDst -= app.currentCam->camDst * CAMERA_STEP_FACTOR;
@@ -938,14 +3170,33 @@ void keyboard_callback(GLFWwindow*, int key, int scancode, int action, int mods)
             app.currentCam->camDst += app.currentCam->camDst * CAMERA_STEP_FACTOR;
             if (app.currentCam->camDst > CAMERA_MAX_DIST) app.currentCam->camDst = CAMERA_MAX_DIST;
         }
-        // Q E - Increase / Decrease Camera FoV
-        if (key == GLFW_KEY_Q && app.currentCam != nullptr) {
-            app.currentCam->camFoV += app.currentCam->camFoV * CAMERA_FOV_FACTOR;
-            if (app.currentCam->camFoV > CAMERA_MAX_FOV) app.currentCam->camFoV = CAMERA_MAX_FOV;
+        // I J K L - Location Camera controls
+        if (key == GLFW_KEY_J && app.locationCam != nullptr) {
+            app.locationCam->camLon -= CAMERA_ANGLE_STEP;
+            if (app.locationCam->camLon > 360.0f) app.locationCam->camLon -= 360.0f;
+            if (app.locationCam->camLon < 0.0f) app.locationCam->camLon += 360.0f;
         }
-        if (key == GLFW_KEY_E && app.currentCam != nullptr) {
-            app.currentCam->camFoV -= app.currentCam->camFoV * CAMERA_FOV_FACTOR;
-            if (app.currentCam->camFoV > CAMERA_MAX_FOV) app.currentCam->camFoV = CAMERA_MAX_FOV;
+        if (key == GLFW_KEY_L && app.locationCam != nullptr) {
+            app.locationCam->camLon += CAMERA_ANGLE_STEP;
+            if (app.locationCam->camLon > 360.0f) app.locationCam->camLon -= 360.0f;
+            if (app.locationCam->camLon < 0.0f) app.locationCam->camLon += 360.0f;
+        }
+        if (key == GLFW_KEY_I && app.locationCam != nullptr) {
+            app.locationCam->camLat += CAMERA_ANGLE_STEP;
+            if (app.locationCam->camLat > CAMERA_MAX_LATITUDE) app.locationCam->camLat = CAMERA_MAX_LATITUDE;
+        }
+        if (key == GLFW_KEY_K && app.locationCam != nullptr) {
+            app.locationCam->camLat -= CAMERA_ANGLE_STEP;
+            if (app.locationCam->camLat < CAMERA_MIN_LATIDUDE) app.locationCam->camLat = CAMERA_MIN_LATIDUDE;
+        }
+        // U O - Location Cam Field of View
+        if (key == GLFW_KEY_U && app.locationCam != nullptr) {
+            app.locationCam->camFoV += app.locationCam->camFoV * CAMERA_FOV_FACTOR;
+            if (app.locationCam->camFoV > CAMERA_MAX_FOV) app.locationCam->camFoV = CAMERA_MAX_FOV;
+        }
+        if (key == GLFW_KEY_O && app.locationCam != nullptr) {
+            app.locationCam->camFoV -= app.locationCam->camFoV * CAMERA_FOV_FACTOR;
+            if (app.locationCam->camFoV > CAMERA_MAX_FOV) app.locationCam->camFoV = CAMERA_MAX_FOV;
         }
     };
 }

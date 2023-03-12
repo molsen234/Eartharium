@@ -2672,7 +2672,7 @@ constexpr array<VSOP87Coefficient, 2> g_VSOP87B_R5_EARTH
   {        0.00000000012,        0.65572878044,    12566.15169998280 }
 } };
 
-array<VSOP87Coefficient2, 6> g_VSOP87B_L_EARTH
+constexpr array<VSOP87Coefficient2, 6> g_VSOP87B_L_EARTH
 { {
   { g_VSOP87B_L0_EARTH.data(), g_VSOP87B_L0_EARTH.size() },
   { g_VSOP87B_L1_EARTH.data(), g_VSOP87B_L1_EARTH.size() },
@@ -2682,7 +2682,7 @@ array<VSOP87Coefficient2, 6> g_VSOP87B_L_EARTH
   { g_VSOP87B_L5_EARTH.data(), g_VSOP87B_L5_EARTH.size() }
 } };
 
-array<VSOP87Coefficient2, 6> g_VSOP87B_B_EARTH
+constexpr array<VSOP87Coefficient2, 6> g_VSOP87B_B_EARTH
 { {
   { g_VSOP87B_B0_EARTH.data(), g_VSOP87B_B0_EARTH.size() },
   { g_VSOP87B_B1_EARTH.data(), g_VSOP87B_B1_EARTH.size() },
@@ -2692,7 +2692,7 @@ array<VSOP87Coefficient2, 6> g_VSOP87B_B_EARTH
   { g_VSOP87B_B5_EARTH.data(), g_VSOP87B_B5_EARTH.size() }
 } };
 
-array<VSOP87Coefficient2, 6> g_VSOP87B_R_EARTH
+constexpr array<VSOP87Coefficient2, 6> g_VSOP87B_R_EARTH
 { {
   { g_VSOP87B_R0_EARTH.data(), g_VSOP87B_R0_EARTH.size() },
   { g_VSOP87B_R1_EARTH.data(), g_VSOP87B_R1_EARTH.size() },

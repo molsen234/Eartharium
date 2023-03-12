@@ -3591,7 +3591,7 @@ constexpr array<VSOP87Coefficient, 9> g_VSOP87D_R5_JUPITER
   {        0.00000001033,        4.50671820436,      529.69096509460 }
 } };
 
-array<VSOP87Coefficient2, 6> g_VSOP87D_L_JUPITER
+constexpr array<VSOP87Coefficient2, 6> g_VSOP87D_L_JUPITER
 { {
   { g_VSOP87D_L0_JUPITER.data(), g_VSOP87D_L0_JUPITER.size() },
   { g_VSOP87D_L1_JUPITER.data(), g_VSOP87D_L1_JUPITER.size() },
@@ -3601,7 +3601,7 @@ array<VSOP87Coefficient2, 6> g_VSOP87D_L_JUPITER
   { g_VSOP87D_L5_JUPITER.data(), g_VSOP87D_L5_JUPITER.size() }
 } };
 
-array<VSOP87Coefficient2, 6> g_VSOP87D_B_JUPITER
+constexpr array<VSOP87Coefficient2, 6> g_VSOP87D_B_JUPITER
 { {
   { g_VSOP87D_B0_JUPITER.data(), g_VSOP87D_B0_JUPITER.size() },
   { g_VSOP87D_B1_JUPITER.data(), g_VSOP87D_B1_JUPITER.size() },
@@ -3611,7 +3611,7 @@ array<VSOP87Coefficient2, 6> g_VSOP87D_B_JUPITER
   { g_VSOP87D_B5_JUPITER.data(), g_VSOP87D_B5_JUPITER.size() }
 } };
 
-array<VSOP87Coefficient2, 6> g_VSOP87D_R_JUPITER
+constexpr array<VSOP87Coefficient2, 6> g_VSOP87D_R_JUPITER
 { {
   { g_VSOP87D_R0_JUPITER.data(), g_VSOP87D_R0_JUPITER.size() },
   { g_VSOP87D_R1_JUPITER.data(), g_VSOP87D_R1_JUPITER.size() },
