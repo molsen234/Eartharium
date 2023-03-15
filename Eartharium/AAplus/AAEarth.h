@@ -3,7 +3,7 @@ Module : AAEarth.h
 Purpose: Implementation for the algorithms which calculate the position of Earth
 Created: PJN / 29-12-2003
 
-Copyright (c) 2003 - 2021 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
+Copyright (c) 2003 - 2023 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
 
 All rights reserved.
 
@@ -18,7 +18,7 @@ to maintain a single distribution point for the source code.
 */
 
 
-/////////////////////// Macros / Defines //////////////////////////////////////
+//////////////////// Macros / Defines /////////////////////////////////////////
 
 #if _MSC_VER > 1000
 #pragma once
@@ -32,7 +32,7 @@ to maintain a single distribution point for the source code.
 #endif //#ifndef AAPLUS_EXT_CLASS
 
 
-//////////////////////// Classes //////////////////////////////////////////////
+//////////////////// Classes //////////////////////////////////////////////////
 
 class AAPLUS_EXT_CLASS CAAEarth
 {
@@ -48,9 +48,9 @@ public:
 #endif //#ifdef _MSC_VER
   static double Eccentricity(double JD) noexcept
   {
-    const double T = (JD - 2451545) / 36525;
-    const double Tsquared = T * T;
-    return 1 - 0.002516*T - 0.0000074*Tsquared;
+    const double T{(JD - 2451545)/36525};
+    const double Tsquared{T*T};
+    return 1 - (0.002516*T) - (0.0000074*Tsquared);
   }
 
   static double EclipticLongitudeJ2000(double JD, bool bHighPrecision) noexcept;

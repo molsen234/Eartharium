@@ -46,8 +46,13 @@ History: PJN / 10-11-2004 1. Fix for CAADate::Get so that it works correctly for
          PJN / 18-04-2020 1. Made a number of the CAADate methods [[nodiscard]] when compiled as C++ 17
          PJN / 29-04-2020 1. Fixed a compilation issue on GCC where size_t was undefined in various modules. Thanks to
                           Bert Devlieghe for reporting this bug.
+         PJN / 03-10-2021 1. Renamed CAADate::DAY_OF_WEEK type to DOW.
+         PJN / 22-03-2022 1. Fixed an issue in CAADate::DayOfWeek for dates which are close to or prior to the Julian
+                          day epoch. Thanks to "znight" for reporting this issue.
+                          2. Updated all the code in the AADate.cpp to use C++ uniform initialization for all variable
+                          declarations.
 
-Copyright (c) 2003 - 2021 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
+Copyright (c) 2003 - 2023 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
 
 All rights reserved.
 
@@ -57,12 +62,12 @@ You are allowed to include the source code in any product (commercial, shareware
 when your product is released in binary form. You are allowed to modify the source code in any way you want 
 except you cannot modify the copyright details at the top of each module. If you want to distribute source 
 code with your application, then you are only allowed to distribute versions released by the author. This is 
-to maintain a single distribution point for the source code. 
+to maintain a single distribution point for the source code.
 
 */
 
 
-//////////////////////////// Includes /////////////////////////////////////////
+//////////////////// Includes /////////////////////////////////////////////////
 
 #include "stdafx.h"
 #include "AADate.h"
@@ -70,48 +75,47 @@ to maintain a single distribution point for the source code.
 #include <cassert>
 #include <cstddef>
 #include <array>
-using namespace std;
 
 
-//////////////////////////// Implementation ///////////////////////////////////
+//////////////////// Implementation ///////////////////////////////////////////
 
-CAADate::CAADate() noexcept : m_dblJulian(0),
-                              m_bGregorianCalendar(false)
+CAADate::CAADate() noexcept : m_dblJulian{0},
+                              m_bGregorianCalendar{false}
 {
 }
 
-CAADate::CAADate(long Year, long Month, double Day, bool bGregorianCalendar) noexcept : m_dblJulian(0),
-                                                                                        m_bGregorianCalendar(false)
+CAADate::CAADate(long Year, long Month, double Day, bool bGregorianCalendar) noexcept : m_dblJulian{0},
+                                                                                        m_bGregorianCalendar{false}
 {
   Set(Year, Month, Day, 0, 0, 0, bGregorianCalendar);
 }
 
-CAADate::CAADate(long Year, long Month, double Day, double Hour, double Minute, double Second, bool bGregorianCalendar) noexcept : m_dblJulian(0),
-                                                                                                                                   m_bGregorianCalendar(false)
+CAADate::CAADate(long Year, long Month, double Day, double Hour, double Minute, double Second, bool bGregorianCalendar) noexcept : m_dblJulian{0},
+                                                                                                                                   m_bGregorianCalendar{false}
 {
   Set(Year, Month, Day, Hour, Minute, Second, bGregorianCalendar);
 }
 
-CAADate::CAADate(double JD, bool bGregorianCalendar) noexcept : m_dblJulian(0),
-                                                                m_bGregorianCalendar(false)
+CAADate::CAADate(double JD, bool bGregorianCalendar) noexcept : m_dblJulian{0},
+                                                                m_bGregorianCalendar{false}
 {
   Set(JD, bGregorianCalendar);
 }
 
 double CAADate::DateToJD(long Year, long Month, double Day, bool bGregorianCalendar) noexcept
 {
-  long Y = Year;
-  long M = Month;
+  long Y{Year};
+  long M{Month};
   if (M < 3)
   {
     Y = Y - 1;
     M = M + 12;
   }
 
-  long B = 0;
+  long B{0};
   if (bGregorianCalendar)
   {
-    const long A = INT(Y / 100.0);
+    const long A{INT(Y / 100.0)};
     B = 2 - A + INT(A / 4.0);
   }
 
@@ -133,16 +137,16 @@ bool CAADate::IsLeap(long Year, bool bGregorianCalendar) noexcept
 
 void CAADate::Set(long Year, long Month, double Day, double Hour, double Minute, double Second, bool bGregorianCalendar) noexcept
 {
-  const double dblDay = Day + (Hour/24) + (Minute/1440) + (Second / 86400);
+  const double dblDay{Day + (Hour / 24) + (Minute / 1440) + (Second / 86400)};
   Set(DateToJD(Year, Month, dblDay, bGregorianCalendar), bGregorianCalendar);
-} 
+}
 
 void CAADate::Get(long& Year, long& Month, long& Day, long& Hour, long& Minute, double& Second) const noexcept
 {
-  const double JD = m_dblJulian + 0.5;
-  double tempZ = 0; 
-  double F = modf(JD, &tempZ);
-  const long Z = static_cast<long>(tempZ);
+  const double JD{m_dblJulian + 0.5};
+  double tempZ{0};
+  double F{modf(JD, &tempZ)};
+  const long Z{static_cast<long>(tempZ)};
   long A = 0;
 
   if (m_bGregorianCalendar) //There is a difference here between the Meeus implementation and this one
@@ -155,18 +159,18 @@ void CAADate::Get(long& Year, long& Month, long& Day, long& Hour, long& Minute, 
                             //reform in 1582. This is useful if you want to construct dates in countries
                             //which did not immediately adapt the Gregorian calendar
   {
-    const long alpha = INT((Z - 1867216.25) / 36524.25);
+    const long alpha{INT((Z - 1867216.25) / 36524.25)};
     A = Z + 1 + alpha - INT(INT(alpha)/4.0);
   }
   else
     A = Z;
 
-  const long B = A + 1524;
-  long C = INT((B - 122.1) / 365.25);
-  const long D = INT(365.25 * C);
-  long E = INT((0.0 + B - D) / 30.6001);
+  const long B{A + 1524};
+  long C{INT((B - 122.1) / 365.25)};
+  const long D{INT(365.25 * C)};
+  long E{INT((0.0 + B - D) / 30.6001)};
 
-  double dblDay = 0.0 + B - D - INT(30.6001 * E) + F;
+  double dblDay{0.0 + B - D - INT(30.6001 * E) + F};
   Day = static_cast<long>(dblDay);
 
   if (E < 14)
@@ -193,7 +197,7 @@ void CAADate::Set(double JD, bool bGregorianCalendar) noexcept
 
 void CAADate::SetInGregorianCalendar(bool bGregorianCalendar) noexcept
 {
-  const bool bAfterPapalReform = AfterPapalReform(m_dblJulian);
+  const bool bAfterPapalReform{AfterPapalReform(m_dblJulian)};
 
 #ifdef _DEBUG
   if (bGregorianCalendar) //We do not allow storage of proleptic Gregorian dates
@@ -205,91 +209,100 @@ void CAADate::SetInGregorianCalendar(bool bGregorianCalendar) noexcept
 
 long CAADate::Day() const noexcept
 {
-  long Year = 0;
-  long Month = 0;
-  long Day = 0;
-  long Hour = 0;
-  long Minute = 0;
-  double Second = 0;
+  long Year{0};
+  long Month{0};
+  long Day{0};
+  long Hour{0};
+  long Minute{0};
+  double Second{0};
   Get(Year, Month, Day, Hour, Minute, Second);
   return Day;
 }
 
 long CAADate::Month() const noexcept
 {
-  long Year = 0;
-  long Month = 0;
-  long Day = 0;
-  long Hour = 0;
-  long Minute = 0;
-  double Second = 0;
+  long Year{0};
+  long Month{0};
+  long Day{0};
+  long Hour{0};
+  long Minute{0};
+  double Second{0};
   Get(Year, Month, Day, Hour, Minute, Second);
   return Month;
 }
 
 long CAADate::Year() const noexcept
 {
-  long Year = 0;
-  long Month = 0;
-  long Day = 0;
-  long Hour = 0;
-  long Minute = 0;
-  double Second = 0;
+  long Year{0};
+  long Month{0};
+  long Day{0};
+  long Hour{0};
+  long Minute{0};
+  double Second{0};
   Get(Year, Month, Day, Hour, Minute, Second);
   return Year;
 }
 
 long CAADate::Hour() const noexcept
 {
-  long Year = 0;
-  long Month = 0;
-  long Day = 0;
-  long Hour = 0;
-  long Minute = 0;
-  double Second = 0;
+  long Year{0};
+  long Month{0};
+  long Day{0};
+  long Hour{0};
+  long Minute{0};
+  double Second{0};
   Get(Year, Month, Day, Hour, Minute, Second);
   return Hour;
 }
 
 long CAADate::Minute() const noexcept
 {
-  long Year = 0;
-  long Month = 0;
-  long Day = 0;
-  long Hour = 0;
-  long Minute = 0;
-  double Second = 0;
+  long Year{0};
+  long Month{0};
+  long Day{0};
+  long Hour{0};
+  long Minute{0};
+  double Second{0};
   Get(Year, Month, Day, Hour, Minute, Second);
   return Minute;
 }
 
 double CAADate::Second() const noexcept
 {
-  long Year = 0;
-  long Month = 0;
-  long Day = 0;
-  long Hour = 0;
-  long Minute = 0;
-  double Second = 0;
+  long Year{0};
+  long Month{0};
+  long Day{0};
+  long Hour{0};
+  long Minute{0};
+  double Second{0};
   Get(Year, Month, Day, Hour, Minute, Second);
   return Second;
 }
 
-CAADate::DAY_OF_WEEK CAADate::DayOfWeek() const noexcept
+CAADate::DOW CAADate::DayOfWeek() const noexcept
 {
-  return static_cast<DAY_OF_WEEK>((static_cast<long>(m_dblJulian + 1.5) % 7));
+  const long t{static_cast<long>(m_dblJulian + 1.5)};
+  if (t >= 0)
+    return static_cast<DOW>(t % 7);
+  else
+  {
+    long r{7 - (abs(t) % 7)};
+    if (r == 7)
+      r -= 7;
+    return static_cast<DOW>(r);
+  }
 }
 
 long CAADate::DaysInMonth(long Month, bool bLeap) noexcept
 {
   //Validate our parameters
-  assert(Month >= 1 && Month <= 12);
+  assert((Month >= 1) && (Month <= 12));
 #ifdef _MSC_VER
   __analysis_assume(Month >= 1 && Month <= 12);
 #endif //#ifdef _MSC_VER
 
-  static constexpr array<int, 12> g_NonLeapMonths{ 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
-  static constexpr array<int, 12> g_LeapMonths{ 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+  static constexpr std::array<int, 12> g_NonLeapMonths{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+  static constexpr std::array<int, 12> g_LeapMonths{31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
   if (bLeap)
   {
@@ -309,25 +322,25 @@ long CAADate::DaysInMonth(long Month, bool bLeap) noexcept
 
 long CAADate::DaysInMonth() const noexcept
 {
-  long Year = 0;
-  long Month = 0;
-  long Day = 0;
-  long Hour = 0;
-  long Minute = 0;
-  double Second = 0;
+  long Year{0};
+  long Month{0};
+  long Day{0};
+  long Hour{0};
+  long Minute{0};
+  double Second{0};
   Get(Year, Month, Day, Hour, Minute, Second);
-  
+
   return DaysInMonth(Month, IsLeap(Year, m_bGregorianCalendar));
 }
 
 long CAADate::DaysInYear() const noexcept
 {
-  long Year = 0;
-  long Month = 0;
-  long Day = 0;
-  long Hour = 0;
-  long Minute = 0;
-  double Second = 0;
+  long Year{0};
+  long Month{0};
+  long Day{0};
+  long Hour{0};
+  long Minute{0};
+  double Second{0};
   Get(Year, Month, Day, Hour, Minute, Second);
 
   if (IsLeap(Year, m_bGregorianCalendar))
@@ -338,12 +351,12 @@ long CAADate::DaysInYear() const noexcept
 
 double CAADate::DayOfYear() const noexcept
 {
-  long Year = 0;
-  long Month = 0;
-  long Day = 0;
-  long Hour = 0;
-  long Minute = 0;
-  double Second = 0;
+  long Year{0};
+  long Month{0};
+  long Day{0};
+  long Hour{0};
+  long Minute{0};
+  double Second{0};
   Get(Year, Month, Day, Hour, Minute, Second);
 
   return DayOfYear(m_dblJulian, Year, AfterPapalReform(Year, 1, 1));
@@ -356,15 +369,15 @@ double CAADate::DayOfYear(double JD, long Year, bool bGregorianCalendar) noexcep
 
 double CAADate::FractionalYear() const noexcept
 {
-  long Year = 0;
-  long Month = 0;
-  long Day = 0;
-  long Hour = 0;
-  long Minute = 0;
-  double Second = 0;
+  long Year{0};
+  long Month{0};
+  long Day{0};
+  long Hour{0};
+  long Minute{0};
+  double Second{0};
   Get(Year, Month, Day, Hour, Minute, Second);
 
-  long DaysInYear = 0;
+  long DaysInYear{0};
   if (IsLeap(Year, m_bGregorianCalendar))
     DaysInYear = 366;
   else
@@ -380,7 +393,7 @@ bool CAADate::Leap() const noexcept
 
 void CAADate::DayOfYearToDayAndMonth(long DayOfYear, bool bLeap, long& DayOfMonth, long& Month) noexcept
 {
-  long K = bLeap ? 1 : 2;
+  long K{bLeap ? 1 : 2};
 
   Month = INT(9 * (0.0 + K + DayOfYear) / 275.0 + 0.98);
   if (DayOfYear < 32)
@@ -399,29 +412,28 @@ long CAADate::INT(double value) noexcept
 
 CAACalendarDate CAADate::JulianToGregorian(long Year, long Month, long Day) noexcept
 {
-  CAADate date(Year, Month, Day, false);
+  CAADate date{Year, Month, static_cast<double>(Day), false};
   date.SetInGregorianCalendar(true);
 
   CAACalendarDate GregorianDate;
-  long Hour = 0;
-  long Minute = 0;
-  double Second = 0;
+  long Hour{0};
+  long Minute{0};
+  double Second{0};
   date.Get(GregorianDate.Year, GregorianDate.Month, GregorianDate.Day, Hour, Minute, Second);
-  
-  return GregorianDate;  
+
+  return GregorianDate;
 }
 
 CAACalendarDate CAADate::GregorianToJulian(long Year, long Month, long Day) noexcept
 {
-  CAADate date(Year, Month, Day, true);
+  CAADate date{Year, Month, static_cast<double>(Day), true};
   date.SetInGregorianCalendar(false);
 
   CAACalendarDate JulianDate;
-  long Hour = 0;
-  long Minute = 0;
-  double Second = 0;
+  long Hour{0};
+  long Minute{0};
+  double Second{0};
   date.Get(JulianDate.Year, JulianDate.Month, JulianDate.Day, Hour, Minute, Second);
-  
-  return JulianDate;  
-}
 
+  return JulianDate;
+}

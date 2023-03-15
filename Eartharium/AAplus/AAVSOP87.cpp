@@ -6,8 +6,10 @@ History: PJN / 28-08-2015 1. Initial public release.
          PJN / 08-06-2019 1. Updated the code to clean compile on VC 2019
          PJN / 29-04-2020 1. Fixed a compilation issue on GCC where size_t was undefined in various modules.
                           Thanks to Bert Devlieghe for reporting this bug.
+         PJN / 12-07-2022 1. Updated all the code in AAVSOP87.cpp to use C++ uniform initialization for all
+                          variable declarations.
 
-Copyright (c) 2015 - 2021 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
+Copyright (c) 2015 - 2023 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
 
 All rights reserved.
 
@@ -22,44 +24,43 @@ to maintain a single distribution point for the source code.
 */
 
 
-/////////////////////////////// Includes //////////////////////////////////////
+//////////////////// Includes /////////////////////////////////////////////////
 
 #include "stdafx.h"
 #include "AAVSOP87.h"
 #include "AACoordinateTransformation.h"
 #include <cmath>
 #include <cassert>
-using namespace std;
 
 
-////////////////////////////// Macros / Defines /////////////////////////////
+//////////////////// Macros / Defines /////////////////////////////////////////
 
 #ifdef _MSC_VER
 #pragma warning(disable : 26481)
 #endif //#ifdef _MSC_VER
 
 
-////////////////////////////// Implementation ///////////////////////////////
+//////////////////// Implementation ///////////////////////////////////////////
 
 #ifdef _MSC_VER
 #pragma warning(suppress : 26429)
 #endif //#ifdef _MSC_VER
-double CVSOP87::Calculate(double JD, const VSOP87Coefficient2* pTable, size_t nTableSize, bool bAngle) noexcept
+double CAAVSOP87::Calculate(double JD, const VSOP87Coefficient2* pTable, size_t nTableSize, bool bAngle) noexcept
 {
-//Validate our parameters
-  assert(pTable != nullptr);
+  //Validate our parameters
+  assert(pTable);
 
-  const double T = (JD - 2451545) / 365250;
-  double TTerm = T;
-  double Result = 0;
-  for (size_t i=0; i<nTableSize; i++)
+  const double T{(JD - 2451545)/365250};
+  double TTerm{T};
+  double Result{0};
+  for (size_t i{0}; i<nTableSize; i++)
   {
-    double TempResult = 0;
-    for (size_t j=0; j<pTable[i].nCoefficientsSize; j++)
+    double TempResult{0};
+    for (size_t j{0}; j<pTable[i].nCoefficientsSize; j++)
 #ifdef _MSC_VER
 #pragma warning(suppress : 26489)
 #endif //#ifdef _MSC_VER
-      TempResult += (pTable[i].pCoefficients[j].A * cos(pTable[i].pCoefficients[j].B + (pTable[i].pCoefficients[j].C*T)));
+      TempResult += (pTable[i].pCoefficients[j].A*cos(pTable[i].pCoefficients[j].B + (pTable[i].pCoefficients[j].C*T)));
     if (i)
     {
       TempResult *= TTerm;
@@ -77,33 +78,33 @@ double CVSOP87::Calculate(double JD, const VSOP87Coefficient2* pTable, size_t nT
 #ifdef _MSC_VER
 #pragma warning(suppress : 26429)
 #endif //#ifdef _MSC_VER
-double CVSOP87::Calculate_Dash(double JD, const VSOP87Coefficient2* pTable, size_t nTableSize) noexcept
+double CAAVSOP87::Calculate_Dash(double JD, const VSOP87Coefficient2* pTable, size_t nTableSize) noexcept
 {
 //Validate our parameters
-  assert(pTable != nullptr);
+  assert(pTable);
 
-  const double T = (JD - 2451545) / 365250;
-  double TTerm1 = 1;
-  double TTerm2 = T;
-  double Result = 0;
-  for (size_t i=0; i<nTableSize; i++)
+  const double T{(JD - 2451545)/365250};
+  double TTerm1{1};
+  double TTerm2{T};
+  double Result{0};
+  for (size_t i{0}; i<nTableSize; i++)
   {
-    double tempPart1 = 0;
-    double tempPart2 = 0;
-    for (size_t j=0; j<pTable[i].nCoefficientsSize; j++)
+    double tempPart1{0};
+    double tempPart2{0};
+    for (size_t j{0}; j<pTable[i].nCoefficientsSize; j++)
     {
 #ifdef _MSC_VER
 #pragma warning(suppress : 26489)
 #endif //#ifdef _MSC_VER
-      const double B_CT = pTable[i].pCoefficients[j].B + (pTable[i].pCoefficients[j].C*T);
+      const double B_CT{pTable[i].pCoefficients[j].B + (pTable[i].pCoefficients[j].C*T)};
 #ifdef _MSC_VER
 #pragma warning(suppress : 26489)
 #endif //#ifdef _MSC_VER
-      tempPart1 += (i * pTable[i].pCoefficients[j].A * cos(B_CT));
+      tempPart1 += (i*pTable[i].pCoefficients[j].A*cos(B_CT));
 #ifdef _MSC_VER
 #pragma warning(suppress : 26489)
 #endif //#ifdef _MSC_VER
-      tempPart2 += (pTable[i].pCoefficients[j].A * pTable[i].pCoefficients[j].C * sin(B_CT));
+      tempPart2 += (pTable[i].pCoefficients[j].A*pTable[i].pCoefficients[j].C*sin(B_CT));
     }
     if (i)
     {
@@ -116,5 +117,5 @@ double CVSOP87::Calculate_Dash(double JD, const VSOP87Coefficient2* pTable, size
   }
 
   //The value returned is in per days
-  return Result / 365250;
+  return Result/365250;
 }

@@ -15,8 +15,10 @@ History: PJN / 18-03-2012 1. All global "g_*" tables are now const. Thanks to Ro
          PJN / 01-08-2017 1. Fixed up alignment of lookup tables in AANeptune.cpp module
          PJN / 18-08-2019 1. Fixed some further compiler warnings when using VC 2019 Preview v16.3.0 Preview 2.0
          PJN / 13-04-2020 1. Reworked C arrays to use std::array
+         PJN / 30-06-2022 1. Updated all the code in AANeptune.cpp to use C++ uniform initialization for all
+                          variable declarations.
 
-Copyright (c) 2003 - 2021 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
+Copyright (c) 2003 - 2023 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
 
 All rights reserved.
 
@@ -26,26 +28,25 @@ You are allowed to include the source code in any product (commercial, shareware
 when your product is released in binary form. You are allowed to modify the source code in any way you want 
 except you cannot modify the copyright details at the top of each module. If you want to distribute source 
 code with your application, then you are only allowed to distribute versions released by the author. This is 
-to maintain a single distribution point for the source code. 
+to maintain a single distribution point for the source code.
 
 */
 
 
-////////////////////////// Includes ///////////////////////////////////////////
+//////////////////// Includes /////////////////////////////////////////////////
 
 #include "stdafx.h"
 #include "AANeptune.h"
 #include "AACoordinateTransformation.h"
 #include "AADefines.h"
-#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#ifndef AAPLUS_NO_VSOP87
 #include "AAVSOP87D_NEP.h"
-#endif //#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#endif //#ifndef AAPLUS_NO_VSOP87
 #include <cmath>
 #include <array>
-using namespace std;
 
 
-////////////////////////// Macros / Defines ///////////////////////////////////
+//////////////////// Macros / Defines /////////////////////////////////////////
 
 #ifdef _MSC_VER
 #pragma warning(disable : 26446 26482 26485)
@@ -58,7 +59,7 @@ struct VSOP87Coefficient
   double C;
 };
 
-constexpr array<VSOP87Coefficient, 38> g_L0NeptuneCoefficients
+constexpr std::array<VSOP87Coefficient, 38> g_L0NeptuneCoefficients
 { {
   { 531188633,  0,          0          },
   { 1798476,    2.9010127,  38.1330356 },
@@ -100,7 +101,7 @@ constexpr array<VSOP87Coefficient, 38> g_L0NeptuneCoefficients
   { 102,        5.705,      0.112      }
 } };
 
-constexpr array<VSOP87Coefficient, 18> g_L1NeptuneCoefficients
+constexpr std::array<VSOP87Coefficient, 18> g_L1NeptuneCoefficients
 { {
   { 3837687717.0, 0,        0        },
   { 16604,        4.86319,  1.48447  },
@@ -122,7 +123,7 @@ constexpr array<VSOP87Coefficient, 18> g_L1NeptuneCoefficients
   { 26,           5.25,     168.05   }
 } };
 
-constexpr array<VSOP87Coefficient, 7> g_L2NeptuneCoefficients
+constexpr std::array<VSOP87Coefficient, 7> g_L2NeptuneCoefficients
 { {
   { 53893, 0,     0      },
   { 296,   1.855, 1.484  },
@@ -133,7 +134,7 @@ constexpr array<VSOP87Coefficient, 7> g_L2NeptuneCoefficients
   { 7,     0.54,  2.45   }
 } };
 
-constexpr array<VSOP87Coefficient, 4> g_L3NeptuneCoefficients
+constexpr std::array<VSOP87Coefficient, 4> g_L3NeptuneCoefficients
 { {
   { 31, 0,    0     },
   { 15, 1.35, 76.27 },
@@ -141,12 +142,12 @@ constexpr array<VSOP87Coefficient, 4> g_L3NeptuneCoefficients
   { 12, 6.11, 38.13 }
 } };
 
-constexpr array<VSOP87Coefficient, 1> g_L4NeptuneCoefficients
+constexpr std::array<VSOP87Coefficient, 1> g_L4NeptuneCoefficients
 { {
   { 114, 3.142,  0 }
 } };
 
-constexpr array<VSOP87Coefficient, 17> g_B0NeptuneCoefficients
+constexpr std::array<VSOP87Coefficient, 17> g_B0NeptuneCoefficients
 { {
   { 3088623, 1.4410437, 38.1330356 },
   { 27780,   5.91272,   76.26607   },
@@ -167,7 +168,7 @@ constexpr array<VSOP87Coefficient, 17> g_B0NeptuneCoefficients
   { 140,     3.530,     137.033    }
 } };
 
-constexpr array<VSOP87Coefficient, 13> g_B1NeptuneCoefficients
+constexpr std::array<VSOP87Coefficient, 13> g_B1NeptuneCoefficients
 { {
   { 227279, 3.807931, 38.133036 },
   { 1803,   1.9758,   76.2661   },
@@ -184,7 +185,7 @@ constexpr array<VSOP87Coefficient, 13> g_B1NeptuneCoefficients
   { 26,     5.22,     213.30    }
 } };
 
-constexpr array<VSOP87Coefficient, 6> g_B2NeptuneCoefficients
+constexpr std::array<VSOP87Coefficient, 6> g_B2NeptuneCoefficients
 { {
   { 9691, 5.5712, 38.1330 },
   { 79,   3.63,   76.27   },
@@ -194,7 +195,7 @@ constexpr array<VSOP87Coefficient, 6> g_B2NeptuneCoefficients
   { 6,    5.61,   74.78   }
 } };
 
-constexpr array<VSOP87Coefficient, 4> g_B3NeptuneCoefficients
+constexpr std::array<VSOP87Coefficient, 4> g_B3NeptuneCoefficients
 { {
   { 273, 1.017, 38.133 },
   { 2,   0,     0      },
@@ -202,12 +203,12 @@ constexpr array<VSOP87Coefficient, 4> g_B3NeptuneCoefficients
   { 2,   5.33,  76.27  }
 } };
 
-constexpr array<VSOP87Coefficient, 1> g_B4NeptuneCoefficients
+constexpr std::array<VSOP87Coefficient, 1> g_B4NeptuneCoefficients
 { {
   { 6, 2.67, 38.13 }
 } };
 
-constexpr array<VSOP87Coefficient, 32> g_R0NeptuneCoefficients
+constexpr std::array<VSOP87Coefficient, 32> g_R0NeptuneCoefficients
 { {
   { 3007013206.0, 0,          0           },
   { 27062259,     1.32999459, 38.13303564 },
@@ -243,7 +244,7 @@ constexpr array<VSOP87Coefficient, 32> g_R0NeptuneCoefficients
   { 2087,         0.6186,     33.9402     }
 } };
 
-constexpr array<VSOP87Coefficient, 15> g_R1NeptuneCoefficients
+constexpr std::array<VSOP87Coefficient, 15> g_R1NeptuneCoefficients
 { {
   { 236339, 0.704980, 38.133036 },
   { 13220,  3.32015,  1.48447   },
@@ -262,7 +263,7 @@ constexpr array<VSOP87Coefficient, 15> g_R1NeptuneCoefficients
   { 561,    2.887,    498.671   }
 } };
 
-constexpr array<VSOP87Coefficient, 5> g_R2NeptuneCoefficients
+constexpr std::array<VSOP87Coefficient, 5> g_R2NeptuneCoefficients
 { {
   { 4247, 5.8991, 38.1330 },
   { 218,  0.346,  1.484   },
@@ -271,7 +272,7 @@ constexpr array<VSOP87Coefficient, 5> g_R2NeptuneCoefficients
   { 127,  2.848,  35.164  }
 } };
 
-constexpr array<VSOP87Coefficient, 1> g_R3NeptuneCoefficients
+constexpr std::array<VSOP87Coefficient, 1> g_R3NeptuneCoefficients
 { {
   { 166,  4.552,  38.133 }
 } };
@@ -281,44 +282,44 @@ constexpr array<VSOP87Coefficient, 1> g_R3NeptuneCoefficients
 
 double CAANeptune::EclipticLongitude(double JD, bool bHighPrecision) noexcept
 {
-#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#ifndef AAPLUS_NO_VSOP87
   if (bHighPrecision)
     return CAACoordinateTransformation::MapTo0To360Range(CAACoordinateTransformation::RadiansToDegrees(CAAVSOP87D_Neptune::L(JD)));
 #else
   UNREFERENCED_PARAMETER(bHighPrecision);
-#endif //#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#endif //#ifndef AAPLUS_NO_VSOP87
 
-  const double rho = (JD - 2451545) / 365250;
-  const double rhosquared = rho*rho;
-  const double rhocubed = rhosquared*rho;
-  const double rho4 = rhocubed*rho;
+  const double rho{(JD - 2451545)/365250};
+  const double rhosquared{rho*rho};
+  const double rhocubed{rhosquared*rho};
+  const double rho4{rhocubed*rho};
 
   //Calculate L0
-  double L0 = 0;
+  double L0{0};
   for (const auto& L0Coefficient : g_L0NeptuneCoefficients)
-    L0 += (L0Coefficient.A * cos(L0Coefficient.B + (L0Coefficient.C*rho)));
+    L0 += (L0Coefficient.A*cos(L0Coefficient.B + (L0Coefficient.C*rho)));
 
   //Calculate L1
-  double L1 = 0;
+  double L1{0};
   for (const auto& L1Coefficient : g_L1NeptuneCoefficients)
-    L1 += (L1Coefficient.A * cos(L1Coefficient.B + (L1Coefficient.C*rho)));
+    L1 += (L1Coefficient.A*cos(L1Coefficient.B + (L1Coefficient.C*rho)));
 
   //Calculate L2
-  double L2 = 0;
+  double L2{0};
   for (const auto& L2Coefficient : g_L2NeptuneCoefficients)
-    L2 += (L2Coefficient.A * cos(L2Coefficient.B + (L2Coefficient.C*rho)));
+    L2 += (L2Coefficient.A*cos(L2Coefficient.B + (L2Coefficient.C*rho)));
 
   //Calculate L3
-  double L3 = 0;
+  double L3{0};
   for (const auto& L3Coefficient : g_L3NeptuneCoefficients)
-    L3 += (L3Coefficient.A * cos(L3Coefficient.B + (L3Coefficient.C*rho)));
+    L3 += (L3Coefficient.A*cos(L3Coefficient.B + (L3Coefficient.C*rho)));
 
   //Calculate L4
-  double L4 = 0;
+  double L4{0};
   for (const auto& L4Coefficient : g_L4NeptuneCoefficients)
-    L4 += (L4Coefficient.A * cos(L4Coefficient.B + (L4Coefficient.C*rho)));
+    L4 += (L4Coefficient.A*cos(L4Coefficient.B + (L4Coefficient.C*rho)));
 
-  double value = (L0 + (L1*rho) + (L2*rhosquared) + (L3*rhocubed) + (L4*rho4)) / 100000000;
+  double value{(L0 + (L1*rho) + (L2*rhosquared) + (L3*rhocubed) + (L4*rho4))/100000000};
 
   //convert results back to degrees
   value = CAACoordinateTransformation::MapTo0To360Range(CAACoordinateTransformation::RadiansToDegrees(value));
@@ -327,44 +328,44 @@ double CAANeptune::EclipticLongitude(double JD, bool bHighPrecision) noexcept
 
 double CAANeptune::EclipticLatitude(double JD, bool bHighPrecision) noexcept
 {
-#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#ifndef AAPLUS_NO_VSOP87
   if (bHighPrecision)
     return CAACoordinateTransformation::MapToMinus90To90Range(CAACoordinateTransformation::RadiansToDegrees(CAAVSOP87D_Neptune::B(JD)));
 #else
   UNREFERENCED_PARAMETER(bHighPrecision);
-#endif //#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#endif //#ifndef AAPLUS_NO_VSOP87
 
-  const double rho = (JD - 2451545) / 365250;
-  const double rhosquared = rho*rho;
-  const double rhocubed = rhosquared*rho;
-  const double rho4 = rhocubed*rho;
+  const double rho{(JD - 2451545)/365250};
+  const double rhosquared{rho*rho};
+  const double rhocubed{rhosquared*rho};
+  const double rho4{rhocubed*rho};
 
   //Calculate B0
-  double B0 = 0;
+  double B0{0};
   for (const auto& B0Coefficient : g_B0NeptuneCoefficients)
-    B0 += (B0Coefficient.A * cos(B0Coefficient.B + (B0Coefficient.C*rho)));
+    B0 += (B0Coefficient.A*cos(B0Coefficient.B + (B0Coefficient.C*rho)));
 
   //Calculate B1
-  double B1 = 0;
+  double B1{0};
   for (const auto& B1Coefficient : g_B1NeptuneCoefficients)
-    B1 += (B1Coefficient.A * cos(B1Coefficient.B + (B1Coefficient.C*rho)));
+    B1 += (B1Coefficient.A*cos(B1Coefficient.B + (B1Coefficient.C*rho)));
 
   //Calculate B2
-  double B2 = 0;
+  double B2{0};
   for (const auto& B2Coefficient : g_B2NeptuneCoefficients)
-    B2 += (B2Coefficient.A * cos(B2Coefficient.B + (B2Coefficient.C*rho)));
+    B2 += (B2Coefficient.A*cos(B2Coefficient.B + (B2Coefficient.C*rho)));
 
   //Calculate B3
-  double B3 = 0;
+  double B3{0};
   for (const auto& B3Coefficient : g_B3NeptuneCoefficients)
-    B3 += (B3Coefficient.A * cos(B3Coefficient.B + (B3Coefficient.C*rho)));
+    B3 += (B3Coefficient.A*cos(B3Coefficient.B + (B3Coefficient.C*rho)));
 
   //Calculate B4
-  double B4 = 0;
+  double B4{0};
   for (const auto& B4Coefficient : g_B4NeptuneCoefficients)
-    B4 += (B4Coefficient.A * cos(B4Coefficient.B + (B4Coefficient.C*rho)));
+    B4 += (B4Coefficient.A*cos(B4Coefficient.B + (B4Coefficient.C*rho)));
 
-  double value = (B0 + (B1*rho) + (B2*rhosquared) + (B3*rhocubed) + (B4*rho4)) / 100000000;
+  double value{(B0 + (B1*rho) + (B2*rhosquared) + (B3*rhocubed) + (B4*rho4))/100000000};
 
   //convert results back to degrees
   value = CAACoordinateTransformation::MapToMinus90To90Range(CAACoordinateTransformation::RadiansToDegrees(value));
@@ -373,36 +374,36 @@ double CAANeptune::EclipticLatitude(double JD, bool bHighPrecision) noexcept
 
 double CAANeptune::RadiusVector(double JD, bool bHighPrecision) noexcept
 {
-#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#ifndef AAPLUS_NO_VSOP87
   if (bHighPrecision)
     return CAAVSOP87D_Neptune::R(JD);
 #else
   UNREFERENCED_PARAMETER(bHighPrecision);
-#endif //#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#endif //#ifndef AAPLUS_NO_VSOP87
 
-  const double rho = (JD - 2451545) / 365250;
-  const double rhosquared = rho*rho;
-  const double rhocubed = rhosquared*rho;
+  const double rho{(JD - 2451545)/365250};
+  const double rhosquared{rho*rho};
+  const double rhocubed{rhosquared*rho};
 
   //Calculate R0
-  double R0 = 0;
+  double R0{0};
   for (const auto& R0Coefficient : g_R0NeptuneCoefficients)
-    R0 += (R0Coefficient.A * cos(R0Coefficient.B + (R0Coefficient.C*rho)));
+    R0 += (R0Coefficient.A*cos(R0Coefficient.B + (R0Coefficient.C*rho)));
 
   //Calculate R1
-  double R1 = 0;
+  double R1{0};
   for (const auto& R1Coefficient : g_R1NeptuneCoefficients)
-    R1 += (R1Coefficient.A * cos(R1Coefficient.B + (R1Coefficient.C*rho)));
+    R1 += (R1Coefficient.A*cos(R1Coefficient.B + (R1Coefficient.C*rho)));
 
   //Calculate R2
-  double R2 = 0;
+  double R2{0};
   for (const auto& R2Coefficient : g_R2NeptuneCoefficients)
-    R2 += (R2Coefficient.A * cos(R2Coefficient.B + (R2Coefficient.C*rho)));
+    R2 += (R2Coefficient.A*cos(R2Coefficient.B + (R2Coefficient.C*rho)));
 
   //Calculate R3
-  double R3 = 0;
+  double R3{0};
   for (const auto& R3Coefficient : g_R3NeptuneCoefficients)
-    R3 += (R3Coefficient.A * cos(R3Coefficient.B + (R3Coefficient.C*rho)));
+    R3 += (R3Coefficient.A*cos(R3Coefficient.B + (R3Coefficient.C*rho)));
 
-  return (R0 + (R1*rho) + (R2*rhosquared) + (R3*rhocubed)) / 100000000;
+  return (R0 + (R1*rho) + (R2*rhosquared) + (R3*rhocubed))/100000000;
 }

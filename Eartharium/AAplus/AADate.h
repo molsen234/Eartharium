@@ -3,7 +3,7 @@ Module : AADate.h
 Purpose: Implementation for the algorithms which convert between the Gregorian and Julian calendars and the Julian Day
 Created: PJN / 29-12-2003
 
-Copyright (c) 2003 - 2021 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
+Copyright (c) 2003 - 2023 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
 
 All rights reserved.
 
@@ -18,7 +18,7 @@ to maintain a single distribution point for the source code.
 */
 
 
-/////////////////////// Macros / Defines //////////////////////////////////////
+//////////////////// Macros / Defines /////////////////////////////////////////
 
 #if _MSC_VER > 1000
 #pragma once
@@ -32,42 +32,27 @@ to maintain a single distribution point for the source code.
 #endif //#ifndef AAPLUS_EXT_CLASS
 
 
-/////////////////////// Includes //////////////////////////////////////////////
+//////////////////// Includes /////////////////////////////////////////////////
 
 #include "AADefines.h"
 
 
-/////////////////////// Classes ///////////////////////////////////////////////
+//////////////////// Classes //////////////////////////////////////////////////
 
 class AAPLUS_EXT_CLASS CAACalendarDate
 {
 public:
-//Constructors / Destructors
-  CAACalendarDate() noexcept : Year(0),
-                               Month(0),
-                               Day(0)
-  {
-  };
-  CAACalendarDate(const CAACalendarDate&) = default;
-  CAACalendarDate(CAACalendarDate&&) = default;
-  ~CAACalendarDate() = default;
-
-//Methods
-  CAACalendarDate& operator=(const CAACalendarDate&) = default;
-  CAACalendarDate& operator=(CAACalendarDate&&) = default;
-
 //Member variables
-  long Year;
-  long Month;
-  long Day;
+  long Year{0};
+  long Month{0};
+  long Day{0};
 };
-
 
 class AAPLUS_EXT_CLASS CAADate
 {
 public:
 //Enums
-  enum class DAY_OF_WEEK
+  enum class DOW
   {
     SUNDAY = 0,
     MONDAY = 1,
@@ -118,7 +103,7 @@ public:
   void Set(double JD, bool bGregorianCalendar) noexcept;
   void SetInGregorianCalendar(bool bGregorianCalendar) noexcept;
   void Get(long& Year, long& Month, long& Day, long& Hour, long& Minute, double& Second) const noexcept;
-  [[nodiscard]] DAY_OF_WEEK DayOfWeek() const noexcept;
+  [[nodiscard]] DOW DayOfWeek() const noexcept;
   [[nodiscard]] double DayOfYear() const noexcept;
   [[nodiscard]] long DaysInMonth() const noexcept;
   [[nodiscard]] long DaysInYear() const noexcept;

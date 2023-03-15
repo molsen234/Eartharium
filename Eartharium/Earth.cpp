@@ -2295,10 +2295,7 @@ void Earth::deleteArc(unsigned int index) {
     m_polycache[index].gpath = nullptr;
     // Any PathTracker still around with reference to these curves will run into trouble after this !!!
 }
-void Earth::updateCompositePath3(polycache& p) {
-    LLH first = (this->*p.ca)(p.llh1, p.llh2, 0.0, p.refraction, true);
 
-}
 void Earth::updateCompositePath2(polycache& p) {
     // NOTE: Height is awkward, not currently tracked/lerped !!!
     //       For Moon and Sun groundpath it is not needed. But for the Lerp and Great paths, it might be nice!
@@ -2632,124 +2629,124 @@ void Earth::updateCompositePath(polycache& p) {
     //std::cout << "Curve generation completed.\n";
     return;
 }
-void Earth::updateCompositePathOld(polycache& p) {
-    // NOTE: Height is awkward, not currently tracked/lerped !!!
-    //       For Moon and Sun groundpath it is not needed. But for the Lerp and Great paths, it might be nice!
-    //       Satellites and Planes will be implemented with a separate custom path anyway.
-
-    glm::vec3 oldap = glm::vec3(1000.0);
-    PolyCurve* curve = p.path;
-    double histep = 1.3 * deg2rad;
-    double lostep = 0.24 * deg2rad;
-    double dflonflip = 270.0 * deg2rad; //(180.0 - tiny)* deg2rad;
-    // Get useful old location and add first point to curve
-    LLH first = (this->*p.ca)(p.llh1, p.llh2, 0.0, p.refraction, true);
-    LLH llhf = first;
-    glm::vec3 tp = getLoc3D(llhf.lat, llhf.lon, 0.0);
-    addArcPoint(tp, true, false, oldap, curve); // First=true
-    LLH oldf = llhf;
-
-    // IMPORTANT: df must stay in range [0;p.fend] otherwise it makes no sense !!! Plz revise!
-    double dist = calcArcDist(p.llh1, p.llh2, true);
-    double df = 1.0 / (rad2deg * dist); // Reasonable initial stepsize of 1 step per degree? !!!
-    //std::cout << "Initial df: " << df << "\n";
-    if (p.type == MOONTERMINATOR) { 
-        df = deg2rad;
-    }
-    double f = 0.0; // NOTE: df is added right away in while loop below, but f=0.0 point is already added above.
-    double stepscale = 2.0;
-    unsigned int half = 0;
-    unsigned int doub = 0;
-    double dflat = 0.0;
-    double dflon = 0.0;
-    double ilat = 0.0;
-    bool pole = false;
-    glm::vec3 ip1 = glm::vec3(0.0f);
-    glm::vec3 ip2 = glm::vec3(0.0f);
-    while (f < p.fend) {
-        f += df;
-        half = 0;
-        doub = 0;
-        while (true) {
-            llhf = (this->*p.ca)(p.llh1, p.llh2, f, p.refraction, true);
-            dflat = abs(llhf.lat - oldf.lat);
-            dflon = abs(llhf.lon - oldf.lon);
-            // When crossing seam, lon goes from -180 to 180 or reverse; near 360 difference.
-            // When crossing pole, lon goes from 0 to 180 or -180, or from -90 to 90, or from -170 to 10 or reverse; near 180 difference.
-
-            // Doubling / increasing
-            if (dflat < lostep && dflon < lostep) { // Should really check the sum of squares ?
-                //std::cout << "+df: " << df << " dflat,dflon: " << dflat << "," << dflon << " oldf: " << oldf.lat << "," << oldf.lon << " llhf: " << llhf.lat << "," << llhf.lon << "\n";
-                f -= df; // Should this not be -= ? !!! 
-                df *= stepscale;
-                f += df;
-                doub++;
-                if (doub == 11) {
-                    std::cout << "After *1/2^11, stepsize is still too small, giving up!\n";
-                    if (p.fend == 1.0) df = 1.0 / dist;
-                    if (p.fend == tau) df = deg2rad;
-                    f += df;
-                    break;
-                }
-                continue;
-            }
-            // Triggers when step is within limits and no lon inversion
-            if (dflat < histep && dflon < histep) break;
-            // Triggers when step is within limits and lon has seam inversion - inversion dealt with below
-            if (dflat < histep && dflon > dflonflip) {
-                pole = false;
-                break;
-            }
-            // Triggers when step is within limits and lon has pole inversion
-            if (dflat < histep && abs(dflon) + tiny > pi) {
-                pole = true;
-                break;
-            }
-            // Halving / reducing
-            if (dflat > histep || dflon > histep) { // (dflat > histep || (dflonflip > dflon && dflon > histep))
-                //std::cout << "-df: " << df << " dflat,dflon: " << dflat << "," << dflon << " oldf: " << oldf.lat << "," << oldf.lon << " llhf: " << llhf.lat << "," << llhf.lon << "\n";
-                f -= df; // Undo the step we took
-                df /= stepscale;
-                f += df;
-                half++;
-                if (half == 11) {
-                    std::cout << "After *2^11, stepsize is still too big, giving up!\n";
-                    if (p.fend == 1.0) df = 1.0 / dist;
-                    if (p.fend == tau) df = deg2rad;
-                    f += df;
-                    break;
-                }
-                continue;
-            }
-        }
-        // Here we have the next point ready
-        tp = getLoc3D(llhf.lat, llhf.lon, 0.0f);
-        // If a seam is crossed, split the path and insert intermediate points
-        if (abs(llhf.lon - oldf.lon) > pi2) { // Longitude inversion at seam
-            if (oldf.lon > llhf.lon) { // Passed counter clockwise (+ to -)
-                ilat = oldf.lat - (pi - oldf.lon) * (oldf.lat - llhf.lat) / (llhf.lon + tau - oldf.lon);
-                ip1 = getLoc3D(ilat, pi - tiny);
-                ip2 = getLoc3D(ilat, tiny - pi);
-            }
-            else { // Passed clockwise
-                ilat = oldf.lat - (pi - oldf.lon) * (oldf.lat - llhf.lat) / (llhf.lon + tau - oldf.lon);
-                ip2 = getLoc3D(ilat, pi - tiny);
-                ip1 = getLoc3D(ilat, tiny - pi);
-            }
-            // Now insert the extra points to end one path and begin the next
-            addArcPoint(ip1, false, true, oldap, curve); // last=true so cap path and start new one
-            curve->generate();
-            curve = p.path2;
-            addArcPoint(ip2, true, false, oldap, curve);  // First point in new path
-        }
-        if (0.0 < f && f < p.fend) addArcPoint(tp, false, false, oldap, curve);
-        oldf = llhf;
-    }
-    if (!p.closed) addArcPoint(getLoc3D(p.llh2.lat, p.llh2.lon), false, true, oldap, curve); // End point of open path - last = true
-    if (p.closed) addArcPoint(getLoc3D(first.lat, first.lon), false, true, oldap, curve); // End point of closed path - last = true
-    curve->generate();
-    return;
-}
+//void Earth::updateCompositePathOld(polycache& p) {
+//    // NOTE: Height is awkward, not currently tracked/lerped !!!
+//    //       For Moon and Sun groundpath it is not needed. But for the Lerp and Great paths, it might be nice!
+//    //       Satellites and Planes will be implemented with a separate custom path anyway.
+//
+//    glm::vec3 oldap = glm::vec3(1000.0);
+//    PolyCurve* curve = p.path;
+//    double histep = 1.3 * deg2rad;
+//    double lostep = 0.24 * deg2rad;
+//    double dflonflip = 270.0 * deg2rad; //(180.0 - tiny)* deg2rad;
+//    // Get useful old location and add first point to curve
+//    LLH first = (this->*p.ca)(p.llh1, p.llh2, 0.0, p.refraction, true);
+//    LLH llhf = first;
+//    glm::vec3 tp = getLoc3D(llhf.lat, llhf.lon, 0.0);
+//    addArcPoint(tp, true, false, oldap, curve); // First=true
+//    LLH oldf = llhf;
+//
+//    // IMPORTANT: df must stay in range [0;p.fend] otherwise it makes no sense !!! Plz revise!
+//    double dist = calcArcDist(p.llh1, p.llh2, true);
+//    double df = 1.0 / (rad2deg * dist); // Reasonable initial stepsize of 1 step per degree? !!!
+//    //std::cout << "Initial df: " << df << "\n";
+//    if (p.type == MOONTERMINATOR) { 
+//        df = deg2rad;
+//    }
+//    double f = 0.0; // NOTE: df is added right away in while loop below, but f=0.0 point is already added above.
+//    double stepscale = 2.0;
+//    unsigned int half = 0;
+//    unsigned int doub = 0;
+//    double dflat = 0.0;
+//    double dflon = 0.0;
+//    double ilat = 0.0;
+//    bool pole = false;
+//    glm::vec3 ip1 = glm::vec3(0.0f);
+//    glm::vec3 ip2 = glm::vec3(0.0f);
+//    while (f < p.fend) {
+//        f += df;
+//        half = 0;
+//        doub = 0;
+//        while (true) {
+//            llhf = (this->*p.ca)(p.llh1, p.llh2, f, p.refraction, true);
+//            dflat = abs(llhf.lat - oldf.lat);
+//            dflon = abs(llhf.lon - oldf.lon);
+//            // When crossing seam, lon goes from -180 to 180 or reverse; near 360 difference.
+//            // When crossing pole, lon goes from 0 to 180 or -180, or from -90 to 90, or from -170 to 10 or reverse; near 180 difference.
+//
+//            // Doubling / increasing
+//            if (dflat < lostep && dflon < lostep) { // Should really check the sum of squares ?
+//                //std::cout << "+df: " << df << " dflat,dflon: " << dflat << "," << dflon << " oldf: " << oldf.lat << "," << oldf.lon << " llhf: " << llhf.lat << "," << llhf.lon << "\n";
+//                f -= df; // Should this not be -= ? !!! 
+//                df *= stepscale;
+//                f += df;
+//                doub++;
+//                if (doub == 11) {
+//                    std::cout << "After *1/2^11, stepsize is still too small, giving up!\n";
+//                    if (p.fend == 1.0) df = 1.0 / dist;
+//                    if (p.fend == tau) df = deg2rad;
+//                    f += df;
+//                    break;
+//                }
+//                continue;
+//            }
+//            // Triggers when step is within limits and no lon inversion
+//            if (dflat < histep && dflon < histep) break;
+//            // Triggers when step is within limits and lon has seam inversion - inversion dealt with below
+//            if (dflat < histep && dflon > dflonflip) {
+//                pole = false;
+//                break;
+//            }
+//            // Triggers when step is within limits and lon has pole inversion
+//            if (dflat < histep && abs(dflon) + tiny > pi) {
+//                pole = true;
+//                break;
+//            }
+//            // Halving / reducing
+//            if (dflat > histep || dflon > histep) { // (dflat > histep || (dflonflip > dflon && dflon > histep))
+//                //std::cout << "-df: " << df << " dflat,dflon: " << dflat << "," << dflon << " oldf: " << oldf.lat << "," << oldf.lon << " llhf: " << llhf.lat << "," << llhf.lon << "\n";
+//                f -= df; // Undo the step we took
+//                df /= stepscale;
+//                f += df;
+//                half++;
+//                if (half == 11) {
+//                    std::cout << "After *2^11, stepsize is still too big, giving up!\n";
+//                    if (p.fend == 1.0) df = 1.0 / dist;
+//                    if (p.fend == tau) df = deg2rad;
+//                    f += df;
+//                    break;
+//                }
+//                continue;
+//            }
+//        }
+//        // Here we have the next point ready
+//        tp = getLoc3D(llhf.lat, llhf.lon, 0.0f);
+//        // If a seam is crossed, split the path and insert intermediate points
+//        if (abs(llhf.lon - oldf.lon) > pi2) { // Longitude inversion at seam
+//            if (oldf.lon > llhf.lon) { // Passed counter clockwise (+ to -)
+//                ilat = oldf.lat - (pi - oldf.lon) * (oldf.lat - llhf.lat) / (llhf.lon + tau - oldf.lon);
+//                ip1 = getLoc3D(ilat, pi - tiny);
+//                ip2 = getLoc3D(ilat, tiny - pi);
+//            }
+//            else { // Passed clockwise
+//                ilat = oldf.lat - (pi - oldf.lon) * (oldf.lat - llhf.lat) / (llhf.lon + tau - oldf.lon);
+//                ip2 = getLoc3D(ilat, pi - tiny);
+//                ip1 = getLoc3D(ilat, tiny - pi);
+//            }
+//            // Now insert the extra points to end one path and begin the next
+//            addArcPoint(ip1, false, true, oldap, curve); // last=true so cap path and start new one
+//            curve->generate();
+//            curve = p.path2;
+//            addArcPoint(ip2, true, false, oldap, curve);  // First point in new path
+//        }
+//        if (0.0 < f && f < p.fend) addArcPoint(tp, false, false, oldap, curve);
+//        oldf = llhf;
+//    }
+//    if (!p.closed) addArcPoint(getLoc3D(p.llh2.lat, p.llh2.lon), false, true, oldap, curve); // End point of open path - last = true
+//    if (p.closed) addArcPoint(getLoc3D(first.lat, first.lon), false, true, oldap, curve); // End point of closed path - last = true
+//    curve->generate();
+//    return;
+//}
 
 void Earth::genGeom() {
     double lat, lon;

@@ -14,8 +14,10 @@ History: PJN / 14-02-2004 1. Fixed a "minus zero" bug in the function CAACoordin
                           2. Updated the MapTo0To24Range to use the fmod C runtime function.
                           3. Added new MapTo0To2PIRange & MapToMinus180To180Range methods.
          PJN / 18-08-2019 1. Fixed some further compiler warnings when using VC 2019 Preview v16.3.0 Preview 2.0
+         PJN / 14-06-2022 1. Updated all the code in AACoordinateTransformation.cpp to use C++ uniform
+                          initialization for all variable declarations.
 
-Copyright (c) 2003 - 2021 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
+Copyright (c) 2003 - 2023 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
 
 All rights reserved.
 
@@ -36,10 +38,9 @@ to maintain a single distribution point for the source code.
 #include "AACoordinateTransformation.h"
 #include <cmath>
 #include <cassert>
-using namespace std;
 
 
-/////////////////////// Implementation ////////////////////////////////////////
+//////////////////// Implementation ///////////////////////////////////////////
 
 CAA2DCoordinate CAACoordinateTransformation::Equatorial2Ecliptic(double Alpha, double Delta, double Epsilon) noexcept
 {
@@ -48,10 +49,13 @@ CAA2DCoordinate CAACoordinateTransformation::Equatorial2Ecliptic(double Alpha, d
   Epsilon = DegreesToRadians(Epsilon);
 
   CAA2DCoordinate Ecliptic;
-  Ecliptic.X = RadiansToDegrees(atan2(sin(Alpha)*cos(Epsilon) + tan(Delta)*sin(Epsilon), cos(Alpha)));
+  const double cosEpsilon = cos(Epsilon);
+  const double sinEpsilon = sin(Epsilon);
+  const double sinAlpha = sin(Alpha);
+  Ecliptic.X = RadiansToDegrees(atan2((sinAlpha*cosEpsilon) + (tan(Delta)*sinEpsilon), cos(Alpha)));
   if (Ecliptic.X < 0)
     Ecliptic.X += 360;
-  Ecliptic.Y = RadiansToDegrees(asin(sin(Delta)*cos(Epsilon) - cos(Delta)*sin(Epsilon)*sin(Alpha)));
+  Ecliptic.Y = RadiansToDegrees(asin((sin(Delta)*cosEpsilon) - (cos(Delta)*sinEpsilon*sinAlpha)));
 
   return Ecliptic;
 }
@@ -63,10 +67,13 @@ CAA2DCoordinate CAACoordinateTransformation::Ecliptic2Equatorial(double Lambda, 
   Epsilon = DegreesToRadians(Epsilon);
 
   CAA2DCoordinate Equatorial;
-  Equatorial.X = RadiansToHours(atan2(sin(Lambda)*cos(Epsilon) - tan(Beta)*sin(Epsilon), cos(Lambda)));
+  const double cosEpsilon = cos(Epsilon);
+  const double sinEpsilon = sin(Epsilon);
+  const double sinLambda = sin(Lambda);
+  Equatorial.X = RadiansToHours(atan2((sinLambda*cosEpsilon) - (tan(Beta)*sinEpsilon), cos(Lambda)));
   if (Equatorial.X < 0)
     Equatorial.X += 24;
-  Equatorial.Y = RadiansToDegrees(asin(sin(Beta)*cos(Epsilon) + cos(Beta)*sin(Epsilon)*sin(Lambda)));
+  Equatorial.Y = RadiansToDegrees(asin((sin(Beta)*cosEpsilon) + (cos(Beta)*sinEpsilon*sinLambda)));
 
   return Equatorial;
 }
@@ -78,26 +85,32 @@ CAA2DCoordinate CAACoordinateTransformation::Equatorial2Horizontal(double LocalH
   Latitude = DegreesToRadians(Latitude);
 
   CAA2DCoordinate Horizontal;
-  Horizontal.X = RadiansToDegrees(atan2(sin(LocalHourAngle), cos(LocalHourAngle)*sin(Latitude) - tan(Delta)*cos(Latitude)));
+  const double cosLatitude = cos(Latitude);
+  const double cosLocalHourAngle = cos(LocalHourAngle);
+  const double sinLatitude = sin(Latitude);
+  Horizontal.X = RadiansToDegrees(atan2(sin(LocalHourAngle), (cosLocalHourAngle*sinLatitude) - (tan(Delta)*cosLatitude)));
   if (Horizontal.X < 0)
     Horizontal.X += 360;
-  Horizontal.Y = RadiansToDegrees(asin(sin(Latitude)*sin(Delta) + cos(Latitude)*cos(Delta)*cos(LocalHourAngle)));
+  Horizontal.Y = RadiansToDegrees(asin((sinLatitude*sin(Delta)) + (cosLatitude*cos(Delta)*cosLocalHourAngle)));
 
   return Horizontal;
 }
 
 CAA2DCoordinate CAACoordinateTransformation::Horizontal2Equatorial(double Azimuth, double Altitude, double Latitude) noexcept
 {
-  //Convert from degress to radians
+  //Convert from degrees to radians
   Azimuth = DegreesToRadians(Azimuth);
   Altitude = DegreesToRadians(Altitude);
   Latitude = DegreesToRadians(Latitude);
 
   CAA2DCoordinate Equatorial;
-  Equatorial.X = RadiansToHours(atan2(sin(Azimuth), cos(Azimuth)*sin(Latitude) + tan(Altitude)*cos(Latitude)));
+  const double cosAzimuth = cos(Azimuth);
+  const double sinLatitude = sin(Latitude);
+  const double cosLatitude = cos(Latitude);
+  Equatorial.X = RadiansToHours(atan2(sin(Azimuth), (cosAzimuth*sinLatitude) + (tan(Altitude)*cosLatitude)));
   if (Equatorial.X < 0)
     Equatorial.X += 24;
-  Equatorial.Y = RadiansToDegrees(asin(sin(Latitude)*sin(Altitude) - cos(Latitude)*cos(Altitude)*cos(Azimuth)));
+  Equatorial.Y = RadiansToDegrees(asin((sinLatitude*sin(Altitude)) - (cosLatitude*cos(Altitude)*cosAzimuth)));
 
   return Equatorial;
 }
@@ -109,12 +122,15 @@ CAA2DCoordinate CAACoordinateTransformation::Equatorial2Galactic(double Alpha, d
   Delta = DegreesToRadians(Delta);
 
   CAA2DCoordinate Galactic;
-  Galactic.X = RadiansToDegrees(atan2(sin(Alpha), cos(Alpha)*sin(DegreesToRadians(27.4)) - tan(Delta)*cos(DegreesToRadians(27.4))));
+  const double cosAlpha = cos(Alpha);
+  const double sin274 = sin(DegreesToRadians(27.4));
+  const double cos274 = cos(DegreesToRadians(27.4));
+  Galactic.X = RadiansToDegrees(atan2(sin(Alpha), (cosAlpha*sin274) - (tan(Delta)*cos274)));
   Galactic.X = 303 - Galactic.X;
   if (Galactic.X >= 360)
     Galactic.X -= 360;
-  Galactic.Y = RadiansToDegrees(asin(sin(Delta)*sin(DegreesToRadians(27.4)) + cos(Delta)*cos(DegreesToRadians(27.4))*cos(Alpha)));
-    
+  Galactic.Y = RadiansToDegrees(asin((sin(Delta)*sin274) + (cos(Delta)*cos274*cosAlpha)));
+
   return Galactic;
 }
 
@@ -125,12 +141,15 @@ CAA2DCoordinate CAACoordinateTransformation::Galactic2Equatorial(double l, doubl
   b = DegreesToRadians(b);
 
   CAA2DCoordinate Equatorial;
-  Equatorial.X = RadiansToDegrees(atan2(sin(l), cos(l)*sin(DegreesToRadians(27.4)) - tan(b)*cos(DegreesToRadians(27.4))));
+  const double cosl = cos(l);
+  const double sin274 = sin(DegreesToRadians(27.4));
+  const double cos274 = cos(DegreesToRadians(27.4));
+  Equatorial.X = RadiansToDegrees(atan2(sin(l), (cosl*sin274) - (tan(b)*cos274)));
   Equatorial.X += 12.25;
   if (Equatorial.X < 0)
     Equatorial.X += 360;
   Equatorial.X = DegreesToHours(Equatorial.X);
-  Equatorial.Y = RadiansToDegrees(asin(sin(b)*sin(DegreesToRadians(27.4)) + cos(b)*cos(DegreesToRadians(27.4))*cos(l)));
+  Equatorial.Y = RadiansToDegrees(asin((sin(b)*sin274) + (cos(b)*cos274*cosl)));
 
   return Equatorial;
 }
@@ -146,7 +165,7 @@ double CAACoordinateTransformation::DMSToDegrees(double Degrees, double Minutes,
   }
 
   if (bPositive)
-    return Degrees + Minutes/60 + Seconds/3600;
+    return Degrees + (Minutes/60) + (Seconds/3600);
   else
-    return -Degrees - Minutes/60 - Seconds/3600;
+    return -Degrees - (Minutes/60) - (Seconds/3600);
 }

@@ -267,6 +267,7 @@
     <ClInclude Include="Eartharium\AAplus\AAUranus.h" />
     <ClInclude Include="Eartharium\AAplus\AAVenus.h" />
     <ClInclude Include="Eartharium\AAplus\stdafx.h" />
+    <ClInclude Include="Eartharium\geometry.h" />
     <ClInclude Include="Eartharium\ImGUI\imconfig.h" />
     <ClInclude Include="Eartharium\ImGUI\imgui.h" />
     <ClInclude Include="Eartharium\ImGUI\imgui_impl_glfw.h" />

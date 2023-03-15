@@ -3,7 +3,7 @@ Module : AAPlanetaryPhenomena2.h
 Purpose: Implementation for the algorithms which obtain the dates of various planetary phenomena (revised version)
 Created: PJN / 11-06-2020
 
-Copyright (c) 2020 - 2021 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
+Copyright (c) 2020 - 2023 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
 
 All rights reserved.
 
@@ -13,12 +13,12 @@ You are allowed to include the source code in any product (commercial, shareware
 when your product is released in binary form. You are allowed to modify the source code in any way you want 
 except you cannot modify the copyright details at the top of each module. If you want to distribute source 
 code with your application, then you are only allowed to distribute versions released by the author. This is 
-to maintain a single distribution point for the source code. 
+to maintain a single distribution point for the source code.
 
 */
 
 
-/////////////////////// Macros / Defines //////////////////////////////////////
+//////////////////// Macros / Defines /////////////////////////////////////////
 
 #if _MSC_VER > 1000
 #pragma once
@@ -32,13 +32,13 @@ to maintain a single distribution point for the source code.
 #endif //#ifndef AAPLUS_EXT_CLASS
 
 
-/////////////////////// Includes //////////////////////////////////////////////
+//////////////////// Includes /////////////////////////////////////////////////
 
 #include "AA2DCoordinate.h"
 #include <vector>
 
 
-/////////////////////// Classes ///////////////////////////////////////////////
+//////////////////// Classes //////////////////////////////////////////////////
 
 class AAPLUS_EXT_CLASS CAAPlanetaryPhenomenaDetails2
 {
@@ -74,27 +74,15 @@ public:
     WesternQuadratureInAngularDistance = 25,
     EasternQuadratureInEclipticLongitude = 26,
     EasternQuadratureInRA = 27,
-    EasternQuadratureInAngularDistance = 28
+    EasternQuadratureInAngularDistance = 28,
+    MaximumDistance = 29,
+    MinimumDistance = 30
   };
-
-//Constructors / Destructors
-  CAAPlanetaryPhenomenaDetails2() noexcept : type(Type::NotDefined),
-                                             JD(0),
-                                             Value(0)
-  {
-  };
-  CAAPlanetaryPhenomenaDetails2(const CAAPlanetaryPhenomenaDetails2&) = default;
-  CAAPlanetaryPhenomenaDetails2(CAAPlanetaryPhenomenaDetails2&&) = default;
-  ~CAAPlanetaryPhenomenaDetails2() = default;
-
-//Methods
-  CAAPlanetaryPhenomenaDetails2& operator=(const CAAPlanetaryPhenomenaDetails2&) = default;
-  CAAPlanetaryPhenomenaDetails2& operator=(CAAPlanetaryPhenomenaDetails2&&) = default;
 
 //Member variables
-  Type type; //The type of the event which has occurred
-  double JD; //When the event occurred in TT
-  double Value; //The value associated with the event
+  Type type{Type::NotDefined}; //The type of the event which has occurred
+  double JD{0}; //When the event occurred in TT
+  double Value{0}; //The value associated with the event
 };
 
 class AAPLUS_EXT_CLASS CAAPlanetaryPhenomena2

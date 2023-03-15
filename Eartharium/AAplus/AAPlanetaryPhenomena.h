@@ -3,7 +3,7 @@ Module : AAPlanetaryPhenomena.h
 Purpose: Implementation for the algorithms which obtain the dates of various planetary phenomena
 Created: PJN / 29-12-2003
 
-Copyright (c) 2003 - 2021 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
+Copyright (c) 2003 - 2023 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
 
 All rights reserved.
 
@@ -13,12 +13,12 @@ You are allowed to include the source code in any product (commercial, shareware
 when your product is released in binary form. You are allowed to modify the source code in any way you want 
 except you cannot modify the copyright details at the top of each module. If you want to distribute source 
 code with your application, then you are only allowed to distribute versions released by the author. This is 
-to maintain a single distribution point for the source code. 
+to maintain a single distribution point for the source code.
 
 */
 
 
-/////////////////////// Macros / Defines //////////////////////////////////////
+//////////////////// Macros / Defines /////////////////////////////////////////
 
 #if _MSC_VER > 1000
 #pragma once
@@ -32,13 +32,13 @@ to maintain a single distribution point for the source code.
 #endif //#ifndef AAPLUS_EXT_CLASS
 
 
-/////////////////////// Classes ///////////////////////////////////////////////
+//////////////////// Classes //////////////////////////////////////////////////
 
 class AAPLUS_EXT_CLASS CAAPlanetaryPhenomena
 {
 public:
 //Enums
-  enum class PlanetaryObject
+  enum class Planet
   {
     MERCURY,
     VENUS,
@@ -49,7 +49,7 @@ public:
     NEPTUNE
   };
 
-  enum class EventType
+  enum class Type
   {
     INFERIOR_CONJUNCTION,
     SUPERIOR_CONJUNCTION,
@@ -62,10 +62,10 @@ public:
   };
 
 //Static methods
-  static double K(double Year, PlanetaryObject object, EventType type) noexcept;
-  static double Mean(double k, PlanetaryObject object, EventType type) noexcept;
-  static double True(double k, PlanetaryObject object, EventType type) noexcept;
-  static double ElongationValue(double k, PlanetaryObject object, bool bEastern) noexcept;
+  static double K(double Year, Planet planet, Type type) noexcept;
+  static double Mean(double k, Planet planet, Type type) noexcept;
+  static double True(double k, Planet planet, Type type) noexcept;
+  static double ElongationValue(double k, Planet planet, bool bEastern) noexcept;
 };
 
 

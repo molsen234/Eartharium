@@ -3,7 +3,7 @@ Module : AACoordinateTransformation.h
 Purpose: Implementation for the algorithms which convert between the various celestial coordinate systems
 Created: PJN / 29-12-2003
 
-Copyright (c) 2003 - 2021 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
+Copyright (c) 2003 - 2023 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
 
 All rights reserved.
 
@@ -18,7 +18,7 @@ to maintain a single distribution point for the source code.
 */
 
 
-/////////////////////// Macros / Defines //////////////////////////////////////
+//////////////////// Macros / Defines /////////////////////////////////////////
 
 #if _MSC_VER > 1000
 #pragma once
@@ -32,13 +32,13 @@ to maintain a single distribution point for the source code.
 #endif //#ifndef AAPLUS_EXT_CLASS
 
 
-/////////////////////// Includes //////////////////////////////////////////////
+//////////////////// Includes /////////////////////////////////////////////////
 
 #include "AA2DCoordinate.h"
 #include <cmath>
 
 
-/////////////////////// Classes ///////////////////////////////////////////////
+//////////////////// Classes //////////////////////////////////////////////////
 
 class AAPLUS_EXT_CLASS CAACoordinateTransformation
 {
@@ -92,7 +92,7 @@ public:
 #ifdef _MSC_VER
     #pragma warning(suppress : 26447)
 #endif //#ifdef _MSC_VER
-    double fResult = fmod(Degrees, 360);
+    double fResult{fmod(Degrees, 360)};
     if (fResult < 0)
       fResult += 360;
     return fResult;
@@ -100,7 +100,7 @@ public:
 
   static inline double MapToMinus90To90Range(double Degrees) noexcept
   {
-    double fResult = MapTo0To360Range(Degrees);
+    double fResult{MapTo0To360Range(Degrees)};
 
     if (fResult > 270)
       fResult = fResult - 360;
@@ -117,7 +117,7 @@ public:
 #ifdef _MSC_VER
     #pragma warning(suppress : 26447)
 #endif //#ifdef _MSC_VER
-    double fResult = fmod(HourAngle, 24);
+    double fResult{fmod(HourAngle, 24)};
     if (fResult < 0)
       fResult += 24;
     return fResult;
@@ -125,7 +125,7 @@ public:
 
   static inline double MapTo0To2PIRange(double Angle) noexcept
   {
-    double fResult = fmod(Angle, 2 * PI());
+    double fResult{fmod(Angle, 2 * PI())};
     if (fResult < 0)
       fResult += (2 * PI());
     return fResult;

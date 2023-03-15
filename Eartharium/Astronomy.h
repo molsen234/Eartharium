@@ -36,14 +36,14 @@ struct CelestialDetail {
 // ---------------
 class CelestialPath {
 public:
-	unsigned int planet = maxuint;
+	unsigned int planet = NO_UINT;
 	double jdStart = 0.0;   // Start and End are offsets from current JD, Start is negative, End is positive.
 	double jdEnd = 0.0;
 	unsigned int jdSteps = 0;
 	unsigned int cpType = EC;
 	bool fixedpath = false; // When this flag is set to true, the updater will no longer recalculate the path
 	unsigned int m_refcnt = 1;
-	unsigned int index = maxuint;
+	unsigned int index = NO_UINT;
 	std::vector<CelestialDetail> entries;
 private:
 	Astronomy* m_astro = nullptr;
@@ -131,6 +131,7 @@ public:
 	void setUnixTime(double utime);
 	void addTime(double d, double h, double min, double sec, bool eot = false);
 	void dumpCurrentTime(unsigned int frame = NO_UINT);
+
 	double calculateGsid(double jd);
 	double getGsid(double jd = 0.0);
 	double getEoT(double jd = 0.0);
@@ -144,6 +145,7 @@ public:
 	double getUnixTime2JD(double ut);
 	int calcYearDay(double year, double month, double day);
 	bool isLeapYear(double year);
+
 	unsigned int enablePlanet(unsigned int planet);
 	unsigned int disablePlanet(unsigned int planet);
 	LLH getDecRA(unsigned int planet, double jd = 0.0);

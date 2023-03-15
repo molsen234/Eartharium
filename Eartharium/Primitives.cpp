@@ -1619,16 +1619,10 @@ SkyBox::~SkyBox() {
 }
 void SkyBox::Draw() {
     glm::mat4 proj =  glm::perspective(glm::radians(70.0f), m_scene->m_app->getAspect(), 0.1f, 100.0f);
-    //double timerot = hrs2rad * rad2deg * -m_scene->m_astro->getGsid(); //  -100.0; NOTE: Probably because cubemap is loaded incorrectly !!!
-    //m_scene->w_camera->camLon -= (float)timerot;
-    //m_scene->w_camera->update();
     glm::mat4 view = glm::mat4(glm::mat3(m_scene->w_camera->getViewMat()));
-    //m_scene->w_camera->camLon += (float)timerot;
-    //m_scene->w_camera->update();
     glFrontFace(GL_CCW);
     glDepthMask(GL_FALSE);
     glDepthFunc(GL_LEQUAL);
-
     m_shdrsb->Bind();
     m_shdrsb->SetUniformMatrix4f("view", view);
     m_shdrsb->SetUniformMatrix4f("projection", proj);

@@ -24,8 +24,10 @@ History: PJN / 31-05-2004 1) Added a missing coefficient to g_L1JupiterCoefficie
          PJN / 01-08-2017 1. Fixed up alignment of lookup tables in AAJupiter.cpp module
          PJN / 18-08-2019 1. Fixed some further compiler warnings when using VC 2019 Preview v16.3.0 Preview 2.0
          PJN / 13-04-2020 1. Reworked C arrays to use std::array
+         PJN / 26-06-2022 1. Updated all the code in AAJupiter.cpp to use C++ uniform initialization for all
+                          variable declarations.
 
-Copyright (c) 2003 - 2021 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
+Copyright (c) 2003 - 2023 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
 
 All rights reserved.
 
@@ -35,26 +37,25 @@ You are allowed to include the source code in any product (commercial, shareware
 when your product is released in binary form. You are allowed to modify the source code in any way you want 
 except you cannot modify the copyright details at the top of each module. If you want to distribute source 
 code with your application, then you are only allowed to distribute versions released by the author. This is 
-to maintain a single distribution point for the source code. 
+to maintain a single distribution point for the source code.
 
 */
 
 
-/////////////////////// Includes //////////////////////////////////////////////
+//////////////////// Includes /////////////////////////////////////////////////
 
 #include "stdafx.h"
 #include "AAJupiter.h"
 #include "AACoordinateTransformation.h"
 #include "AADefines.h"
-#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#ifndef AAPLUS_NO_VSOP87
 #include "AAVSOP87D_JUP.h"
-#endif //#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#endif //#ifndef AAPLUS_NO_VSOP87
 #include <cmath>
 #include <array>
-using namespace std;
 
 
-////////////////////// Macros / Defines ///////////////////////////////////////
+//////////////////// Macros / Defines /////////////////////////////////////////
 
 #ifdef _MSC_VER
 #pragma warning(disable : 26446 26482 26485)
@@ -67,7 +68,7 @@ struct VSOP87Coefficient
   double C;
 };
 
-constexpr array<VSOP87Coefficient, 64> g_L0JupiterCoefficients
+constexpr std::array<VSOP87Coefficient, 64> g_L0JupiterCoefficients
 { {
   { 59954691, 0,          0           },
   { 9695899,  5.0619179,  529.6909651 },
@@ -135,7 +136,7 @@ constexpr array<VSOP87Coefficient, 64> g_L0JupiterCoefficients
   { 106,      4.554,      526.510     }
 } };
 
-constexpr array<VSOP87Coefficient, 61> g_L1JupiterCoefficients
+constexpr std::array<VSOP87Coefficient, 61> g_L1JupiterCoefficients
 { {
   { 52993480757.0, 0,          0          },
   { 489741,        4.220667,   529.690965 },
@@ -200,7 +201,7 @@ constexpr array<VSOP87Coefficient, 61> g_L1JupiterCoefficients
   { 25,            1.61,       831.86     }
 } };
 
-constexpr array<VSOP87Coefficient, 57> g_L2JupiterCoefficients
+constexpr std::array<VSOP87Coefficient, 57> g_L2JupiterCoefficients
 { {
   { 47234,  4.32148,  7.11355   },
   { 38966,  0,        0         },
@@ -261,7 +262,7 @@ constexpr array<VSOP87Coefficient, 57> g_L2JupiterCoefficients
   { 6,      0.50,     949.18    }
 } };
 
-constexpr array<VSOP87Coefficient, 39> g_L3JupiterCoefficients
+constexpr std::array<VSOP87Coefficient, 39> g_L3JupiterCoefficients
 { {
   { 6502, 2.5986, 7.1135   },
   { 1357, 1.3464, 529.6910 },
@@ -304,7 +305,7 @@ constexpr array<VSOP87Coefficient, 39> g_L3JupiterCoefficients
   { 2,    2.36,   942.06   }
 } };
 
-constexpr array<VSOP87Coefficient, 19> g_L4JupiterCoefficients
+constexpr std::array<VSOP87Coefficient, 19> g_L4JupiterCoefficients
 { {
   { 669,  0.853,  7.114   },
   { 114,  3.142,  0       },
@@ -327,7 +328,7 @@ constexpr array<VSOP87Coefficient, 19> g_L4JupiterCoefficients
   { 1,    1.29,   1589.07 }
 } };
 
-constexpr array<VSOP87Coefficient, 5> g_L5JupiterCoefficients
+constexpr std::array<VSOP87Coefficient, 5> g_L5JupiterCoefficients
 { {
   { 50, 5.26, 7.11   },
   { 16, 5.25, 14.23  },
@@ -336,7 +337,7 @@ constexpr array<VSOP87Coefficient, 5> g_L5JupiterCoefficients
   { 1,  3.14, 0      }
 } };
 
-constexpr array<VSOP87Coefficient, 26> g_B0JupiterCoefficients
+constexpr std::array<VSOP87Coefficient, 26> g_B0JupiterCoefficients
 { {
   { 2268616,  3.5585261,  529.6909651 },
   { 110090,   0,          0           },
@@ -366,7 +367,7 @@ constexpr array<VSOP87Coefficient, 26> g_B0JupiterCoefficients
   { 102,      3.153,      1581.959    }
 } };
 
-constexpr array<VSOP87Coefficient, 22> g_B1JupiterCoefficients
+constexpr std::array<VSOP87Coefficient, 22> g_B1JupiterCoefficients
 { {
   { 177352, 5.701665, 529.690965 },
   { 3230,   5.7794,   1059.3819  },
@@ -392,7 +393,7 @@ constexpr array<VSOP87Coefficient, 22> g_B1JupiterCoefficients
   { 32,     4.92,     1581.96    }
 } };
 
-constexpr array<VSOP87Coefficient, 14> g_B2JupiterCoefficients
+constexpr std::array<VSOP87Coefficient, 14> g_B2JupiterCoefficients
 { {
   { 8094, 1.4632, 529.6910 },
   { 813,  3.1416, 0        },
@@ -410,7 +411,7 @@ constexpr array<VSOP87Coefficient, 14> g_B2JupiterCoefficients
   { 6,    6.21,   1045.15  }
 } };
 
-constexpr array<VSOP87Coefficient, 9> g_B3JupiterCoefficients
+constexpr std::array<VSOP87Coefficient, 9> g_B3JupiterCoefficients
 { {
   { 252,  3.381,  529.691 },
   { 122,  2.733,  522.577 },
@@ -423,7 +424,7 @@ constexpr array<VSOP87Coefficient, 9> g_B3JupiterCoefficients
   { 3,    3.14,   0       }
 } };
 
-constexpr array<VSOP87Coefficient, 6> g_B4JupiterCoefficients
+constexpr std::array<VSOP87Coefficient, 6> g_B4JupiterCoefficients
 { {
   { 15, 4.53, 522.58  },
   { 5,  4.47, 529.69  },
@@ -433,12 +434,12 @@ constexpr array<VSOP87Coefficient, 6> g_B4JupiterCoefficients
   { 1,  4.20, 1052.27 }
 } };
 
-constexpr array<VSOP87Coefficient, 1> g_B5JupiterCoefficients
+constexpr std::array<VSOP87Coefficient, 1> g_B5JupiterCoefficients
 { {
   { 1,  0.09, 522.58 }
 } };
 
-constexpr array<VSOP87Coefficient, 46> g_R0JupiterCoefficients
+constexpr std::array<VSOP87Coefficient, 46> g_R0JupiterCoefficients
 { {
   { 520887429,  0,          0            },
   { 25209327,   3.49108640, 529.69096509 },
@@ -488,7 +489,7 @@ constexpr array<VSOP87Coefficient, 46> g_R0JupiterCoefficients
   { 542,        0.284,      525.759      }
 } };
 
-constexpr array<VSOP87Coefficient, 43> g_R1JupiterCoefficients
+constexpr std::array<VSOP87Coefficient, 43> g_R1JupiterCoefficients
 { {
   { 1271802,2.6493751,  529.6909651 },
   { 61662,  3.00076,    1059.38193  },
@@ -535,7 +536,7 @@ constexpr array<VSOP87Coefficient, 43> g_R1JupiterCoefficients
   { 132,    4.512,      525.759     }
 } };
 
-constexpr array<VSOP87Coefficient, 36> g_R2JupiterCoefficients
+constexpr std::array<VSOP87Coefficient, 36> g_R2JupiterCoefficients
 { {
   { 79645,  1.35866,  529.69097 },
   { 8252,   5.7777,   522.5774  },
@@ -575,7 +576,7 @@ constexpr array<VSOP87Coefficient, 36> g_R2JupiterCoefficients
   { 40,     5.95,     95.98     }
 } };
 
-constexpr array<VSOP87Coefficient, 28> g_R3JupiterCoefficients
+constexpr std::array<VSOP87Coefficient, 28> g_R3JupiterCoefficients
 { {
   { 3519, 6.0580, 529.6910 },
   { 1073, 1.6732, 536.8045 },
@@ -607,7 +608,7 @@ constexpr array<VSOP87Coefficient, 28> g_R3JupiterCoefficients
   { 9,    3.45,   838.97   }
 } };
 
-constexpr array<VSOP87Coefficient, 15> g_R4JupiterCoefficients
+constexpr std::array<VSOP87Coefficient, 15> g_R4JupiterCoefficients
 { {
   { 129,  0.084,  536.805 },
   { 113,  4.249,  529.691 },
@@ -626,7 +627,7 @@ constexpr array<VSOP87Coefficient, 15> g_R4JupiterCoefficients
   { 3,    2.90,   426.60  }
 } };
 
-constexpr array<VSOP87Coefficient, 7> g_R5JupiterCoefficients
+constexpr std::array<VSOP87Coefficient, 7> g_R5JupiterCoefficients
 { {
   { 11, 4.75, 536.80  },
   { 4,  5.92, 522.58  },
@@ -638,54 +639,54 @@ constexpr array<VSOP87Coefficient, 7> g_R5JupiterCoefficients
 } };
 
 
-////////////////////////// Implementation /////////////////////////////////////
+//////////////////// Implementation ///////////////////////////////////////////
 
 double CAAJupiter::EclipticLongitude(double JD, bool bHighPrecision) noexcept
 {
-#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#ifndef AAPLUS_NO_VSOP87
   if (bHighPrecision)
     return CAACoordinateTransformation::MapTo0To360Range(CAACoordinateTransformation::RadiansToDegrees(CAAVSOP87D_Jupiter::L(JD)));
 #else
   UNREFERENCED_PARAMETER(bHighPrecision);
-#endif //#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#endif //#ifndef AAPLUS_NO_VSOP87
 
-  const double rho = (JD - 2451545) / 365250;
-  const double rhosquared = rho*rho;
-  const double rhocubed = rhosquared*rho;
-  const double rho4 = rhocubed*rho;
-  const double rho5 = rho4*rho;
+  const double rho{(JD - 2451545)/365250};
+  const double rhosquared{rho*rho};
+  const double rhocubed{rhosquared*rho};
+  const double rho4{rhocubed*rho};
+  const double rho5{rho4*rho};
 
   //Calculate L0
-  double L0 = 0;
+  double L0{0};
   for (const auto& L0Coefficient : g_L0JupiterCoefficients)
-    L0 += (L0Coefficient.A * cos(L0Coefficient.B + (L0Coefficient.C*rho)));
+    L0 += (L0Coefficient.A*cos(L0Coefficient.B + (L0Coefficient.C*rho)));
 
   //Calculate L1
-  double L1 = 0;
+  double L1{0};
   for (const auto& L1Coefficient : g_L1JupiterCoefficients)
-    L1 += (L1Coefficient.A * cos(L1Coefficient.B + (L1Coefficient.C*rho)));
+    L1 += (L1Coefficient.A*cos(L1Coefficient.B + (L1Coefficient.C*rho)));
 
   //Calculate L2
-  double L2 = 0;
+  double L2{0};
   for (const auto& L2Coefficient : g_L2JupiterCoefficients)
-    L2 += (L2Coefficient.A * cos(L2Coefficient.B + (L2Coefficient.C*rho)));
+    L2 += (L2Coefficient.A*cos(L2Coefficient.B + (L2Coefficient.C*rho)));
 
   //Calculate L3
-  double L3 = 0;
+  double L3{0};
   for (const auto& L3Coefficient : g_L3JupiterCoefficients)
-    L3 += (L3Coefficient.A * cos(L3Coefficient.B + (L3Coefficient.C*rho)));
+    L3 += (L3Coefficient.A*cos(L3Coefficient.B + (L3Coefficient.C*rho)));
 
   //Calculate L4
-  double L4 = 0;
+  double L4{0};
   for (const auto& L4Coefficient : g_L4JupiterCoefficients)
-    L4 += (L4Coefficient.A * cos(L4Coefficient.B + (L4Coefficient.C*rho)));
+    L4 += (L4Coefficient.A*cos(L4Coefficient.B + (L4Coefficient.C*rho)));
 
   //Calculate L5
-  double L5 = 0;
+  double L5{0};
   for (const auto& L5Coefficient : g_L5JupiterCoefficients)
-    L5 += (L5Coefficient.A * cos(L5Coefficient.B + (L5Coefficient.C*rho)));
+    L5 += (L5Coefficient.A*cos(L5Coefficient.B + (L5Coefficient.C*rho)));
 
-  double value = (L0 + (L1*rho) + (L2*rhosquared) + (L3*rhocubed) + (L4*rho4) + (L5*rho5)) / 100000000;
+  double value{(L0 + (L1*rho) + (L2*rhosquared) + (L3*rhocubed) + (L4*rho4) + (L5*rho5))/100000000};
 
   //convert results back to degrees
   value = CAACoordinateTransformation::MapTo0To360Range(CAACoordinateTransformation::RadiansToDegrees(value));
@@ -694,50 +695,50 @@ double CAAJupiter::EclipticLongitude(double JD, bool bHighPrecision) noexcept
 
 double CAAJupiter::EclipticLatitude(double JD, bool bHighPrecision) noexcept
 {
-#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#ifndef AAPLUS_NO_VSOP87
   if (bHighPrecision)
     return CAACoordinateTransformation::MapToMinus90To90Range(CAACoordinateTransformation::RadiansToDegrees(CAAVSOP87D_Jupiter::B(JD)));
 #else
   UNREFERENCED_PARAMETER(bHighPrecision);
-#endif //#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#endif //#ifndef AAPLUS_NO_VSOP87
 
-  const double rho = (JD - 2451545) / 365250;
-  const double rhosquared = rho*rho;
-  const double rhocubed = rhosquared*rho;
-  const double rho4 = rhocubed*rho;
-  const double rho5 = rho4*rho;
+  const double rho{(JD - 2451545)/365250};
+  const double rhosquared{rho*rho};
+  const double rhocubed{rhosquared*rho};
+  const double rho4{rhocubed*rho};
+  const double rho5{rho4*rho};
 
   //Calculate B0
-  double B0 = 0;
+  double B0{0};
   for (const auto& B0Coefficient : g_B0JupiterCoefficients)
-    B0 += (B0Coefficient.A * cos(B0Coefficient.B + (B0Coefficient.C*rho)));
+    B0 += (B0Coefficient.A*cos(B0Coefficient.B + (B0Coefficient.C*rho)));
 
   //Calculate B1
-  double B1 = 0;
+  double B1{0};
   for (const auto& B1Coefficient : g_B1JupiterCoefficients)
-    B1 += (B1Coefficient.A * cos(B1Coefficient.B + (B1Coefficient.C*rho)));
+    B1 += (B1Coefficient.A*cos(B1Coefficient.B + (B1Coefficient.C*rho)));
 
   //Calculate B2
-  double B2 = 0;
+  double B2{0};
   for (const auto& B2Coefficient : g_B2JupiterCoefficients)
-    B2 += (B2Coefficient.A * cos(B2Coefficient.B + (B2Coefficient.C*rho)));
+    B2 += (B2Coefficient.A*cos(B2Coefficient.B + (B2Coefficient.C*rho)));
 
   //Calculate B3
-  double B3 = 0;
+  double B3{0};
   for (const auto& B3Coefficient : g_B3JupiterCoefficients)
-    B3 += (B3Coefficient.A * cos(B3Coefficient.B + (B3Coefficient.C*rho)));
+    B3 += (B3Coefficient.A*cos(B3Coefficient.B + (B3Coefficient.C*rho)));
 
   //Calculate B4
-  double B4 = 0;
+  double B4{0};
   for (const auto& B4Coefficient : g_B4JupiterCoefficients)
-    B4 += (B4Coefficient.A * cos(B4Coefficient.B + (B4Coefficient.C*rho)));
+    B4 += (B4Coefficient.A*cos(B4Coefficient.B + (B4Coefficient.C*rho)));
 
   //Calculate B5
-  double B5 = 0;
+  double B5{0};
   for (const auto& B5Coefficient : g_B5JupiterCoefficients)
-    B5 += (B5Coefficient.A * cos(B5Coefficient.B + (B5Coefficient.C*rho)));
+    B5 += (B5Coefficient.A*cos(B5Coefficient.B + (B5Coefficient.C*rho)));
 
-  double value = (B0 + (B1*rho) + (B2*rhosquared) + (B3*rhocubed) + (B4*rho4) + (B5*rho5)) / 100000000;
+  double value{(B0 + (B1*rho) + (B2*rhosquared) + (B3*rhocubed) + (B4*rho4) + (B5*rho5))/100000000};
 
   //convert results back to degrees
   value = CAACoordinateTransformation::MapToMinus90To90Range(CAACoordinateTransformation::RadiansToDegrees(value));
@@ -746,48 +747,48 @@ double CAAJupiter::EclipticLatitude(double JD, bool bHighPrecision) noexcept
 
 double CAAJupiter::RadiusVector(double JD, bool bHighPrecision) noexcept
 {
-#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#ifndef AAPLUS_NO_VSOP87
   if (bHighPrecision)
     return CAAVSOP87D_Jupiter::R(JD);
 #else
   UNREFERENCED_PARAMETER(bHighPrecision);
-#endif //#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#endif //#ifndef AAPLUS_NO_VSOP87
 
-  const double rho = (JD - 2451545) / 365250;
-  const double rhosquared = rho*rho;
-  const double rhocubed = rhosquared*rho;
-  const double rho4 = rhocubed*rho;
-  const double rho5 = rho4*rho;
+  const double rho{(JD - 2451545)/365250};
+  const double rhosquared{rho*rho};
+  const double rhocubed{rhosquared*rho};
+  const double rho4{rhocubed*rho};
+  const double rho5{rho4*rho};
 
   //Calculate R0
-  double R0 = 0;
+  double R0{0};
   for (const auto& R0Coefficient : g_R0JupiterCoefficients)
-    R0 += (R0Coefficient.A * cos(R0Coefficient.B + (R0Coefficient.C*rho)));
+    R0 += (R0Coefficient.A*cos(R0Coefficient.B + (R0Coefficient.C*rho)));
 
   //Calculate R1
-  double R1 = 0;
+  double R1{0};
   for (const auto& R1Coefficient : g_R1JupiterCoefficients)
-    R1 += (R1Coefficient.A * cos(R1Coefficient.B + (R1Coefficient.C*rho)));
+    R1 += (R1Coefficient.A*cos(R1Coefficient.B + (R1Coefficient.C*rho)));
 
   //Calculate R2
-  double R2 = 0;
+  double R2{0};
   for (const auto& R2Coefficient : g_R2JupiterCoefficients)
-    R2 += (R2Coefficient.A * cos(R2Coefficient.B + (R2Coefficient.C*rho)));
+    R2 += (R2Coefficient.A*cos(R2Coefficient.B + (R2Coefficient.C*rho)));
 
   //Calculate R3
-  double R3 = 0;
+  double R3{0};
   for (const auto& R3Coefficient : g_R3JupiterCoefficients)
-    R3 += (R3Coefficient.A * cos(R3Coefficient.B + (R3Coefficient.C*rho)));
+    R3 += (R3Coefficient.A*cos(R3Coefficient.B + (R3Coefficient.C*rho)));
 
   //Calculate R4
-  double R4 = 0;
+  double R4{0};
   for (const auto& R4Coefficient : g_R4JupiterCoefficients)
-    R4 += (R4Coefficient.A * cos(R4Coefficient.B + (R4Coefficient.C*rho)));
+    R4 += (R4Coefficient.A*cos(R4Coefficient.B + (R4Coefficient.C*rho)));
 
   //Calculate R5
-  double R5 = 0;
+  double R5{0};
   for (const auto& R5Coefficient : g_R5JupiterCoefficients)
-    R5 += (R5Coefficient.A * cos(R5Coefficient.B + (R5Coefficient.C*rho)));
+    R5 += (R5Coefficient.A*cos(R5Coefficient.B + (R5Coefficient.C*rho)));
 
-  return (R0 + (R1*rho) + (R2*rhosquared) + (R3*rhocubed) + (R4*rho4) + (R5*rho5)) / 100000000;
+  return (R0 + (R1*rho) + (R2*rhosquared) + (R3*rhocubed) + (R4*rho4) + (R5*rho5))/100000000;
 }

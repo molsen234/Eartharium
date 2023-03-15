@@ -13,8 +13,10 @@ History: PJN / 21-04-2005 1. Renamed "AAAberation.cpp" to "AAAberration.cpp" so 
                           book.
          PJN / 18-08-2019 1. Fixed some further compiler warnings when using VC 2019 Preview v16.3.0 Preview 2.0
          PJN / 14-04-2020 1. Reworked C arrays to use std::array
+         PJN / 16-05-2022 1. Updated all the code in AAAberration.cpp to use C++ uniform initialization for all
+                          variable declarations.
 
-Copyright (c) 2003 - 2021 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
+Copyright (c) 2003 - 2023 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
 
 All rights reserved.
 
@@ -29,7 +31,7 @@ to maintain a single distribution point for the source code.
 */
 
 
-/////////////////////////////// Includes //////////////////////////////////////
+//////////////////// Includes /////////////////////////////////////////////////
 
 #include "stdafx.h"
 #include "AAAberration.h"
@@ -37,16 +39,15 @@ to maintain a single distribution point for the source code.
 #include "AAEarth.h"
 #include "AASun.h"
 #include "AADefines.h"
-#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#ifndef AAPLUS_NO_VSOP87
 #include "AAVSOP87A_EAR.h"
 #include "AAFK5.h"
-#endif //#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#endif //#ifndef AAPLUS_NO_VSOP87
 #include <cmath>
 #include <array>
-using namespace std;
 
 
-////////////////////////////// Macros / Defines ///////////////////////////////
+//////////////////// Macros / Defines /////////////////////////////////////////
 
 #ifdef _MSC_VER
 #pragma warning(disable : 26446 26482)
@@ -79,7 +80,7 @@ struct AberrationCoefficient
   int zcost;
 };
 
-constexpr array<AberrationCoefficient, 36> g_AberrationCoefficients
+constexpr std::array<AberrationCoefficient, 36> g_AberrationCoefficients
 { {
     //L2   L3   L4  L5  L6  L7  L8  Ldash D   Mdash F   xsin      xsint xcos    xcost ysin   ysint ycos     ycost zsin   zsint zcos    zcost
     {  0,  1,   0,  0,  0,  0,  0,  0,    0,  0,    0,  -1719914, -2,   -25,    0,    25,    -13,  1578089, 156,  10,    32,   684185, -358 },
@@ -127,7 +128,7 @@ CAA3DCoordinate CAAAberration::EarthVelocity(double JD, bool bHighPrecision) noe
 {
   CAA3DCoordinate velocity;
 
-#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#ifndef AAPLUS_NO_VSOP87
   if (bHighPrecision)
   {
     velocity.X = CAAVSOP87A_Earth::X_DASH(JD);
@@ -141,34 +142,38 @@ CAA3DCoordinate CAAAberration::EarthVelocity(double JD, bool bHighPrecision) noe
   }
 #else
   UNREFERENCED_PARAMETER(bHighPrecision);
-#endif
+#endif //#ifndef AAPLUS_NO_VSOP87
 
-  const double T = (JD - 2451545) / 36525;
-  const double L2 = 3.1761467 + 1021.3285546 * T;
-  const double L3 = 1.7534703 + 628.3075849 * T;
-  const double L4 = 6.2034809 + 334.0612431 * T;
-  const double L5 = 0.5995465 + 52.9690965 * T;
-  const double L6 = 0.8740168 + 21.3299095 * T;
-  const double L7 = 5.4812939 + 7.4781599 * T;
-  const double L8 = 5.3118863 + 3.8133036 * T;
-  const double Ldash = 3.8103444 + 8399.6847337 * T;
-  const double D = 5.1984667 + 7771.3771486 * T;
-  const double Mdash = 2.3555559 + 8328.6914289 * T;
-  const double F = 1.6279052 + 8433.4661601 * T;
+  const double T{(JD - 2451545)/36525};
+  const double L2{3.1761467 + (1021.3285546 * T)};
+  const double L3{1.7534703 + (628.3075849 * T)};
+  const double L4{6.2034809 + (334.0612431 * T)};
+  const double L5{0.5995465 + (52.9690965 * T)};
+  const double L6{0.8740168 + (21.3299095 * T)};
+  const double L7{5.4812939 + (7.4781599 * T)};
+  const double L8{5.3118863 + (3.8133036 * T)};
+  const double Ldash{3.8103444 + (8399.6847337 * T)};
+  const double D{5.1984667 + (7771.3771486 * T)};
+  const double Mdash{2.3555559 + (8328.6914289 * T)};
+  const double F{1.6279052 + (8433.4661601 * T)};
 
   for (const auto& coeff : g_AberrationCoefficients)
   {
-    const double Argument = (coeff.L2*L2) + (coeff.L3*L3) + (coeff.L4*L4) + (coeff.L5*L5) +
-                            (coeff.L6*L6) + (coeff.L7*L7) + (coeff.L8*L8) + (coeff.Ldash*Ldash) +
-                            (coeff.D*D) + (coeff.Mdash*Mdash) + (coeff.F*F);
-    velocity.X += (coeff.xsin + coeff.xsint * T) * sin(Argument);
-    velocity.X += (coeff.xcos + coeff.xcost * T) * cos(Argument);
+    const double Argument{(coeff.L2 * L2) + (coeff.L3 * L3) + (coeff.L4 * L4) + (coeff.L5 * L5) +
+                          (coeff.L6*L6) + (coeff.L7*L7) + (coeff.L8*L8) + (coeff.Ldash*Ldash) +
+                          (coeff.D*D) + (coeff.Mdash*Mdash) + (coeff.F*F)};
 
-    velocity.Y += (coeff.ysin + coeff.ysint * T) * sin(Argument);
-    velocity.Y += (coeff.ycos + coeff.ycost * T) * cos(Argument);
+    const double sinArgument{sin(Argument)};
+    const double cosArgument{cos(Argument)};
 
-    velocity.Z += (coeff.zsin + coeff.zsint * T) * sin(Argument);
-    velocity.Z += (coeff.zcos + coeff.zcost * T) * cos(Argument);
+    velocity.X += (coeff.xsin + (coeff.xsint * T)) * sinArgument;
+    velocity.X += (coeff.xcos + (coeff.xcost * T)) * cosArgument;
+
+    velocity.Y += (coeff.ysin + (coeff.ysint * T)) * sinArgument;
+    velocity.Y += (coeff.ycos + (coeff.ycost * T)) * cosArgument;
+
+    velocity.Z += (coeff.zsin + (coeff.zsint * T)) * sinArgument;
+    velocity.Z += (coeff.zcos + (coeff.zcost * T)) * cosArgument;
   }
 
   return velocity;
@@ -180,18 +185,18 @@ CAA2DCoordinate CAAAberration::EquatorialAberration(double Alpha, double Delta, 
   Alpha = CAACoordinateTransformation::DegreesToRadians(Alpha*15);
   Delta = CAACoordinateTransformation::DegreesToRadians(Delta);
 
-  const double cosAlpha = cos(Alpha);
-  const double sinAlpha = sin(Alpha);
-  const double cosDelta = cos(Delta);
-  const double sinDelta = sin(Delta);
+  const double cosAlpha{cos(Alpha)};
+  const double sinAlpha{sin(Alpha)};
+  const double cosDelta{cos(Delta)};
+  const double sinDelta{sin(Delta)};
 
-  const CAA3DCoordinate velocity = EarthVelocity(JD, bHighPrecision);
+  const CAA3DCoordinate velocity{EarthVelocity(JD, bHighPrecision)};
 
   //What is the return value
   CAA2DCoordinate aberration;
 
-  aberration.X = CAACoordinateTransformation::RadiansToHours((velocity.Y * cosAlpha - velocity.X * sinAlpha) / ( 17314463350.0 * cosDelta));
-  aberration.Y = CAACoordinateTransformation::RadiansToDegrees(- (((velocity.X * cosAlpha + velocity.Y * sinAlpha) * sinDelta - velocity.Z * cosDelta) / 17314463350.0));
+  aberration.X = CAACoordinateTransformation::RadiansToHours(((velocity.Y * cosAlpha) - (velocity.X * sinAlpha)) / ( 17314463350.0 * cosDelta));
+  aberration.Y = CAACoordinateTransformation::RadiansToDegrees(- (((((velocity.X * cosAlpha) + (velocity.Y * sinAlpha)) * sinDelta) - (velocity.Z * cosDelta)) / 17314463350.0));
 
   return aberration;
 }
@@ -201,12 +206,12 @@ CAA2DCoordinate CAAAberration::EclipticAberration(double Lambda, double Beta, do
   //What is the return value
   CAA2DCoordinate aberration;
 
-  const double T = (JD - 2451545) / 36525;
-  const double Tsquared = T*T;
-  const double e = 0.016708634 - 0.000042037*T - 0.0000001267*Tsquared;
-  double pi = 102.93735 + 1.71946*T + 0.00046*Tsquared;
-  constexpr double k = 20.49552;
-  double SunLongitude = CAASun::GeometricEclipticLongitude(JD, bHighPrecision);
+  const double T{(JD - 2451545)/36525};
+  const double Tsquared{T*T};
+  const double e{0.016708634 - (0.000042037*T) - (0.0000001267*Tsquared)};
+  double pi{102.93735 + (1.71946*T) + (0.00046*Tsquared)};
+  constexpr double k{20.49552};
+  double SunLongitude{CAASun::GeometricEclipticLongitude(JD, bHighPrecision)};
 
   //Convert to radians
   pi = CAACoordinateTransformation::DegreesToRadians(pi);

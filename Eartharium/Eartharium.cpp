@@ -59,34 +59,6 @@ public:
 };
 
 
-// ----------------------
-//  Idle Area for python
-// ----------------------
-void IdleArea(Application& myapp) {
-    // An Idle function to drop into after a python script has completed, so the scene can be interacted with for planning the next animation steps.
-    // Scans for the various elements created by the python script and takes over by adding GUI / keyboard interaction
-    myapp.anim = false;
-    RenderLayerGUI* gui = myapp.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
-    unsigned int lnum = 1;
-    char lname[20];
-    for (auto& l : myapp.m_layers) {
-        if (l->type == LAYER3D) {
-            sprintf_s(lname, "Scene %02d", lnum);
-            gui->addLayer3D((RenderLayer3D*)l, lname);
-            lnum++;
-        }
-    }
-    while (!glfwWindowShouldClose(myapp.window)) {
-        myapp.currentCam->update();
-        myapp.update();
-        //if (myapp.anim) astro->addTime(0.0, 0.0, 5.0, 0.0);
-        //scene->w_camera->CamUpdate();
-
-        myapp.render();
-    }
-
-}
-
 void SolSysTest(Application& app) {
     // Set up required components
     Astronomy* astro = app.newAstronomy();
@@ -130,9 +102,12 @@ double calcRefraction(Application& app, double altitude, double pressure = 1013.
     // pressure in mBar, temperature in Celsius, altitude in degrees, returns arc minutes
     // Source: Almanac method https://www.madinstro.net/sundry/navsext.html
     // Bennett method described in J.Meeus, implemented in AA+
-    if (app.sio_refmethod == REFR_BENNETT) return 60.0 * CAARefraction::RefractionFromApparent(altitude, pressure, temperature);
-    if (app.sio_refmethod == REFR_ALMANAC) return (0.267 * pressure / (temperature+273.15))
+    double retval = NO_DOUBLE;
+    if (app.sio_refmethod == REFR_BENNETT) retval = 60.0 * CAARefraction::RefractionFromApparent(altitude, pressure, temperature);
+    else if (app.sio_refmethod == REFR_ALMANAC) retval = (0.267 * pressure / (temperature + 273.15))
         / tan(deg2rad * (altitude + 0.04848 / (tan(deg2rad * altitude) + 0.028)));
+    else std::cout << "WARNING: calcRefraction() was called while app.sio_refmethod was set to unknown refraction method!\n";
+    return retval;
 }
 
 void basic_geometry(Application& app) {
@@ -2808,30 +2783,30 @@ void SimpleTest(Application& app) {
     RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
     gui->addLayer3D(layer, "Scene1");
 
-//    Earth* earth = scene->newEarth("ERRC", 180, 90);
-//    app.currentEarth = earth;
-//    Arrows* arrowFac = scene->getArrowsFactory();
-//    float axisWidth = 0.01f;
-//    unsigned int axisX = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, 1.0f, axisWidth, RED);
-//    unsigned int axisY = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,1.0f,0.0f }, 1.0f, axisWidth, GREEN);
-//    unsigned int axisZ = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, 1.0f, axisWidth, BLUE);
-//
-//    earth->w_sinsol = true;
-//    earth->addGrid();
-//    //earth->addGreatArc({ 90.0-tiny, 180.0, 0.0 }, { -90.0+tiny, 180.0, 0.0 }, LIGHT_RED, 0.003f, false);
-//    earth->flatsunheight = 0.0f;
-//    earth->addSubsolarPath();
+    Earth* earth = scene->newEarth("NSAE", 360, 180);
+    app.currentEarth = earth;
+    Arrows* arrowFac = scene->getArrowsFactory();
+    float axisWidth = 0.01f;
+    unsigned int axisX = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, 1.0f, axisWidth, RED);
+    unsigned int axisY = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,1.0f,0.0f }, 1.0f, axisWidth, GREEN);
+    unsigned int axisZ = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, 1.0f, axisWidth, BLUE);
+
+    earth->w_sinsol = true;
+    earth->addGrid();
+    //earth->addGreatArc({ 90.0-tiny, 180.0, 0.0 }, { -90.0+tiny, 180.0, 0.0 }, LIGHT_RED, 0.003f, false);
+    earth->flatsunheight = 0.0f;
+    earth->addSubsolarPath();
 
     //SkySphere* sky = scene->newSkysphere(180, 90, true);
     //sky->setTexture(true);
-    SkyBox* sky = scene->getSkyboxOb();
-
-    SolarSystem* solsys = scene->getSolsysOb();
-    float planetlinewidth = 0.005f;
-    solsys->AddDistLine(SUN, EARTH, EARTHCOLOR, planetlinewidth);
-    solsys->AddDistLine(SUN, MERCURY, MERCURYCOLOR, planetlinewidth);
-    solsys->AddDistLine(SUN, VENUS, VENUSCOLOR, planetlinewidth);
-    solsys->AddDistLine(SUN, MARS, MARSCOLOR, planetlinewidth);
+    //SkyBox* sky = scene->getSkyboxOb();
+    //
+    //SolarSystem* solsys = scene->getSolsysOb();
+    //float planetlinewidth = 0.005f;
+    //solsys->AddDistLine(SUN, EARTH, EARTHCOLOR, planetlinewidth);
+    //solsys->AddDistLine(SUN, MERCURY, MERCURYCOLOR, planetlinewidth);
+    //solsys->AddDistLine(SUN, VENUS, VENUSCOLOR, planetlinewidth);
+    //solsys->AddDistLine(SUN, MARS, MARSCOLOR, planetlinewidth);
 
     //app.anim = true;
     //app.renderoutput = true;
@@ -2850,6 +2825,34 @@ void SimpleTest(Application& app) {
 // Application is a global container for all the rest
 Application app = Application();  // New global after refactor
 
+// ----------------------
+//  Idle Area for python
+// ----------------------
+void IdleArea(Application& myapp) {
+    // An Idle function to drop into after a python script has completed, so the scene can be interacted with for planning the next animation steps.
+    // Scans for the various elements created by the python script and takes over by adding GUI / keyboard interaction
+    myapp.anim = false;
+    RenderLayerGUI* gui = myapp.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    unsigned int lnum = 1;
+    char lname[20];
+    for (auto& l : myapp.m_layers) {
+        if (l->type == LAYER3D) {
+            sprintf_s(lname, "Scene %02d", lnum);
+            gui->addLayer3D((RenderLayer3D*)l, lname);
+            lnum++;
+        }
+    }
+    while (!glfwWindowShouldClose(myapp.window)) {
+        myapp.currentCam->update();
+        myapp.update();
+        //if (myapp.anim) astro->addTime(0.0, 0.0, 5.0, 0.0);
+        //scene->w_camera->CamUpdate();
+
+        myapp.render();
+    }
+
+}
+
 // -------------------------------------
 //  Python scripting module definitions
 // -------------------------------------
@@ -2861,6 +2864,7 @@ Application* getApplication() {
 }
 PYBIND11_EMBEDDED_MODULE(eartharium, m) {
     // Should probably be moved into a separate translation unit (*.h/*.cpp)
+    // IMPORTANT: Define things in order of dependencies. If not, loading the module will hang with no errors. Very annoying!
     m.doc() = "Eartharium Module";
     m.def("getApplication", &getApplication, py::return_value_policy::reference);
     py::class_<LLH>(m, "LLH")
@@ -2888,28 +2892,6 @@ PYBIND11_EMBEDDED_MODULE(eartharium, m) {
         ;
     py::class_<ImFont>(m, "Font") // Stolen from https://toscode.gitee.com/lilingTG/bimpy/blob/master/bimpy.cpp it has lots of ImGui .def's
         .def(py::init())
-        ;
-    py::class_<Application>(m, "Application")
-        //.def("getRenderChain", &Application::getRenderChain, py::return_value_policy::reference)
-        .def("newScene", &Application::newScene, py::return_value_policy::reference)
-        .def("newAstronomy", &Application::newAstronomy, py::return_value_policy::reference)
-        .def("update", &Application::update)
-        .def("newLayer3D", &Application::newLayer3D, "Creates a new 3D Render Layer",
-            py::arg("vpx1"), py::arg("vpy1"), py::arg("vpx2"), py::arg("vpy2"),
-            py::arg("scene"), py::arg("astro"), py::arg("cam") = (Camera*) nullptr,
-            py::arg("overlay") = true,
-            py::return_value_policy::reference
-        )
-        .def("newLayerText", &Application::newLayerText, "Creates a new Text Render Layer",
-            py::arg("vpx1"), py::arg("vpy1"), py::arg("vpx2"), py::arg("vpy2"),
-            py::arg("lines") = (RenderLayerTextLines*) nullptr,
-            py::return_value_policy::reference
-        )
-        .def("do_render", &Application::render)
-        .def_readwrite("ipython", &Application::ipython)
-        .def_readwrite("render", &Application::renderoutput)
-        .def_readwrite("currentCam", &Application::currentCam)
-        .def_readwrite("m_font2", &Application::m_font2)
         ;
     py::class_<Astronomy>(m, "Astronomy")
         .def("setTime", &Astronomy::setTime, "Sets time in (Y,M,D,h,m,s.ss)",
@@ -2966,6 +2948,30 @@ PYBIND11_EMBEDDED_MODULE(eartharium, m) {
         .def("updateView", &RenderLayer3D::updateView, "Updates the width and height of the view. Called automatically when window size changes.",
             py::arg("w"), py::arg("h")
         )
+        ;
+    py::class_<Application>(m, "Application")
+        //.def("getRenderChain", &Application::getRenderChain, py::return_value_policy::reference)
+        .def("newScene", &Application::newScene, py::return_value_policy::reference)
+        .def("newAstronomy", &Application::newAstronomy, py::return_value_policy::reference)
+        .def("update", &Application::update)
+        // RenderLayer3D* newLayer3D(float vpx1, float vpy1, float vpx2, float vpy2, Scene* scene, Astronomy* astro, Camera* cam = nullptr, bool overlay = true);
+         .def("newLayer3D", &Application::newLayer3D, "Creates a new 3D Render Layer",
+             py::arg("vpx1"), py::arg("vpy1"), py::arg("vpx2"), py::arg("vpy2"),
+             py::arg("scene"), py::arg("astro"), py::arg("cam") = (Camera*) nullptr,
+             py::arg("overlay") = true,
+             py::return_value_policy::reference
+         )
+        // RenderLayerText* newLayerText(float vpx1, float vpy1, float vpx2, float vpy2, RenderLayerTextLines* lines = nullptr);
+         .def("newLayerText", &Application::newLayerText, "Creates a new Text Render Layer",
+             py::arg("vpx1"), py::arg("vpy1"), py::arg("vpx2"), py::arg("vpy2"),
+             py::arg("lines") = (RenderLayerTextLines*) nullptr,
+             py::return_value_policy::reference
+         )
+        .def("do_render", &Application::render)
+        .def_readwrite("ipython", &Application::ipython)
+        .def_readwrite("render", &Application::renderoutput)
+        .def_readwrite("currentCam", &Application::currentCam)
+        .def_readwrite("m_font2", &Application::m_font2)
         ;
     py::class_<Location>(m, "Location")
         .def("addLocDot", &Location::addLocDot, "Adds an icosphere dot to the Location at height 0.",
@@ -3035,16 +3041,16 @@ int main() {
     app.start_fullscreen = false;  // Starting full screen can make debugging difficult during a hang
     if (app.initWindow() == -1) return -1; // Bail if Window and OpenGL context setup fails
 
-    if (false) { // Set to true to run a python script and drop into an idle interactive
+    if (true) { // Set to true to run a python script and drop into an idle interactive
         app.interactive = false;
         //std::string pyfile = "c:\\Coding\\Eartharium\\Eartharium\\hello.py";
-        std::string pyfile = "c:\\Coding\\Eartharium\\Eartharium\\Lesson001.py";  // Hardcoded which python script to run until a script manager is built
+        std::string pyfile = "c:\\Coding\\Eartharium\\Eartharium\\mdo-test.py";  // Hardcoded which python script to run until a script manager is built
         py::scoped_interpreter guard{};
         py::object scope = py::module_::import("__main__").attr("__dict__");
         py::eval_file(pyfile.c_str(), scope);
-        IdleArea(app);
+        //IdleArea(app);
         glfwTerminate();
-        return 0; // Let the OS deal with all the memory leaks, Not all destructors are up to date currently
+        return 0; // Let the OS deal with all the memory leaks, Not all destructors are up to date currently !!!
     }
     // If no python script was run, simply drop to a test area that sets up via C++ instead.
     // Good for things not yet implemented in python interface, or while developing things,

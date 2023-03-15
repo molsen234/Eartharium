@@ -6,8 +6,10 @@ History: PJN / 26-11-2010 1. CAARefraction::RefractionFromApparent now returns a
                           altitudes below a certain limit. Thanks to mehrzad khoddam for prompting this update.
                           2. CAARefraction::RefractionFromTrue now returns a constant refraction value for all 
                           altitudes below a certain limit. Thanks to mehrzad khoddam for prompting this update.
+         PJN / 05-07-2022 1. Updated all the code in AARefraction.cpp to use C++ uniform initialization for all
+                          variable declarations.
 
-Copyright (c) 2003 - 2021 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
+Copyright (c) 2003 - 2023 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
 
 All rights reserved.
 
@@ -17,21 +19,20 @@ You are allowed to include the source code in any product (commercial, shareware
 when your product is released in binary form. You are allowed to modify the source code in any way you want 
 except you cannot modify the copyright details at the top of each module. If you want to distribute source 
 code with your application, then you are only allowed to distribute versions released by the author. This is 
-to maintain a single distribution point for the source code. 
+to maintain a single distribution point for the source code.
 
 */
 
 
-//////////////////////////////////// Includes /////////////////////////////////
+//////////////////// Includes /////////////////////////////////////////////////
 
 #include "stdafx.h"
 #include "AARefraction.h"
 #include "AACoordinateTransformation.h"
 #include <cmath>
-using namespace std;
 
 
-/////////////////////////////////// Implementation ////////////////////////////
+//////////////////// Implementation ///////////////////////////////////////////
 
 double CAARefraction::RefractionFromApparent(double Altitude, double Pressure, double Temperature) noexcept
 {
@@ -39,8 +40,8 @@ double CAARefraction::RefractionFromApparent(double Altitude, double Pressure, d
   if (Altitude <= -1.6962987799993996)
     Altitude = -1.6962987799993996;
 
-  double value = 1 / (tan(CAACoordinateTransformation::DegreesToRadians(Altitude + 7.31/(Altitude + 4.4)))) + 0.0013515;
-  value *= (Pressure/1010 * 283/(273+Temperature));
+  double value{1/(tan(CAACoordinateTransformation::DegreesToRadians(Altitude + (7.31/(Altitude + 4.4))))) + 0.0013515};
+  value *= (Pressure/1010*283/(273 + Temperature));
   value /= 60;
   return value;
 }
@@ -51,8 +52,8 @@ double CAARefraction::RefractionFromTrue(double Altitude, double Pressure, doubl
   if (Altitude <= -1.9006387000003735)
     Altitude = -1.9006387000003735;
 
-  double value = 1.02 / (tan(CAACoordinateTransformation::DegreesToRadians(Altitude + 10.3/(Altitude + 5.11)))) + 0.0019279;
-  value *= (Pressure/1010 * 283/(273+Temperature));
+  double value{1.02/(tan(CAACoordinateTransformation::DegreesToRadians(Altitude + (10.3/(Altitude + 5.11))))) + 0.0019279};
+  value *= (Pressure/1010*283/(273 + Temperature));
   value /= 60;
   return value;
 }

@@ -5,7 +5,7 @@ Created: PJN / 13-09-2015
 History: PJN / 13-09-2015 1. Initial public release.
          PJN / 22-04-2020 1. Reworked C arrays to use std::array.
 
-Copyright (c) 2015 - 2021 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
+Copyright (c) 2015 - 2023 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
 
 All rights reserved.
 
@@ -20,23 +20,22 @@ to maintain a single distribution point for the source code.
 */
 
 
-/////////////////////////////// Includes //////////////////////////////////////
+//////////////////// Includes /////////////////////////////////////////////////
 
 #include "stdafx.h"
 #include "AAVSOP87.h"
 #include "AAVSOP87B_EAR.h"
 #include <cmath>
 #include <array>
-using namespace std;
 
 
-////////////////////////////// Macros / Defines ///////////////////////////////
+//////////////////// Macros / Defines /////////////////////////////////////////
 
 #ifdef _MSC_VER
 #pragma warning(disable : 26485)
 #endif //#ifdef _MSC_VER
 
-constexpr array<VSOP87Coefficient, 623> g_VSOP87B_L0_EARTH
+constexpr std::array<VSOP87Coefficient, 623> g_VSOP87B_L0_EARTH
 { {
   {        1.75347045673,        0.00000000000,        0.00000000000 },
   {        0.03341656453,        4.66925680415,     6283.07584999140 },
@@ -663,7 +662,7 @@ constexpr array<VSOP87Coefficient, 623> g_VSOP87B_L0_EARTH
   {        0.00000000047,        3.58181693910,     4797.09572892620 }
 } };
 
-constexpr array<VSOP87Coefficient, 379> g_VSOP87B_L1_EARTH
+constexpr std::array<VSOP87Coefficient, 379> g_VSOP87B_L1_EARTH
 { {
   {     6283.07584999140,        0.00000000000,        0.00000000000 },
   {        0.00206058863,        2.67823455808,     6283.07584999140 },
@@ -1046,7 +1045,7 @@ constexpr array<VSOP87Coefficient, 379> g_VSOP87B_L1_EARTH
   {        0.00000000025,        5.71465573409,    25934.12433108940 }
 } };
 
-constexpr array<VSOP87Coefficient, 144> g_VSOP87B_L2_EARTH
+constexpr std::array<VSOP87Coefficient, 144> g_VSOP87B_L2_EARTH
 { {
   {        0.00008721859,        1.07253635559,     6283.07584999140 },
   {        0.00000990990,        3.14159265359,        0.00000000000 },
@@ -1194,7 +1193,7 @@ constexpr array<VSOP87Coefficient, 144> g_VSOP87B_L2_EARTH
   {        0.00000000011,        2.12851973876,     7875.67186362420 }
 } };
 
-constexpr array<VSOP87Coefficient, 23> g_VSOP87B_L3_EARTH
+constexpr std::array<VSOP87Coefficient, 23> g_VSOP87B_L3_EARTH
 { {
   {        0.00000289058,        5.84173149732,     6283.07584999140 },
   {        0.00000020712,        6.04983939020,    12566.15169998280 },
@@ -1221,7 +1220,7 @@ constexpr array<VSOP87Coefficient, 23> g_VSOP87B_L3_EARTH
   {        0.00000000005,        2.70838853362,    83996.84731811189 }
 } };
 
-constexpr array<VSOP87Coefficient, 11> g_VSOP87B_L4_EARTH
+constexpr std::array<VSOP87Coefficient, 11> g_VSOP87B_L4_EARTH
 { {
   {        0.00000007714,        4.14117321449,     6283.07584999140 },
   {        0.00000001016,        3.27573644241,    12566.15169998280 },
@@ -1236,7 +1235,7 @@ constexpr array<VSOP87Coefficient, 11> g_VSOP87B_L4_EARTH
   {        0.00000000002,        0.54880603487,     6438.49624942560 }
 } };
 
-constexpr array<VSOP87Coefficient, 4> g_VSOP87B_L5_EARTH
+constexpr std::array<VSOP87Coefficient, 4> g_VSOP87B_L5_EARTH
 { {
   {        0.00000000172,        2.74854172392,     6283.07584999140 },
   {        0.00000000050,        2.01352986713,      155.42039943420 },
@@ -1244,7 +1243,7 @@ constexpr array<VSOP87Coefficient, 4> g_VSOP87B_L5_EARTH
   {        0.00000000005,        1.93829214518,    18849.22754997420 }
 } };
 
-constexpr array<VSOP87Coefficient, 184> g_VSOP87B_B0_EARTH
+constexpr std::array<VSOP87Coefficient, 184> g_VSOP87B_B0_EARTH
 { {
   {        0.00000279620,        3.19870156017,    84334.66158130829 },
   {        0.00000101643,        5.42248619256,     5507.55323866740 },
@@ -1432,7 +1431,7 @@ constexpr array<VSOP87Coefficient, 184> g_VSOP87B_B0_EARTH
   {        0.00000000039,        3.11239910096,    96900.81328129109 }
 } };
 
-constexpr array<VSOP87Coefficient, 134> g_VSOP87B_B1_EARTH
+constexpr std::array<VSOP87Coefficient, 134> g_VSOP87B_B1_EARTH
 { {
   {        0.00227777722,        3.41376620530,     6283.07584999140 },
   {        0.00003805678,        3.37063423795,    12566.15169998280 },
@@ -1570,7 +1569,7 @@ constexpr array<VSOP87Coefficient, 134> g_VSOP87B_B1_EARTH
   {        0.00000000021,        3.51419811826,    10447.38783960440 }
 } };
 
-constexpr array<VSOP87Coefficient, 62> g_VSOP87B_B2_EARTH
+constexpr std::array<VSOP87Coefficient, 62> g_VSOP87B_B2_EARTH
 { {
   {        0.00009721424,        5.15192809920,     6283.07584999140 },
   {        0.00000233002,        3.14159265359,        0.00000000000 },
@@ -1636,7 +1635,7 @@ constexpr array<VSOP87Coefficient, 62> g_VSOP87B_B2_EARTH
   {        0.00000000012,        1.70058636365,    12559.03815298200 }
 } };
 
-constexpr array<VSOP87Coefficient, 14> g_VSOP87B_B3_EARTH
+constexpr std::array<VSOP87Coefficient, 14> g_VSOP87B_B3_EARTH
 { {
   {        0.00000275993,        0.59480097092,     6283.07584999140 },
   {        0.00000017034,        3.14159265359,        0.00000000000 },
@@ -1654,7 +1653,7 @@ constexpr array<VSOP87Coefficient, 14> g_VSOP87B_B3_EARTH
   {        0.00000000006,        2.14173241210,    11856.21865142450 }
 } };
 
-constexpr array<VSOP87Coefficient, 6> g_VSOP87B_B4_EARTH
+constexpr std::array<VSOP87Coefficient, 6> g_VSOP87B_B4_EARTH
 { {
   {        0.00000005745,        2.26734029843,     6283.07584999140 },
   {        0.00000000870,        0.00000000000,        0.00000000000 },
@@ -1664,13 +1663,13 @@ constexpr array<VSOP87Coefficient, 6> g_VSOP87B_B4_EARTH
   {        0.00000000005,        0.05711572303,    84334.66158130829 }
 } };
 
-constexpr array<VSOP87Coefficient, 2> g_VSOP87B_B5_EARTH
+constexpr std::array<VSOP87Coefficient, 2> g_VSOP87B_B5_EARTH
 { {
   {        0.00000000114,        4.31455980099,     6283.07584999140 },
   {        0.00000000024,        0.00000000000,        0.00000000000 }
 } };
 
-constexpr array<VSOP87Coefficient, 523> g_VSOP87B_R0_EARTH
+constexpr std::array<VSOP87Coefficient, 523> g_VSOP87B_R0_EARTH
 { {
   {        1.00013988784,        0.00000000000,        0.00000000000 },
   {        0.01670699632,        3.09846350258,     6283.07584999140 },
@@ -2197,7 +2196,7 @@ constexpr array<VSOP87Coefficient, 523> g_VSOP87B_R0_EARTH
   {        0.00000000050,        6.15760345261,    78051.34191383339 }
 } };
 
-constexpr array<VSOP87Coefficient, 290> g_VSOP87B_R1_EARTH
+constexpr std::array<VSOP87Coefficient, 290> g_VSOP87B_R1_EARTH
 { {
   {        0.00103018607,        1.10748968172,     6283.07584999140 },
   {        0.00001721238,        1.06442300386,    12566.15169998280 },
@@ -2491,7 +2490,7 @@ constexpr array<VSOP87Coefficient, 290> g_VSOP87B_R1_EARTH
   {        0.00000000020,        5.91915117116,    48739.85989708300 }
 } };
 
-constexpr array<VSOP87Coefficient, 134> g_VSOP87B_R2_EARTH
+constexpr std::array<VSOP87Coefficient, 134> g_VSOP87B_R2_EARTH
 { {
   {        0.00004359385,        5.78455133808,     6283.07584999140 },
   {        0.00000123633,        5.57935427994,    12566.15169998280 },
@@ -2629,7 +2628,7 @@ constexpr array<VSOP87Coefficient, 134> g_VSOP87B_R2_EARTH
   {        0.00000000014,        4.50116508534,      640.87760738220 }
 } };
 
-constexpr array<VSOP87Coefficient, 20> g_VSOP87B_R3_EARTH
+constexpr std::array<VSOP87Coefficient, 20> g_VSOP87B_R3_EARTH
 { {
   {        0.00000144595,        4.27319433901,     6283.07584999140 },
   {        0.00000006729,        3.91706261708,    12566.15169998280 },
@@ -2653,7 +2652,7 @@ constexpr array<VSOP87Coefficient, 20> g_VSOP87B_R3_EARTH
   {        0.00000000006,        2.36514111314,     6836.64525283380 }
 } };
 
-constexpr array<VSOP87Coefficient, 9> g_VSOP87B_R4_EARTH
+constexpr std::array<VSOP87Coefficient, 9> g_VSOP87B_R4_EARTH
 { {
   {        0.00000003858,        2.56389016346,     6283.07584999140 },
   {        0.00000000306,        2.26911740541,    12566.15169998280 },
@@ -2666,13 +2665,13 @@ constexpr array<VSOP87Coefficient, 9> g_VSOP87B_R4_EARTH
   {        0.00000000004,        4.26602478239,     6127.65545055720 }
 } };
 
-constexpr array<VSOP87Coefficient, 2> g_VSOP87B_R5_EARTH
+constexpr std::array<VSOP87Coefficient, 2> g_VSOP87B_R5_EARTH
 { {
   {        0.00000000086,        1.21805304895,     6283.07584999140 },
   {        0.00000000012,        0.65572878044,    12566.15169998280 }
 } };
 
-constexpr array<VSOP87Coefficient2, 6> g_VSOP87B_L_EARTH
+constexpr std::array<VSOP87Coefficient2, 6> g_VSOP87B_L_EARTH
 { {
   { g_VSOP87B_L0_EARTH.data(), g_VSOP87B_L0_EARTH.size() },
   { g_VSOP87B_L1_EARTH.data(), g_VSOP87B_L1_EARTH.size() },
@@ -2682,7 +2681,7 @@ constexpr array<VSOP87Coefficient2, 6> g_VSOP87B_L_EARTH
   { g_VSOP87B_L5_EARTH.data(), g_VSOP87B_L5_EARTH.size() }
 } };
 
-constexpr array<VSOP87Coefficient2, 6> g_VSOP87B_B_EARTH
+constexpr std::array<VSOP87Coefficient2, 6> g_VSOP87B_B_EARTH
 { {
   { g_VSOP87B_B0_EARTH.data(), g_VSOP87B_B0_EARTH.size() },
   { g_VSOP87B_B1_EARTH.data(), g_VSOP87B_B1_EARTH.size() },
@@ -2692,7 +2691,7 @@ constexpr array<VSOP87Coefficient2, 6> g_VSOP87B_B_EARTH
   { g_VSOP87B_B5_EARTH.data(), g_VSOP87B_B5_EARTH.size() }
 } };
 
-constexpr array<VSOP87Coefficient2, 6> g_VSOP87B_R_EARTH
+constexpr std::array<VSOP87Coefficient2, 6> g_VSOP87B_R_EARTH
 { {
   { g_VSOP87B_R0_EARTH.data(), g_VSOP87B_R0_EARTH.size() },
   { g_VSOP87B_R1_EARTH.data(), g_VSOP87B_R1_EARTH.size() },
@@ -2703,34 +2702,34 @@ constexpr array<VSOP87Coefficient2, 6> g_VSOP87B_R_EARTH
 } };
 
 
-////////////////////////////// Implementation /////////////////////////////////
+//////////////////// Implementation ///////////////////////////////////////////
 
 double CAAVSOP87B_Earth::L(double JD) noexcept
 {
-  return CVSOP87::Calculate(JD, g_VSOP87B_L_EARTH.data(), g_VSOP87B_L_EARTH.size(), true);
+  return CAAVSOP87::Calculate(JD, g_VSOP87B_L_EARTH.data(), g_VSOP87B_L_EARTH.size(), true);
 }
 
 double CAAVSOP87B_Earth::L_DASH(double JD) noexcept
 {
-  return CVSOP87::Calculate_Dash(JD, g_VSOP87B_L_EARTH.data(), g_VSOP87B_L_EARTH.size());
+  return CAAVSOP87::Calculate_Dash(JD, g_VSOP87B_L_EARTH.data(), g_VSOP87B_L_EARTH.size());
 }
 
 double CAAVSOP87B_Earth::B(double JD) noexcept
 {
-  return CVSOP87::Calculate(JD, g_VSOP87B_B_EARTH.data(), g_VSOP87B_B_EARTH.size(), true);
+  return CAAVSOP87::Calculate(JD, g_VSOP87B_B_EARTH.data(), g_VSOP87B_B_EARTH.size(), true);
 }
 
 double CAAVSOP87B_Earth::B_DASH(double JD) noexcept
 {
-  return CVSOP87::Calculate_Dash(JD, g_VSOP87B_B_EARTH.data(), g_VSOP87B_B_EARTH.size());
+  return CAAVSOP87::Calculate_Dash(JD, g_VSOP87B_B_EARTH.data(), g_VSOP87B_B_EARTH.size());
 }
 
 double CAAVSOP87B_Earth::R(double JD) noexcept
 {
-  return CVSOP87::Calculate(JD, g_VSOP87B_R_EARTH.data(), g_VSOP87B_R_EARTH.size(), false);
+  return CAAVSOP87::Calculate(JD, g_VSOP87B_R_EARTH.data(), g_VSOP87B_R_EARTH.size(), false);
 }
 
 double CAAVSOP87B_Earth::R_DASH(double JD) noexcept
 {
-  return CVSOP87::Calculate_Dash(JD, g_VSOP87B_R_EARTH.data(), g_VSOP87B_R_EARTH.size());
+  return CAAVSOP87::Calculate_Dash(JD, g_VSOP87B_R_EARTH.data(), g_VSOP87B_R_EARTH.size());
 }

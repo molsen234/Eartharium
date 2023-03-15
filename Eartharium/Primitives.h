@@ -34,7 +34,7 @@ struct Tri {
 };
 
 enum itemtype {
-    SUN = CAAElliptical::EllipticalObject::SUN, // Don't move these celestial objects, they need to match with AA+ enums
+    SUN = CAAElliptical::Object::SUN, // Don't move these celestial objects, they need to match with AA+ enums
     MERCURY,
     VENUS,
     MARS,

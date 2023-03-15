@@ -33,8 +33,10 @@ History: PJN / 16-11-2005 1. Fixed a transcription error in the second coefficie
                           VSOP87 theory rather than the truncated theory as presented in Meeus's book.
          PJN / 01-08-2017 1. Fixed up alignment of lookup tables in AAMercury.cpp module
          PJN / 13-04-2020 1. Reworked C arrays to use std::array
+         PJN / 26-06-2022 1. Updated all the code in AAMercury.cpp to use C++ uniform initialization for all
+                          variable declarations.
 
-Copyright (c) 2003 - 2021 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
+Copyright (c) 2003 - 2023 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
 
 All rights reserved.
 
@@ -44,26 +46,25 @@ You are allowed to include the source code in any product (commercial, shareware
 when your product is released in binary form. You are allowed to modify the source code in any way you want 
 except you cannot modify the copyright details at the top of each module. If you want to distribute source 
 code with your application, then you are only allowed to distribute versions released by the author. This is 
-to maintain a single distribution point for the source code. 
+to maintain a single distribution point for the source code.
 
 */
 
 
-//////////////////////////// Includes /////////////////////////////////////////
+//////////////////// Includes /////////////////////////////////////////////////
 
 #include "stdafx.h"
 #include "AAMercury.h"
 #include "AACoordinateTransformation.h"
 #include "AADefines.h"
-#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#ifndef AAPLUS_NO_VSOP87
 #include "AAVSOP87D_MER.h"
-#endif //#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#endif //#ifndef AAPLUS_NO_VSOP87
 #include <cmath>
 #include <array>
-using namespace std;
 
 
-//////////////////////////// Macros / Defines /////////////////////////////////
+//////////////////// Macros / Defines /////////////////////////////////////////
 
 #ifdef _MSC_VER
 #pragma warning(disable : 26446 26482 26485)
@@ -76,7 +77,7 @@ struct VSOP87Coefficient
   double C;
 };
 
-constexpr array<VSOP87Coefficient, 38> g_L0MercuryCoefficients
+constexpr std::array<VSOP87Coefficient, 38> g_L0MercuryCoefficients
 { {
   { 440250710, 0,          0              },
   { 40989415,  1.48302034, 26087.90314157 },
@@ -118,7 +119,7 @@ constexpr array<VSOP87Coefficient, 38> g_L0MercuryCoefficients
   { 106,       4.206,      19804.827      }
 } };
 
-constexpr array<VSOP87Coefficient, 16> g_L1MercuryCoefficients
+constexpr std::array<VSOP87Coefficient, 16> g_L1MercuryCoefficients
 { {
   { 2608814706223.0, 0,         0             },
   { 1126008,         6.2170397, 26087.9031416 },
@@ -138,7 +139,7 @@ constexpr array<VSOP87Coefficient, 16> g_L1MercuryCoefficients
   { 27,              5.09,      234791.13     }
 } };
 
-constexpr array<VSOP87Coefficient, 10> g_L2MercuryCoefficients
+constexpr std::array<VSOP87Coefficient, 10> g_L2MercuryCoefficients
 { {
   { 53050, 0,       0           },
   { 16904, 4.69072, 26087.90314 },
@@ -152,7 +153,7 @@ constexpr array<VSOP87Coefficient, 10> g_L2MercuryCoefficients
   { 12,    0.79,    208703.23   }
 } };
 
-constexpr array<VSOP87Coefficient, 8> g_L3MercuryCoefficients
+constexpr std::array<VSOP87Coefficient, 8> g_L3MercuryCoefficients
 { {
   { 188, 0.035, 52175.806 },
   { 142, 3.125, 26087.903 },
@@ -164,7 +165,7 @@ constexpr array<VSOP87Coefficient, 8> g_L3MercuryCoefficients
   { 3,   2.57,  182615.32 }
 } };
 
-constexpr array<VSOP87Coefficient, 6> g_L4MercuryCoefficients
+constexpr std::array<VSOP87Coefficient, 6> g_L4MercuryCoefficients
 { {
   { 114, 3.1416, 0         },
   { 3,   2.03,   26087.90  },
@@ -174,12 +175,12 @@ constexpr array<VSOP87Coefficient, 6> g_L4MercuryCoefficients
   { 1,   1.27,   130439.52 }
 } };
 
-constexpr array<VSOP87Coefficient, 1> g_L5MercuryCoefficients
+constexpr std::array<VSOP87Coefficient, 1> g_L5MercuryCoefficients
 { {
   { 1, 3.14, 0 }
 } };
 
-constexpr array<VSOP87Coefficient, 14> g_B0MercuryCoefficients
+constexpr std::array<VSOP87Coefficient, 14> g_B0MercuryCoefficients
 { {
   { 11737529, 1.98357499, 26087.90314157 },
   { 2388077,  5.0373896,  52175.8062831  },
@@ -197,7 +198,7 @@ constexpr array<VSOP87Coefficient, 14> g_B0MercuryCoefficients
   { 100,      5.657,      20426.571      }
 } };
 
-constexpr array<VSOP87Coefficient, 11> g_B1MercuryCoefficients
+constexpr std::array<VSOP87Coefficient, 11> g_B1MercuryCoefficients
 { {
   { 429151, 3.501698, 26087.903142 },
   { 146234, 3.141593, 0            },
@@ -212,7 +213,7 @@ constexpr array<VSOP87Coefficient, 11> g_B1MercuryCoefficients
   { 26,     5.98,     234791.13    }
 } };
 
-constexpr array<VSOP87Coefficient, 9> g_B2MercuryCoefficients
+constexpr std::array<VSOP87Coefficient, 9> g_B2MercuryCoefficients
 { {
   { 11831, 4.79066, 26087.90314 },
   { 1914,  0,       0           },
@@ -225,7 +226,7 @@ constexpr array<VSOP87Coefficient, 9> g_B2MercuryCoefficients
   { 7,     1.43,    208703.23   }
 } };
 
-constexpr array<VSOP87Coefficient, 7> g_B3MercuryCoefficients
+constexpr std::array<VSOP87Coefficient, 7> g_B3MercuryCoefficients
 { {
   { 235, 0.354, 26087.903 },
   { 161, 0,     0         },
@@ -236,13 +237,13 @@ constexpr array<VSOP87Coefficient, 7> g_B3MercuryCoefficients
   { 2,   6.27,  156527.42 }
 } };
 
-constexpr array<VSOP87Coefficient, 2> g_B4MercuryCoefficients
+constexpr std::array<VSOP87Coefficient, 2> g_B4MercuryCoefficients
 { {
   { 4, 1.75, 26087.90 },
   { 1, 3.14, 0        }
 } };
 
-constexpr array<VSOP87Coefficient, 13> g_R0MercuryCoefficients
+constexpr std::array<VSOP87Coefficient, 13> g_R0MercuryCoefficients
 { {
   { 39528272, 0,         0             },
   { 7834132,  6.1923372, 26087.9031416 },
@@ -259,7 +260,7 @@ constexpr array<VSOP87Coefficient, 13> g_R0MercuryCoefficients
   { 100,      3.734,     21535.950     }
 } };
 
-constexpr array<VSOP87Coefficient, 8> g_R1MercuryCoefficients
+constexpr std::array<VSOP87Coefficient, 8> g_R1MercuryCoefficients
 { {
   { 217348, 4.656172, 26087.903142 },
   { 44142,  1.42386,  52175.80628  },
@@ -271,7 +272,7 @@ constexpr array<VSOP87Coefficient, 8> g_R1MercuryCoefficients
   { 39,     4.11,     182615.32    }
 } };
 
-constexpr array<VSOP87Coefficient, 7> g_R2MercuryCoefficients
+constexpr std::array<VSOP87Coefficient, 7> g_R2MercuryCoefficients
 { {
   { 3118, 3.0823, 26087.9031 },
   { 1245, 6.1518, 52175.8063 },
@@ -282,7 +283,7 @@ constexpr array<VSOP87Coefficient, 7> g_R2MercuryCoefficients
   { 13,   5.80,   156527.42  }
 } };
 
-constexpr array<VSOP87Coefficient, 5> g_R3MercuryCoefficients
+constexpr std::array<VSOP87Coefficient, 5> g_R3MercuryCoefficients
 { {
   { 33, 1.68, 26087.90  },
   { 24, 4.63, 52175.81  },
@@ -296,50 +297,50 @@ constexpr array<VSOP87Coefficient, 5> g_R3MercuryCoefficients
 
 double CAAMercury::EclipticLongitude(double JD, bool bHighPrecision) noexcept
 {
-#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#ifndef AAPLUS_NO_VSOP87
   if (bHighPrecision)
     return CAACoordinateTransformation::MapTo0To360Range(CAACoordinateTransformation::RadiansToDegrees(CAAVSOP87D_Mercury::L(JD)));
 #else
   UNREFERENCED_PARAMETER(bHighPrecision);
-#endif //#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#endif //#ifndef AAPLUS_NO_VSOP87
 
-  const double rho = (JD - 2451545) / 365250;
-  const double rhosquared = rho*rho;
-  const double rhocubed = rhosquared*rho;
-  const double rho4 = rhocubed*rho;
-  const double rho5 = rho4*rho;
+  const double rho{(JD - 2451545)/365250};
+  const double rhosquared{rho*rho};
+  const double rhocubed{rhosquared*rho};
+  const double rho4{rhocubed*rho};
+  const double rho5{rho4*rho};
 
   //Calculate L0
-  double L0 = 0;
+  double L0{0};
   for (const auto& L0Coefficient : g_L0MercuryCoefficients)
-    L0 += (L0Coefficient.A * cos(L0Coefficient.B + (L0Coefficient.C*rho)));
+    L0 += (L0Coefficient.A*cos(L0Coefficient.B + (L0Coefficient.C*rho)));
 
   //Calculate L1
-  double L1 = 0;
+  double L1{0};
   for (const auto& L1Coefficient : g_L1MercuryCoefficients)
-    L1 += (L1Coefficient.A * cos(L1Coefficient.B + (L1Coefficient.C*rho)));
+    L1 += (L1Coefficient.A*cos(L1Coefficient.B + (L1Coefficient.C*rho)));
 
   //Calculate L2
-  double L2 = 0;
+  double L2{0};
   for (const auto& L2Coefficient : g_L2MercuryCoefficients)
-    L2 += (L2Coefficient.A * cos(L2Coefficient.B + (L2Coefficient.C*rho)));
+    L2 += (L2Coefficient.A*cos(L2Coefficient.B + (L2Coefficient.C*rho)));
 
   //Calculate L3
-  double L3 = 0;
+  double L3{0};
   for (const auto& L3Coefficient : g_L3MercuryCoefficients)
-    L3 += (L3Coefficient.A * cos(L3Coefficient.B + (L3Coefficient.C*rho)));
+    L3 += (L3Coefficient.A*cos(L3Coefficient.B + (L3Coefficient.C*rho)));
 
   //Calculate L4
-  double L4 = 0;
+  double L4{0};
   for (const auto& L4Coefficient : g_L4MercuryCoefficients)
-    L4 += (L4Coefficient.A * cos(L4Coefficient.B + (L4Coefficient.C*rho)));
+    L4 += (L4Coefficient.A*cos(L4Coefficient.B + (L4Coefficient.C*rho)));
 
   //Calculate L5
-  double L5 = 0;
+  double L5{0};
   for (const auto& L5Coefficient : g_L5MercuryCoefficients)
-    L5 += (L5Coefficient.A * cos(L5Coefficient.B + (L5Coefficient.C*rho)));
+    L5 += (L5Coefficient.A*cos(L5Coefficient.B + (L5Coefficient.C*rho)));
 
-  double value = (L0 + (L1*rho) + (L2*rhosquared) + (L3*rhocubed) + (L4*rho4) + (L5*rho5)) / 100000000;
+  double value{(L0 + (L1*rho) + (L2*rhosquared) + (L3*rhocubed) + (L4*rho4) + (L5*rho5))/100000000};
 
   //convert results back to degrees
   value = CAACoordinateTransformation::MapTo0To360Range(CAACoordinateTransformation::RadiansToDegrees(value));
@@ -348,44 +349,44 @@ double CAAMercury::EclipticLongitude(double JD, bool bHighPrecision) noexcept
 
 double CAAMercury::EclipticLatitude(double JD, bool bHighPrecision) noexcept
 {
-#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#ifndef AAPLUS_NO_VSOP87
   if (bHighPrecision)
     return CAACoordinateTransformation::MapToMinus90To90Range(CAACoordinateTransformation::RadiansToDegrees(CAAVSOP87D_Mercury::B(JD)));
 #else
   UNREFERENCED_PARAMETER(bHighPrecision);
-#endif //#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#endif //#ifndef AAPLUS_NO_VSOP87
 
-  const double rho = (JD - 2451545) / 365250;
-  const double rhosquared = rho*rho;
-  const double rhocubed = rhosquared*rho;
-  const double rho4 = rhocubed*rho;
+  const double rho{(JD - 2451545)/365250};
+  const double rhosquared{rho*rho};
+  const double rhocubed{rhosquared*rho};
+  const double rho4{rhocubed*rho};
 
   //Calculate B0
-  double B0 = 0;
+  double B0{0};
   for (const auto& B0Coefficient : g_B0MercuryCoefficients)
-    B0 += (B0Coefficient.A * cos(B0Coefficient.B + (B0Coefficient.C*rho)));
+    B0 += (B0Coefficient.A*cos(B0Coefficient.B + (B0Coefficient.C*rho)));
 
   //Calculate B1
-  double B1 = 0;
+  double B1{0};
   for (const auto& B1Coefficient : g_B1MercuryCoefficients)
-    B1 += (B1Coefficient.A * cos(B1Coefficient.B + (B1Coefficient.C*rho)));
+    B1 += (B1Coefficient.A*cos(B1Coefficient.B + (B1Coefficient.C*rho)));
 
   //Calculate B2
-  double B2 = 0;
+  double B2{0};
   for (const auto& B2Coefficient : g_B2MercuryCoefficients)
-    B2 += (B2Coefficient.A * cos(B2Coefficient.B + (B2Coefficient.C*rho)));
+    B2 += (B2Coefficient.A*cos(B2Coefficient.B + (B2Coefficient.C*rho)));
 
   //Calculate B3
-  double B3 = 0;
+  double B3{0};
   for (const auto& B3Coefficient : g_B3MercuryCoefficients)
-    B3 += (B3Coefficient.A * cos(B3Coefficient.B + (B3Coefficient.C*rho)));
+    B3 += (B3Coefficient.A*cos(B3Coefficient.B + (B3Coefficient.C*rho)));
 
   //Calculate B4
-  double B4 = 0;
+  double B4{0};
   for (const auto& B4Coefficient : g_B4MercuryCoefficients)
-    B4 += (B4Coefficient.A * cos(B4Coefficient.B + (B4Coefficient.C*rho)));
+    B4 += (B4Coefficient.A*cos(B4Coefficient.B + (B4Coefficient.C*rho)));
 
-  double value = (B0 + (B1*rho) + (B2*rhosquared) + (B3*rhocubed) + (B4*rho4)) / 100000000;
+  double value{(B0 + (B1*rho) + (B2*rhosquared) + (B3*rhocubed) + (B4*rho4))/100000000};
 
   //convert results back to degrees
   value = CAACoordinateTransformation::MapToMinus90To90Range(CAACoordinateTransformation::RadiansToDegrees(value));
@@ -394,36 +395,36 @@ double CAAMercury::EclipticLatitude(double JD, bool bHighPrecision) noexcept
 
 double CAAMercury::RadiusVector(double JD, bool bHighPrecision) noexcept
 {
-#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#ifndef AAPLUS_NO_VSOP87
   if (bHighPrecision)
     return CAAVSOP87D_Mercury::R(JD);
 #else
   UNREFERENCED_PARAMETER(bHighPrecision);
-#endif //#ifndef AAPLUS_VSOP87_NO_HIGH_PRECISION
+#endif //#ifndef AAPLUS_NO_VSOP87
 
-  const double rho = (JD - 2451545) / 365250;
-  const double rhosquared = rho*rho;
-  const double rhocubed = rhosquared*rho;
+  const double rho{(JD - 2451545)/365250};
+  const double rhosquared{rho*rho};
+  const double rhocubed{rhosquared*rho};
 
   //Calculate R0
-  double R0 = 0;
+  double R0{0};
   for (const auto& R0Coefficient : g_R0MercuryCoefficients)
-    R0 += (R0Coefficient.A * cos(R0Coefficient.B + (R0Coefficient.C*rho)));
+    R0 += (R0Coefficient.A*cos(R0Coefficient.B + (R0Coefficient.C*rho)));
 
   //Calculate R1
-  double R1 = 0;
+  double R1{0};
   for (const auto& R1Coefficient : g_R1MercuryCoefficients)
-    R1 += (R1Coefficient.A * cos(R1Coefficient.B + (R1Coefficient.C*rho)));
+    R1 += (R1Coefficient.A*cos(R1Coefficient.B + (R1Coefficient.C*rho)));
 
   //Calculate R2
-  double R2 = 0;
+  double R2{0};
   for (const auto& R2Coefficient : g_R2MercuryCoefficients)
-    R2 += (R2Coefficient.A * cos(R2Coefficient.B + (R2Coefficient.C*rho)));
+    R2 += (R2Coefficient.A*cos(R2Coefficient.B + (R2Coefficient.C*rho)));
 
   //Calculate R3
-  double R3 = 0;
+  double R3{0};
   for (const auto& R3Coefficient : g_R3MercuryCoefficients)
-    R3 += (R3Coefficient.A * cos(R3Coefficient.B + (R3Coefficient.C*rho)));
+    R3 += (R3Coefficient.A*cos(R3Coefficient.B + (R3Coefficient.C*rho)));
 
-  return (R0 + R1*rho + R2*rhosquared + R3*rhocubed) / 100000000;
+  return (R0 + (R1*rho) + (R2*rhosquared) + (R3*rhocubed))/100000000;
 }

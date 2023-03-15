@@ -3,7 +3,7 @@ Module : AA2DCoordinate.h
 Purpose: Implementation for the simple class to encapsulate a two dimensional coordinate
 Created: PJN / 29-12-2003
 
-Copyright (c) 2003 - 2021 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
+Copyright (c) 2003 - 2023 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
 
 All rights reserved.
 
@@ -18,7 +18,7 @@ to maintain a single distribution point for the source code.
 */
 
 
-/////////////////////// Macros / Defines //////////////////////////////////////
+//////////////////// Macros / Defines /////////////////////////////////////////
 
 #if _MSC_VER > 1000
 #pragma once
@@ -32,27 +32,14 @@ to maintain a single distribution point for the source code.
 #endif //#ifndef AAPLUS_EXT_CLASS
 
 
-/////////////////////// Classes ///////////////////////////////////////////////
+//////////////////// Classes //////////////////////////////////////////////////
 
 class AAPLUS_EXT_CLASS CAA2DCoordinate
 {
 public:
-//Constructors / Destructors
-  CAA2DCoordinate() noexcept : X(0),
-                               Y(0)
-  {
-  };
-  CAA2DCoordinate(const CAA2DCoordinate&) = default;
-  CAA2DCoordinate(CAA2DCoordinate&&) = default;
-  ~CAA2DCoordinate() = default;
-
-//Methods
-  CAA2DCoordinate& operator=(const CAA2DCoordinate&) = default;
-  CAA2DCoordinate& operator=(CAA2DCoordinate&&) = default;
-
 //Member variables
-  double X;
-  double Y;
+  double X{0};
+  double Y{0};
 };
 
 

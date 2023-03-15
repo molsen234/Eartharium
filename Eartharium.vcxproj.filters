@@ -380,6 +380,9 @@
     <ClInclude Include="Eartharium\AAplus\AAPrecession.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Eartharium\geometry.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Eartharium\shaders\primitive.glsl">

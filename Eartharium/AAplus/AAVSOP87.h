@@ -3,7 +3,7 @@ Module : AAVSOP87.h
 Purpose: Implementation for the algorithms for VSOP87
 Created: PJN / 29-08-2015
 
-Copyright (c) 2015 - 2021 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
+Copyright (c) 2015 - 2023 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
 
 All rights reserved.
 
@@ -18,7 +18,7 @@ to maintain a single distribution point for the source code.
 */
 
 
-////////////////////////////// Macros / Defines ///////////////////////////////
+//////////////////// Macros / Defines /////////////////////////////////////////
 
 #if _MSC_VER > 1000
 #pragma once
@@ -32,12 +32,12 @@ to maintain a single distribution point for the source code.
 #endif //#ifndef AAPLUS_EXT_CLASS
 
 
-////////////////////////////// Includes ///////////////////////////////////////
+//////////////////// Includes /////////////////////////////////////////////////
 
 #include <cstddef>
 
 
-////////////////////////////// Classes ////////////////////////////////////////
+//////////////////// Classes //////////////////////////////////////////////////
 
 struct VSOP87Coefficient
 {
@@ -52,7 +52,7 @@ struct VSOP87Coefficient2
   size_t nCoefficientsSize;
 };
 
-class AAPLUS_EXT_CLASS CVSOP87
+class AAPLUS_EXT_CLASS CAAVSOP87
 {
 public:
 //Static methods
