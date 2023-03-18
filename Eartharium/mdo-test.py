@@ -92,7 +92,7 @@ app.do_render()
 # Debug - https://www.digitalocean.com/community/tutorials/how-to-debug-python-with-an-interactive-console
 # This might be expanded into a full interactive loop including render calls, so main c++ app is not frozen while this runs
 # <Ctrl>Z, <Enter> to exit
-if (app.ipython == True):
+if (app.interactive == True):
     import code
     code.interact(local=locals())
 

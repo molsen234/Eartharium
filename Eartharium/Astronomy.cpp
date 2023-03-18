@@ -27,7 +27,7 @@ class Earth;
 // ---------------
 //  CelestialPath
 // ---------------
-CelestialPath::CelestialPath(Astronomy* celmec, unsigned int planet, double startoffset, double endoffset, unsigned int steps, unsigned int type, bool fixed)
+CelestialPath::CelestialPath(Astronomy* celmec, size_t planet, double startoffset, double endoffset, unsigned int steps, unsigned int type, bool fixed)
     : m_astro(celmec), jdStart(startoffset), jdEnd(endoffset), jdSteps(steps), cpType(type), fixedpath(fixed) {
     // Also have the option of a fixed CelestialPath that doesn't follow/update with current JD. !!!
     this->planet = planet;
@@ -91,13 +91,25 @@ double Astronomy::epoch = 2000.0;
 std::vector<Astronomy::stellarobject> Astronomy::stellarobjects;
 std::vector<Astronomy::stellarobject_xref> Astronomy::stellarobject_xrefs;
 void Astronomy::loadStellarObjects() {
+    if (stellarobjects.empty()) { // First object is an empty that can be returned when no stellarobject matches a search
+        stellarobjects.push_back(stellarobject());
+        stellarobjects.back().ra = NO_DOUBLE;
+        stellarobjects.back().dec = NO_DOUBLE;
+        stellarobjects.back().pm_ra = NO_DOUBLE;
+        stellarobjects.back().pm_dec = NO_DOUBLE;
+        stellarobjects.back().vmag = NO_DOUBLE;
+        stellarobjects.back().red = NO_DOUBLE;
+        stellarobjects.back().green = NO_DOUBLE;
+        stellarobjects.back().blue = NO_DOUBLE;
+        stellarobjects.back().identifier = "None";
+    }
     size_t res_items = 10000;
     size_t res_namexrefs = 500;
     stellarobjects.reserve(res_items);
     stellarobject_xrefs.reserve(res_namexrefs);
     std::ifstream stream("C:\\Coding\\Eartharium\\visible stars color - v2.csv");
     if (!stream.is_open()) {
-        std::cout << "Did not manage to open Star file!\n";
+        std::cout << "Astronomy::loadStellarObjects() Did not manage to open Star file!\n";
     }
     std::istringstream parse;
     std::string line, item;
@@ -291,6 +303,7 @@ void Astronomy::convertSIMBAD(std::string filename) {
     }
 }
 Astronomy::stellarobject& Astronomy::getSObyName(const std::string starname) {
+    //stellarobject* so{ NO_DOUBLE, NO_DOUBLE, NO_DOUBLE, NO_DOUBLE, NO_DOUBLE, NO_DOUBLE, NO_DOUBLE, NO_DOUBLE, "none" }; // retval
     std::string sname = starname;
     for (auto& n : Astronomy::stellarobject_xrefs) {
         //std::cout << n.popular_name << "|" << n.identifier << '\n';
@@ -304,6 +317,8 @@ Astronomy::stellarobject& Astronomy::getSObyName(const std::string starname) {
             return s; // File was loaded in degrees
         }
     }
+    std::cout << "ERROR! Astronomy::getSObyName() - Unknown name supplied: " << starname << '\n';
+    return stellarobjects[0];  // Dummy entry with NO_DOUBLE ... "None"
 }
 LLH Astronomy::getDecRAbyName(const std::string starname, bool rad) {
     std::string sname = starname;
@@ -532,26 +547,26 @@ bool Astronomy::isLeapYear(double year) {
     if (y % 4 == 0) return true;
     return false;
 }
-unsigned int Astronomy::enablePlanet(unsigned int planet) {
+unsigned int Astronomy::enablePlanet(size_t planet) {
     return ++planet_refcnt[planet];
 }
-unsigned int Astronomy::disablePlanet(unsigned int planet) {
+unsigned int Astronomy::disablePlanet(size_t planet) {
     return --planet_refcnt[planet];
 }
-LLH Astronomy::getDecRA(unsigned int planet, double jd) {
+LLH Astronomy::getDecRA(size_t planet, double jd) {
     if (jd == 0.0) jd = m_jd;
     if (jd == planet_jd[planet]) return { planet_dec[planet], planet_ra[planet], 0.0 };
     CelestialDetail details = getDetails(jd, planet, ECGEO);
     return { details.geodec, details.geora, 0.0 };
 }
-LLH Astronomy::getDecGHA(unsigned int planet, double jd, bool rad) {
+LLH Astronomy::getDecGHA(size_t planet, double jd, bool rad) {
     if (jd == 0.0) jd = m_jd;
     if (jd == planet_jd[planet]) return { planet_dec[planet], planet_gha[planet], 0.0 };
     CelestialDetail details = getDetails(jd, planet, ECGEO);
     if (!rad) return { rad2deg * details.geodec, rad2deg * details.geogha, 0.0 };
     else return { details.geodec, details.geogha, 0.0 };
 }
-void Astronomy::updateGeocentric(unsigned int planet) {
+void Astronomy::updateGeocentric(size_t planet) {
     if (planet_jd[planet] == m_jd) return;  // Skip if time has not updated. Ideally we should never be called at all in that case.
     CelestialDetail details = getDetails(m_jd, planet, ECGEO);
     planet_dec[planet] = details.geodec;
@@ -635,7 +650,7 @@ double Astronomy::getEclipticObliquity(double jd, bool rad) {
     if (jd == NO_DOUBLE) jd = m_jd;
     return rad ? CAANutation::TrueObliquityOfEcliptic(jd) * deg2rad : CAANutation::TrueObliquityOfEcliptic(jd);
 }
-CelestialDetail Astronomy::getDetails(double JD, unsigned int planet, unsigned int type) {
+CelestialDetail Astronomy::getDetails(double JD, size_t planet, unsigned int type) {
     CelestialDetail details;
     details.jd = JD;
     //Calculate the position of the earth first
@@ -776,7 +791,7 @@ CelestialDetail Astronomy::getDetails(double JD, unsigned int planet, unsigned i
     details.geodec = ApparentEqu.lat;
     return details;
 }
-CelestialPath* Astronomy::getCelestialPath(unsigned int planet, double startoffset, double endoffset, unsigned int steps, unsigned int type, bool fixed) {
+CelestialPath* Astronomy::getCelestialPath(size_t planet, double startoffset, double endoffset, unsigned int steps, unsigned int type, bool fixed) {
     // Optional param fixed determines whether path will evolve with time or remain with initial values
     // Check if there is a matching CelestialPath already
     for (auto cp : cacheCP.m_Elements) {
@@ -1001,7 +1016,7 @@ LLH Astronomy::calcTrueDecRa(const LLH decra, const double jd, const double JD0)
 }
 
 
-double Astronomy::getEcLat(unsigned int planet, double jd) {
+double Astronomy::getEcLat(size_t planet, double jd) {
     // Heliocentric Ecliptic Latitude (ref. Equinox of Epoch) in radians
     // Unconditionally caching may or may not be desired. Consider a flag, or rename the function so it is clear that getEcLat{planet}() may be preferable. !!!
     if (planet == MERCURY) planet_ecLat[planet] = EcLatMercury(jd);
@@ -1015,7 +1030,7 @@ double Astronomy::getEcLat(unsigned int planet, double jd) {
     else std::cout << "APlanet::getEcLat(): planet unknown: " << planet << "\n";
     return planet_ecLat[planet];
 }
-double Astronomy::getEcLon(unsigned int planet, double jd) {
+double Astronomy::getEcLon(size_t planet, double jd) {
     // Heliocentric Ecliptic Longitude (ref. Equinox of Epoch) in radians
     if (planet == MERCURY) planet_ecLon[planet] = EcLonMercury(jd);
     else if (planet == VENUS) planet_ecLon[planet] = EcLonVenus(jd);
@@ -1028,7 +1043,7 @@ double Astronomy::getEcLon(unsigned int planet, double jd) {
     else std::cout << "APlanet::getEcLon(): planet unknown: " << planet << "\n";
     return planet_ecLon[planet];
 }
-double Astronomy::getRadius(unsigned int planet, double jd, bool km) {
+double Astronomy::getRadius(size_t planet, double jd, bool km) {
     // Heliocentric Ecliptic Radius (ref. Equinox of Epoch) in kilometers
     if (planet == MERCURY) planet_ecRadius[planet] = EcDstMercury(jd);
     else if (planet == VENUS) planet_ecRadius[planet] = EcDstVenus(jd);

@@ -425,5 +425,6 @@
       <Filter>Source Files</Filter>
     </None>
     <None Include="Eartharium\shaders\glyph.glsl" />
+    <None Include="Eartharium\mdo-test.py" />
   </ItemGroup>
 </Project>

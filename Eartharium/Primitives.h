@@ -205,29 +205,29 @@ template<typename T>
 class tightvec {
 public:
     std::vector<T> m_Elements;
-    std::map<unsigned int, unsigned int> m_remap;
-    std::map<unsigned int, unsigned int> m_xmap;
-    std::vector<unsigned int> m_freed;
+    std::map<size_t, size_t> m_remap;
+    std::map<size_t, size_t> m_xmap;
+    std::vector<size_t> m_freed;
     //tightvec<T>();
     //~tightvec<T>();
-    unsigned int size();
-    unsigned int capacity();
+    size_t size();
+    size_t capacity();
     void clear();
     bool empty();
-    T& operator[](unsigned int oid);
-    void reserve(unsigned int reserve);
-    unsigned int store(T element, bool debug = false);
-    T& retrieve(unsigned int oid);
-    void update(unsigned int oid, T element);
-    void remove(unsigned int oid, bool debug = false);
+    T& operator[](size_t oid);
+    void reserve(size_t reserve);
+    size_t store(T element, bool debug = false);
+    T& retrieve(size_t oid);
+    void update(size_t oid, T element);
+    void remove(size_t oid, bool debug = false);
 };
 template<typename T>
-unsigned int tightvec<T>::size() {
-    return (unsigned int)m_Elements.size();
+size_t tightvec<T>::size() {
+    return m_Elements.size();
 }
 template<typename T>
-unsigned int tightvec<T>::capacity() {
-    return (unsigned int)m_Elements.capacity();
+size_t tightvec<T>::capacity() {
+    return m_Elements.capacity();
 }
 template<typename T>
 bool tightvec<T>::empty() {
@@ -241,16 +241,16 @@ void tightvec<T>::clear() {
     m_xmap.clear();
 }
 template<typename T>
-T& tightvec<T>::operator[](unsigned int oid) {
+T& tightvec<T>::operator[](size_t oid) {
     //std::cout << "oid: " << oid << "\n";
     return retrieve(oid);
 }
 template<typename T>
-void tightvec<T>::reserve(unsigned int reserve) {
+void tightvec<T>::reserve(size_t reserve) {
     m_Elements.reserve(reserve);
 }
 template<typename T>
-unsigned int tightvec<T>::store(T element, bool debug) {
+size_t tightvec<T>::store(T element, bool debug) {
     if (debug) std::cout << "tightvec{" << this << "}::store() called\n"; // Can't print element, type is not known at compile time
     if (debug) for (auto& o : m_remap) {
         std::cout << "tightvec{" << this << "}::store(): m_remap " << o.first << ", " << o.second << "\n";
@@ -261,8 +261,8 @@ unsigned int tightvec<T>::store(T element, bool debug) {
     if (debug) for (auto& o : m_freed) {
         std::cout << "tightvec{" << this << "}::store(): m_freed " << o << "\n";
     }
-    unsigned int oid, iid;
-    iid = (unsigned int)m_Elements.size(); // vector is compact, so always add to end.
+    size_t oid, iid;
+    iid = m_Elements.size(); // vector is compact, so always add to end.
     m_Elements.emplace_back(element);
     if (m_freed.size() > 0) { // Recycle freed outer indices
         oid = m_freed.back();
@@ -285,7 +285,7 @@ unsigned int tightvec<T>::store(T element, bool debug) {
     return oid;
 }
 template<typename T>
-T& tightvec<T>::retrieve(unsigned int oid) {
+T& tightvec<T>::retrieve(size_t oid) {
     if (m_remap.count(oid)) return m_Elements[m_remap[oid]];
     else {
         std::cout << "ERROR: tightvec::retrieve() or tightvec[] called with non-existing index: " << oid << "\n";
@@ -293,12 +293,12 @@ T& tightvec<T>::retrieve(unsigned int oid) {
     }
 }
 template<typename T>
-void tightvec<T>::update(unsigned int oid, T element) {
-    unsigned int iid = m_remap[oid];
+void tightvec<T>::update(size_t oid, T element) {
+    size_t iid = m_remap[oid];
     m_Elements[iid] = element;
 }
 template<typename T>
-void tightvec<T>::remove(unsigned int oid, bool debug) {
+void tightvec<T>::remove(size_t oid, bool debug) {
     if (debug) std::cout << "tightvec{" << this << "}::remove(" << oid << ") called\n";
     if (m_Elements.size() == 0) {  // calling pop_back() on empty vector is undefined, so avoid it.
         std::cout << "tightvec<T>:Remove(): Reached m_Elements of ZERO size, yet was asked to delete an entry!! Ignoring!\n\n";
@@ -313,16 +313,16 @@ void tightvec<T>::remove(unsigned int oid, bool debug) {
     if (debug) for (auto& o : m_freed) {
         std::cout << "tightvec{" << this << "}::remove(): m_freed " << o << "\n";
     }
-    unsigned int iid = m_remap[oid];
+    size_t iid = m_remap[oid];
     if (debug) std::cout << "oid, iid: " << oid << ", " << iid << "\n";
-    unsigned int last = (unsigned int)m_Elements.size() - 1;
+    size_t last = m_Elements.size() - 1;
     //std::cout << "oid: " << oid << "\n";
     //std::cout << "iid: " << iid << "\n";
     //std::cout << "last: " << last << "\n";
     if (iid != last) { // Removing element in middle of vector
         m_Elements[iid] = m_Elements[last]; //.back();
         //std::cout << "Replace element: " << iid << " with " << last << "\n";
-        unsigned int loid = m_xmap[last]; // If last was previously relocated, get oid of last. If not relocated, it still points last.
+        size_t loid = m_xmap[last]; // If last was previously relocated, get oid of last. If not relocated, it still points last.
         m_remap[loid] = iid;
         if (debug) std::cout << "setting m_remap[" << loid << "] = " << iid << "\n";
         m_xmap[iid] = loid;
@@ -412,7 +412,6 @@ class SceneObject {
     unsigned int id = 0;
     //unsigned int type = 0;
     //primobj primitiveobject;            // The geometry etc of this object (of type SceneObject::type)
-    // std::vector<SceneObject*> children;
 public:
     glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
     std::string name = "Object";
@@ -422,7 +421,14 @@ public:
     void addChild(SceneObject* object) {
         children.push_back(object);
     }
-    void setParent(SceneObject* oid) { parent = oid; }
+    void removeChild(SceneObject* child) {
+        children.remove(child);
+    }
+    void setParent(SceneObject* parent) { 
+        if (parent == nullptr) return; // Allow unparented objects
+        parent = parent;
+        parent->addChild(this);
+    }
     SceneObject* getParent() { return parent; }
     void setID(unsigned int oid) { id = oid; }
     unsigned int getID() { return id; }
@@ -561,9 +567,9 @@ public:
     Earth* newEarth(std::string mode, unsigned int mU, unsigned int mV);
     Earth* getEarth(); // May return nullptr, so user must check!
     Minifigs* newMinifigs();
-    PolyCurve* newPolyCurve(glm::vec4 color, float width, unsigned int reserve = NO_UINT);
+    PolyCurve* newPolyCurve(glm::vec4 color, float width, size_t reserve = NO_UINT);
     void deletePolyCurve(PolyCurve* curve);
-    PolyLine* newPolyLine(glm::vec4 color, float width, unsigned int reserve = NO_UINT);
+    PolyLine* newPolyLine(glm::vec4 color, float width, size_t reserve = NO_UINT);
     void deletePolyLine(PolyLine* curve);
     Earth2* newEarth2(std::string mode, const unsigned int mU, const unsigned int mV, SceneObject* parent = nullptr);
 };
@@ -825,17 +831,16 @@ public:
     bool togglefullwin = false;
     bool isfullscreen = false;
 
-    // Debugging options
-    bool interactive = false;
-    bool breakpoint = false;
-    bool dumpcam = false;
-    bool dumptime = false;
-
     // Scripting
-    bool ipython = false;
+    bool interactive = false;
     bool gui = false;
     bool anim = false;
     bool do_eot = false;
+
+    // Debugging options
+    bool breakpoint = false;
+    bool dumpcam = false;
+    bool dumptime = false;
 
     // Lunalemma parameters - here because lunalemma is simply a path allocated by a location
     float lunalemmaOffset = 0.0f;
@@ -1087,12 +1092,12 @@ class TimeZones {
 public:
     // For the time zone shapes
     struct TimeZoneName {
-        unsigned int index = 0;
+        size_t index = 0;
         std::string searchname;
         //std::string displayname;
     };
     struct timezonepartcache {
-        unsigned int timezone_id = 0;
+        size_t timezone_id = 0;
         ShapeFile::ShapePart* part = nullptr;
         PolyLine* polyline = nullptr;
         Earth* earth = nullptr;
@@ -1112,7 +1117,7 @@ public:
     // Functions for timezone outlines
     TimeZones(Scene* scene, const std::string& shapefile = "C:\\Coding\\combined-shapefile-with-oceans");
     void addTimeZone(Earth& earth, const std::string timezonename);
-    void addTimeZone(Earth& earth, unsigned int rindex);
+    void addTimeZone(Earth& earth, size_t rindex);
     void update();
     void draw();
     int parseNames(const std::string& namefile);
@@ -1127,12 +1132,12 @@ public:
 //  Country Borders
 // -----------------
 struct CountryName {
-    unsigned int index = 0;
+    size_t index = 0;
     std::string searchname;
     std::string displayname;
 };
 struct borderpartcache {
-    unsigned int country_id = 0;
+    size_t country_id = 0;
     ShapeFile::ShapePart* part = nullptr;
     PolyLine* polyline = nullptr;
     Earth* earth = nullptr;
@@ -1152,7 +1157,7 @@ private:
 public:
     CountryBorders(Scene* scene, const std::string& shapefile = "C:\\Coding\\ne_10m_admin_0_countries");
     void addBorder(Earth& earth, const std::string countryname);
-    void addBorder(Earth& earth, unsigned int rindex);
+    void addBorder(Earth& earth, size_t rindex);
     void update();
     void draw();
     int parseNames(const std::string& namefile);
@@ -1248,7 +1253,7 @@ private:
         glm::vec4 color = WHITE;
         glm::vec3 position = glm::vec3(0.0f);
         float size = 0.0f;
-        unsigned int index = maxuint;
+        size_t index = maxuint;
     };
     Scene* m_scene = nullptr;
     unsigned int m_number = maxuint;
@@ -1285,7 +1290,7 @@ private:
     Scene* m_scene = nullptr;
     struct AngleArc {
         PolyCurve* polycurve = nullptr;
-        unsigned int cone = maxuint;
+        size_t cone = maxuint;
         glm::vec4 color;
         glm::vec3 position;
         glm::vec3 start;
@@ -1301,10 +1306,10 @@ private:
 public:
     AngleArcs(Scene* scene);
     ~AngleArcs();
-    double getAngle(unsigned int index);
-    unsigned int add(glm::vec3 position, glm::vec3 start, glm::vec3 stop, float length, glm::vec4 color = LIGHT_GREY, float width = 0.001f, bool wide = false, glm::vec3 pole = glm::vec3(0.0f));
-    void remove(unsigned int index);
-    void update(unsigned int index, glm::vec3 position, glm::vec3 start, glm::vec3 stop, float length, glm::vec4 color = LIGHT_GREY, float width = 0.001f, bool wide = false, glm::vec3 pole = glm::vec3(0.0f));
+    double getAngle(size_t index);
+    size_t add(glm::vec3 position, glm::vec3 start, glm::vec3 stop, float length, glm::vec4 color = LIGHT_GREY, float width = 0.001f, bool wide = false, glm::vec3 pole = glm::vec3(0.0f));
+    void remove(size_t index);
+    void update(size_t index, glm::vec3 position, glm::vec3 start, glm::vec3 stop, float length, glm::vec4 color = LIGHT_GREY, float width = 0.001f, bool wide = false, glm::vec3 pole = glm::vec3(0.0f));
     void draw();
 
 };
@@ -1382,7 +1387,7 @@ class GenericPath : SceneObject {
     // - Add method to change color and width
     // - Add a way to traverse paths backwards and forwards, see Earth.h:ParticleTracker
 public:
-    GenericPath(Scene* scene, glm::vec4 color = NO_COLOR, float width = NO_FLOAT) {
+    GenericPath(Scene* scene, float width = NO_FLOAT, glm::vec4 color = NO_COLOR) {
         if (scene == nullptr) return;
         if (color == NO_COLOR) color = GREEN;
         if (width == NO_FLOAT) width = 0.005f;
@@ -1421,8 +1426,8 @@ public:
         }
     }
 private:
-    glm::vec4 m_color = NO_COLOR;
-    float m_width = NO_FLOAT;
+    glm::vec4 m_color{ NO_COLOR };
+    float m_width{ NO_FLOAT };
     std::vector<PolyCurve*> m_curves;
     unsigned int m_curve = 0;
 };
@@ -1447,8 +1452,8 @@ private:
 class Arrows {
 private:
     struct Arrow {
-        unsigned int cylinder;
-        unsigned int cone;
+        size_t cylinder;
+        size_t cone;
         glm::vec4 color;
         glm::vec3 position;
         glm::vec3 direction;
@@ -1463,14 +1468,14 @@ public:
     Arrows(Scene* scene);
     ~Arrows();
     void draw();
-    unsigned int store(Arrow a);
-    void remove(unsigned int index);
-    unsigned int addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
-    unsigned int addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
-    void changeStartDirLen(unsigned int arrow, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
-    void changeStartEnd(unsigned int arrow, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
-    void changeArrow(unsigned int index, glm::vec4 color = NO_COLOR, float length = NO_FLOAT, float width = NO_FLOAT);
-    void removeArrow(unsigned int index); // FIRST implement deletion in Cylinders and Cones (and other Primitive3D children)
+    size_t store(Arrow a);
+    void remove(size_t index);
+    size_t addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
+    size_t addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
+    void changeStartDirLen(size_t arrow, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
+    void changeStartEnd(size_t arrow, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
+    void changeArrow(size_t index, glm::vec4 color = NO_COLOR, float length = NO_FLOAT, float width = NO_FLOAT);
+    void removeArrow(size_t index); // FIRST implement deletion in Cylinders and Cones (and other Primitive3D children)
     void clear();
 };
 
@@ -1499,16 +1504,16 @@ private:
 public:
     void draw(Camera* cam, unsigned int shadow);
     void clear();
-    glm::vec4 getColor(unsigned int index);
-    void setColor(unsigned int index, glm::vec4 color);
-    Primitive3D* getDetails(unsigned int index);
-    void remove(unsigned int oid);
+    glm::vec4 getColor(size_t index);
+    void setColor(size_t index, glm::vec4 color);
+    Primitive3D* getDetails(size_t index);
+    void remove(size_t oid);
 protected:
     Primitives(Scene* scene, unsigned int verts, unsigned int tris);
     ~Primitives();
     void init();
-    unsigned int store(Primitive3D p);
-    void update(unsigned int oid, Primitive3D p);
+    size_t store(Primitive3D p);
+    void update(size_t oid, Primitive3D p);
     void virtual genGeom() = 0;
 };
 
@@ -1520,10 +1525,10 @@ class Minifigs : public Primitives {
 public:
     Minifigs(Scene* scene);
     ~Minifigs();
-    unsigned int addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color, float bearing);
-    void changeStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color, float bearing);
-    unsigned int addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
-    void removeMinifig(unsigned int index);
+    size_t addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color, float bearing);
+    void changeStartDirLen(size_t index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color, float bearing);
+    size_t addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
+    void removeMinifig(size_t index);
 private:
     std::string m_objFile = "C:\\Coding\\Eartharium\\Eartharium\\models\\minifig.obj";
     void genGeom() override;
@@ -1537,11 +1542,11 @@ class SphereUV : public Primitives {
 public:
     SphereUV(Scene* scene);
     void print();
-    unsigned int addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
-    unsigned int addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
-    void changeStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
-    void changeStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
-    void removeSphereUV(unsigned int index);
+    size_t addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
+    size_t addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
+    void changeStartDirLen(size_t index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
+    void changeStartEnd(size_t index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
+    void removeSphereUV(size_t index);
 private:
     glm::vec3 getLoc3D_NS(float lat, float lon, float height);
     void genGeom() override;
@@ -1554,11 +1559,11 @@ private:
 class Planes : public Primitives {
 public:
     Planes(Scene* scene);
-    unsigned int addStartNormalLen(glm::vec3 pos, glm::vec3 nml, float rot, float len, glm::vec4 color);
-    unsigned int addStartUV(glm::vec3 pos, glm::vec3 spanU, glm::vec3 spanV, glm::vec4 color);
-    void changeStartNormalLen(unsigned int index, glm::vec3 pos, glm::vec3 nml, float rot, float len, glm::vec4 color);
-    void changeStartUV(unsigned int index, glm::vec3 pos, glm::vec3 spanU, glm::vec3 spanV, glm::vec4 color);
-    void removePlane(unsigned int index);
+    size_t addStartNormalLen(glm::vec3 pos, glm::vec3 nml, float rot, float len, glm::vec4 color);
+    size_t addStartUV(glm::vec3 pos, glm::vec3 spanU, glm::vec3 spanV, glm::vec4 color);
+    void changeStartNormalLen(size_t index, glm::vec3 pos, glm::vec3 nml, float rot, float len, glm::vec4 color);
+    void changeStartUV(size_t index, glm::vec3 pos, glm::vec3 spanU, glm::vec3 spanV, glm::vec4 color);
+    void removePlane(size_t index);
 private:
     void genGeom() override;
 };
@@ -1570,13 +1575,13 @@ private:
 class ViewCones : public Primitives {
 public:
     ViewCones(Scene* scene);
-    unsigned int addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
-    unsigned int addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
+    size_t addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
+    size_t addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
     //unsigned int addStartEleAzi(glm::vec3 pos, float ele, float azi, glm::vec4 color);
-    void changeStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
-    void changeStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
-    //void changeStartEleAzi(unsigned int index, glm::vec3 pos, float ele, float azi, glm::vec4 color);
-    void removeViewCone(unsigned int index);
+    void changeStartDirLen(size_t index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
+    void changeStartEnd(size_t index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
+    //void changeStartEleAzi(size_t index, glm::vec3 pos, float ele, float azi, glm::vec4 color);
+    void removeViewCone(size_t index);
 private:
     void genGeom() override;
 };
@@ -1589,14 +1594,14 @@ class Cones : public Primitives {
 public:
     Cones(Scene* scene);
     void print();
-    unsigned int addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
-    unsigned int addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
+    size_t addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
+    size_t addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
     //unsigned int addStartEleAzi(glm::vec3 pos, float ele, float azi, glm::vec4 color);
-    void changeStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
-    void changeStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
+    void changeStartDirLen(size_t index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
+    void changeStartEnd(size_t index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
     //void UpdateStartEleAzi(unsigned int index, glm::vec3 pos, float ele, float azi, glm::vec4 color);
-    void changeColorLengthWidth(unsigned int index, glm::vec4 color, float length, float width);
-    void removeCone(unsigned int index);
+    void changeColorLengthWidth(size_t index, glm::vec4 color, float length, float width);
+    void removeCone(size_t index);
 private:
     void genGeom() override;
 };
@@ -1609,14 +1614,14 @@ class Cylinders : public Primitives {
 public:
     Cylinders(Scene* scene);
     void print();
-    unsigned int addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
-    unsigned int addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
+    size_t addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
+    size_t addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
     //unsigned int FromStartEleAzi(glm::vec3 pos, float ele, float azi, glm::vec4 color);
-    void changeStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
-    void changeStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
+    void changeStartDirLen(size_t index, glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color);
+    void changeStartEnd(size_t index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color);
     //void UpdateStartEleAzi(unsigned int index, glm::vec3 pos, float ele, float azi, glm::vec4 color);
-    void changeColorLengthWidth(unsigned int index, glm::vec4 color, float length, float width);
-    void removeCylinder(unsigned int index);
+    void changeColorLengthWidth(size_t index, glm::vec4 color, float length, float width);
+    void removeCylinder(size_t index);
 private:
     void genGeom() override;
 };
@@ -1653,10 +1658,10 @@ private:
     };
 public:
     SkyDots(Scene* scene);
-    unsigned int addXYZ(glm::vec3 pos, glm::vec4 color, float size);
-    void changeXYZ(unsigned int index, glm::vec3 pos, glm::vec4 color, float size);
-    void changeDot(unsigned int index, glm::vec4 color, float size);
-    void removeDot(unsigned int index);
+    size_t addXYZ(glm::vec3 pos, glm::vec4 color, float size);
+    void changeXYZ(size_t index, glm::vec3 pos, glm::vec4 color, float size);
+    void changeDot(size_t index, glm::vec4 color, float size);
+    void removeDot(size_t index);
     void draw(Camera* cam);
 private:
     void genGeom() override;
@@ -1695,10 +1700,10 @@ private:
     };
 public:
     Dots(Scene* scene);
-    unsigned int addXYZ(glm::vec3 pos, glm::vec4 color, float size);
-    void changeXYZ(unsigned int index, glm::vec3 pos, glm::vec4 color, float size);
-    void changeDot(unsigned int index, glm::vec4 color, float size);
-    void removeDot(unsigned int index);
+    size_t addXYZ(glm::vec3 pos, glm::vec4 color, float size);
+    void changeXYZ(size_t index, glm::vec3 pos, glm::vec4 color, float size);
+    void changeDot(size_t index, glm::vec4 color, float size);
+    void removeDot(size_t index);
 private:
     void genGeom() override;
     TriangleList subdivide(VertexList& vertices, TriangleList triangles);

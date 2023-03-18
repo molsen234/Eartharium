@@ -288,6 +288,7 @@
     <None Include="cpp.hint" />
     <None Include="Eartharium\hello.py" />
     <None Include="Eartharium\ImGUI\cpp.hint" />
+    <None Include="Eartharium\mdo-test.py" />
     <None Include="Eartharium\shaders\earth-elliptic.glsl" />
     <None Include="Eartharium\shaders\blit.glsl" />
     <None Include="Eartharium\shaders\earth.glsl" />

@@ -121,18 +121,18 @@ class ShapeFile {
     // Currently only knows how to load POLYGON outlines, as that is all that is needed (can be tested properly)
 public:
     struct ShapePart {
-        unsigned int partnum = 0;
-        unsigned int startindex = 0;
-        unsigned int length = 0; // Number of points in this part
+        size_t partnum = 0;
+        size_t startindex = 0;
+        size_t length = 0; // Number of points in this part
     };
     struct LatLon {
         double latitude = 0.0;
         double longitude = 0.0;
     };
     struct ShapeRecord {
-        unsigned int recordnum = 0;
-        unsigned int type = 0;
-        unsigned int numparts = 0;
+        size_t recordnum = 0;
+        size_t type = 0;
+        size_t numparts = 0;
         std::vector<LatLon> points;
         std::vector<ShapePart> parts;
     };

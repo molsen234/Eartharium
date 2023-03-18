@@ -98,11 +98,16 @@ private:
 };
 
 
-// ------------
-//  Earth v2.0
-// ------------
+
+// =====================================================================================================
+//  Experimental area for building SceneObject based modular objects
+// =====================================================================================================
+
+// For Earth Loc3D and Nml3D functions, which will be used from other SceneObjects
 typedef glm::vec3(Earth2::* locPos)(const double, const double, const double, const bool);
 typedef glm::vec3(Earth2::* locNml)(const double, const double, const bool);
+
+//  Earth v2.0 - Only has the geometry and drawing functions - The rest is in other SceneObjects
 class Earth2 : public SceneObject {
 public:
     Earth2(Scene* scene, const std::string mode, const unsigned int uMesh, const unsigned int vMesh);
@@ -171,6 +176,183 @@ private:
     //Texture* texture_overlay = nullptr;
     //unsigned int texture_overlay_mode = NONE;
 };
+
+// Meridian
+class Longitude2 : public SceneObject {
+public:
+    Longitude2(Scene* scene, Earth2* geometry, double lon, float width = 0.005f, glm::vec4 color = LIGHT_GREY) {
+        name = "Longitude"; // Add latitude in degrees?
+        this->lon = lon;
+        // Build a more generic Geometry object that handles a celestial objects geometry so Sun. Moon & Planets can be ellipsoids or whatever
+        locref = geometry; // Using this now, so it can be updated to geometry later, and not be Earth2 specific
+        path = new GenericPath{ scene,width,color }; // Use Scene to generate !!! Well, GenericPath uses Scene to create PolyCurve(s).
+        generate();
+    }
+    ~Longitude2() {
+        parent->removeChild(this);
+        delete path;
+    }
+    void generate() {
+        glm::vec3 pos{ 0.0f };
+        for (double lat = -pi2; lat <= pi2; lat += deg2rad) {
+            pos = (locref->*locpos)(lat, lon, 0.0, true); // Dynamically calls earth->getLoc3D() (Earth2::getLoc3D())
+            path->addPoint(pos);
+        }
+        path->generate();
+    }
+    void update() {
+        path->clearPoints();
+        generate();
+    }
+private:
+    locPos locpos = &Earth2::getLoc3D;
+    Earth2* locref{ nullptr };
+    GenericPath* path{ nullptr };
+    double lon{ 0.0 };
+};
+// Circle of Latitude
+class Latitude2 : public SceneObject {
+public:
+    Latitude2(Scene* scene, Earth2* geometry, double lat, float width = 0.005f, glm::vec4 color = LIGHT_GREY) {
+        name = "Latitude"; // Add latitude in degrees?
+        this->lat = lat;
+        // Build a more generic Geometry object that handles a celestial objects geometry so Sun. Moon & Planets can be ellipsoids or whatever
+        locref = geometry; // Using this now, so it can be updated to geometry later, and not be Earth2 specific
+        path = new GenericPath{ scene,width,color }; // Use Scene to generate !!! Well, GenericPath uses Scene to create PolyCurve(s).
+        generate();
+    }
+    ~Latitude2() {
+        parent->removeChild(this);
+        delete path;
+    }
+    void generate() {
+        glm::vec3 pos{ 0.0f };
+        for (double lon = -pi; lon <= pi; lon += deg2rad) {
+            pos = (locref->*locpos)(lat, lon, 0.0, true); // Dynamically calls earth->getLoc3D() (Earth2::getLoc3D())
+            path->addPoint(pos);
+        }
+        path->generate();
+    }
+    void update() {
+        path->clearPoints();
+        generate();
+    }
+private:
+    locPos locpos = &Earth2::getLoc3D;
+    Earth2* locref{ nullptr };
+    GenericPath* path{ nullptr };
+    double lat{ 0.0 };
+};
+// Prime Meridian
+class PrimeMeridian2 : public Longitude2 {
+public:
+    PrimeMeridian2(Scene* scene, Earth2* geometry, float width = 0.007f, glm::vec4 color = LIGHT_RED) : Longitude2(scene, geometry, 0.0, width, color) {
+        name = "Prime Meridian";
+    }
+};
+// Equator v2.0 - To test with Earth2 and other celestial objects
+class Equator2 : public Latitude2 {
+public:
+    Equator2(Scene* scene, Earth2* geometry, float width = 0.005f, glm::vec4 color = LIGHT_RED) : Latitude2(scene, geometry, 0.0, width, color) {
+        name = "Equator";
+    }
+};
+// Grid
+class Grid : public SceneObject {
+public:
+    Grid(Scene* scene, Earth2* geometry, double spacing) {
+        name = "Graticule";
+        parent = geometry;
+        parent->addChild(this);
+        equator = new Equator2{ scene, geometry, 0.007f };
+        equator->setParent(this);
+        primemeridian = new PrimeMeridian2{ scene, geometry, 0.007f };
+        primemeridian->setParent(this);
+        for (double lat = -pi2; lat <= pi2; lat += 15 * deg2rad) {
+            if (abs(lat) > tiny) {
+                latitudes.emplace_back(new Latitude2(scene, geometry, lat));
+                latitudes.back()->setParent(this);
+            }
+        }
+        for (double lon = -pi; lon <= pi; lon += 15 * deg2rad) {
+            if (abs(lon) > tiny) {
+                longitudes.emplace_back(new Longitude2(scene, geometry, lon));
+                longitudes.back()->setParent(this);
+            }
+        }
+    }
+    ~Grid() {
+        parent->removeChild(this);
+        delete equator;
+        delete primemeridian;
+        for (auto lat : latitudes) delete lat;
+        for (auto lon : longitudes) delete lon;
+    }
+    void update() {
+        for (auto child : children) {
+            child->update();
+        }
+    }
+private:
+    Equator2* equator{ nullptr };
+    PrimeMeridian2* primemeridian{ nullptr };
+    std::vector<Latitude2*> latitudes;
+    std::vector<Longitude2*> longitudes;
+};
+// Small Circle - Circle with given radius and lat lon position
+//  Used for Tissot markers, Circle of equal altitude, etc
+class SmallCircle : public SceneObject {
+public:
+    SmallCircle(Scene* scene, Earth2* geometry, LLH location, double radius, float width = 0.005f, glm::vec4 color = LIGHT_ORANGE) {
+        name = "Small Circle";
+        this->location = location;
+        this->radius = radius;
+        // Build a more generic Geometry object that handles a celestial objects geometry so Sun. Moon & Planets can be ellipsoids or whatever
+        locref = geometry; // Using this now, so it can be updated to geometry later, and not be Earth2 specific
+        path = new GenericPath{ scene,width,color }; // Use Scene to generate !!! Well, GenericPath uses Scene to create PolyCurve(s).
+        generate();
+
+    }
+    ~SmallCircle() {
+        parent->removeChild(this);
+        delete path;
+    }
+    void generate() { // Generate by drawing circle around north pole and rotating into place by lat/lon
+        glm::vec3 pos{ 0.0f };
+        double const stepsize = tau / 360.0; // deg2rad;
+        
+        double const zangle = location.lon - pi;   // Negative of angle to rotate around Z, to center above X axis
+        double const yangle = location.lat - pi2;  // Really -(90-lat) Negative of angle to rotate around Y to center on north pole
+        double const cy = cos(yangle);
+        double const sy = sin(yangle);
+        double const cz = cos(zangle);
+        double const sz = sin(zangle);
+        double const lz = sin(pi2 - radius);
+        for (double angle = -pi; angle <= pi; angle += stepsize) {
+            double lx = cos(pi2 - radius) * cos(angle);
+            double ly = cos(pi2 - radius) * sin(angle);
+            double l2x = lx * cy + lz * sy;
+            double l3x = l2x * cz - ly * sz;
+            double l3y = l2x * sz + ly * cz;
+            double lat = atan2(-lx * sy + lz * cy, sqrt(l3x * l3x + l3y * l3y));
+            double lon = atan2(l3y, l3x);
+            pos = (locref->*locpos)(lat, lon, location.dst, true); // Dynamically calls earth->getLoc3D() (Earth2::getLoc3D())
+            path->addPoint(pos);
+        }
+        path->generate();
+    }
+    void update() {
+        path->clearPoints();
+        generate();
+    }
+private:
+    locPos locpos = &Earth2::getLoc3D;
+    Earth2* locref{ nullptr };
+    GenericPath* path{ nullptr };
+    LLH location{ 0.0,0.0,0.0 };
+    double radius = 0.0;
+};
+
 
 
 // -------
@@ -241,7 +423,7 @@ private:
         double lon;
         double height;
         float size;      // Store in Dots
-        unsigned int index;
+        size_t index;
     };
     struct arrowcache {
         glm::vec3 position;
@@ -251,9 +433,9 @@ private:
         float width;
         double elevation;
         double azimuth;
-        unsigned int index;
+        size_t index;
         unsigned int type;
-        unsigned int unique;
+        size_t unique;
     };
     struct TissotCache {
         double lat = 0.0;
@@ -290,10 +472,10 @@ private:
     glm::vec3 solarGP = glm::vec3(0.0f);  // Subsolar point in Cartesian coordinates
     glm::vec3 flatSun = glm::vec3(0.0f);  // Flat Sun in Cartesian coordinates (solarGP at m_flatsunheight / earthradius from GUI)
     SubSolar* m_sunob = nullptr;
-    unsigned int m_sundot = NO_UINT;
-    unsigned int m_sunpole = NO_UINT;
-    unsigned int m_suncone = NO_UINT;
-    unsigned int m_ecliptic = NO_UINT;
+    size_t m_sundot = NO_UINT;
+    size_t m_sunpole = NO_UINT;
+    size_t m_suncone = NO_UINT;
+    size_t m_ecliptic = NO_UINT;
     // As other astro paths are added, they should probably be colleced in a vector and updated in a unified update function
     CelestialPath* sunpath = nullptr;
     PolyCurve* suncurve = nullptr;
@@ -375,18 +557,18 @@ public:
     double calcBrianLeakeAngle(const double elevation, bool rad = false);
     Intersection calcSumnerIntersection(LLH llh1, LLH llh2, bool rad);
     Intersection calcSumnerIntersection(double lat1, double lon1, double rad1, double lat2, double lon2, double rad2, bool rad = true);
-    LLH getSextantLoc(unsigned int index);
+    LLH getSextantLoc(size_t index);
     LLH getSun(double jd = 0.0);
     LLH getSubsolar(double jd = 0.0, bool rad = true);
-    LLH getPlanet(unsigned int planet, double jd = 0.0, bool rad = true);
+    LLH getPlanet(size_t planet, double jd = 0.0, bool rad = true);
     LLH getMoon(double JD = 0.0);
     void CalcMoon();
     LLH CalcMoonJD(double JD);
-    unsigned int addDot(double lat, double lon, double height, float size, glm::vec4 color = LIGHT_RED, bool radians = true);
-    void changeDotLoc(unsigned int index, double lat, double lon, double height, bool radians);
-    void deleteDot(unsigned int index);
-    unsigned int addFirstPointAries();
-    void updateFirstPointAries(unsigned int index);
+    size_t addDot(double lat, double lon, double height, float size, glm::vec4 color = LIGHT_RED, bool radians = true);
+    void changeDotLoc(size_t index, double lat, double lon, double height, bool radians);
+    void deleteDot(size_t index);
+    size_t addFirstPointAries();
+    void updateFirstPointAries(size_t index);
     void addArrow3DTrueSun(float length = 1.2f, float width = locsunarrowwidth, glm::vec4 color = LIGHT_YELLOW, bool checkit = false);
     void deleteArrow3DTrueSun();
     void changeArrow3DTrueSun(float length = 1.2f, float width = locsunarrowwidth, glm::vec4 color = LIGHT_YELLOW);
@@ -410,12 +592,12 @@ public:
     void deleteSublunarPoint();
     void updateSublunarPoint();
     SubStellarPoint* addSubStellarPoint(const std::string& name, bool lock = false, double jd = NO_DOUBLE, glm::vec4 color = NO_COLOR);
-    void removeSubStellarPoint(unsigned int index);
+    void removeSubStellarPoint(size_t index);
     void addViewConeXYZ_NS(glm::vec3 pos, glm::vec4 color);
     void addViewConeLLH_NS(LLH loc, glm::vec4 color);
-    PolyCurve* getPath(unsigned int index);
-    polycache* getPathCache(unsigned int index);
-    std::vector<glm::vec3>* getPathData(unsigned int index);
+    PolyCurve* getPath(size_t index);
+    polycache* getPathCache(size_t index);
+    std::vector<glm::vec3>* getPathData(size_t index);
     void addSunSectors(float width = 0.003f, glm::vec4 color = SUNCOLOR, double degrees = 45.0);
     void updateSunSectors();
     void removeSunSectors();
@@ -425,49 +607,49 @@ public:
     void removeTropics();
     void addArcticCirles(float size = 0.002f, glm::vec4 color = AQUA);
     void removeArcticCircles();
-    unsigned int addEquator(float size = 0.002f, glm::vec4 color = RED);
+    size_t addEquator(float size = 0.002f, glm::vec4 color = RED);
     void removeEquator();
-    unsigned int addPrimeMeridian(float size = 0.002f, glm::vec4 color = RED);
+    size_t addPrimeMeridian(float size = 0.002f, glm::vec4 color = RED);
     void removePrimeMeridian();
-    unsigned int addLatitudeCurve(double lat, glm::vec4 color = WHITE, float width = 0.01f, bool rad = true, unsigned int type = LATITUDE);
-    void changeLatitudeCurve(unsigned int index, double lat, glm::vec4 color = NO_COLOR, float width = 0.0f, bool rad = true);
+    size_t addLatitudeCurve(double lat, glm::vec4 color = WHITE, float width = 0.01f, bool rad = true, unsigned int type = LATITUDE);
+    void changeLatitudeCurve(size_t index, double lat, glm::vec4 color = NO_COLOR, float width = 0.0f, bool rad = true);
     void updateLatitudeCurve(polycache& p);
-    unsigned int addLongitudeCurve(double lon, glm::vec4 color = WHITE, float width = 0.01f, bool rad = true, unsigned int type = LONGITUDE);
-    void changeLongitudeCurve(unsigned int index, double lon, glm::vec4 color = NO_COLOR, float width = 0.0f, bool rad = true); 
+    size_t addLongitudeCurve(double lon, glm::vec4 color = WHITE, float width = 0.01f, bool rad = true, unsigned int type = LONGITUDE);
+    void changeLongitudeCurve(size_t index, double lon, glm::vec4 color = NO_COLOR, float width = 0.0f, bool rad = true);
     void updateLongitudeCurve(polycache& p);
     void addEcliptic(); // Uses TissotIndicatrix, should really refactor that into a better named primitive !!!
     void updateEcliptic();
-    unsigned int addGreatArc(LLH llh1, LLH llh2, glm::vec4 color, float width, bool rad);
-    void removeGreatArc(unsigned int index);
-    void changeGreatArc(unsigned int index, LLH llh1, LLH llh2, bool rad);
+    size_t addGreatArc(LLH llh1, LLH llh2, glm::vec4 color, float width, bool rad);
+    void removeGreatArc(size_t index);
+    void changeGreatArc(size_t index, LLH llh1, LLH llh2, bool rad);
     void updateGreatArc(polycache& p);
-    unsigned int addLerpArc(LLH llh1, LLH llh2, glm::vec4 color, float width, bool rad);
-    unsigned int addFlatArc(LLH llh1, LLH llh2, glm::vec4 color, float width, bool rad);
+    size_t addLerpArc(LLH llh1, LLH llh2, glm::vec4 color, float width, bool rad);
+    size_t addFlatArc(LLH llh1, LLH llh2, glm::vec4 color, float width, bool rad);
     void updateLerpArc(polycache& p);
     void updateFlatArc(polycache p);
     void addTerminatorTrueMoon(glm::vec4 color = LIGHT_GREY, float width = 0.003f);
     void deleteTerminatorTrueMoon();
     void updateTerminatorTrueMoon(polycache& p);
-    unsigned int addTerminatorTrueSun(glm::vec4 color = SUNCOLOR, float width = 0.003f);
+    size_t addTerminatorTrueSun(glm::vec4 color = SUNCOLOR, float width = 0.003f);
     void deleteTerminatorTrueSun();
     void updateTerminatorTrueSun(polycache& p);
     void addSubsolarPath(double begin = NO_DOUBLE, double finish = NO_DOUBLE, unsigned int steps = NO_UINT, bool fixed = false);
     void updateSubsolarPath();
-    unsigned int addSumnerLine(LLH gp, double elevation, glm::vec4 color = SUNMERCOLOR, float width = sumnerlinewidth, bool rad = false);
-    unsigned int addSextantMeasurement(std::string starname, double elevation, double jd = NO_DOUBLE, glm::vec4 color = NO_COLOR, float width = pathwidth, bool rad = false);
-    unsigned int addTissotIndicatrix(LLH location, double radius, bool rad = false, glm::vec4 color = LIGHT_ORANGE, float width = 0.005f);
-    void removeTissotIndicatrix(unsigned int index);
+    size_t addSumnerLine(LLH gp, double elevation, glm::vec4 color = SUNMERCOLOR, float width = sumnerlinewidth, bool rad = false);
+    size_t addSextantMeasurement(std::string starname, double elevation, double jd = NO_DOUBLE, glm::vec4 color = NO_COLOR, float width = pathwidth, bool rad = false);
+    size_t addTissotIndicatrix(LLH location, double radius, bool rad = false, glm::vec4 color = LIGHT_ORANGE, float width = 0.005f);
+    void removeTissotIndicatrix(size_t index);
     void updateTissotIndicatrix(TissotCache& tissot); // Geometry updates, no time dependence
-    unsigned int addSemiTerminator(double radius, bool rad, glm::vec4 color, float width);
+    size_t addSemiTerminator(double radius, bool rad, glm::vec4 color, float width);
     void updateSemiTerminator(polycache& tissot);
     LLH calcGreatArc(LLH llh1, LLH llh2, double f, double refraction, bool rad = true);
     LLH calcLerpArc(LLH llh1, LLH llh2, double f, double refraction, bool rad = true);
     LLH calcTerminator(LLH llh1, LLH llh2, double param, double refang = 0.0, bool rad = true);
     LLH calcSemiTerminator(LLH llh1, LLH llh2, double param, double refang = 0.0, bool rad = true);
     double calcArcDist(LLH llh1, LLH llh2, bool rad);
-    unsigned int addArc(LLH llh1, LLH llh2, glm::vec4 color, float width, bool rad, calcFunc ca, unsigned int type);
-    void changeArc(unsigned int index, glm::vec4 color = NO_COLOR, float width = NO_FLOAT);
-    void deleteArc(unsigned int index);
+    size_t addArc(LLH llh1, LLH llh2, glm::vec4 color, float width, bool rad, calcFunc ca, unsigned int type);
+    void changeArc(size_t index, glm::vec4 color = NO_COLOR, float width = NO_FLOAT);
+    void deleteArc(size_t index);
     void updateCompositePath3(polycache& p);
     void updateCompositePath2(polycache& p);
     void addArcPoint(glm::vec3 ap, bool first, bool last, glm::vec3& oldap, PolyCurve* curve);
@@ -488,7 +670,7 @@ struct Intersection {
 
 // REFACTOR? Could SubStellarPoint, SubPlanetaryPoint, SubSolarPoint, SubLunarPoint, SubSatellitePoint, etc share a common parent?
 // Could that parent be inherit from SceneObject ?
-// If SubPoints have a common parent, they can be passed to solvers, so a fix can be obtained from the Sun, a Star and a Planet
+// If SubPoints have a common parent, they can be passed to solvers, so a fix can be obtained from the Sun, a Star and a Planet?
 
 // -------------------
 //  Sub Stellar Point
@@ -555,7 +737,7 @@ public:
         float m_size = locdotsize;
         SubStellarPoint* m_ssp = nullptr;
         Dots* m_dotsF = nullptr;
-        unsigned int dotindex = 0;
+        size_t dotindex = 0;
         bool enabled = false;
         Dot(SubStellarPoint& ssp) {
             m_ssp = &ssp;
@@ -668,7 +850,7 @@ public:
     private:
         SubStellarPoint* m_ssp = nullptr;
         bool enabled = false;
-        unsigned int m_radius = NO_UINT; // Earth Arc index
+        size_t m_radius = NO_UINT; // Earth Arc index
         double m_bearing = 0.0;    // Radians clockwise from north
         glm::vec4 m_color = NO_COLOR;
         Radius(SubStellarPoint& ssp) : m_ssp(&ssp) {
@@ -962,11 +1144,11 @@ public:
         TrueSun(Location* location);  //ctor
         Location* m_location = nullptr;
         unsigned int m_type = TRUESUN3D;
-        unsigned int m_dot = maxuint;
-        unsigned int m_arrow = maxuint;
-        unsigned int m_line = maxuint;
-        unsigned int m_aziangle = maxuint;
-        unsigned int m_eleangle = maxuint;
+        size_t m_dot = maxuint;
+        size_t m_arrow = maxuint;
+        size_t m_line = maxuint;
+        size_t m_aziangle = maxuint;
+        size_t m_eleangle = maxuint;
         TextString* m_eleangtext = nullptr;
         TextString* m_aziangtext = nullptr;
         LLH sun = { 0.0, 0.0, 0.0 };       // geocentric Sun GHA, Dec, Distance
@@ -1020,11 +1202,11 @@ public:
         std::string m_Geometry = "CG";
         unsigned int m_mode = FLATSKY_GP;
         unsigned int m_type = FLATSUN3D;
-        unsigned int m_dot = maxuint;
-        unsigned int m_arrow = maxuint;
-        unsigned int m_line = maxuint;
-        unsigned int m_aziangle = maxuint;
-        unsigned int m_eleangle = maxuint;
+        size_t m_dot = maxuint;
+        size_t m_arrow = maxuint;
+        size_t m_line = maxuint;
+        size_t m_aziangle = maxuint;
+        size_t m_eleangle = maxuint;
         TextString* m_eleangtext = nullptr;
         TextString* m_aziangtext = nullptr;
         PolyCurve* m_path24 = nullptr;
@@ -1047,17 +1229,17 @@ private:
         float width;
         double elevation;
         double azimuth;
-        unsigned int index;
+        size_t index;
         unsigned int type;
-        unsigned int unique;
+        size_t unique;
     };
     struct dotcache {
         glm::vec3 position;
         float size;
         glm::vec4 color;
-        unsigned int index;
+        size_t index;
         unsigned int type;
-        unsigned int unique;
+        size_t unique;
         void changeColor(glm::vec4 c) { color = c; }
         void changeSize(float s) { size = s; }
         void changePosition(glm::vec3 pos) { position = pos; }
@@ -1070,11 +1252,11 @@ private:
         glm::vec4 color;
         double elevation;
         double azimuth;
-        unsigned int unique;  // Used for planet id
-        unsigned int index = maxuint; // index into m_polycache tightvec, needed for delete/change
+        size_t unique;          // Used for planet id
+        size_t index = maxuint; // index into m_polycache tightvec, needed for delete/change
     };
     struct cylindercache {
-        unsigned int index;
+        size_t index;
         unsigned int type;
         glm::vec3 start;
         glm::vec3 end;
@@ -1086,7 +1268,7 @@ private:
         glm::vec3 direction = glm::vec3(0.0f, 0.0f, 0.0f);
         glm::vec2 scale = glm::vec2(1.0f, 1.0f);
         glm::vec4 color = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-        unsigned int index;
+        size_t index;
         unsigned int type;
     };
     struct sidyearparm {
@@ -1129,14 +1311,14 @@ private:
     tightvec<polycache> m_polycache;
     std::vector<cylindercache> m_cylindercache;
     ParticleTrail* m_lunalemmatrail = nullptr;
-    unsigned int m_observer = maxuint;
+    size_t m_observer = maxuint;
 public:
     Location(Earth* earth, double lat, double lon, bool radians = true, float rsky = 0.2f);
     ~Location();
     void Destroy();
     void Update(bool time, bool morph, bool flatsun);
     void Draw(Camera* cam);
-    glm::vec4 getPlanetColor(unsigned int planet, glm::vec4 color = NO_COLOR);
+    glm::vec4 getPlanetColor(size_t planet, glm::vec4 color = NO_COLOR);
     void moveLoc(double lat, double lon, bool radians = true);
     void storeLatLon(double lat, double lon);
     double getLat(bool rad = true);
@@ -1202,7 +1384,7 @@ public:
     void changeLocDot(float size = -1.0f, glm::vec4 color = NO_COLOR);
     void deleteLocDot();
     void updateLocDot(dotcache& d);
-    void addTruePlanetDot(unsigned int planet, float size, glm::vec4 color, bool checkit);
+    void addTruePlanetDot(size_t planet, float size, glm::vec4 color, bool checkit);
     void updateTruePlanetDot(dotcache& dc);
 
     // Arrows
@@ -1212,7 +1394,7 @@ public:
     void addArrow3DTrueMoon(float length = 0.2f, float width = 0.003f, glm::vec4 color = glm::vec4(0.4f, 0.4f, 0.4f, 1.0f), bool checkit = false);
     void updateArrow3DTrueMoon(arrowcache& ar);
 
-    void addArrow3DTruePlanet(unsigned int planet, float length = 0.2f, glm::vec4 color = NO_COLOR, bool checkit = false);
+    void addArrow3DTruePlanet(size_t planet, float length = 0.2f, glm::vec4 color = NO_COLOR, bool checkit = false);
     void updateArrow3DTruePlanet(arrowcache& ar);
 
     // Lines
@@ -1223,14 +1405,14 @@ public:
     // TODO: Add rays/lines to an arbitrary point to illustrate view cone angles, horizons, parallelity of incoming light rays etc. !!!
 
     // Paths
-    void addPlanetaryPath(unsigned int planet, double startoffset, double endoffset, unsigned int steps, unsigned int type = ECGEO, glm::vec4 color = NO_COLOR, float width = 0.003f);
+    void addPlanetaryPath(size_t planet, double startoffset, double endoffset, unsigned int steps, unsigned int type = ECGEO, glm::vec4 color = NO_COLOR, float width = 0.003f);
     void updatePlanetaryPath(polycache& pa);
-    void deletePlanetaryPath(unsigned int type, unsigned int unique);
+    void deletePlanetaryPath(unsigned int type, size_t unique);
 
-    void addPlanetTruePath24(unsigned int planet, glm::vec4 color = NO_COLOR, float width = locpathwidth);
-    void deletePlanetTruePath24(unsigned int planet);
-    void addPlanetTruePathSidYear(unsigned int planet, glm::vec4 color = NO_COLOR, float width = locpathwidth);
-    void deletePlanetTruePathSidYear(unsigned int planet);
+    void addPlanetTruePath24(size_t planet, glm::vec4 color = NO_COLOR, float width = locpathwidth);
+    void deletePlanetTruePath24(size_t planet);
+    void addPlanetTruePathSidYear(size_t planet, glm::vec4 color = NO_COLOR, float width = locpathwidth);
+    void deletePlanetTruePathSidYear(size_t planet);
 
     void addPath3DFlatSun(glm::vec4 color = LIGHT_GREEN, float width = locsunpathwidth);
     void updatePath3DFlatSun(PolyCurve* path, glm::vec4 color = LIGHT_GREEN, float width = locsunpathwidth);
@@ -1256,9 +1438,9 @@ public:
 class SolarSystem {
 public:
     struct distline {
-        unsigned int index;
-        unsigned int planet1;
-        unsigned int planet2;
+        size_t index;
+        size_t planet1;
+        size_t planet2;
         glm::vec4 color;
         float width;
     };
@@ -1299,16 +1481,16 @@ private:
     glm::vec3 m_earthpos = glm::vec3(0.0f);
     glm::vec3 m_sunpos = glm::vec3(0.0f);
 
-    unsigned int m_PlanetDot[10] = { maxuint, maxuint, maxuint, maxuint, maxuint, maxuint, maxuint, maxuint, maxuint, maxuint };
+    size_t m_PlanetDot[10] = { maxuint, maxuint, maxuint, maxuint, maxuint, maxuint, maxuint, maxuint, maxuint, maxuint };
     PolyCurve* m_PlanetPath[10] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
     CelestialPath* m_PlanetOrbit[10] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
     ParticleTrail* m_PlanetTrail[10] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
 
-    unsigned int m_SunDot = 0;
+    size_t m_SunDot = 0;
     PolyCurve* m_SunPath = nullptr;
     ParticleTrail* m_SunTrail = nullptr;
 
-    unsigned int m_EarthDot = 0;
+    size_t m_EarthDot = 0;
     ParticleTrail* m_EarthTrail = nullptr;
 public:
     SolarSystem(Scene* scene, bool geocentric);
@@ -1317,17 +1499,17 @@ public:
     void Draw();
     void addTrails(int traillen);
     void clearTrails();
-    void PlanetPos(unsigned int planet, bool update);
-    glm::vec3 CalcPlanet(unsigned int planet, double jd = 0.0);
-    void PlanetOrbit(unsigned int planet);
+    void PlanetPos(size_t planet, bool update);
+    glm::vec3 CalcPlanet(size_t planet, double jd = 0.0);
+    void PlanetOrbit(size_t planet);
     void SunPos(bool update = false);
     void SunOrbit(bool update = true);
     glm::vec3 CalcSun(double jd = 0.0);
     void EarthPos(bool update = false);
     glm::vec3 CalcEarth(double jd = 0.0);
     glm::vec3 Ecliptic2Cartesian(double lat, double lon, double dst);
-    glm::vec3 GetPlanetPos(unsigned int planet);
-    void AddDistLine(unsigned int planet1, unsigned int planet2, glm::vec4 color, float width);
+    glm::vec3 GetPlanetPos(size_t planet);
+    void AddDistLine(size_t planet1, size_t planet2, glm::vec4 color, float width);
     void UpdateDistLines();
     void changeCentricity();
     void changeOrbits();
@@ -1362,7 +1544,7 @@ private:
         double lon;
         double height;
         float size;
-        unsigned int index;
+        size_t index;
     };
     struct pathcache {
         GenericPath* path = nullptr;

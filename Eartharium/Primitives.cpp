@@ -321,7 +321,7 @@ Minifigs* Scene::newMinifigs() { // Only single observer at the moment, fix this
     if (m_minifigsOb == nullptr) m_minifigsOb = new Minifigs(this);
     return m_minifigsOb;
 }
-PolyCurve* Scene::newPolyCurve(glm::vec4 color, float width, unsigned int reserve) {
+PolyCurve* Scene::newPolyCurve(glm::vec4 color, float width, size_t reserve) {
     //std::cout << "Scene::newPolyCurve(): " << this << "\n";
     m_polycurves.emplace_back(new PolyCurve(this, color, width, reserve));
     return m_polycurves.back();
@@ -332,7 +332,7 @@ void Scene::deletePolyCurve(PolyCurve* curve) {
     m_polycurves.pop_back();
     delete curve;
 }
-PolyLine* Scene::newPolyLine(glm::vec4 color, float width, unsigned int reserve) {
+PolyLine* Scene::newPolyLine(glm::vec4 color, float width, size_t reserve) {
     m_polylines.emplace_back(new PolyLine(this, color, width, reserve));
     return m_polylines.back();
 }
@@ -347,14 +347,12 @@ void Scene::deletePolyLine(PolyLine* curve) {
         delete curve;
     }
 }
-
 Earth2* Scene::newEarth2(std::string mode, const unsigned int mU, const unsigned int mV, SceneObject* parent) {
     earth = new Earth2(this, mode, mU, mV);
     earth->setParent(parent);
     scenetree->addSceneObject(earth, parent);
     return earth;
 }
-
 
 
 // -------------
@@ -1410,7 +1408,7 @@ TimeZones::TimeZones(Scene* scene, const std::string& filebase) : m_scene(scene)
 void TimeZones::addTimeZone(Earth& earth, const std::string timezonename) {
     // Check CSV file for spelling of countries, this does NOT have fuzzy search.
     // Alternatively look up the index manually and pass that instead (as unsigned int)
-    unsigned int index = 0;
+    size_t index = 0;
     for (auto& cn : timezonenames) { // Should probably use a std::find, this is the 21st century.
         if (timezonename == cn.searchname) index = cn.index; // If there are duplicates, this returns the last
     }
@@ -1421,7 +1419,7 @@ void TimeZones::addTimeZone(Earth& earth, const std::string timezonename) {
     // A better failure mode is to return NO_UINT or zero instead of a different time zone than the one requested.
     addTimeZone(earth, index);
 }
-void TimeZones::addTimeZone(Earth& earth, unsigned int rindex) {
+void TimeZones::addTimeZone(Earth& earth, size_t rindex) {
     // This could take Earth (for getLoc3D()) and an array where to drop the points.
     // Ideally I want to be able to draw a border on a globe, then unlink it from the geometry,
     //  have it float up while Earth morphs, and settle down to compare to the new size.
@@ -1443,7 +1441,7 @@ void TimeZones::addTimeZone(Earth& earth, unsigned int rindex) {
         timezoneparts.back()->part = &part;
         timezoneparts.back()->polyline = m_scene->newPolyLine(LIGHT_RED, 0.001f, part.length);
         timezoneparts.back()->earth = &earth;
-        for (unsigned int i = part.startindex; i < (part.startindex + part.length); i++) {
+        for (size_t i = part.startindex; i < (part.startindex + part.length); i++) {
             timezoneparts.back()->polyline->addPoint(earth.getLoc3D(deg2rad * records[rindex]->points[i].latitude, deg2rad * records[rindex]->points[i].longitude, surface_offset));
         }
         timezoneparts.back()->polyline->generate();
@@ -1456,7 +1454,7 @@ void TimeZones::update() { // Updates all of the time zone outline parts at once
         //std::cout << "TimeZone::update(): timezone_id = " << pcache->timezone_id << ", polyline = " << pcache->polyline << ", earth = " << pcache->earth << '\n';
         pcache->polyline->clearPoints();
         //std::cout << "TimeZone::update(): part: " << part.partnum << " start: " << part.startindex << " length: " << part.length << "\n";
-        for (unsigned int i = pcache->part->startindex; i < (pcache->part->startindex + pcache->part->length); i++) {
+        for (size_t i = pcache->part->startindex; i < (pcache->part->startindex + pcache->part->length); i++) {
             pcache->polyline->addPoint(pcache->earth->getLoc3D(deg2rad * records[pcache->timezone_id - 1]->points[i].latitude, deg2rad * records[pcache->timezone_id - 1]->points[i].longitude, surface_offset));
         }
         pcache->polyline->generate();
@@ -1522,7 +1520,7 @@ CountryBorders::CountryBorders(Scene* scene, const std::string& filebase) : m_sc
 void CountryBorders::addBorder(Earth& earth, const std::string countryname) {
     // Check CSV file for spelling of countries, this does NOT have fuzzy search.
     // Alternatively look up the index manually and pass that instead (as unsigned int)
-    unsigned int index = 0;
+    size_t index = 0;
     for (auto& cn : countrynames) { // Should probably use a std::find, this is the 21st century.
         if (countryname == cn.searchname) index = cn.index; // If there are duplicates, this returns the last
     }
@@ -1532,7 +1530,7 @@ void CountryBorders::addBorder(Earth& earth, const std::string countryname) {
     }
     addBorder(earth, index);
 }
-void CountryBorders::addBorder(Earth& earth, unsigned int rindex) {
+void CountryBorders::addBorder(Earth& earth, size_t rindex) {
     // This could take Earth (for getLoc3D()) and an array where to drop the points.
     // Ideally I want to be able to draw a border on a globe, then unlink it from the geometry,
     //  have it float up while Earth morphs, and settle down to compare to the new size.
@@ -1552,7 +1550,7 @@ void CountryBorders::addBorder(Earth& earth, unsigned int rindex) {
         borderparts.back()->part = &part;
         borderparts.back()->polyline = m_scene->newPolyLine(LIGHT_RED, 0.001f, part.length);
         borderparts.back()->earth = &earth;
-        for (unsigned int i = part.startindex; i < (part.startindex + part.length); i++) {
+        for (size_t i = part.startindex; i < (part.startindex + part.length); i++) {
             borderparts.back()->polyline->addPoint(earth.getLoc3D(deg2rad * records[rindex]->points[i].latitude, deg2rad * records[rindex]->points[i].longitude, surface_offset));
         }
         borderparts.back()->polyline->generate();
@@ -1565,8 +1563,9 @@ void CountryBorders::update() { // Updates all of the country border parts at on
         //std::cout << "CountryBorder::update(): country_id = " << pcache->country_id << ", polyline = " << pcache->polyline << ", earth = " << pcache->earth << '\n';
         pcache->polyline->clearPoints();
         //std::cout << "CountryBorder::update(): part: " << part.partnum << " start: " << part.startindex << " length: " << part.length << "\n";
-        for (unsigned int i = pcache->part->startindex; i < (pcache->part->startindex + pcache->part->length); i++) {
-            pcache->polyline->addPoint(pcache->earth->getLoc3D(deg2rad * records[pcache->country_id - 1]->points[i].latitude, deg2rad * records[pcache->country_id - 1]->points[i].longitude, surface_offset));
+        for (size_t i = pcache->part->startindex; i < (pcache->part->startindex + pcache->part->length); i++) {
+            pcache->polyline->addPoint(pcache->earth->getLoc3D(deg2rad * records[pcache->country_id - 1]->points[i].latitude,
+                                       deg2rad * records[pcache->country_id - 1]->points[i].longitude, surface_offset));
         }
         pcache->polyline->generate();
     }
@@ -1693,7 +1692,7 @@ void ParticleTrail::push(glm::vec3 pos) {
         m_scene->getDotsFactory()->remove(m_queue.back().index);
         m_queue.pop_back();
     }
-    unsigned int index = m_scene->getDotsFactory()->addXYZ(pos, m_color, size);
+    size_t index = m_scene->getDotsFactory()->addXYZ(pos, m_color, size);
     m_queue.push_front({ m_color, pos, size, index } );
     m_gap = m_spacing;
 }
@@ -1731,10 +1730,10 @@ void ParticleTrail::draw() {
 // -----------
 AngleArcs::AngleArcs(Scene* scene) : m_scene(scene) { }
 AngleArcs::~AngleArcs() {}
-double AngleArcs::getAngle(unsigned int index) {
+double AngleArcs::getAngle(size_t index) {
     return m_arcs[index].angle;
 }
-unsigned int AngleArcs::add(glm::vec3 position, glm::vec3 start, glm::vec3 stop, float length, glm::vec4 color, float width, bool wide, glm::vec3 pole) {
+size_t AngleArcs::add(glm::vec3 position, glm::vec3 start, glm::vec3 stop, float length, glm::vec4 color, float width, bool wide, glm::vec3 pole) {
     // bool wide enables angles above pi, requires a vec3 pole to tell which direction is clockwise
     glm::vec3 nstart = glm::normalize(start);
     glm::vec3 nstop = glm::normalize(stop);
@@ -1763,13 +1762,13 @@ unsigned int AngleArcs::add(glm::vec3 position, glm::vec3 start, glm::vec3 stop,
         m_arcs.back().polycurve->addPoint(point + position);
     }
     m_arcs.back().polycurve->generate();
-    return (unsigned int)m_arcs.size() - 1;
+    return m_arcs.size() - 1;
 }
-void AngleArcs::remove(unsigned int index) {
+void AngleArcs::remove(size_t index) {
     m_scene->deletePolyCurve(m_arcs[index].polycurve);
     m_arcs[index].expired = true;
 }
-void AngleArcs::update(unsigned int index, glm::vec3 position, glm::vec3 start, glm::vec3 stop, float length, glm::vec4 color, float width, bool wide, glm::vec3 pole) {
+void AngleArcs::update(size_t index, glm::vec3 position, glm::vec3 start, glm::vec3 stop, float length, glm::vec4 color, float width, bool wide, glm::vec3 pole) {
     bool dirty = (position != m_arcs[index].position || start != m_arcs[index].start || stop != m_arcs[index].stop || length != m_arcs[index].length || width != m_arcs[index].width);
     if (position != NO_VEC3) m_arcs[index].position = position;
     if (start != NO_VEC3) m_arcs[index].start = start;
@@ -2008,31 +2007,31 @@ Arrows::~Arrows() {
         m_cones->remove(a.cone);
     }
 }
-void Arrows::remove(unsigned int index) {
+void Arrows::remove(size_t index) {
     m_cylinders->remove(m_arrows[index].cylinder);
     m_cones->remove(m_arrows[index].cone);
     m_arrows.remove(index);
 }
-unsigned int Arrows::store(Arrow a) {
+size_t Arrows::store(Arrow a) {
     return m_arrows.store(a);
 }
 void Arrows::draw() {
     // Why do I even have this function here? !!!
     std::cout << "Arrows::Draw() was called. No need to do that, arrows are drawn as Cones and Cylinders.\n";
 }
-unsigned int Arrows::addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
+size_t Arrows::addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
     dir = glm::normalize(dir);
-    unsigned int cone = m_cones->addStartDirLen(pos + dir * len, dir, width * 20, width * 4, color);
-    unsigned int cyl = m_cylinders->addStartDirLen(pos, dir * len, len - width * 20, width, color);
+    size_t cone = m_cones->addStartDirLen(pos + dir * len, dir, width * 20, width * 4, color);
+    size_t cyl = m_cylinders->addStartDirLen(pos, dir * len, len - width * 20, width, color);
     return store({ cyl, cone, color, pos, dir, len, width });
 }
-unsigned int Arrows::addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+size_t Arrows::addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
     glm::vec3 dir = end - pos;
-    unsigned int cone = m_cones->addStartDirLen(end, dir, width * 20, width * 4, color);
-    unsigned int cyl = m_cylinders->addStartDirLen(pos, dir, glm::length(dir) - width * 20, width, color);
+    size_t cone = m_cones->addStartDirLen(end, dir, width * 20, width * 4, color);
+    size_t cyl = m_cylinders->addStartDirLen(pos, dir, glm::length(dir) - width * 20, width, color);
     return store({ cyl, cone, color, pos, dir, glm::length(dir), width });
 }
-void Arrows::changeStartDirLen(unsigned int arrow, glm::vec3 pos, glm::vec3 dir, float length, float width, glm::vec4 color) {
+void Arrows::changeStartDirLen(size_t arrow, glm::vec3 pos, glm::vec3 dir, float length, float width, glm::vec4 color) {
     if (length == NO_FLOAT) length = m_arrows[arrow].length;
     if (width == NO_FLOAT) width = m_arrows[arrow].width;
     if (color == NO_COLOR) color = m_arrows[arrow].color;
@@ -2040,7 +2039,7 @@ void Arrows::changeStartDirLen(unsigned int arrow, glm::vec3 pos, glm::vec3 dir,
     m_cylinders->changeStartDirLen(m_arrows[arrow].cylinder, pos, dir, length - width * 20, width, color);
     m_arrows[arrow] = { m_arrows[arrow].cylinder, m_arrows[arrow].cone, color, pos, dir, length, width };
 }
-void Arrows::changeStartEnd(unsigned int arrow, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+void Arrows::changeStartEnd(size_t arrow, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
     if (width == NO_FLOAT) width = m_arrows[arrow].width;
     if (color == NO_COLOR) color = m_arrows[arrow].color;
     glm::vec3 dir = end - pos;
@@ -2048,14 +2047,14 @@ void Arrows::changeStartEnd(unsigned int arrow, glm::vec3 pos, glm::vec3 end, fl
     m_cylinders->changeStartDirLen(m_arrows[arrow].cylinder, pos, dir, glm::length(dir) - width * 20, width, color);
     m_arrows[arrow] = { m_arrows[arrow].cylinder, m_arrows[arrow].cone, color, pos, dir, glm::length(dir), width };
 }
-void Arrows::changeArrow(unsigned int index, glm::vec4 color, float length, float width) {
+void Arrows::changeArrow(size_t index, glm::vec4 color, float length, float width) {
     if (color != NO_COLOR) m_arrows[index].color = color;
     if (length != NO_FLOAT) m_arrows[index].length = length;
     if (width != NO_FLOAT)  m_arrows[index].width = width;
     m_cones->changeColorLengthWidth(m_arrows[index].cone, color, length, width);
     m_cylinders->changeColorLengthWidth(m_arrows[index].cylinder, color, length, width);
 }
-void Arrows::removeArrow(unsigned int index) {
+void Arrows::removeArrow(size_t index) {
     //std::cout << "WARNING! Arrows::deleteArrow() was called but no delete functions exist for Cones and Cylinders, so cannot delete!!\n";
     m_cones->removeCone(m_arrows[index].cone);
     m_cylinders->removeCylinder(m_arrows[index].cylinder);
@@ -2111,13 +2110,13 @@ void Primitives::init() {
     va->AddBuffer(*vb1, *vbl1, true);
     ib = new IndexBuffer((unsigned int*)&m_tris[0], (unsigned int)m_tris.size() * 3);  // IB uses COUNT, not BYTES!!!
 }
-unsigned int Primitives::store(Primitive3D p) {
+size_t Primitives::store(Primitive3D p) {
     return m_Primitives.store(p);
 }
-void Primitives::update(unsigned int oid, Primitive3D p) {
+void Primitives::update(size_t oid, Primitive3D p) {
     m_Primitives.update(oid, p);
 }
-void Primitives::remove(unsigned int oid) {
+void Primitives::remove(size_t oid) {
     m_Primitives.remove(oid);
 }
 void Primitives::clear() {
@@ -2185,13 +2184,13 @@ void Primitives::draw(Camera* cam, unsigned int shadow) {
     else if (shadow == SHADOW_BOX) sbshdr->Unbind();
     else shdr->Unbind();
 }
-Primitive3D* Primitives::getDetails(unsigned int index) {
+Primitive3D* Primitives::getDetails(size_t index) {
     return &m_Primitives[index];
 }
-glm::vec4 Primitives::getColor(unsigned int index) {
+glm::vec4 Primitives::getColor(size_t index) {
     return m_Primitives[index].color;
 }
-void Primitives::setColor(unsigned int index, glm::vec4 color) {
+void Primitives::setColor(size_t index, glm::vec4 color) {
     m_Primitives[index].color = color;
 }
 // Adding a new primitive:
@@ -2230,21 +2229,21 @@ Minifigs::Minifigs(Scene* scene) : Primitives(scene, 10000, 10000) {
 Minifigs::~Minifigs() {
     // Cleanup
 }
-unsigned int Minifigs::addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color, float bearing) {
+size_t Minifigs::addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color, float bearing) {
     return store({ color, pos, dir, glm::vec3(width, len, width), bearing });
 }
-void Minifigs::changeStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float length, float width, glm::vec4 color, float bearing) {
+void Minifigs::changeStartDirLen(size_t index, glm::vec3 pos, glm::vec3 dir, float length, float width, glm::vec4 color, float bearing) {
     Primitive3D* prim = getDetails(index);
     if (color == NO_COLOR) color = prim->color;
     if (length == NO_FLOAT) length = prim->scale.y;
     if (width == NO_FLOAT) width = prim->scale.x;
     update(index, { color, pos, dir, glm::vec3(width, length, width), bearing });
 }
-unsigned int Minifigs::addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+size_t Minifigs::addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
     glm::vec3 dir = end - pos;
     return store({ color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
 }
-void Minifigs::removeMinifig(unsigned int index) { remove(index); }
+void Minifigs::removeMinifig(size_t index) { remove(index); }
 void Minifigs::genGeom() {
     std::string line;
     std::string::size_type sz;
@@ -2323,7 +2322,7 @@ SphereUV::SphereUV(Scene* scene) : Primitives(scene, 1000, 1000) {
     init();
 }
 void SphereUV::print() {
-    for (unsigned int i = 0; i < m_Primitives.size(); i++) {
+    for (size_t i = 0; i < m_Primitives.size(); i++) {
         std::cout << "SphereUV " << i << ":" << std::endl;
         std::cout << " Color:     " << m_Primitives[i].color.r << m_Primitives[i].color.g << m_Primitives[i].color.b << m_Primitives[i].color.a << std::endl;
         std::cout << " Position:  " << m_Primitives[i].position.x << m_Primitives[i].position.y << m_Primitives[i].position.z << std::endl;
@@ -2331,28 +2330,28 @@ void SphereUV::print() {
         std::cout << " Scaling:   " << m_Primitives[i].scale.x << m_Primitives[i].scale.y << m_Primitives[i].scale.z << std::endl;
     }
 }
-unsigned int SphereUV::addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
+size_t SphereUV::addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
     return store({ color, pos, dir, glm::vec3(width, len, width), 0.0f });
 }
-unsigned int SphereUV::addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+size_t SphereUV::addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
     glm::vec3 dir = end - pos;
     return store({ color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
 }
-void SphereUV::changeStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float length, float width, glm::vec4 color) {
+void SphereUV::changeStartDirLen(size_t index, glm::vec3 pos, glm::vec3 dir, float length, float width, glm::vec4 color) {
     Primitive3D* prim = getDetails(index);
     if (color == NO_COLOR) color = prim->color;
     if (length == NO_FLOAT) length = prim->scale.y;
     if (width == NO_FLOAT) width = prim->scale.x;
     update(index, { color, pos, dir, glm::vec3(width, length, width), 0.0f });
 }
-void SphereUV::changeStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+void SphereUV::changeStartEnd(size_t index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
     Primitive3D* prim = getDetails(index);
     if (color == NO_COLOR) color = prim->color;
     if (width == NO_FLOAT) width = prim->scale.x;
     glm::vec3 dir = end - pos;
     update(index, { color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
 }
-void SphereUV::removeSphereUV(unsigned int index) { remove(index); }
+void SphereUV::removeSphereUV(size_t index) { remove(index); }
 glm::vec3 SphereUV::getLoc3D_NS(float lat, float lon, float height) {
     float m_Radius = 1.0f;
     float w = cos(lat) * (m_Radius + height);
@@ -2391,26 +2390,26 @@ Planes::Planes(Scene* scene) : Primitives(scene, 8, 4) {
     init();
 }
 // Functions to instantiate the primitive
-unsigned int Planes::addStartNormalLen(glm::vec3 pos, glm::vec3 nml,float rot, float len, glm::vec4 color) {
+size_t Planes::addStartNormalLen(glm::vec3 pos, glm::vec3 nml,float rot, float len, glm::vec4 color) {
     // Takes the position of the center of the plane, the direction and rotation of the surface normal, a scale factor and the color
     return store({ color, pos, nml, glm::vec3(len, 1.0f, len), 0.0f });
 }
-unsigned int Planes::addStartUV(glm::vec3 pos, glm::vec3 spanU, glm::vec3 spanV, glm::vec4 color) {
+size_t Planes::addStartUV(glm::vec3 pos, glm::vec3 spanU, glm::vec3 spanV, glm::vec4 color) {
     // Takes the position of the center of the plane, and two vectors that "span" the plane, and the color
     //  Spanning means the plane diagonal will be -spanU,-spanV to spanU,spanV transported to position.
     float angle = -atan2(spanU.z, sqrt(spanU.x * spanU.x + spanU.y * spanU.y));  // Rotation about normal
     return store({ color, pos, glm::cross(spanU,spanV), glm::vec3(glm::length(spanU), 1.0f, glm::length(spanV)), angle });
 }
-void Planes::changeStartNormalLen(unsigned int index, glm::vec3 pos, glm::vec3 nml, float rot, float len, glm::vec4 color) {
+void Planes::changeStartNormalLen(size_t index, glm::vec3 pos, glm::vec3 nml, float rot, float len, glm::vec4 color) {
     // Note: When specifying a non-infinite plane by normal and position, the rotation about the normal is not defined,
     //       so rot cannot be calculated from those parameters and is thus explicitly required (defaulting to 0 rads).
     update(index, { color, pos, nml, glm::vec3(len, 1.0f, len), rot });
 }
-void Planes::changeStartUV(unsigned int index, glm::vec3 pos, glm::vec3 spanU, glm::vec3 spanV, glm::vec4 color) {
+void Planes::changeStartUV(size_t index, glm::vec3 pos, glm::vec3 spanU, glm::vec3 spanV, glm::vec4 color) {
     float angle = -atan2(spanU.z, sqrt(spanU.x * spanU.x + spanU.y * spanU.y));
     update(index, { color, pos, glm::cross(spanU,spanV), glm::vec3(glm::length(spanU), 1.0f, glm::length(spanV)), angle });
 }
-void Planes::removePlane(unsigned int index) { remove(index); }
+void Planes::removePlane(size_t index) { remove(index); }
 // Create the geometry (vertices and triangles)
 void Planes::genGeom() {
     // Unit square in the XZ plane, centered on the origin, surface normal along Y axis - 2 tris front, 2 tris back
@@ -2439,29 +2438,29 @@ ViewCones::ViewCones(Scene* scene) : Primitives(scene, 500, 500) {
     genGeom();
     init();
 }
-unsigned int ViewCones::addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
+size_t ViewCones::addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
     return store({ color, pos, dir, glm::vec3(width, len, width), 0.0f });
 }   
-unsigned int ViewCones::addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+size_t ViewCones::addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
     glm::vec3 dir = end - pos;
     return store({ color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
 }
 //unsigned int ViewCones::FromStartEleAzi(glm::vec3 pos, float ele, float azi, glm::vec4 color) {}
-void ViewCones::changeStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float length, float width, glm::vec4 color) {
+void ViewCones::changeStartDirLen(size_t index, glm::vec3 pos, glm::vec3 dir, float length, float width, glm::vec4 color) {
     Primitive3D* prim = getDetails(index);
     if (color == NO_COLOR) color = prim->color;
     if (length == NO_FLOAT) length = prim->scale.y;
     if (width == NO_FLOAT) width = prim->scale.x;
     update(index, { color, pos, dir, glm::vec3(width, length, width), 0.0f });
 }
-void ViewCones::changeStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+void ViewCones::changeStartEnd(size_t index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
     Primitive3D* prim = getDetails(index);
     if (color == NO_COLOR) color = prim->color;
     if (width == NO_FLOAT) width = prim->scale.x;
     glm::vec3 dir = end - pos;
     update(index, { color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
 }
-void ViewCones::removeViewCone(unsigned int index) { remove(index); }
+void ViewCones::removeViewCone(size_t index) { remove(index); }
 //void ViewCones::UpdateStartEleAzi(unsigned int index, glm::vec3 pos, float ele, float azi, glm::vec4 color) {}
 void ViewCones::genGeom() {
     // Anchored at tip, to make Arrows and View Cones easier
@@ -2501,7 +2500,7 @@ Cones::Cones(Scene* scene) : Primitives(scene, 100, 100) {
     init();
 }
 void Cones::print() {
-    for (unsigned int i = 0; i < m_Primitives.size(); i++) {
+    for (size_t i = 0; i < m_Primitives.size(); i++) {
         std::cout << "Cone " << i << ":" << std::endl;
         std::cout << " Color:     " << m_Primitives[i].color.r << m_Primitives[i].color.g << m_Primitives[i].color.b << m_Primitives[i].color.a << std::endl;
         std::cout << " Position:  " << m_Primitives[i].position.x << m_Primitives[i].position.y << m_Primitives[i].position.z << std::endl;
@@ -2509,30 +2508,30 @@ void Cones::print() {
         std::cout << " Scaling:   " << m_Primitives[i].scale.x << m_Primitives[i].scale.y << m_Primitives[i].scale.z << std::endl;
     }
 }
-unsigned int Cones::addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
+size_t Cones::addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
     return store({ color, pos, dir, glm::vec3(width, len, width), 0.0f });
 }
-unsigned int Cones::addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+size_t Cones::addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
     glm::vec3 dir = end - pos;
     return store({ color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
 }
-//unsigned int Cones::FromStartEleAzi(glm::vec3 pos, float ele, float azi, glm::vec4 color) {}
-void Cones::changeStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float length, float width, glm::vec4 color) {
+//size_t Cones::FromStartEleAzi(glm::vec3 pos, float ele, float azi, glm::vec4 color) {}
+void Cones::changeStartDirLen(size_t index, glm::vec3 pos, glm::vec3 dir, float length, float width, glm::vec4 color) {
     Primitive3D* prim = getDetails(index);
     if (color == NO_COLOR) color = prim->color;
     if (length == NO_FLOAT) length = prim->scale.y;
     if (width == NO_FLOAT) width = prim->scale.x;
     update(index, { color, pos, dir, glm::vec3(width, length, width), 0.0f });
 }
-void Cones::changeStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+void Cones::changeStartEnd(size_t index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
     Primitive3D* prim = getDetails(index);
     if (color == NO_COLOR) color = prim->color;
     if (width == NO_FLOAT) width = prim->scale.x;
     glm::vec3 dir = end - pos;
     update(index, { color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
 }
-//void Cones::UpdateStartEleAzi(unsigned int index, glm::vec3 pos, float ele, float azi, glm::vec4 color) {}
-void Cones::changeColorLengthWidth(unsigned int index, glm::vec4 color, float length, float width) {
+//void Cones::UpdateStartEleAzi(size_t index, glm::vec3 pos, float ele, float azi, glm::vec4 color) {}
+void Cones::changeColorLengthWidth(size_t index, glm::vec4 color, float length, float width) {
     Primitive3D* prim = getDetails(index);
     if (color == NO_COLOR) color = prim->color;
     if (length == NO_FLOAT) length = prim->scale.y;
@@ -2541,7 +2540,7 @@ void Cones::changeColorLengthWidth(unsigned int index, glm::vec4 color, float le
     prim->scale = glm::vec3(width, length, width);
     //Update(index, *prim);
 }
-void Cones::removeCone(unsigned int index) { remove(index); }
+void Cones::removeCone(size_t index) { remove(index); }
 
 void Cones::genGeom() {
     // Anchored at tip, to make Arrows and View Cones easier
@@ -2577,7 +2576,7 @@ Cylinders::Cylinders(Scene* scene) : Primitives(scene, 100, 100) {
     init();
 }
 void Cylinders::print() {
-    for (unsigned int i = 0; i < m_Primitives.size(); i++) {
+    for (size_t i = 0; i < m_Primitives.size(); i++) {
         std::cout << "Cylinder " << i << ":" << std::endl;
         std::cout << " Color:     " << m_Primitives[i].color.r << m_Primitives[i].color.g << m_Primitives[i].color.b << m_Primitives[i].color.a << std::endl;
         std::cout << " Position:  " << m_Primitives[i].position.x << m_Primitives[i].position.y << m_Primitives[i].position.z << std::endl;
@@ -2585,22 +2584,22 @@ void Cylinders::print() {
         std::cout << " Scaling:   " << m_Primitives[i].scale.x << m_Primitives[i].scale.y << m_Primitives[i].scale.z << std::endl;
     }
 }
-unsigned int Cylinders::addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
+size_t Cylinders::addStartDirLen(glm::vec3 pos, glm::vec3 dir, float len, float width, glm::vec4 color) {
     return store({ color, pos, glm::normalize(dir), glm::vec3(width, len, width), 0.0f });
 }
-unsigned int Cylinders::addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+size_t Cylinders::addStartEnd(glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
     glm::vec3 dir = end - pos;
     return store({ color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
 }
 //unsigned int Cylinders::FromStartEleAzi(glm::vec3 pos, float ele, float azi, glm::vec4 color) {}
-void Cylinders::changeStartDirLen(unsigned int index, glm::vec3 pos, glm::vec3 dir, float length, float width, glm::vec4 color) {
+void Cylinders::changeStartDirLen(size_t index, glm::vec3 pos, glm::vec3 dir, float length, float width, glm::vec4 color) {
     Primitive3D* prim = getDetails(index);
     if (color == NO_COLOR) color = prim->color;
     if (length == NO_FLOAT) length = prim->scale.y;
     if (width == NO_FLOAT) width = prim->scale.x;
     update(index, { color, pos, dir, glm::vec3(width, length, width), 0.0f });
 }
-void Cylinders::changeStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
+void Cylinders::changeStartEnd(size_t index, glm::vec3 pos, glm::vec3 end, float width, glm::vec4 color) {
     Primitive3D* prim = getDetails(index);
     if (color == NO_COLOR) color = prim->color;
     if (width == NO_FLOAT) width = prim->scale.x;
@@ -2608,7 +2607,7 @@ void Cylinders::changeStartEnd(unsigned int index, glm::vec3 pos, glm::vec3 end,
     update(index, { color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
 }
 //void Cylinders::UpdateStartEleAzi(unsigned int index, glm::vec3 pos, float ele, float azi, glm::vec4 color) {}
-void Cylinders::changeColorLengthWidth(unsigned int index, glm::vec4 color, float length, float width) {
+void Cylinders::changeColorLengthWidth(size_t index, glm::vec4 color, float length, float width) {
     Primitive3D* prim = getDetails(index);
     if (color == NO_COLOR) color = prim->color;
     if (length == NO_FLOAT) length = prim->scale.y;
@@ -2616,7 +2615,7 @@ void Cylinders::changeColorLengthWidth(unsigned int index, glm::vec4 color, floa
     prim->color = color;
     prim->scale = glm::vec3(width, length, width);
 }
-void Cylinders::removeCylinder(unsigned int index) { remove(index); }
+void Cylinders::removeCylinder(size_t index) { remove(index); }
 void Cylinders::genGeom() {
     unsigned int facets = 16;
     float width = 1.0f;  // actually radius
@@ -2655,23 +2654,23 @@ SkyDots::SkyDots(Scene* scene) : Primitives(scene, 2000, 1000) {
     genGeom();
     init();
 }
-unsigned int SkyDots::addXYZ(glm::vec3 pos, glm::vec4 color, float size) {
+size_t SkyDots::addXYZ(glm::vec3 pos, glm::vec4 color, float size) {
     return store({ color, pos, glm::vec3(0.0f,0.0f,1.0f), glm::vec3(size,size,size), 0.0f }); // col,pos,dir,scale,rot
 }
-void SkyDots::changeXYZ(unsigned int index, glm::vec3 pos, glm::vec4 color, float size) {
+void SkyDots::changeXYZ(size_t index, glm::vec3 pos, glm::vec4 color, float size) {
     Primitive3D* prim = getDetails(index);
     if (color == NO_COLOR) color = prim->color;
     if (size == NO_FLOAT) size = prim->scale.x;
     update(index, { color, pos, glm::vec3(0.0f,0.0f,1.0f), glm::vec3(size,size,size), 0.0f });
 }
-void SkyDots::changeDot(unsigned int index, glm::vec4 color, float size) {
+void SkyDots::changeDot(size_t index, glm::vec4 color, float size) {
     Primitive3D* prim = getDetails(index);
     if (color == NO_COLOR) color = prim->color;
     if (size == NO_FLOAT) size = prim->scale.x;
     prim->color = color;
     prim->scale = glm::vec3(size);
 }
-void SkyDots::removeDot(unsigned int index) { remove(index); }
+void SkyDots::removeDot(size_t index) { remove(index); }
 void SkyDots::draw(Camera* cam) {
     if (!visible) return;
     if (m_Primitives.size() == 0) return;
@@ -2778,23 +2777,23 @@ Dots::Dots(Scene* scene) : Primitives(scene, 2000, 1000) {
     genGeom();
     init();
 }
-unsigned int Dots::addXYZ(glm::vec3 pos, glm::vec4 color, float size) {
+size_t Dots::addXYZ(glm::vec3 pos, glm::vec4 color, float size) {
     return store({ color, pos, glm::vec3(0.0f,0.0f,1.0f), glm::vec3(size,size,size), 0.0f }); // col,pos,dir,scale,rot
 }
-void Dots::changeXYZ(unsigned int index, glm::vec3 pos, glm::vec4 color, float size) {
+void Dots::changeXYZ(size_t index, glm::vec3 pos, glm::vec4 color, float size) {
     Primitive3D* prim = getDetails(index);
     if (color == NO_COLOR) color = prim->color;
     if (size == NO_FLOAT) size = prim->scale.x;
     update(index, { color, pos, glm::vec3(0.0f,0.0f,1.0f), glm::vec3(size,size,size), 0.0f });
 }
-void Dots::changeDot(unsigned int index, glm::vec4 color, float size) {
+void Dots::changeDot(size_t index, glm::vec4 color, float size) {
     Primitive3D* prim = getDetails(index);
     if (color == NO_COLOR) color = prim->color;
     if (size == NO_FLOAT) size = prim->scale.x;
     prim->color = color;
     prim->scale = glm::vec3(size);
 }
-void Dots::removeDot(unsigned int index) { remove(index); }
+void Dots::removeDot(size_t index) { remove(index); }
 void Dots::genGeom() {
     // IcoSphere generation from: https://schneide.blog/2016/07/15/generating-an-icosphere-in-c/
     // See also: http://blog.andreaskahler.com/2009/06/creating-icosphere-mesh-in-code.html

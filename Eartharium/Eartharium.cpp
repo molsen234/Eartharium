@@ -684,7 +684,7 @@ void SandboxSIO(Application& app) { // https://www.youtube.com/watch?v=Sq1V98vkf
     // Compensate for Sun refraction diameter distortion? I.e. refract the sunsemidia?
     LLH subsol = earth->getSubsolar(astro->getJD(), false);
     std::cout << "Subsolar: " << subsol.lat << "," << subsol.lon << "\n";
-    unsigned int sun1 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction + sunsemidia) / 60.0, false, LIGHT_YELLOW, app.sio_pathwidth);
+    size_t sun1 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction + sunsemidia) / 60.0, false, LIGHT_YELLOW, app.sio_pathwidth);
 
     astro->setTime(2022, 2, 9.0, 17.0, 3.0, 41.0); // 36.716);
     sunelev = 2 * 60.0 + 8.8; // 11°25.0' in arcmins
@@ -703,7 +703,7 @@ void SandboxSIO(Application& app) { // https://www.youtube.com/watch?v=Sq1V98vkf
     // Compensate for Sun refraction diameter distortion? I.e. refract the sunsemidia?
     subsol = earth->getSubsolar(astro->getJD(), false);
     std::cout << "Subsolar: " << subsol.lat << "," << subsol.lon << "\n";
-    unsigned int sun2 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction + sunsemidia) / 60.0, false, YELLOW, app.sio_pathwidth);
+    size_t sun2 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction + sunsemidia) / 60.0, false, YELLOW, app.sio_pathwidth);
 
     astro->setTime(2022, 2, 9.0, 17.0, 10.0, 5.0); // 36.716);
     sunelev = 1 * 60.0 + 45.7; // 11°25.0' in arcmins
@@ -722,7 +722,7 @@ void SandboxSIO(Application& app) { // https://www.youtube.com/watch?v=Sq1V98vkf
     // Compensate for Sun refraction diameter distortion? I.e. refract the sunsemidia?
     subsol = earth->getSubsolar(astro->getJD(), false);
     std::cout << "Subsolar: " << subsol.lat << "," << subsol.lon << "\n";
-    unsigned int sun3 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction + sunsemidia) / 60.0, false, LIGHT_ORANGE, app.sio_pathwidth);
+    size_t sun3 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction + sunsemidia) / 60.0, false, LIGHT_ORANGE, app.sio_pathwidth);
 
     astro->setTime(2022, 2, 9.0, 17.0, 13.0, 30.0); // 36.716);
     sunelev = 1 * 60.0 + 26.6; // 11°25.0' in arcmins
@@ -741,7 +741,7 @@ void SandboxSIO(Application& app) { // https://www.youtube.com/watch?v=Sq1V98vkf
     // Compensate for Sun refraction diameter distortion? I.e. refract the sunsemidia?
     subsol = earth->getSubsolar(astro->getJD(), false);
     std::cout << "Subsolar: " << subsol.lat << "," << subsol.lon << "\n";
-    unsigned int sun4 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction + sunsemidia) / 60.0, false, ORANGE, app.sio_pathwidth);
+    size_t sun4 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction + sunsemidia) / 60.0, false, ORANGE, app.sio_pathwidth);
 
     astro->setTime(2022, 2, 9.0, 17.0, 16.0, 20.0); // 36.716);
     sunelev = 1 * 60.0 + 14.6; // 11°25.0' in arcmins
@@ -760,7 +760,7 @@ void SandboxSIO(Application& app) { // https://www.youtube.com/watch?v=Sq1V98vkf
     // Compensate for Sun refraction diameter distortion? I.e. refract the sunsemidia?
     subsol = earth->getSubsolar(astro->getJD(), false);
     std::cout << "Subsolar: " << subsol.lat << "," << subsol.lon << "\n";
-    unsigned int sun5 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction + sunsemidia) / 60.0, false, LIGHT_RED, app.sio_pathwidth);
+    size_t sun5 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction + sunsemidia) / 60.0, false, LIGHT_RED, app.sio_pathwidth);
 
     astro->setTime(2022, 2, 9.0, 17.0, 21.0, 30.0); // 36.716);
     sunelev = 1 * 60.0 + 16.6; // 11°25.0' in arcmins
@@ -779,7 +779,7 @@ void SandboxSIO(Application& app) { // https://www.youtube.com/watch?v=Sq1V98vkf
     // Compensate for Sun refraction diameter distortion? I.e. refract the sunsemidia?
     subsol = earth->getSubsolar(astro->getJD(), false);
     std::cout << "Subsolar: " << subsol.lat << "," << subsol.lon << "\n";
-    unsigned int sun6 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction - sunsemidia) / 60.0, false, RED, app.sio_pathwidth);
+    size_t sun6 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction - sunsemidia) / 60.0, false, RED, app.sio_pathwidth);
 
     astro->setTime(2022, 2, 9.0, 17.0, 24.0, 25.0); // 36.716);
     sunelev = 0 * 60.0 + 58.4; // 11°25.0' in arcmins
@@ -798,7 +798,7 @@ void SandboxSIO(Application& app) { // https://www.youtube.com/watch?v=Sq1V98vkf
     // Compensate for Sun refraction diameter distortion? I.e. refract the sunsemidia?
     subsol = earth->getSubsolar(astro->getJD(), false);
     std::cout << "Subsolar: " << subsol.lat << "," << subsol.lon << "\n";
-    unsigned int sun7 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction - sunsemidia) / 60.0, false, LIGHT_BLUE, app.sio_pathwidth);
+    size_t sun7 = earth->addTissotIndicatrix(subsol, 90.0 - (sunelev - dip - sunrefraction - sunsemidia) / 60.0, false, LIGHT_BLUE, app.sio_pathwidth);
 
 
     astro->setTime(2022, 2, 9.0, 18.0, 28.0, 23.0); // 36.716);
@@ -817,7 +817,7 @@ void SandboxSIO(Application& app) { // https://www.youtube.com/watch?v=Sq1V98vkf
     std::cout << "Corrected Jupiter elevation: " << jupelev - dip - juprefraction << "\'\n"; // Assume Jupiter is point like
     LLH subjup = earth->calcHADec2LatLon(earth->getPlanet(JUPITER, 0.0, false), false);
     std::cout << "Subjovian: " << subjup.lat << "," << subjup.lon << "\n";
-    unsigned int jup1 = earth->addTissotIndicatrix(subjup, 90.0 - (jupelev - dip - juprefraction) / 60.0, false, LIGHT_GREEN, app.sio_pathwidth);
+    size_t jup1 = earth->addTissotIndicatrix(subjup, 90.0 - (jupelev - dip - juprefraction) / 60.0, false, LIGHT_GREEN, app.sio_pathwidth);
 
     app.anim = false;
     app.renderoutput = false;
@@ -983,13 +983,13 @@ void SunSectorSandbox(Application& app) {
     //scene->getCountryBordersFactory()->addBorder(*earth, "Afghanistan"); // No worries, Earth is passed by reference :)
     //scene->getCountryBordersFactory()->addBorder(*earth, "Denmark"); // No worries, Earth is passed by reference :)
     //scene->getTimeZonesFactory()->addTimeZone(*earth, "Asia/Kabul");
-    unsigned int longc = earth->addLongitudeCurve(l_kabul.lon, BLUE, 0.005f, false);
-    unsigned int longe = earth->addLongitudeCurve(l_kabul.lon + 45.0, BLUE, 0.005f, false);
-    unsigned int longw = earth->addLongitudeCurve(l_kabul.lon - 45.0, BLUE, 0.005f, false);
-    unsigned int longf = earth->addLongitudeCurve(l_kabul.lon + 90.0, BLUE, 0.005f, false);
-    unsigned int longx = earth->addLongitudeCurve(l_kabul.lon - 90.0, BLUE, 0.005f, false);
-    unsigned int latie = earth->addGreatArc({ 0.0, l_kabul.lon, 0.0 }, { 0.0, l_kabul.lon + 45.0, 0.0 }, BLUE, 0.005f, false);
-    unsigned int latiw = earth->addGreatArc({ 0.0, l_kabul.lon, 0.0 }, { 0.0, l_kabul.lon - 45.0, 0.0 }, BLUE, 0.005f, false);
+    size_t longc = earth->addLongitudeCurve(l_kabul.lon, BLUE, 0.005f, false);
+    size_t longe = earth->addLongitudeCurve(l_kabul.lon + 45.0, BLUE, 0.005f, false);
+    size_t longw = earth->addLongitudeCurve(l_kabul.lon - 45.0, BLUE, 0.005f, false);
+    size_t longf = earth->addLongitudeCurve(l_kabul.lon + 90.0, BLUE, 0.005f, false);
+    size_t longx = earth->addLongitudeCurve(l_kabul.lon - 90.0, BLUE, 0.005f, false);
+    size_t latie = earth->addGreatArc({ 0.0, l_kabul.lon, 0.0 }, { 0.0, l_kabul.lon + 45.0, 0.0 }, BLUE, 0.005f, false);
+    size_t latiw = earth->addGreatArc({ 0.0, l_kabul.lon, 0.0 }, { 0.0, l_kabul.lon - 45.0, 0.0 }, BLUE, 0.005f, false);
 
     astro->setTime(2019, 3, 21.0, 7.0, 30.0, 34.0, true);
 
@@ -1026,7 +1026,7 @@ void SunSectorSandbox(Application& app) {
     //earth->addSemiTerminator(105.0, false, sunindicators, 0.005f);
     //earth->addSemiTerminator(75.0, false, sunindicators, 0.005f);
     //earth->addSemiTerminator(60.0, false, sunindicators, 0.005f);
-    unsigned int semiterm = earth->addSemiTerminator(45.0, false, SUNCOLOR, 0.005f);
+    size_t semiterm = earth->addSemiTerminator(45.0, false, SUNCOLOR, 0.005f);
     //earth->addSemiTerminator(30.0, false, sunindicators, 0.005f);
     //earth->addSemiTerminator(15.0, false, sunindicators, 0.005f);
 
@@ -1217,13 +1217,13 @@ void ICSTvsCoreyKell(Application& app) {
 
     // -- Sequence 007 - Draw out the blue sector lines, move the Sun +/- 45 degrees
     app.incSequence();
-    unsigned int longc = earth->addLongitudeCurve(0.0, BLUE, 0.005f, false);
-    unsigned int longe = earth->addLongitudeCurve(0.0 + 45.0, BLUE, 0.005f, false);
-    unsigned int longw = earth->addLongitudeCurve(0.0 - 45.0, BLUE, 0.005f, false);
-    unsigned int longf = earth->addLongitudeCurve(0.0 + 90.0, BLUE, 0.005f, false);
-    unsigned int longx = earth->addLongitudeCurve(0.0 - 90.0, BLUE, 0.005f, false);
-    unsigned int latie = earth->addGreatArc({ 0.0, 0.0, 0.0 }, { 0.0, 45.0, 0.0 }, BLUE, 0.005f, false);
-    unsigned int latiw = earth->addGreatArc({ 0.0, 0.0, 0.0 }, { 0.0, -45.0, 0.0 }, BLUE, 0.005f, false);
+    size_t longc = earth->addLongitudeCurve(0.0, BLUE, 0.005f, false);
+    size_t longe = earth->addLongitudeCurve(0.0 + 45.0, BLUE, 0.005f, false);
+    size_t longw = earth->addLongitudeCurve(0.0 - 45.0, BLUE, 0.005f, false);
+    size_t longf = earth->addLongitudeCurve(0.0 + 90.0, BLUE, 0.005f, false);
+    size_t longx = earth->addLongitudeCurve(0.0 - 90.0, BLUE, 0.005f, false);
+    size_t latie = earth->addGreatArc({ 0.0, 0.0, 0.0 }, { 0.0, 45.0, 0.0 }, BLUE, 0.005f, false);
+    size_t latiw = earth->addGreatArc({ 0.0, 0.0, 0.0 }, { 0.0, -45.0, 0.0 }, BLUE, 0.005f, false);
     app.render();
 
     app.incSequence();
@@ -1455,7 +1455,7 @@ void ICSTvsCoreyKell(Application& app) {
 
     // -- Sequence 040 - Add Sun sectors
     app.incSequence();
-    unsigned int sunterm = earth->addTerminatorTrueSun(sunindicators, 0.005f);
+    size_t sunterm = earth->addTerminatorTrueSun(sunindicators, 0.005f);
     earth->addSunSectors(0.005f, sunindicators, 45.0);  // Ugly implementation of updates, but is only used for the Kell's 45 degrees Sector test
     app.render();
 
@@ -1575,7 +1575,7 @@ void ICSTvsCoreyKell(Application& app) {
 
     // -- Sequence 055 - 
     app.incSequence();
-    unsigned int sunsemi = earth->addSemiTerminator(45.0, false, SUNCOLOR, 0.005f);  // Add default values for color and width
+    size_t sunsemi = earth->addSemiTerminator(45.0, false, SUNCOLOR, 0.005f);  // Add default values for color and width
     app.render();
 
     // -- Sequence 056 - Loop the Semi Terminator to show elevations are constantly 45 degrees
@@ -2598,9 +2598,9 @@ void AxialPrecession(Application& app) {
     app.currentEarth = earth;
     Arrows* arrowFac = scene->getArrowsFactory();
     float axisWidth = 0.01f;
-    unsigned int axisX = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, 1.0f, axisWidth, RED);
-    unsigned int axisY = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,1.0f,0.0f }, 1.0f, axisWidth, GREEN);
-    unsigned int axisZ = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, 1.0f, axisWidth, BLUE);
+    size_t axisX = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, 1.0f, axisWidth, RED);
+    size_t axisY = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,1.0f,0.0f }, 1.0f, axisWidth, GREEN);
+    size_t axisZ = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, 1.0f, axisWidth, BLUE);
 
     earth->w_sinsol = false;
     earth->addGrid();
@@ -2742,9 +2742,9 @@ void Lambertian(Application& app) {
     app.currentEarth = earth;
     Arrows* arrowFac = scene->getArrowsFactory();
     float axisWidth = 0.01f;
-    unsigned int axisX = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, 1.0f, axisWidth, RED);
-    unsigned int axisY = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,1.0f,0.0f }, 1.0f, axisWidth, GREEN);
-    unsigned int axisZ = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, 1.0f, axisWidth, BLUE);
+    size_t axisX = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, 1.0f, axisWidth, RED);
+    size_t axisY = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,1.0f,0.0f }, 1.0f, axisWidth, GREEN);
+    size_t axisZ = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, 1.0f, axisWidth, BLUE);
 
     earth->w_sinsol = true;
     earth->addGrid();
@@ -2783,19 +2783,42 @@ void SimpleTest(Application& app) {
     RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
     gui->addLayer3D(layer, "Scene1");
 
-    Earth* earth = scene->newEarth("NSAE", 360, 180);
-    app.currentEarth = earth;
     Arrows* arrowFac = scene->getArrowsFactory();
     float axisWidth = 0.01f;
-    unsigned int axisX = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, 1.0f, axisWidth, RED);
-    unsigned int axisY = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,1.0f,0.0f }, 1.0f, axisWidth, GREEN);
-    unsigned int axisZ = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, 1.0f, axisWidth, BLUE);
+    size_t axisX = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, 1.0f, axisWidth, RED);
+    size_t axisY = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,1.0f,0.0f }, 1.0f, axisWidth, GREEN);
+    size_t axisZ = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, 1.0f, axisWidth, BLUE);
 
-    earth->w_sinsol = true;
-    earth->addGrid();
-    //earth->addGreatArc({ 90.0-tiny, 180.0, 0.0 }, { -90.0+tiny, 180.0, 0.0 }, LIGHT_RED, 0.003f, false);
-    earth->flatsunheight = 0.0f;
-    earth->addSubsolarPath();
+    Earth2* earth = scene->newEarth2("ERAE", 180, 90);
+    earth->name = "Earth2";
+    app.currentEarth2 = earth;
+
+    Grid grid{ scene, earth, 15.0 * deg2rad };
+
+    SmallCircle sc{ scene, earth, { pi2/2.0, 0.0, 0.0 }, 10 * deg2rad };
+    sc.setParent(earth);
+
+    //Equator2 eq{ scene, earth,0.007f };
+    //PrimeMeridian2 pm{ scene,earth,0.007f };
+    //
+    //std::vector<Latitude2*> lats;
+    //for (double lat = -pi2; lat <= pi2; lat += 15 * deg2rad) {
+    //    if (abs(lat) > tiny) lats.emplace_back(new Latitude2(scene,earth,lat));
+    //}
+    //
+    //std::vector<Longitude2*> lons;
+    //for (double lon = -pi; lon <= pi; lon += 15 * deg2rad) {
+    //    if (abs(lon) > tiny) lons.emplace_back(new Longitude2(scene, earth, lon));
+    //}
+
+    //Earth* earth = scene->newEarth("NSAE", 180, 90);
+    //app.currentEarth = earth;
+    //
+    //earth->w_sinsol = true;
+    //earth->addGrid();
+    ////earth->addGreatArc({ 90.0-tiny, 180.0, 0.0 }, { -90.0+tiny, 180.0, 0.0 }, LIGHT_RED, 0.003f, false);
+    //earth->flatsunheight = 0.0f;
+    //earth->addSubsolarPath();
 
     //SkySphere* sky = scene->newSkysphere(180, 90, true);
     //sky->setTexture(true);
@@ -2968,7 +2991,7 @@ PYBIND11_EMBEDDED_MODULE(eartharium, m) {
              py::return_value_policy::reference
          )
         .def("do_render", &Application::render)
-        .def_readwrite("ipython", &Application::ipython)
+        .def_readwrite("interactive", &Application::interactive)
         .def_readwrite("render", &Application::renderoutput)
         .def_readwrite("currentCam", &Application::currentCam)
         .def_readwrite("m_font2", &Application::m_font2)
@@ -3041,8 +3064,8 @@ int main() {
     app.start_fullscreen = false;  // Starting full screen can make debugging difficult during a hang
     if (app.initWindow() == -1) return -1; // Bail if Window and OpenGL context setup fails
 
-    if (true) { // Set to true to run a python script and drop into an idle interactive
-        app.interactive = false;
+    if (false) { // Set to true to run a python script and drop into an idle interactive
+        app.interactive = true; 
         //std::string pyfile = "c:\\Coding\\Eartharium\\Eartharium\\hello.py";
         std::string pyfile = "c:\\Coding\\Eartharium\\Eartharium\\mdo-test.py";  // Hardcoded which python script to run until a script manager is built
         py::scoped_interpreter guard{};

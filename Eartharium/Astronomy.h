@@ -36,14 +36,14 @@ struct CelestialDetail {
 // ---------------
 class CelestialPath {
 public:
-	unsigned int planet = NO_UINT;
+	size_t planet = NO_UINT;
 	double jdStart = 0.0;   // Start and End are offsets from current JD, Start is negative, End is positive.
 	double jdEnd = 0.0;
 	unsigned int jdSteps = 0;
 	unsigned int cpType = EC;
 	bool fixedpath = false; // When this flag is set to true, the updater will no longer recalculate the path
 	unsigned int m_refcnt = 1;
-	unsigned int index = NO_UINT;
+	size_t index = NO_UINT;
 	std::vector<CelestialDetail> entries;
 private:
 	Astronomy* m_astro = nullptr;
@@ -51,7 +51,7 @@ private:
 	double m_stepsize = 0.0;
 	bool m_updating = true;   // Whether this path is updating to current JD (true) or it is frozen in time (false)
 public:
-	CelestialPath(Astronomy* celmec, unsigned int planet, double start, double end, unsigned int steps, unsigned int type, bool fixed = false);
+	CelestialPath(Astronomy* celmec, size_t planet, double start, double end, unsigned int steps, unsigned int type, bool fixed = false);
 	~CelestialPath();
 	bool operator==(const CelestialPath& other);
 	bool operator!=(const CelestialPath& other);
@@ -146,11 +146,11 @@ public:
 	int calcYearDay(double year, double month, double day);
 	bool isLeapYear(double year);
 
-	unsigned int enablePlanet(unsigned int planet);
-	unsigned int disablePlanet(unsigned int planet);
-	LLH getDecRA(unsigned int planet, double jd = 0.0);
-	LLH getDecGHA(unsigned int planet, double jd = 0.0, bool rad = true);
-	void updateGeocentric(unsigned int planet);
+	unsigned int enablePlanet(size_t planet);
+	unsigned int disablePlanet(size_t planet);
+	LLH getDecRA(size_t planet, double jd = 0.0);
+	LLH getDecGHA(size_t planet, double jd = 0.0, bool rad = true);
+	void updateGeocentric(size_t planet);
 	LLH calcEc2Geo(double Lambda, double Beta, double Epsilon);
 	LLH calcGeo2Topo(LLH pos, LLH loc);
 	double secs2deg(double seconds);
@@ -161,9 +161,9 @@ public:
 	void stringDeg2DMS(double deg, char* dstring);
 	double getEclipticObliquity(double jd = NO_DOUBLE, bool rad = false);
 	//CAAEllipticalPlanetaryDetails calcEllipticalRad(double JD, unsigned int planet);
-	CelestialDetail getDetails(double JD, unsigned int planet, unsigned int type);
+	CelestialDetail getDetails(double JD, size_t planet, unsigned int type);
 
-	CelestialPath* getCelestialPath(unsigned int planet, double startoffset, double endoffset, unsigned int steps, unsigned int type, bool fixed = false);
+	CelestialPath* getCelestialPath(size_t planet, double startoffset, double endoffset, unsigned int steps, unsigned int type, bool fixed = false);
 	void updateCelestialPaths();
 	void removeCelestialPath(CelestialPath* path);
 
@@ -179,9 +179,9 @@ public:
 	LLH getTrueDecRAbyName(const std::string starname, bool rad = false);
 	LLH calcTrueDecRa(const LLH decra, const double JD = NO_DOUBLE, const double JD0 = JD2000); // If no Epoch, assume J2000
 	// Ecliptic (Heliocentric)
-	double getEcLat(unsigned int planet, double jd);
-	double getEcLon(unsigned int planet, double jd);
-	double getRadius(unsigned int planet, double jd, bool km = true);
+	double getEcLat(size_t planet, double jd);
+	double getEcLon(size_t planet, double jd);
+	double getRadius(size_t planet, double jd, bool km = true);
 	double EcLatMercury(double jd);  // If all we need is one of these for example when interpolating.
 	double EcLonMercury(double jd);  // Most will use getDetails() instead to get everything,
 	double EcDstMercury(double jd);  // or getDecRA() / getDecGHA() if geocentric is desired,
