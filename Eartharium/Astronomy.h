@@ -2,27 +2,284 @@
 #include "Primitives.h"
 
 
-class Time {
+class EDateTime {  // FIX: !!! Not in use yet - Still have to work out the details !!!
 public:
-	Time(long year, long month, double day, double hour, double minute, double second, bool gregorian = true)
-	: m_year(year), m_month(month), m_day(day), m_hour(hour), m_minute(minute), m_second(second), m_gregorian(gregorian) {
-		current = CAADate(year, month, day, hour, minute, second, gregorian);
+	// Constructors
+	// - Default sets current system time in UTC
+	EDateTime() {
+		setTimeNow();
+	}
+	// - From date and time
+	EDateTime(long year, long month, double day, double hour, double minute, double second)
+	: m_year(year), m_month(month), m_day(day), m_hour(hour), m_minute(minute), m_second(second) {
+		normalize();
+		calcJD();
+	}
+	// - From Julian Date
+	EDateTime(double jd) {
+		// source: https://www.aa.quae.nl/en/reken/juliaansedag.html#4_2
+		m_JD = jd;
+		jd += 0.5; // From astronomical jd to civil which is assumed below
+
+		int c1 = myDivQuotient((int)jd * 4 - 6884477, 146097);
+		int e1 = myDivRemainder((int)jd * 4 - 6884477, 146097) / 4;
+		int a1 = myDivQuotient(100 * e1 + 99, 36525);
+		int e2 = myDivRemainder(100 * e1 + 99, 36525) / 100;
+		int m1 = myDivQuotient(5 * e2 + 2, 153);
+		int e3 = myDivRemainder(5 * e2 + 2, 153) / 5;
+		int a2 = myDivQuotient(m1 + 2, 12);
+		int m2 = myDivRemainder(m1 + 2, 12);
+		m_year = 100 * c1 + a1 + a2;
+		m_month = m2 + 1;
+		m_day = e3 + 1;
+
+		double frac = jd - (int)jd;
+		frac *= 24.0;
+		m_hour = floor(frac);
+		frac -= m_hour;
+		frac *= 60.0;
+		m_minute = floor(frac);
+		frac -= m_minute;
+		m_second = frac * 60.0;
+	}
+	// Getters
+	long year() { return m_year; }
+	long month() { return m_month; }
+	double day() { return m_day; }
+	double hour() { return m_hour; }
+	double minute() { return m_minute; }
+	double second() { return m_second; }
+	double jd() /* Astronomical Julian date */ { return m_JD; }
+	bool isLeap() /* returns true if leap year, false otherwise */ { return isLeapYear(m_year); }
+	long weekday() /* Sun=0 Mon=1 Tue=2 Wed=3 Thu=4 Fri=5 Sat=6 */ { return ((int)(m_JD+0.5) + 1) % 7; }
+	std::string string() /* Neatly formatted date time string */ { return "EDateTime::string() not yet implemented"; }
+	// Setters
+	// - Set with date and time
+	void setTime(long year, long month, double day, double hour, double minute, double second) {
+		m_year = year;
+		m_month = month;
+		m_day = day;
+		m_hour = hour;
+		m_minute = minute;
+		m_second = second;
+		normalize();
+		calcJD();
+	}
+	// - Set to current system time in UTC
+	void setTimeNow() {
+		time_t tt = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+		//#pragma warning(disable : 4996)
+		tm utc_tm;   // tm has a maximum resolution of 1 second.
+		gmtime_s(&utc_tm, &tt);
+		setTime((long)utc_tm.tm_year + 1900, (long)utc_tm.tm_mon + 1, (double)utc_tm.tm_mday,
+			(double)utc_tm.tm_hour, (double)utc_tm.tm_min, (double)utc_tm.tm_sec);
+	}
+	// - Set to specific astronomical Julian Date
+	void setJD(double jd) {
+		// source: https://www.aa.quae.nl/en/reken/juliaansedag.html#4_2
+		m_JD = jd;
+		jd += 0.5; // From astronomical jd to civil which is assumed below
+		int c1 = myDivQuotient((int)jd * 4 - 6884477, 146097);
+		int e1 = myDivRemainder((int)jd * 4 - 6884477, 146097) / 4;
+		int a1 = myDivQuotient(100 * e1 + 99, 36525);
+		int e2 = myDivRemainder(100 * e1 + 99, 36525) / 100;
+		int m1 = myDivQuotient(5 * e2 + 2, 153);
+		int e3 = myDivRemainder(5 * e2 + 2, 153) / 5;
+		int a2 = myDivQuotient(m1 + 2, 12);
+		int m2 = myDivRemainder(m1 + 2, 12);
+		m_year = 100 * c1 + a1 + a2;
+		m_month = m2 + 1;
+		m_day = e3 + 1;
+		double frac = jd - (int)jd;
+		frac *= 24.0;
+		m_hour = floor(frac);
+		frac -= m_hour;
+		frac *= 60.0;
+		m_minute = floor(frac);
+		frac -= m_minute;
+		m_second = frac * 60.0;
+	}
+	// - Set from Unix timestamp (seconds since 1970-01-01 00:00:00)
+	//   FIX: !!! Also add a constructor for Unix timestamps !!!
+	void setUnixTime(long unixtime) { std::cout << "ERROR: EDateTime::setUnixTime() is not currently implemented. Now is a good time to write it!\n"; }
+	void addTime(long year, long month, double day, double hour, double minute, double second) {
+		// Add the provided amounts to currently kept time
+		m_year += year;
+		m_month += month;
+		m_day += day;
+		m_hour += hour;
+		m_minute += minute;
+		m_second += second;
+		normalize();
+		calcJD();
+	}
+	void normalize() {
+		static long months[] = { 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+		// Year (is allowed to be any integer)
+		// Month (must be in [1;12] range)
+		while (m_month <= 0) {
+			m_month += 12;
+			m_year -= 1;
+		}
+		while (m_month > 12) {
+			m_month -= 12;
+			m_year += 1;
+		}
+		// Fractional day
+		double accDay = m_second / 86400.0 + m_minute / 1440.0 + m_hour / 24.0 + m_day;
+		// Make positive
+		while ((int)accDay <= 0) {
+			accDay += 365.0;
+			if (isLeapYear(m_year) && m_month > 2) accDay += 1.0;
+			m_year--;
+		}
+		// Normalize to length of month
+		while ((int)accDay > (isLeapYear(m_year) && m_month == 2) * 1 + months[m_month]) {
+			accDay -= months[m_month];
+			if (m_month == 2 && isLeapYear(m_year)) accDay -= 1.0;
+			m_month++;
+			if (m_month > 12) {
+				m_year += 1;
+				m_month = 1;
+			}
+		}
+		m_day = floor(accDay);
+		// Bias slightly to avoid 0h59m59.99999999s instead of 1h0m0s (due to precision)
+		// Possibly a better solution is to use accSeconds instead of accDays, since double floats can represent all integers below 2^53 exactly.
+		// Or rather, store the fractional part of m_seconds, then calculate everything in integer seconds, and then add the stored fractional part back.
+		// For now, the bias does what it needs to do, and the seconds remain accurate to just below 2/1000000 of a second.
+		// When rounding for display it is unnoticed, and the astronomical calculations have inaccuracies greater than any movement in that timespan.
+		// Using addTime() normalizes every time, but even with thousands of calls the accumulation is in the miliseconds range.
+		accDay -= m_day - 0.00000000001;
+		accDay *= 24.0;
+		m_hour = floor(accDay);
+		accDay -= m_hour;
+		accDay *= 60.0;
+		m_minute = floor(accDay);
+		accDay -= m_minute;
+		m_second = accDay * 60.0;
+		//if (abs(floor(m_second)) < tiny) {
+		//	// Second very close to whole number
+		//
+		//}
+	}
+	void normalizeDateTime(long& yr, long& mo, double& da, double& hr, double& mi, double& se) {
+		static long months[] = { 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+		// Year (is allowed to be any integer)
+		// Month
+		while (mo <= 0) {
+			mo += 12;
+			yr -= 1;
+		}
+		while (mo > 12) {
+			mo -= 12;
+			yr += 1;
+		}
+		// Fractional day
+		double accDay = se / 86400.0 + mi / 1440.0 + hr / 24.0 + da;
+		// Make positive
+		while ((int)accDay <= 0.0) {
+			accDay += 365.0;
+			if (isLeapYear(yr) && mo > 2) accDay += 1.0;
+			yr--;
+		}
+		// Normalize to length of month
+		while ((int)accDay > (isLeapYear(yr) && mo == 2) * 1 + months[mo]) {
+			accDay -= months[mo];
+			if (mo == 2 && isLeapYear(yr)) accDay -= 1.0;
+			mo++;
+			if (mo > 12) {
+				yr += 1;
+				mo = 1;
+			}
+		}
+		da = floor(accDay);
+		accDay -= da - 0.00000000001;
+		accDay *= 24.0; // Fractional hours
+		hr = floor(accDay);
+		accDay -= hr;
+		accDay *= 60.0; // Fractional minutes
+		mi = floor(accDay);
+		accDay -= mi;
+		se = accDay * 60.0;  // Fractional seconds
+	}
+	inline int myDivQuotient(int a, int b) {
+		// Quotient of div as defined in https://www.aa.quae.nl/en/reken/juliaansedag.html section 2.3
+		return (int)floor((double)a / b);
+	}
+	inline int myDivRemainder(int a, int b) {
+		// Remainder of div as defined in https://www.aa.quae.nl/en/reken/juliaansedag.html section 2.3
+		int retval = a % b;
+		if (retval < 0) retval += b;
+		return retval;
+	}
+	void calcJD() {
+		// The AA library does not support proleptic gregorian dates, hence the below function which does.
+		// Calculates Julian Date (decimal Julian Day) using method given here: https://www.aa.quae.nl/en/reken/juliaansedag.html
+		// Verified using online calculator here: https://keisan.casio.com/exec/system/1227779487
+		//  and here: https://neoprogrammics.com/jd-number-table-for-any-month/
+		// NOTE: Those two online calculators skip year 0 for civil calendaring reasons.
+		//       The below calculation has a full year 0 to facilitate simple subtraction of proleptic years across BCE/CE boundary.
+		//       Thus, year -1 in the above calculators equals year 0 in below calculation, which equals year 1BCE.
+		int a1 = myDivQuotient(m_month - 3, 12);
+		int m1 = myDivRemainder(m_month - 3, 12);
+		int c1 = myDivQuotient(m_year + a1, 100);
+		int a2 = myDivRemainder(m_year + a1, 100);
+		int J1 = myDivQuotient(146097 * c1, 4);
+		int J2 = myDivQuotient(36525 * a2, 100);
+		int J3 = myDivQuotient(153 * m1 + 2, 5);
+		int J = J1 + J2 + J3 + (int)m_day + 1721119;
+		double frac = (m_second + m_minute * 60.0 + m_hour * 3600.0) / 86400.0;
+		// Compare to table in calculation source, note year -1000 entry is mixed between 15 Dec and 15 Aug for some reason.
+		//std::cout << "Partials: " << a1 << "," << m1 << "," << c1 << "," << a2 << "," << J1 << "," << J2 << "," << J3 << "," << J << '\n';
+
+		// Above J + frac is civil JD for midnight. Subtract 0.5 for astronomical JD.
+
+		m_JD = (double)J - 0.5 + frac;
+	}
+	double getDateTime2JD(long year, long month, double day, double hour, double minute, double second) {
+		long yr = year;
+		long mo = month;
+		double da = day;
+		double hr = hour;
+		double mi = minute;
+		double se = second;
+		normalizeDateTime(yr, mo, da, hr, mi, se);
+		int a1 = myDivQuotient(mo - 3, 12);
+		int m1 = myDivRemainder(mo - 3, 12);
+		int c1 = myDivQuotient(yr + a1, 100);
+		int a2 = myDivRemainder(yr + a1, 100);
+		int J1 = myDivQuotient(146097 * c1, 4);
+		int J2 = myDivQuotient(36525 * a2, 100);
+		int J3 = myDivQuotient(153 * m1 + 2, 5);
+		int J = J1 + J2 + J3 + (int)da + 1721119;
+		double frac = (se + mi * 60.0 + hr * 3600.0) / 86400.0;
+		//std::cout << "Date time (YYYY-MM-DD hh:mm:ss) to Julian Date: " << yr << "/" << mo << "/" << da << " " << hr << ":" << mi << ":" << se << " : " << JD << '\n';
+		return (double)J - 0.5 + frac;
+	}
+
+	// Static utility functions - can be used without instantiating
+	static bool isLeapYear(long year) {
+		if (year % 400 == 0) return true;
+		if (year % 100 == 0) return false;
+		if (year % 4 == 0) return true;
+		return false;
 	}
 private:
+	double m_JD = 0;
 	long m_year = 0;
 	long m_month = 0;
 	double m_day = 0.0;
 	double m_hour = 0.0;
 	double m_minute = 0.0;
 	double m_second = 0.0;
-	bool m_gregorian = true;
-	CAADate current;
-	std::string timezone;
+	//std::string timezone;
 };
 
 
-struct CelestialDetail {
+struct CelestialDetail {  // Used for CelestialPath entries
 	double jd = 0.0;
+	// FIX: !!! Should probably use LLH to store these !!!
 	double eclat = 0.0;  // Heliocentric Ecliptic coordinates
 	double eclon = 0.0;
 	double ecdst = 0.0;  // Solar distance in AU
@@ -31,10 +288,7 @@ struct CelestialDetail {
 	double geogha = 0.0;
 	double geodst = 0.0; // Earth distance in AU
 };
-// ---------------
-//  CelestialPath
-// ---------------
-class CelestialPath {
+class CelestialPath {    // Stores a period of CelestialDetail, used for planetary paths in Earth
 public:
 	size_t planet = NO_UINT;
 	double jdStart = 0.0;   // Start and End are offsets from current JD, Start is negative, End is positive.
@@ -60,7 +314,6 @@ public:
 	void decref();
 private:
 };
-
 
 // -----------
 //  Astronomy
@@ -95,15 +348,16 @@ public:
 	static LLH getDecRAwithPMbyName(const std::string starname, double jd, bool rad = false);
 	static glm::vec4 getColorbyName(const std::string starname);
 private:
-	double m_jd = 0.0;
-	CAADate m_date;
-	long m_year = 0;    // Current date and time in UTC
-	long m_month = 0;
-	double m_day = 0.0;
-	double m_hour = 0.0;
-	double m_minute = 0.0;
-	double m_second = 0.0;
-	bool m_gregorian = true;
+	//double m_jd = 0.0;
+	//CAADate m_date;
+	//long m_year = 0;    // Current date and time in UTC
+	//long m_month = 0;
+	//double m_day = 0.0;
+	//double m_hour = 0.0;
+	//double m_minute = 0.0;
+	//double m_second = 0.0;
+	//bool m_gregorian = true;
+	EDateTime m_datetime; // Default constructor initializes to current system time in UTC
 	double m_gsidtime = 0.0; // Greenwich sidereal time in radians
 	double eot = 0.0;
 
@@ -124,9 +378,10 @@ private:
 public:
 	Astronomy();
 	~Astronomy();
-	void setTime(long yr, long mo, double da, double hr, double mi, double se, bool gre = true);
+
+	void setTime(long yr, long mo, double da, double hr, double mi, double se);
 	void setTimeNow();
-	void setJD(double jd, bool gregorian);
+	void setJD(double jd);
 	double getJD();
 	void setUnixTime(double utime);
 	void addTime(double d, double h, double min, double sec, bool eot = false);
@@ -137,13 +392,13 @@ public:
 	double getEoT(double jd = 0.0);
 	void getTimeString(char* dstring);
 	void updateTimeString();
-	void DateTimeString(CAADate* date, char* dstring);
-	void JulianDateTimeString(double jd, char* dstring);
+	//void DateTimeString(CAADate* date, char* dstring);
+	//void JulianDateTimeString(double jd, char* dstring);
 	int getString2UnixTime(std::string& string);
 	int getDateTime2UnixTime(double year, double month, double day, double hour, double minute, double seconds);
 	double getJD2UnixTime(double jd = 0.0);
 	double getUnixTime2JD(double ut);
-	int calcYearDay(double year, double month, double day);
+	int calcUnixTimeYearDay(double year, double month, double day);
 	bool isLeapYear(double year);
 
 	unsigned int enablePlanet(size_t planet);
@@ -156,6 +411,11 @@ public:
 	double secs2deg(double seconds);
 	double rangezero2tau(double rad);
 	double rangepi2pi(double rad);
+	std::string angle2DMSstring(double angle, bool rad = false);
+	std::string angle2uDMSstring(double angle, bool rad = false);
+	std::string angle2DMstring(double angle, bool rad = false);
+	//std::string angle2uDMstring(double angle, bool rad = false);
+	std::string latlonFormat(double lat, double lon, bool rad = false);
 	void stringRad2DMS(double rad, char* dstring);
 	void stringRad2HMS(double rad, char* dstring);
 	void stringDeg2DMS(double deg, char* dstring);
@@ -177,6 +437,7 @@ public:
 	double NutationInDeclination(double ra, double obliq, double nut_lon, double nut_obl);
 	// Stellar Earth Centered Equatorial
 	LLH getTrueDecRAbyName(const std::string starname, bool rad = false);
+	LLH getTrueDecRAbyNameJD(const std::string starname, double jd, bool rad = false);
 	LLH calcTrueDecRa(const LLH decra, const double JD = NO_DOUBLE, const double JD0 = JD2000); // If no Epoch, assume J2000
 	// Ecliptic (Heliocentric)
 	double getEcLat(size_t planet, double jd);

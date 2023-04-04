@@ -241,6 +241,9 @@ Layer system
 - Add render targets such as 360 cube map -> 360 video frame
 
 
+SubPoint Solver
+---------------
+- One could illustrate / explain triangle centroid and other options using these beautiful animations: https://www.youtube.com/watch?v=v_oZ9Pe0yRg&ab_channel=ToshiakiOhmori
 
 
 Other ideas

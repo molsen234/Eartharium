@@ -395,16 +395,11 @@ void RenderLayer::animate() {
 // ---------------
 RenderLayer3D::RenderLayer3D(float vpx1, float vpy1, float vpx2, float vpy2, Scene* scene, Astronomy* astro, Camera* cam, bool overlay)
     : m_scene(scene), m_astro(astro), m_cam(cam), m_overlay(overlay), RenderLayer(vpx1, vpy1, vpx2, vpy2) {
+
     m_scene->m_astro = m_astro;
     float w = (float)m_scene->m_app->getWidth();
     float h = (float)m_scene->m_app->getHeight();
     updateViewport(w, h);
-    // Should take Viewport parameters, and maybe an alpha value or blend function id
-    // Viewport parameters should probably be in NDC, to work with window resizing
-    // Also take a render target, i.e. a (complete) frame buffer object
-    // Perhaps user requests a new RenderLayer from the RenderChain (or Application?) class,
-    //  somewhere that keeps track of the layer order and allows insertions (e.g. a PiP, under GUI, but above default)
-    // In that case, the constructor might be protected, and RenderChain a friend.
     type = LAYER3D;
 }
 void RenderLayer3D::setCamera(Camera* cam) {
@@ -602,10 +597,12 @@ void RenderLayerGUI::render() {
                         //ImGui::SameLine();
                         if (ImGui::Button("-1 Step")) {
                             l.layer->m_astro->addTime(-mytimestep.da, -mytimestep.hr, -mytimestep.mi, -mytimestep.se, do_eot);
+                            std::cout << "Subtracted time (d,h,m,s): " << mytimestep.da << "," << mytimestep.hr << "," << mytimestep.mi << "," << mytimestep.se << '\n';
                         }
                         ImGui::SameLine();
                         if (ImGui::Button("+1 Step")) {
                             l.layer->m_astro->addTime(mytimestep.da, mytimestep.hr, mytimestep.mi, mytimestep.se, do_eot);
+                            std::cout << "Added time (d,h,m,s): " << mytimestep.da << "," << mytimestep.hr << "," << mytimestep.mi << "," << mytimestep.se << '\n';
                         }
                         ImGui::SliderFloat("Time of Day", &slideday, 0.0f, 24.0f);
                         if (prevslideday != slideday) {

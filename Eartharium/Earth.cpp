@@ -1244,7 +1244,7 @@ double Earth::calcRefractionAlmanac(double elevation, double temperature, double
 double Earth::calcRefractionBennett(double elevation, double temperature, double pressure) {
     // returns refraction correction in arcminutes. Takes elevation in degrees, temperature in Celcius (centigrade), pressure in hPa (mbar)
     // Source: AA+ from J.Meeus
-    return 60.0 * CAARefraction::RefractionFromApparent(elevation, pressure, temperature);
+    return CAARefraction::RefractionFromApparent(elevation, pressure, temperature);
 }
 double Earth::calcBrianLeakeDistance(const double elevation, bool rad) {
     double ea = elevation;
@@ -2866,7 +2866,7 @@ Location::Location(Earth* earth, double lat, double lon, bool radians, float rsk
     // The new way
     truesun = new Location::TrueSun(this); // Construct but don't enable any items within (arrows, paths, ...)
     flatsun = new Location::FlatSun(this);
-
+    //azielegrid = new Location::AziEleGrid(this);
 }
 Location::~Location() {
     //std::cout << "~Loc (destructor) called.\n";
@@ -2973,6 +2973,7 @@ void Location::Update(bool time, bool morph, bool sunflat) {
     }
     truesun->update(time, morph);
     flatsun->update(time, morph);
+    azielegrid->update(time, morph);
 }
 void Location::Draw(Camera* cam) {
     // Don't draw Primitives derived objects, as they are drawn from World.
@@ -3047,8 +3048,9 @@ glm::vec3 Location::calcEleAzi2Dir(LLH heading, bool radians) {
         heading.lat *= deg2rad;
         heading.lon *= deg2rad;
     }
+    if (abs(pi2 - heading.lat) < tiny) return m_zenith;
     glm::vec3 dir = -m_north; // South
-    dir = glm::rotate(dir, (float)-heading.lat, m_east);    // Elevation + from horizon
+    dir = glm::rotate(dir, (float)-heading.lat, m_east);    // Elevation + from horizonal
     dir = glm::rotate(dir, (float)-heading.lon, m_zenith);  // Azimuth W of S
     return glm::normalize(dir);
 }
@@ -3076,7 +3078,7 @@ glm::vec3 Location::calcDecRA2Dir(double jd, double dec, double ra, bool rad) {
     double gha = gsidtime - ra; // calcGeo2Topo() needs GHA, not LHA
     LLH topocentric = m_scene->m_astro->calcGeo2Topo({ dec, gha, 0.0 }, { m_lat, m_lon, 0.0 });
     //std::cout << "Elevation, Azimuth: " << rad2deg * topocentric.lat << ", " << rad2deg * topocentric.lon << "\n";
-    //std::cout << "Elevation with refraction: " << rad2deg * topocentric.lat - m_earth->calcRefractionBennett(rad2deg * topocentric.lat, 10.0, 1010.0) / 60.0 << '\n';
+    //std::cout << "Elevation with refraction: " << rad2deg * topocentric.lat - m_earth->calcRefractionBennett(rad2deg * topocentric.lat, 10.0, 1010.0) << '\n';
     glm::vec3 dir = calcEleAzi2Dir(topocentric, true);
     return dir;
 }
@@ -3590,6 +3592,10 @@ void Location::addNormal(float length, float width) {
 void Location::updateNormalCoord(arrowcache& ar) {
     m_arrows->changeStartDirLen(ar.index, m_pos, m_earth->getNml3D(m_lat, m_lon), ar.length, ar.width, ar.color);
 }
+void Location::addAziEleGrid(double degrees, bool radians, float width, glm::vec4 color) {
+    radians ? azielegrid = new Location::AziEleGrid(this, degrees, width, color)           // true
+            : azielegrid = new Location::AziEleGrid(this, degrees*deg2rad, width, color);  // false
+}
 void Location::addObserver(float bearing, glm::vec4 color, float height) {
     if (height == 0.0f) height = m_radius;
     bearing = deg2radf * (bearing - 180.0f);
@@ -3648,7 +3654,7 @@ void Location::addArrow3DRADec(unsigned int unique, double ra, double dec, glm::
     double gha = gsidtime - (deg2rad * ra); // calcGeo2Topo() needs GHA, not LHA
     LLH topocentric = m_scene->m_astro->calcGeo2Topo({ deg2rad * dec, gha, 0.0 }, { m_lat, m_lon, 0.0 });
     //std::cout << "Elevation, Azimuth: " << rad2deg * topocentric.lat << ", " << rad2deg * topocentric.lon << "\n";
-    //std::cout << "Elevation with refraction: " << rad2deg * topocentric.lat - m_earth->calcRefractionBennett(rad2deg * topocentric.lat, 10.0, 1010.0) / 60.0 << '\n';
+    //std::cout << "Elevation with refraction: " << rad2deg * topocentric.lat - m_earth->calcRefractionBennett(rad2deg * topocentric.lat, 10.0, 1010.0) << '\n';
     glm::vec3 dir = calcEleAzi2Dir(topocentric, true);
     size_t index = m_arrows->addStartDirLen(m_pos, dir, length, width, color);
     m_arrowcache.push_back({ m_pos, dir, color, length, width, dec, ra, index, RADEC3D, unique });
@@ -4323,14 +4329,14 @@ void SkySphere::addGrid(float width) {
     double gridstep = gridspacing;
     m_gridwidth = width;
     for (double dec = -90.0; dec <= 90.0; dec += gridstep) {
-         pv.push_back(m_scene->newPolyCurve(GREY, m_gridwidth, 365));
+         pv.push_back(m_scene->newPolyCurve(LIGHT_GREY, m_gridwidth, 365));
         for (double ra = -180.0; ra <= 180.0; ra += 1.0) {
             pv.back()->addPoint(getDecRA2Pos3D(dec * deg2rad, ra * deg2rad));
         }
         pv.back()->generate();
     }
     for (double ra = -180.0; ra <= 180.0; ra += gridstep) {
-        pv.push_back(m_scene->newPolyCurve(GREY, m_gridwidth, 365));
+        pv.push_back(m_scene->newPolyCurve(LIGHT_GREY, m_gridwidth, 365));
         for (double dec = -90.0; dec <= 90.0; dec += 1.0) {
             pv.back()->addPoint(getDecRA2Pos3D(dec * deg2rad, ra * deg2rad));
         }
@@ -4340,7 +4346,8 @@ void SkySphere::addGrid(float width) {
 }
 void SkySphere::updateGrid() {
     if (!has_grid) return;
-    float width = m_Radius / 300.0f;
+    float width = m_Radius / 300.0f;   // In some modes it looks better to scale with radius
+    if (mode == FLATSKY_LC_DOME) width = m_gridwidth;
     double gridstep = 15.0;
     for (auto& p : pv) {
         m_scene->deletePolyCurve(p);
@@ -4360,7 +4367,6 @@ void SkySphere::updateGrid() {
         }
         pv.back()->generate();
     }
-
 }
 glm::vec3 SkySphere::getDecRA2Pos3D(double dec, double ra) {
     // Caution: May be called before a mode is set, so m_earth and m_location might be nullptr
@@ -4447,10 +4453,7 @@ void SkySphere::addLineStarStar(const std::string star1, const std::string star2
     m_paths.back()->generate();
     //std::cout << "Line: Star 1 " << s1.lat << "," << s1.lon << "\n";
     //std::cout << "Line: Star 2 " << s2.lat << "," << s2.lon << "\n";
-
 }
-
-
 void SkySphere::genGeom() {
     double lat, lon;
     for (unsigned int v = 0; v <= m_meshV; v++) {  // -pi/2 to pi/2 => (v/m_meshV)*pi -pi/2

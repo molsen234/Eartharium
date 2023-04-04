@@ -13,7 +13,6 @@
 #include <pybind11/stl.h>
 namespace py = pybind11;
 
-
 // Protos
 void GLClearError();
 void GLPrintError();
@@ -62,7 +61,7 @@ public:
 void SolSysTest(Application& app) {
     // Set up required components
     Astronomy* astro = app.newAstronomy();
-    astro->setTime(2019, 3, 20.0, 12.0, 0.0, 0.0, true);
+    astro->setTime(2019, 3, 20.0, 12.0, 0.0, 0.0);
     astro->addTime(0.0, 0.0, -CAAEquationOfTime::Calculate(astro->getJD(), true), 0.0); // Set time to 12:00 local solar
     Scene* scene = app.newScene();
     Camera* cam = scene->w_camera;
@@ -221,7 +220,7 @@ void ScienceItOut_Response1(Application& app) {
 void Sandbox2_SIO(Application& app) { //https://www.youtube.com/watch?v=J7XmHIjKaP4&ab_channel=ScienceItOut
     // Set up required components
     Astronomy* astro = app.newAstronomy();
-    astro->setTime(2019, 3, 21.0, 7.0, 30.0, 34.0, true);
+    astro->setTime(2019, 3, 21.0, 7.0, 30.0, 34.0);
     astro->addTime(0.0, 0.0, -CAAEquationOfTime::Calculate(astro->getJD(), true), 0.0); // Set time to 12:00 local solar
     Scene* scene = app.newScene();
     Camera* cam = scene->w_camera;
@@ -441,13 +440,13 @@ void Sandbox2_SIO(Application& app) { //https://www.youtube.com/watch?v=J7XmHIjK
     // Time	23:00:00 UTC
     //astro->setTime(2021, 6, 19.0, 23.0, 0.0, 0.0 + shiftseconds);
     //star1_ele = dms2deg(56.0, 39.0, 57.3);
-    //if (do_refraction) star1_ele -= earth->calcRefractionBennett(star1_ele, 10.0, 1013.0) / 60.0;
+    //if (do_refraction) star1_ele -= earth->calcRefractionBennett(star1_ele, 10.0, 1013.0);
     //star1 = earth->addSextantMeasurement("Peacock", star1_ele, NO_DOUBLE, LIGHT_ORANGE, pathwidth, false);
     //star2_ele = dms2deg(63.0, 12.0, 52.1);
-    //if (do_refraction) star2_ele -= earth->calcRefractionBennett(star2_ele, 10.0, 1013.0) / 60.0;
+    //if (do_refraction) star2_ele -= earth->calcRefractionBennett(star2_ele, 10.0, 1013.0);
     //star2 = earth->addSextantMeasurement("Acrux", star2_ele, NO_DOUBLE, LIGHT_ORANGE, pathwidth, false);
     //star3_ele = dms2deg(57.0, 6.0, 1.3);
-    //if (do_refraction) star3_ele -= earth->calcRefractionBennett(star3_ele, 10.0, 1013.0) / 60.0;
+    //if (do_refraction) star3_ele -= earth->calcRefractionBennett(star3_ele, 10.0, 1013.0);
     //star3 = earth->addSextantMeasurement("Achernar", star3_ele, NO_DOUBLE, LIGHT_ORANGE, pathwidth, false);
     //// South Pole
     //
@@ -611,7 +610,7 @@ void Sandbox2_SIO(Application& app) { //https://www.youtube.com/watch?v=J7XmHIjK
 void SandboxSIO(Application& app) { // https://www.youtube.com/watch?v=Sq1V98vkfQw&ab_channel=ScienceItOut
     // Set up required components
     Astronomy* astro = app.newAstronomy();
-    astro->setTime(2019, 3, 21.0, 7.0, 30.0, 34.0, true);
+    astro->setTime(2019, 3, 21.0, 7.0, 30.0, 34.0);
     astro->addTime(0.0, 0.0, -CAAEquationOfTime::Calculate(astro->getJD(), true), 0.0); // Set time to 12:00 local solar
     Scene* scene = app.newScene();
     Camera* cam = scene->w_camera;
@@ -925,7 +924,7 @@ void SandboxSIO(Application& app) { // https://www.youtube.com/watch?v=Sq1V98vkf
 void SunSectorSandbox(Application& app) {
     // Set up required components
     Astronomy* astro = app.newAstronomy();
-    astro->setTime(2019, 3, 21.0, 7.0, 30.0, 34.0, true);
+    astro->setTime(2019, 3, 21.0, 7.0, 30.0, 34.0);
     astro->addTime(0.0, 0.0, -CAAEquationOfTime::Calculate(astro->getJD(), true), 0.0); // Set time to 12:00 local solar
     Scene* scene = app.newScene();
     Camera* cam = scene->w_camera;
@@ -991,7 +990,7 @@ void SunSectorSandbox(Application& app) {
     size_t latie = earth->addGreatArc({ 0.0, l_kabul.lon, 0.0 }, { 0.0, l_kabul.lon + 45.0, 0.0 }, BLUE, 0.005f, false);
     size_t latiw = earth->addGreatArc({ 0.0, l_kabul.lon, 0.0 }, { 0.0, l_kabul.lon - 45.0, 0.0 }, BLUE, 0.005f, false);
 
-    astro->setTime(2019, 3, 21.0, 7.0, 30.0, 34.0, true);
+    astro->setTime(2019, 3, 21.0, 7.0, 30.0, 34.0);
 
     // std::cout << "\nMonth test: " << tzFile::parseMonth("Aug") << "\n\n";
     
@@ -1120,7 +1119,7 @@ void ICSTvsCoreyKell2(Application* app) {
 void ICSTvsCoreyKell(Application& app) {
     // Set up required components
     Astronomy* astro = app.newAstronomy();
-    astro->setTime(2019, 3, 20.0, 12.0, 0.0, 0.0, true);
+    astro->setTime(2019, 3, 20.0, 12.0, 0.0, 0.0);
     astro->addTime(0.0, 0.0, -CAAEquationOfTime::Calculate(astro->getJD(), true), 0.0); // Set time to 12:00 local solar
     Scene* scene = app.newScene();
     Camera* cam = scene->w_camera;
@@ -1192,7 +1191,7 @@ void ICSTvsCoreyKell(Application& app) {
     frames = 60;
     hr = new Lerper<double>(0.0, 24.0, frames, false);
     for (i = 0; i < frames; i++) {
-        astro->setTime(2019, 3, 20.0, 12.0 + hr->getNext(), 0.0, 0.0, true);
+        astro->setTime(2019, 3, 20.0, 12.0 + hr->getNext(), 0.0, 0.0);
         astro->addTime(0.0, 0.0, -CAAEquationOfTime::Calculate(astro->getJD(), true), 0.0);
         app.render();
     }
@@ -1269,7 +1268,7 @@ void ICSTvsCoreyKell(Application& app) {
 
     // -- Sequence 017 - Move Sun +/- 45 degrees
     app.incSequence();
-    astro->setTime(2019, 3, 20.0, 12.0, 0.0, 0.0, true);
+    astro->setTime(2019, 3, 20.0, 12.0, 0.0, 0.0);
     astro->addTime(0.0, 0.0, -CAAEquationOfTime::Calculate(astro->getJD(), true), -0.1); // Set time to 12:00 local solar
     Location* locplus = earth->locgroups[lg]->addLocation(0.0, 45.0, false, locskyradius);
     locplus->addLocDot();
@@ -1293,7 +1292,7 @@ void ICSTvsCoreyKell(Application& app) {
     frames = 30;
     hr = new Lerper<double>(0.0, 3.0, frames, false);
     for (i = 0; i < frames; i++) {
-        astro->setTime(2019, 3, 20.0, 12.0 + hr->getNextSmooth(), 0.0, 0.0, true);
+        astro->setTime(2019, 3, 20.0, 12.0 + hr->getNextSmooth(), 0.0, 0.0);
         astro->addTime(0.0, 0.0, -CAAEquationOfTime::Calculate(astro->getJD(), true), 0.0);
         app.render();
     }
@@ -1307,7 +1306,7 @@ void ICSTvsCoreyKell(Application& app) {
     frames = 60;
     hr = new Lerper<double>(3.0, -3.0, frames, false);
     for (i = 0; i < frames; i++) {
-        astro->setTime(2019, 3, 20.0, 12.0 + hr->getNextSmooth(), 0.0, 0.0, true);
+        astro->setTime(2019, 3, 20.0, 12.0 + hr->getNextSmooth(), 0.0, 0.0);
         astro->addTime(0.0, 0.0, -CAAEquationOfTime::Calculate(astro->getJD(), true), 0.0);
         app.render();
     }
@@ -1321,7 +1320,7 @@ void ICSTvsCoreyKell(Application& app) {
     frames = 30;
     hr = new Lerper<double>(-3.0, 0.0, frames, false);
     for (i = 0; i < frames; i++) {
-        astro->setTime(2019, 3, 20.0, 12.0 + hr->getNextSmooth(), 0.0, 0.0, true);
+        astro->setTime(2019, 3, 20.0, 12.0 + hr->getNextSmooth(), 0.0, 0.0);
         astro->addTime(0.0, 0.0, -CAAEquationOfTime::Calculate(astro->getJD(), true), -0.1);
         app.render();
     }
@@ -1382,7 +1381,7 @@ void ICSTvsCoreyKell(Application& app) {
     frames = 60;
     hr = new Lerper<double>(0.0, 19.388, frames, false);
     for (i = 0; i < frames; i++) {
-        astro->setTime(2019, 3, 20.0, 12.0 + hr->getNextSmooth(), 0.0, 0.6, true);
+        astro->setTime(2019, 3, 20.0, 12.0 + hr->getNextSmooth(), 0.0, 0.6);
         astro->addTime(0.0, 0.0, -CAAEquationOfTime::Calculate(astro->getJD(), true), 0.0);
         app.render();
     }
@@ -1396,7 +1395,7 @@ void ICSTvsCoreyKell(Application& app) {
     frames = 30;
     hr = new Lerper<double>(0.0, 3.0, frames, false);
     for (i = 0; i < frames; i++) {
-        astro->setTime(2019, 3, 21.0, 7.0 + hr->getNextSmooth(), 30.0, 36.7, true);
+        astro->setTime(2019, 3, 21.0, 7.0 + hr->getNextSmooth(), 30.0, 36.7);
         app.render();
     }
     delete hr;
@@ -1409,7 +1408,7 @@ void ICSTvsCoreyKell(Application& app) {
     frames = 60;
     hr = new Lerper<double>(3.0, -3.0, frames, false);
     for (i = 0; i < frames; i++) {
-        astro->setTime(2019, 3, 21.0, 7.0 + hr->getNextSmooth(), 30.0, 36.7, true);
+        astro->setTime(2019, 3, 21.0, 7.0 + hr->getNextSmooth(), 30.0, 36.7);
         app.render();
     }
     delete hr;
@@ -1422,7 +1421,7 @@ void ICSTvsCoreyKell(Application& app) {
     frames = 30;
     hr = new Lerper<double>(-3.0, 0.0, frames, false);
     for (i = 0; i < frames; i++) {
-        astro->setTime(2019, 3, 21.0, 7.0 + hr->getNextSmooth(), 30.0, 36.7, true);
+        astro->setTime(2019, 3, 21.0, 7.0 + hr->getNextSmooth(), 30.0, 36.7);
         app.render();
     }
     delete hr;
@@ -1446,7 +1445,7 @@ void ICSTvsCoreyKell(Application& app) {
         //astro->addTime(1.0, 0.0, 0.0, 0.0, true);
         app.render();
     }
-    astro->setTime(2019, 3, 21.0, 7.0, 30.0, 36.7, true);  // Fix exact solar noon, actually rewinding a year.
+    astro->setTime(2019, 3, 21.0, 7.0, 30.0, 36.7);  // Fix exact solar noon, actually rewinding a year.
     app.render();
     astro->dumpCurrentTime(38);
 
@@ -1470,7 +1469,7 @@ void ICSTvsCoreyKell(Application& app) {
         astro->addTime(3.0, 0.0, 0.0, 0.0, true); // Advance 3 days for a total of 121 * 3 = 363
         app.render();
     }
-    astro->setTime(2020, 5, 3.0, 7.0, 20.0, 9.47, true);  // Fix exact solar noon, actually rewinding a year.
+    astro->setTime(2020, 5, 3.0, 7.0, 20.0, 9.47);  // Fix exact solar noon, actually rewinding a year.
     //astro->dumpCurrentTime(42);
     app.render();
 
@@ -1499,7 +1498,7 @@ void ICSTvsCoreyKell(Application& app) {
     frames = 30;
     hr = new Lerper<double>(0.0, -3.0, frames, false);
     for (i = 0; i < frames; i++) {
-        astro->setTime(2020, 5, 3.0, 7.0 + hr->getNextSmooth(), 20.0, 9.47, true);
+        astro->setTime(2020, 5, 3.0, 7.0 + hr->getNextSmooth(), 20.0, 9.47);
         app.render();
     }
     delete hr;
@@ -1510,7 +1509,7 @@ void ICSTvsCoreyKell(Application& app) {
     frames = 60;
     hr = new Lerper<double>(-3.0, 3.0, frames, false);
     for (i = 0; i < frames; i++) {
-        astro->setTime(2020, 5, 3.0, 7.0 + hr->getNextSmooth(), 20.0, 9.47, true);
+        astro->setTime(2020, 5, 3.0, 7.0 + hr->getNextSmooth(), 20.0, 9.47);
         app.render();
     }
     delete hr;
@@ -1521,7 +1520,7 @@ void ICSTvsCoreyKell(Application& app) {
     frames = 30;
     hr = new Lerper<double>(3.0, 0.0, frames, false);
     for (i = 0; i < frames; i++) {
-        astro->setTime(2020, 5, 3.0, 7.0 + hr->getNextSmooth(), 20.0, 9.47, true);
+        astro->setTime(2020, 5, 3.0, 7.0 + hr->getNextSmooth(), 20.0, 9.47);
         app.render();
     }
     delete hr;
@@ -1599,7 +1598,7 @@ void ICSTvsCoreyKell(Application& app) {
     frames = 30;
     hr = new Lerper<double>(0.0, +3.0, frames, false);
     for (i = 0; i < frames; i++) {
-        astro->setTime(2020, 5, 3.0, 7.0 + hr->getNextSmooth(), 20.0, 9.47, true);
+        astro->setTime(2020, 5, 3.0, 7.0 + hr->getNextSmooth(), 20.0, 9.47);
         app.render();
     }
     delete hr;
@@ -1631,7 +1630,7 @@ void ICSTvsCoreyKell(Application& app) {
     frames = 10;
     hr = new Lerper<double>(0.0, 199.44, frames, false);
     for (i = 0; i < frames; i++) {
-        astro->setTime(2020, 5, 3.0, 7.0 + 3.0, 20.0, 9.47 + hr->getNextSmooth(), true);
+        astro->setTime(2020, 5, 3.0, 7.0 + 3.0, 20.0, 9.47 + hr->getNextSmooth());
         app.render();
     }
     delete hr;
@@ -1663,7 +1662,7 @@ void ICSTvsCoreyKell(Application& app) {
     frames = 30;
     hr = new Lerper<double>(3.0, 0.0, frames, false);
     for (i = 0; i < frames; i++) {
-        astro->setTime(2020, 5, 3.0, 7.0 + hr->getNextSmooth(), 20.0, 9.47, true); // Why use EoT here? No! That is Gregorian!
+        astro->setTime(2020, 5, 3.0, 7.0 + hr->getNextSmooth(), 20.0, 9.47); // Why use EoT here? No! That is Gregorian!
         app.render();
     }
     delete hr;
@@ -1689,7 +1688,7 @@ void ICSTvsCoreyKell(Application& app) {
     frames = 60;
     hr = new Lerper<double>(0.0, -3.0, frames, false);
     for (i = 0; i < frames; i++) {
-        astro->setTime(2020, 6, 21.0, 7.0 + hr->getNextSmooth(), 25.0, 9.875, true); // Why use EoT here? No! That is Gregorian!
+        astro->setTime(2020, 6, 21.0, 7.0 + hr->getNextSmooth(), 25.0, 9.875); // Why use EoT here? No! That is Gregorian!
         app.render();
     }
     delete hr;
@@ -1741,7 +1740,7 @@ void ICSTvsCoreyKell(Application& app) {
     frames = 60;
     hr = new Lerper<double>(-3.0, 3.0, frames, false);
     for (i = 0; i < frames; i++) {
-        astro->setTime(2020, 6, 21.0, 7.0 + hr->getNextSmooth(), 25.0, 9.875, true); // Why use EoT here? No! That is Gregorian!
+        astro->setTime(2020, 6, 21.0, 7.0 + hr->getNextSmooth(), 25.0, 9.875); // Why use EoT here? No! That is Gregorian!
         app.render();
     }
     delete hr;
@@ -1783,7 +1782,7 @@ void ICSTvsCoreyKell(Application& app) {
     frames = 40;
     hr = new Lerper<double>(3.0, 5.0, frames, false);
     for (i = 0; i < frames; i++) {
-        astro->setTime(2020, 6, 21.0, 7.0 + hr->getNextSmooth(), 25.0, 9.875, true);
+        astro->setTime(2020, 6, 21.0, 7.0 + hr->getNextSmooth(), 25.0, 9.875);
         app.render();
     }
     delete hr;
@@ -1793,7 +1792,7 @@ void ICSTvsCoreyKell(Application& app) {
     frames = 200;
     hr = new Lerper<double>(5.0, -5.0, frames, false);
     for (i = 0; i < frames; i++) {
-        astro->setTime(2020, 6, 21.0, 7.0 + hr->getNextSmooth(), 25.0, 9.875, true);
+        astro->setTime(2020, 6, 21.0, 7.0 + hr->getNextSmooth(), 25.0, 9.875);
         app.render();
     }
     delete hr;
@@ -1803,7 +1802,7 @@ void ICSTvsCoreyKell(Application& app) {
     frames = 100;
     hr = new Lerper<double>(-5.0, 0.0, frames, false);
     for (i = 0; i < frames; i++) {
-        astro->setTime(2020, 6, 21.0, 7.0 + hr->getNextSmooth(), 25.0, 9.875, true);
+        astro->setTime(2020, 6, 21.0, 7.0 + hr->getNextSmooth(), 25.0, 9.875);
         app.render();
     }
     delete hr;
@@ -1855,7 +1854,7 @@ void renderFBO(Application& app) {
     // optionally set file basename and sequence/frame numbers
     Astronomy* astro = app.newAstronomy();
     //astro->setTimeNow();
-    astro->setTime(2021, 6, 15.0, 9.0, 37.0, 0.0, true);
+    astro->setTime(2021, 6, 15.0, 9.0, 37.0, 0.0);
     Scene* scene = app.newScene();
     Camera* cam = scene->w_camera;
     app.currentCam = cam;
@@ -1999,7 +1998,7 @@ void Sector45_001(Application& myapp) {
     //astro->setTimeNow();
     //astro->addTime(-1.0, 0.0, 0.0, 0.0);
     //astro->setUnixTime(1639884318.0);
-    astro->setTime(2022, 2, 5.0, 8.0, 17.0, 45.0, true);
+    astro->setTime(2022, 2, 5.0, 8.0, 17.0, 45.0);
     Scene* scene = myapp.newScene();
     Camera* cam = scene->w_camera; // Default camera
     cam->camFoV = 22.8f;
@@ -2084,7 +2083,7 @@ void CoreyKellDetailed(Application& myapp) {
 
     // Set up environment - Application could set up a default astro and scene with cam for us.
     Astronomy* astro = myapp.newAstronomy();
-    astro->setTime(2020, 4, 29.0, 9.0 - 4.5, 2.0, 0.0, true); // As per flatearthintel.com spreadsheet from Corey
+    astro->setTime(2020, 4, 29.0, 9.0 - 4.5, 2.0, 0.0); // As per flatearthintel.com spreadsheet from Corey
     Scene* scene = myapp.newScene();
     Camera* cam = scene->w_camera; // Default camera
     cam->camFoV = 8.0f;
@@ -2177,7 +2176,7 @@ void CoreyKellDetailed(Application& myapp) {
 
         mydata.push_back({ (double)utime, elevation });
 
-        astro->setTime((long)year, (long)month, day, hour, minute - 1.0, 0.0, true);
+        astro->setTime((long)year, (long)month, day, hour, minute - 1.0, 0.0);
         astro->addTime(0.0, -utcoffset, 0.0, 0.0); // Causes duplicate call to Astronomy::update(), which is slightly slower
         LLH sunRD = astro->getDecGHA(SUN);
         LLH sunAE = astro->calcGeo2Topo(sunRD, { lat * deg2rad, lon * deg2rad, tri + ter });
@@ -2683,7 +2682,7 @@ void AxialPrecession(Application& app) {
     //app.anim = true;
     //app.renderoutput = true;
 
-    astro->setJD(JD2000 - (2500.0 * 365.25), false);
+    astro->setJD(JD2000 - (2500.0 * 365.25));
     std::cout << "Set JD: " << JD2000 - (10000.0*365.25) << ", Got JD: " << astro->getJD() << '\n';
 
     while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
@@ -2698,7 +2697,7 @@ void AxialPrecession(Application& app) {
             // astro->addTime(1.035050, 0.0, 0.0, 0.0, false);
             //astro->addTime(sidereald, 0.0, 0.0, 0.0);
             //astro->addTime(365.0, 1.0, 1.0, 0.0);
-            astro->setJD(astro->getJD() + 4.0 * 365.25, false);
+            astro->setJD(astro->getJD() + 4.0 * 365.25);
         }
         //earth->updateFirstPointAries(fpa);
         //sky->updateGrid();
@@ -2770,7 +2769,9 @@ void Lambertian(Application& app) {
 void SimpleTest(Application& app) {
 
     Astronomy* astro = app.newAstronomy();
-    astro->setTimeNow();
+    //astro->setTimeNow();
+    astro->setTime(-1, 8, 25, 2, 21, 0);
+
     Scene* scene = app.newScene();
     Camera* cam = scene->w_camera;
     app.currentCam = cam;
@@ -2789,14 +2790,14 @@ void SimpleTest(Application& app) {
     size_t axisY = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,1.0f,0.0f }, 1.0f, axisWidth, GREEN);
     size_t axisZ = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, 1.0f, axisWidth, BLUE);
 
-    Earth2* earth = scene->newEarth2("ERAE", 180, 90);
-    earth->name = "Earth2";
-    app.currentEarth2 = earth;
-
-    Grid grid{ scene, earth, 15.0 * deg2rad };
-
-    SmallCircle sc{ scene, earth, { pi2/2.0, 0.0, 0.0 }, 10 * deg2rad };
-    sc.setParent(earth);
+//    Earth2* earth = scene->newEarth2("NSAE", 360, 180);
+//    earth->name = "Earth2";
+//    app.currentEarth2 = earth;
+//
+//    Grid grid{ scene, earth, 15.0 * deg2rad };
+//
+//    SmallCircle sc{ scene, earth, { pi2/2.0, 0.0, 0.0 }, 10 * deg2rad };
+//    sc.setParent(earth);
 
     //Equator2 eq{ scene, earth,0.007f };
     //PrimeMeridian2 pm{ scene,earth,0.007f };
@@ -2811,11 +2812,37 @@ void SimpleTest(Application& app) {
     //    if (abs(lon) > tiny) lons.emplace_back(new Longitude2(scene, earth, lon));
     //}
 
-    //Earth* earth = scene->newEarth("NSAE", 180, 90);
-    //app.currentEarth = earth;
+    Earth* earth = scene->newEarth("NSAE", 180, 90);
+    app.currentEarth = earth;
     //
     //earth->w_sinsol = true;
-    //earth->addGrid();
+    earth->addGrid();
+
+    float locskyradius = 0.2f;
+    Location* loc = new Location(earth, 45.0, 0.0, false, locskyradius);
+    loc->addLocDot();
+    loc->addAziEleGrid(15.0, false, 0.002f, LIGHT_RED);
+    loc->addTruePlanetDot(MERCURY, 0.007f, MERCURYCOLOR, false);
+    loc->addTruePlanetDot(MARS, 0.007f, MARSCOLOR, false);
+    loc->addTruePlanetDot(JUPITER, 0.007f, JUPITERCOLOR, false);
+
+    SkySphere* sky = scene->newSkysphere(180, 90, true);
+    sky->setMode("SE", earth, loc);
+    sky->setTexture(false);
+    sky->setMovable(true);
+    sky->setRadius(locskyradius);
+    sky->addGrid(0.002f);
+    //sky->addStars(6.0);
+
+    // Location longitude
+    app.customlow1 = -180.0f;
+    app.customhigh1 = 180.0f;
+    app.customparam1 = 0.0f;
+    // Location latitude
+    app.customlow2 = -90.0f;
+    app.customhigh2 = 90.0f;
+    app.customparam2 = 0.0f;
+
     ////earth->addGreatArc({ 90.0-tiny, 180.0, 0.0 }, { -90.0+tiny, 180.0, 0.0 }, LIGHT_RED, 0.003f, false);
     //earth->flatsunheight = 0.0f;
     //earth->addSubsolarPath();
@@ -2841,9 +2868,142 @@ void SimpleTest(Application& app) {
             //astro->setTimeNow();
             astro->addTime(1.0, 0.0, 0.0, 0.0, false);
         }
+        loc->moveLoc(app.customparam2 * deg2rad, app.customparam1 * deg2rad);
+        sky->updateGrid();
         app.render();
     }
 }
+
+
+void McToonChallenge(Application& app) {
+
+    Astronomy* astro = app.newAstronomy();
+    astro->setTimeNow();
+
+    Scene* scene = app.newScene();
+    Camera* cam = scene->w_camera;
+    // 29.6757034530339, 172.627471498088
+    cam->setLatLonFovDist(29.6757034530339f, 172.627471498088f, 0.0770187377929688f, 20.0f);
+    app.currentCam = cam;
+
+    RenderLayer3D* layer = app.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, nullptr);
+    text->setFont(app.m_font2);
+    text->setAstronomy(astro);
+    RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    gui->addLayer3D(layer, "Scene1");
+
+    //std::string fontname = "arialbd";
+    //std::string fontname = "CourierNew";
+    std::string fontname = "CascadiaMono";
+    Font* font = new Font(fontname);
+
+
+    Arrows* arrowFac = scene->getArrowsFactory();
+    float axisWidth = 0.01f;
+    size_t axisX = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, 1.0f, axisWidth, RED);
+    size_t axisY = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,1.0f,0.0f }, 1.0f, axisWidth, GREEN);
+    size_t axisZ = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, 1.0f, axisWidth, BLUE);
+
+    Earth* earth = scene->newEarth("NSAE", 180, 90);
+    app.currentEarth = earth;
+    earth->w_sinsol = true;
+    earth->addGrid();
+
+    SubPointSolver* solver = new SubPointSolver(earth);
+
+    double tmp_out = 0.0, deg_out = 0.0, min_out = 0.0, sec_out = 0.0;
+
+    double observer_height = 2.0;
+    double earth_radius = earthradius * 1000.0;
+    double index_error = dms2deg(0.0, 0.3, 0.0);
+    double dip_angle = rad2deg * atan2(sqrt(observer_height * (2.0 * earth_radius + observer_height)), earth_radius);
+    std::cout << "Index Error: " << astro->angle2DMstring(index_error) << ", Dip Angle: " << astro->angle2DMstring(dip_angle) << '\n';
+
+    double elev_ssp1 = dms2deg(70.0, 48.7, 0.0);
+    elev_ssp1 = elev_ssp1 - index_error - dip_angle;
+    std::cout << "Regulus adjusted measurement:  " << astro->angle2DMstring(elev_ssp1) << "\n";
+
+    double elev_ssp2 = dms2deg(27.0, 9.0, 0.0);
+    elev_ssp2 = elev_ssp2 - index_error - dip_angle;
+    std::cout << "Arcturus adjusted measurement: " << astro->angle2DMstring(elev_ssp2) << "\n";
+
+    double elev_ssp3 = dms2deg(55.0, 18.4, 0.0);
+    elev_ssp3 = elev_ssp3 - index_error - dip_angle;
+    std::cout << "Dubhe adjusted measurement:    " << astro->angle2DMstring(elev_ssp3) << "\n";
+
+    double ref_ssp1 = earth->calcRefractionBennett(elev_ssp1, 12.0, 975);
+    double ref_ssp2 = earth->calcRefractionBennett(elev_ssp2, 12.0, 975);
+    double ref_ssp3 = earth->calcRefractionBennett(elev_ssp3, 12.0, 975);
+
+    elev_ssp1 -= ref_ssp1;
+    elev_ssp2 -= ref_ssp2;
+    elev_ssp3 -= ref_ssp3;
+
+    std::cout << "\nRefraction based on 12 degrees Celsius and 975 milibar pressure:\n";
+    std::cout << " - Regulus:  " << astro->angle2DMstring(ref_ssp1) << '\n';
+    std::cout << " - Arcturus: " << astro->angle2DMstring(ref_ssp2) << '\n';
+    std::cout << " - Dubhe:    " << astro->angle2DMstring(ref_ssp3) << '\n';
+
+    std::cout << "\nFinal True Altitude:\n";
+    std::cout << " - Regulus:  " << astro->angle2DMstring(elev_ssp1) << '\n';
+    std::cout << " - Arcturus: " << astro->angle2DMstring(elev_ssp2) << '\n';
+    std::cout << " - Dubhe:    " << astro->angle2DMstring(elev_ssp3) << '\n';
+
+    // Regulus
+    astro->setTime(2018, 11, 15.0, 18.0, 28.0, 15.0);
+    double jd_ssp1 = astro->getJD();
+    SubStellarPoint* ssp1 = solver->addSubStellarPoint("Regulus", elev_ssp1, false, jd_ssp1);
+    //ssp1->shiftSpeedTime(0.0, 12.0, 4.0); // advance to Dubhe measurement
+
+    // Arcturus
+    astro->setTime(2018, 11, 15.0, 18.0, 30.0, 30.0);
+    double jd_ssp2 = astro->getJD();
+    SubStellarPoint* ssp2 = solver->addSubStellarPoint("Arcturus", elev_ssp2, false, jd_ssp2);
+    //ssp2->shiftSpeedTime(0.0, 12.0, 1.75); // advance to Dubhe measurement
+
+    // Dubhe
+    astro->setTime(2018, 11, 15.0, 18.0, 32.0, 15.0);
+    double jd_ssp3 = astro->getJD();
+    SubStellarPoint* ssp3 = solver->addSubStellarPoint("Dubhe", elev_ssp3, false, jd_ssp3);
+    //ssp3->shiftSpeedTime(0.0, 12.0, 0.0); // advance to Dubhe measurement
+
+    solver->showSumnerLines(NO_COLOR, 0.003f);  // 0.0003f is about 1 arc minute wide line or about 1 nautical mile thick
+    solver->showNames(font, NO_COLOR, 0.08f);  // LIGHT_ORANGE
+    solver->showDots(NO_COLOR, 0.02f);
+
+    LLH point = solver->calcLocation(false);
+    std::cout << "\nSubPointSolver McToon: " << astro->latlonFormat(point.lat, point.lon) << '\n';
+
+
+    //EDateTime t1{ 2023, 4, 4.0, 23.0, 32.0, 15.0 };
+    //EDateTime t2{ t1.jd() };
+    //
+    //std::cout << t1.jd() << "," << t1.year() << "," << t1.month() << "," << t1.day() << "," << t1.hour() << "," << t1.minute() << "," << t1.second() << '\n';
+    //std::cout << t2.jd() << "," << t2.year() << "," << t2.month() << "," << t2.day() << "," << t2.hour() << "," << t2.minute() << "," << t2.second() << '\n';
+    //
+    //EDateTime t3{ 2020, 1, 0.0, 0.0, 0.0, 59.0 };
+    //for (double d = 1.0; d < 9000.0; d += 24.0) {
+    //    t3.setTime(2020, 1, 0.0, d, 0.0, 59.0);
+    //    std::cout << t3.jd() << "," << t3.year() << "," << t3.month() << "," << t3.day() << "," << t3.hour() << "," << t3.minute() << "," << t3.second() << '\n';
+    //}
+    //std::cout << t1.weekday();
+
+    while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
+    {
+        app.update();
+        if (app.anim) {
+            //astro->setTimeNow();
+            //astro->addTime(0.0, 0.0, 0.0, 0.0, false);
+        }
+        solver->update();
+        //loc->moveLoc(app.customparam2 * deg2rad, app.customparam1 * deg2rad);
+        //sky->updateGrid();
+        app.render();
+    }
+}
+
+
 
 // Application is a global container for all the rest
 Application app = Application();  // New global after refactor
@@ -2918,11 +3078,11 @@ PYBIND11_EMBEDDED_MODULE(eartharium, m) {
         ;
     py::class_<Astronomy>(m, "Astronomy")
         .def("setTime", &Astronomy::setTime, "Sets time in (Y,M,D,h,m,s.ss)",
-            py::arg("yr"), py::arg("mo"), py::arg("da"), py::arg("hr"), py::arg("mi"), py::arg("se"), py::arg("gre")
+            py::arg("yr"), py::arg("mo"), py::arg("da"), py::arg("hr"), py::arg("mi"), py::arg("se")
         )
         .def("setTimeNow", &Astronomy::setTimeNow, "Sets time to system clock in UTC")
         .def("setJD", &Astronomy::setJD, "Sets time to Julian Day",
-            py::arg("jd"), py::arg("gregorian")
+            py::arg("jd")
         )
         .def("getJD", &Astronomy::getJD, "Returns the current JD")
         .def("addTime", &Astronomy::addTime, "Adjusts current time by provided amount",
@@ -3097,7 +3257,8 @@ int main() {
     // Quick test to see if AA includes Earth axial precession
     //AxialPrecession(app);
     //Lambertian(app);
-    SimpleTest(app);
+    //SimpleTest(app);
+    McToonChallenge(app);
     // Cleanup
     glfwTerminate();
 

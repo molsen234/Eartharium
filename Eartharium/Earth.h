@@ -176,7 +176,6 @@ private:
     //Texture* texture_overlay = nullptr;
     //unsigned int texture_overlay_mode = NONE;
 };
-
 // Meridian
 class Longitude2 : public SceneObject {
 public:
@@ -302,25 +301,31 @@ private:
 // Small Circle - Circle with given radius and lat lon position
 //  Used for Tissot markers, Circle of equal altitude, etc
 class SmallCircle : public SceneObject {
+private:
+    LLH location{ 0.0,0.0,0.0 };
+    double radius = 0.0;
+    locPos locpos = &Earth2::getLoc3D;
+    Earth2* locref{ nullptr };
+    GenericPath* path{ nullptr };
 public:
-    SmallCircle(Scene* scene, Earth2* geometry, LLH location, double radius, float width = 0.005f, glm::vec4 color = LIGHT_ORANGE) {
+    SmallCircle(Scene* scene, Earth2* geometry, LLH location, double radius, float width = 0.005f, glm::vec4 color = LIGHT_ORANGE)
+    : location(location), radius(radius) {
         name = "Small Circle";
-        this->location = location;
-        this->radius = radius;
-        // Build a more generic Geometry object that handles a celestial objects geometry so Sun. Moon & Planets can be ellipsoids or whatever
+        m_scene = scene;
+        this->color = color;
         locref = geometry; // Using this now, so it can be updated to geometry later, and not be Earth2 specific
         path = new GenericPath{ scene,width,color }; // Use Scene to generate !!! Well, GenericPath uses Scene to create PolyCurve(s).
         generate();
-
     }
     ~SmallCircle() {
         parent->removeChild(this);
         delete path;
     }
+    // A radius of r degrees on the surface of a sphere with radius R has a chord (flat) radius of  R*sin(r).
+    // 
     void generate() { // Generate by drawing circle around north pole and rotating into place by lat/lon
         glm::vec3 pos{ 0.0f };
         double const stepsize = tau / 360.0; // deg2rad;
-        
         double const zangle = location.lon - pi;   // Negative of angle to rotate around Z, to center above X axis
         double const yangle = location.lat - pi2;  // Really -(90-lat) Negative of angle to rotate around Y to center on north pole
         double const cy = cos(yangle);
@@ -345,14 +350,10 @@ public:
         path->clearPoints();
         generate();
     }
-private:
-    locPos locpos = &Earth2::getLoc3D;
-    Earth2* locref{ nullptr };
-    GenericPath* path{ nullptr };
-    LLH location{ 0.0,0.0,0.0 };
-    double radius = 0.0;
 };
+class GreatCircle : public SceneObject {
 
+};
 
 
 // -------
@@ -654,7 +655,7 @@ public:
     void updateCompositePath2(polycache& p);
     void addArcPoint(glm::vec3 ap, bool first, bool last, glm::vec3& oldap, PolyCurve* curve);
     void updateCompositePath(polycache& p);
-    void updateCompositePathOld(polycache& p);
+    //void updateCompositePathOld(polycache& p);
 private:
     void genGeom();
     void updGeom();
@@ -694,7 +695,7 @@ public:
             m_font = font;
             if (color != NO_COLOR) m_color = color;
             if (size != NO_FLOAT) m_size = size;
-            if (m_billboard == nullptr) m_billboard = new BillBoard(m_ssp->m_earth->m_scene, font, m_ssp->name, m_ssp->m_pos, color, size);
+            if (m_billboard == nullptr) m_billboard = new BillBoard(m_ssp->m_earth->m_scene, font, m_ssp->name, m_ssp->m_pos, m_color, m_size);
             m_enabled = true;
             update();
         }
@@ -712,7 +713,7 @@ public:
         Name(SubStellarPoint& ssp, std::string starname) {
             m_name = starname;
             m_ssp = &ssp;
-            // Init color from m_ssp ?
+            m_color = m_ssp->m_color;
         }
         ~Name() {
             if (m_billboard != nullptr) delete m_billboard;
@@ -766,7 +767,11 @@ public:
             // This is a copy of TissotIndicatrix, it is not happy near the south pole, so consider using Earth::updateCompositePath()
             // mechanism, or extract that into a full object on it's own. Figure out if passing a calc function outside the class is 
             // different than what Earth uses now.
-            // Be aware that these are small circles, so they typically cross the seam TWICE when they do cross the seam.
+            // Be aware that these are small circles, so they typically cross the seam TWICE when they do cross the seam!
+
+            // Additionally, simulating equal elevation curves on other Earth geometries would be interesting!
+            // Can this be done with a mode setting? Only update() needs to be changed, all other functions are agnostic.
+            // Of course, the SubPointSolver class also needs to be enhanced.
             curve->changePolyCurve(m_color, m_width);
             curve->clearPoints();
             double const zangle = m_ssp->m_loc.lon - pi;   // Negative of angle to rotate around Z, to center above X axis
@@ -791,13 +796,14 @@ public:
     private:
         SubStellarPoint* m_ssp = nullptr;
         bool enabled = true;
-        glm::vec4 m_color = NO_COLOR;
+        glm::vec4 m_color = LIGHT_ORANGE;
         float m_width = pathwidth;
         PolyCurve* curve = nullptr;
         unsigned int steps = 360;
         SumnerLine(SubStellarPoint& ssp) {
             m_ssp = &ssp;
-            curve = m_ssp->m_earth->m_scene->newPolyCurve(glm::vec4(1.0f, 1.0f, 1.0f, 0.0f), m_width, steps);
+            if (m_ssp->m_color != NO_COLOR) m_color = m_ssp->m_color;
+            curve = m_ssp->m_earth->m_scene->newPolyCurve(m_color, m_width, steps);
             update();
         }
         ~SumnerLine() {
@@ -863,7 +869,8 @@ public:
 
     glm::vec3 m_pos = glm::vec3(0.0f); // XYZ in World
     LLH m_loc = { 0.0, 0.0, 0.0 };     // Lat, Lon
-    LLH m_decra = { 0.0, 0.0, 0.0 };   // Declination & right ascension Equatorial Earth Centered
+    LLH m_decra = { 0.0, 0.0, 0.0 };   // Declination & right ascension Equatorial Earth Centered - kept in radians
+    double m_dist_lat = 0.0;
     bool locked = false;               // Freeze in time, for sextant measurements etc
     std::string name;
     double m_elevation = pi4;
@@ -884,14 +891,17 @@ public:
         m_jd = jd;
         if (color == NO_COLOR) m_color = m_earth->m_scene->m_astro->getColorbyName(name);
         else m_color = color;
-        m_decra = m_earth->m_scene->m_astro->getDecRAbyName(name, true);
+        m_decra = m_earth->m_scene->m_astro->getTrueDecRAbyNameJD(name, m_jd, true);
+        //m_decra = m_earth->m_scene->m_astro->getDecRAbyName(name, true);
         m_loc = m_earth->calcRADec2LatLon(m_decra, true, m_jd);
+        m_loc.lat += m_dist_lat; // Is always 0.0 at construction time, is changed by shiftSpeedTime()
         //m_earth->addDot(m_decra.lat, m_decra.lon, 0.0, 0.02f, LIGHT_RED, true);
         m_pos = m_earth->getLoc3D(m_loc.lat, m_loc.lon);
         dot = new SubStellarPoint::Dot(*this);
         sumner = new SubStellarPoint::SumnerLine(*this);
         nametag = new SubStellarPoint::Name(*this, name);
         radius = new SubStellarPoint::Radius(*this);
+
     }
     ~SubStellarPoint() {
         if (dot != nullptr) delete dot;
@@ -899,18 +909,36 @@ public:
         if (nametag != nullptr) delete nametag;
         if (radius != nullptr) delete radius;
     }
+    void shiftSpeedTime(double bearing, double knots, double minutes) {
+        // Assume bearing is 0 degrees North
+        // !!! FIX: This is not the correct way !!!
+        // Check the following resources:
+        // https://apps.dtic.mil/sti/pdfs/ADA423226.pdf
+        // https://aa.usno.navy.mil/downloads/reports/ghk_posmo.pdf
+        // file:///C:/Users/micha/Downloads/New_Computational_Methods_for_Solving_Problems_of_.pdf
+        if (bearing != 0.0) {
+            std::cout << "ERROR: SubStellarPoint::shiftSpeedTime() only supports a bearing of 0 degrees north.\n";
+            return;
+        }
+        // 1 knot equals 1 nautical mile per hour
+        m_dist_lat = deg2rad * minutes * knots / 3600.0;  // knots/60 = NM per minute, * minutes = NMs in interval, /60 = degrees in interval
+        m_loc.lat += m_dist_lat;
+    }
     void setElevation(double elevation, bool rad = false) {
-        // Actually stores the radius of the SumnerLine, so maybe rename the variable !!!
+        // Actually stores the radius of the SumnerLine, so maybe rename the variable, at best it is the co-elevation !!!
         m_elevation = pi2 - (rad ? elevation : elevation * deg2rad);
     }
     LLH getDetails(bool rad) {
-        if (rad) return { m_loc.lat, m_loc.lon, m_elevation };
-        else return { rad2deg * m_loc.lat, rad2deg * m_loc.lon, rad2deg * m_elevation };
+        //if (rad) return { m_loc.lat, m_loc.lon, m_elevation };
+        //else return { rad2deg * m_loc.lat, rad2deg * m_loc.lon, rad2deg * m_elevation };
+        // Ternary might be faster than if (), and using initializers is preferred.
+        return rad ? LLH{ m_loc.lat, m_loc.lon, m_elevation } : LLH{ rad2deg * m_loc.lat, rad2deg * m_loc.lon, rad2deg * m_elevation };
     }
     void update() {
         //std::cout << "SubStellarPoint::update()\n";
         if (!locked) { // Locked means don't update location with time
-            m_loc = m_earth->calcRADec2LatLon(m_decra); // don't use m_jd, as time/location is locked
+            m_loc = m_earth->calcRADec2LatLon(m_decra); // m_jd not passed, so Earth calculates new location based on current time
+            m_loc.lat += m_dist_lat;
         }
         // position may still change with the same location if Earth morphs
         m_pos = m_earth->getLoc3D(m_loc.lat, m_loc.lon);
@@ -967,7 +995,7 @@ public:
             s->update();
         }
     }
-    LLH calcLocation(bool rad) {
+    LLH calcLocation(bool rad) { // Calculates intersections on a spherical Earth (NS). Possibly add AE, ER etc.
         // Should check if at least 3 points were supplied already !!!
 
         // Calculate intersections of the SumnerLines
@@ -1028,9 +1056,9 @@ public:
             llh1.lat *= deg2rad; llh1.lon *= deg2rad; llh1.dst *= deg2rad;
             llh2.lat *= deg2rad; llh2.lon *= deg2rad; llh2.dst *= deg2rad;
         }
-        // transform from spherical to cartesian coordinates
-        LLH pos1 = { cos(llh1.lon) * cos(llh1.lat), sin(llh1.lon) * cos(llh1.lat), sin(llh1.lat) };
-        LLH pos2 = { cos(llh2.lon) * cos(llh2.lat), sin(llh2.lon) * cos(llh2.lat), sin(llh2.lat) };
+        // transform from spherical to cartesian coordinates using LLH to store coordinates as doubles: (lat,lon,dst) <- (x,y,z)
+        LLH pos1{ cos(llh1.lon) * cos(llh1.lat), sin(llh1.lon) * cos(llh1.lat), sin(llh1.lat) };
+        LLH pos2{ cos(llh2.lon) * cos(llh2.lat), sin(llh2.lon) * cos(llh2.lat), sin(llh2.lat) };
         // q equal to pos1 dot pos2
         double q = pos1.lat * pos2.lat + pos1.lon * pos2.lon + pos1.dst * pos2.dst;
         double q2 = q * q;
@@ -1064,6 +1092,11 @@ public:
         return { ll1, ll2 };
     }
     double calcArcDist(LLH llh1, LLH llh2, bool rad) {
+        // Calculate great circle distance using Vincenty formula simplified for sphere rather than ellipsoid.
+        // Source: https://en.wikipedia.org/wiki/Great-circle_distance#Computational_formulas
+        // NOTE: The Vector version given in the same source is interesting.
+        //       If locations are given by position normals rather than lat&lon, then:
+        //       ArcDistance = atan2( |n1 x n2| / (n1 . n2) ) on a unit sphere.
         if (!rad) {
             llh1.lat *= deg2rad; // doubles
             llh1.lon *= deg2rad;
@@ -1217,9 +1250,76 @@ public:
         void draw();
         friend class Location;
     };
+    class AziEleGrid {
+    public:
+        AziEleGrid(Location* location, double stepsize, float width, glm::vec4 color = LIGHT_PURPLE) : m_location(location) {
+            m_stepsize = stepsize; // always given in radians
+            for (double angle = 0.0; angle < tau; angle += m_stepsize) {
+                addAzimuthCircle(angle, width, color);
+            }
+            for (double angle = -pi2; angle < pi2; angle += m_stepsize) {
+                addElevationCircle(angle, width, color);
+            }
+        }
+        void update(bool time, bool morph) {
+            if (!morph) return; // Time passing does not change azi ele grid
+            if (azicircles.size() != 0) {
+                unsigned int i = 0;
+                double azi = 0.0;
+                for (auto c : azicircles) {
+                    azi = m_stepsize * (double)i;
+                    c->clearPoints();
+                    for (double ele = -pi2; ele <= pi2 + tiny; ele += deg2rad) {
+                        glm::vec3 point = m_location->getPosition() + m_location->m_radius * m_location->calcEleAzi2Dir({ ele,azi,0.0 });
+                        c->addPoint(point);
+                    }
+                    i++;
+                    c->generate();
+                }
+            }
+            if (elecircles.size() != 0) {
+                unsigned int i = 0;
+                double ele = 0.0;
+                for (auto c : elecircles) {
+                    ele = m_stepsize * (double)i;
+                    c->clearPoints();
+                    for (double azi = 0.0; azi <= tau; azi += deg2rad) {
+                        glm::vec3 point = m_location->getPosition() + m_location->m_radius * m_location->calcEleAzi2Dir({ ele,azi,0.0 });
+                        c->addPoint(point);
+                    }
+                    i++;
+                    c->generate();
+                }
+            }
+        }
+        void addAzimuthCircle(double azi, float width, glm::vec4 color) {
+            // Actually a half-circle
+            azicircles.emplace_back(new GenericPath(m_location->m_scene, width, color));
+            for (double ele = -pi2; ele <= pi2 + tiny; ele += deg2rad) {
+                glm::vec3 point = m_location->getPosition() + m_location->m_radius * m_location->calcEleAzi2Dir({ ele,azi,0.0 });
+                azicircles.back()->addPoint(point);
+            }
+            azicircles.back()->generate();
+        }
+        void addElevationCircle(double ele, float width, glm::vec4 color) {
+            elecircles.emplace_back(new GenericPath(m_location->m_scene, width, color));
+            for (double azi = 0.0; azi <= tau; azi += deg2rad) {
+                glm::vec3 point = m_location->getPosition() + m_location->m_radius * m_location->calcEleAzi2Dir({ ele,azi,0.0 });
+                elecircles.back()->addPoint(point);
+            }
+            elecircles.back()->generate();
+        }
+    private:
+        double m_stepsize{ 15.0 * deg2rad };
+        Location* m_location{ nullptr };
+        std::vector<GenericPath*> azicircles;
+        std::vector<GenericPath*> elecircles;
+        friend class Location;
+    };
 
     Location::TrueSun* truesun = nullptr;
     Location::FlatSun* flatsun = nullptr;
+    Location::AziEleGrid* azielegrid{ nullptr };
 private:
     struct arrowcache {
         glm::vec3 position;
@@ -1368,6 +1468,8 @@ public:
 
     void addNormal(float length = 0.2f, float width = loccoordarrowwidth);
     void updateNormalCoord(arrowcache& ar);
+
+    void addAziEleGrid(double degrees = 15.0, bool radians = false, float width = 0.003f, glm::vec4 color = LIGHT_PURPLE);
     void addObserver(float bearing, glm::vec4 color = LIGHT_GREY, float height = 0.0f);
     void changeObserver(float bearing, glm::vec4 color = NO_COLOR, float height = 0.0f);
     void addArrow3DEleAzi(unsigned int unique, double ele, double azi, float length = 0.2f, float width = locazielewidth, glm::vec4 color = GREEN);

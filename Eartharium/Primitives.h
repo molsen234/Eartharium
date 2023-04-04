@@ -6,9 +6,9 @@
 #include <queue>
 
 struct LLH {
-    double lat = 0.0;
-    double lon = 0.0;
-    double dst = 0.0;
+    double lat{ 0.0 };
+    double lon{ 0.0 };
+    double dst{ 0.0 };
 };
 
 struct Primitive3D {
@@ -404,6 +404,7 @@ void tightvec<T>::remove(size_t oid, bool debug) {
 // The plan is to have locations be children of a planetary object, arrows be children of locations, angle/distance texts be children of arrows,
 // and offer a way to indicate what to measure to etc. I have yet to work out the requirements ...
 class SceneObject {
+protected:
     glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f);
     glm::vec4 orientation = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f); // Up vec3 + rotation about up, from which angle?
     glm::vec4 color = WHITE;
