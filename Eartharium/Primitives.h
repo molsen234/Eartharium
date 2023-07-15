@@ -1057,7 +1057,7 @@ struct glyphdata { // Glyph meta data from msdf-atlas-gen
 class Font {
 public:
     Font(const std::string& fontname);
-    ~Font();
+    //~Font(); - default destructor works fine for now
     glyphdata getGlyphdata(char letter);
     Texture* getTexture();
     bool is_valid = false;
