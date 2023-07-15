@@ -12,6 +12,8 @@ print("Python: Script loaded Eartharium module.")
 app = getApplication()
 print("Got app: ", app)
 
+app.interactive = False  # Should we drop to Python interactive console at the end?
+
 # Scene - where all renerable objects live
 scene = app.newScene()
 print("Got scene: ", scene)
@@ -42,6 +44,7 @@ print("Got new LayerText: ", text)
 
 # Build the scenario
 earth = scene.newEarth("AENS", 360, 180)
+app.currentEarth = earth;
 earth.param = 1.0
 
 earth.addSubsolarPoint()
@@ -60,9 +63,19 @@ print("Initialized Earth.")
 
 #earth.addGreatArc(LLH(-33.888, 18.385, 0.0), LLH(40.450,-73.823, 0.0))
 
+# mydate1 = EDateTime(2459571.173414352)   # JD in UTC
+# mydate1.setTime(2021,12,22,16,9,43)
+# mydate2 = EDateTime(1681623963)  # Unix timestamp
+# print(mydate1.string())
+# print(mydate2.string())
+# print("Past testing of EDateTime in python")
+
+## How to use static functions:
+#print(EDateTime.getDateTime2JD_UTC(2021,12,22,16,9,43))
 
 # Do updates
-astro.setTime(2021,12,22,16,9,43,True)
+astro.setTime(2021,12,22,16,9,43)
+# print(astro.getTimeString())
 app.update()
 #app.render = True;
 app.do_render()
@@ -89,11 +102,17 @@ app.do_render()
 #    astro.addTime(0,-24/rev_frames,0,0)
 #    chain.do_render()
 
+while (not app.shouldClose()):
+    astro.setTimeNow()
+    app.do_render()
+
+
 # Debug - https://www.digitalocean.com/community/tutorials/how-to-debug-python-with-an-interactive-console
 # This might be expanded into a full interactive loop including render calls, so main c++ app is not frozen while this runs
 # <Ctrl>Z, <Enter> to exit
 if (app.interactive == True):
     import code
     code.interact(local=locals())
+
 
 print("Python: Script completed.")

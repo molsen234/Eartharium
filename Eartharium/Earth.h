@@ -6,19 +6,21 @@
 class Location;
 class SubStellarPoint;
 class Earth2;
+class BodyGeometry;
 
 
 class LocGroup {
-// Container vector (or map?) of Locations for SceneGraph and iterating over Locations
-// Deleted Locations are retained but marked inactive, to maintain correspondance to
-// loaded datasets etc. If there is a need, a xmap-remap architecture can be implemented with the tightvec template
-// (see Primitives for an example.) Currently the number of locations used is small so the overhead of scanning over defunct ones is small.
 public:
-    std::list<Location*> locations; // holds actual locations for easy reference - NO, not at the moment !!!
+    std::list<Location*> locations;
 private:
     Earth* earth = nullptr;
     unsigned int id = maxuint;
 public:
+    // !!! TODO: Add ability to update common parameters of location for whole group? !!!
+    //           E.g. addPlanetaryPath24(VENUS); or updateTrueSunArrow3D();
+    //           This is a lot of work and duplication, is there another way?
+    //           Yes, expose an iterator so caller can do a for each loop.
+    //           Or, accept a function of Location::member(...) type. Might only work for void return values.
     LocGroup(Earth* e, unsigned int identifier);
     ~LocGroup();
     void clear();
@@ -103,51 +105,98 @@ private:
 //  Experimental area for building SceneObject based modular objects
 // =====================================================================================================
 
-// For Earth Loc3D and Nml3D functions, which will be used from other SceneObjects
-typedef glm::vec3(Earth2::* locPos)(const double, const double, const double, const bool);
-typedef glm::vec3(Earth2::* locNml)(const double, const double, const bool);
 
-//  Earth v2.0 - Only has the geometry and drawing functions - The rest is in other SceneObjects
-class Earth2 : public SceneObject {
+enum MaterialID {  // Index into Material array
+    DETAILED_EARTH = 0,
+    DETAILED_MOON,
+    DETAILED_SKY
+};
+
+
+// --------------
+//  BodyGeometry
+// --------------
+// For Earth Loc3D and Nml3D functions, which will be used from other SceneObjects
+typedef glm::vec3(BodyGeometry::* bglocPos)(const LLH, const bool);
+typedef glm::vec3(BodyGeometry::* bglocNml)(const LLH, const bool);
+class BodyGeometry : public SceneObject {
+// BodyGeometry TODO:
+// - add more geometries, perhaps also some humourous ones (cube, pear, egg)
+// - Factor out the Material class to a general material handler
+// - Alpha blending to show ellipsoid centric coordinate axes etc
+// - "Peal open" animations, over latitude and lngitude
+
+    struct Material {
+        unsigned int shader = 0;
+        unsigned int texture1 = 0;
+        unsigned int texture2 = 0;
+        unsigned int texture3 = 0;
+    };
+    std::array<Material, 3> Materials = { {
+        { EARTH_SHADER, EARTH_DAY, EARTH_NIGHT, EARTH_BUMP },
+        { MOON_SHADER, MOON_FULL, NO_UINT, MOON_BUMP },
+        { SKY_SHADER, SKY_FULL, NO_UINT, NO_UINT } // Will be DetailedSky, if that turns out to be a good path forward.
+    } };
 public:
-    Earth2(Scene* scene, const std::string mode, const unsigned int uMesh, const unsigned int vMesh);
-    ~Earth2();
+    bool hasgui = false;
+    // Holds geometry information about a morphable body, e.g. Earth
+    // Has methods to convert between spherical and cartesian surface coordinates
+    // and supply surface normals.
+    // Is always orientated NP up, EQ parallel to XY plane, X axis through prime meridian
+    // For ellipsoid (and others?) shapes, body specific parameters are required !!!
+    // If those are always supplied, then this can include distance functions etc.
+    // But how do we get accurate distances on NSER at 0.3 morph for example?
+    // Better to have an AstroObject that can convey the parameters
+    // - Equatorial radius
+    // - Polar radius
+    // - Eccentricity / flattening (or calculate based on above)
+    // Question: when using linear morph, are normals always (approximately) correct throughout morph? Probably not!
+    BodyGeometry(Scene* scene, unsigned int material, std::string mode, unsigned int meshU, unsigned int meshV, float gpuRadius);
+    ~BodyGeometry();
+    void draw(Camera* cam) override;
+    bool virtual drawSpecific(Camera* cam, Shader* shdr);  // Can be overridden to add specific draw needs (setting up the camera, etc)
     void setMode(const std::string mode);
+    std::string getMode();
     void setMorphParameter(float parameter);
     float getMorphParameter();
-    glm::vec3 getLoc3D(const double rLat, const double rLon, const double height, const bool rad);
-    glm::vec3 getNml3D(const double rLat, const double rLon, const bool rad);
-    glm::vec3 getLoc3D_NS(const double rLat, const double rLon, const double height, const bool rad);
-    glm::vec3 getNml3D_NS(const double rLat, const double rLon, const bool rad);
-    glm::vec3 getLoc3D_AE(const double rLat, const double rLon, const double height, const bool rad);
-    glm::vec3 getNml3D_AE(const double rLat, const double rLon, const bool rad);
-    glm::vec3 getLoc3D_ER(const double rLat, const double rLon, const double height, const bool deg);
-    glm::vec3 getNml3D_ER(const double rLat, const double rLon, const bool rad);
-    void draw(Camera* cam);
-    void update() override;
+    // createShape() might get tri and vert vectors if rendering is done in SceneObject or elsewhere - decide in constructor
+    void createShape();    // Creates the mesh geometry, should probably only be called once at creation
+    void updateShape();    // Updates the mesh geometry, called when tex offset, mode or morph param change
+    //glm::vec3 getLoc3D(const double rLat, const double rLon, const double height, const bool rad);
+    //glm::vec3 getNml3D(const double rLat, const double rLon, const bool rad);
+    //glm::vec3 getLoc3D_NS(const double rLat, const double rLon, const double height, const bool rad);
+    //glm::vec3 getNml3D_NS(const double rLat, const double rLon, const bool rad);
+    //glm::vec3 getLoc3D_AE(const double rLat, const double rLon, const double height, const bool rad);
+    //glm::vec3 getNml3D_AE(const double rLat, const double rLon, const bool rad);
+    //glm::vec3 getLoc3D_ER(const double rLat, const double rLon, const double height, const bool deg);
+    //glm::vec3 getNml3D_ER(const double rLat, const double rLon, const bool rad);
+    glm::vec3 getLoc3D(const LLH loc, const bool rad);
+    glm::vec3 getNml3D(const LLH loc, const bool rad);
+    glm::vec3 getLoc3D_NS(const LLH loc, const bool rad);
+    glm::vec3 getNml3D_NS(const LLH loc, const bool rad);
+    glm::vec3 getLoc3D_AE(const LLH loc, const bool rad);
+    glm::vec3 getNml3D_AE(const LLH loc, const bool rad);
+    glm::vec3 getLoc3D_ER(const LLH loc, const bool deg);
+    glm::vec3 getNml3D_ER(const LLH loc, const bool rad);
+    // FIX !!! Add additional geometries here !!!
+    //void draw(Camera* cam); // draw() and update() should be supplied by SceneObject, they relate to the rendering.
+    //void update() override;
 private:
-    void genMesh();
-    void updateMorph();
-
-private:
-    // Earth Geometry
-    double radius = 1.0;
+    // Body Geometry
+    double m_radius = 1.0;
     float morph_param = 0.0f;   // Valid range is 0.0f to 1.0f
-    locPos pos_mode1 = nullptr;
-    locPos pos_mode2 = nullptr;
-    locNml nml_mode1 = nullptr;
-    locNml nml_mode2 = nullptr;
-    // Texture data - ideal texture size is 8192x4096
-    // NOTE: Textures should be pre-flipped in Y, as SOIL2 soils itself when trying to flip large images
-    const std::string daytexfile = "C:\\Coding\\Eartharium\\Eartharium\\textures\\large map 8192x4096.png";
-    const std::string nighttexfile = "C:\\Coding\\Eartharium\\Eartharium\\textures\\BlackMarble_2012_8192x4096_ice.png";
-    //const std::string nighttexfile = "C:\\Coding\\Eartharium\\Eartharium\\textures\\large map 8192x4096.png";
-    //const std::string daytexfile = "C:\\Coding\\Eartharium\\Eartharium\\textures\\BlackMarble_2012_8192x4096_ice.png";
+    std::string m_mode = "XXXX";
+    bglocPos pos_mode1 = nullptr;
+    bglocPos pos_mode2 = nullptr;
+    bglocNml nml_mode1 = nullptr;  // &BodyGeometry::getNml3D_NS;
+    bglocNml nml_mode2 = nullptr;
 
-    float texoffset_x = -3.5f; // FIXME: use a texture definition file to supply these values
-    float texoffset_y = 1.3f;  // Values given in 1/8192 x 1/4096 units, ideally pixels in the texture
+    // Used when generating texture coordinates in genMesh()
+    float texoffset_x = 0.0f; // -3.5f; // FIXME: use a texture definition file to supply these values
+    float texoffset_y = 0.0f; // 1.3f;  // Values given in 1/8192 x 1/4096 units, ideally pixels in the texture
+
     // Mesh data
-    unsigned int m_meshU = 180, m_meshV = 90;
+    unsigned int m_meshU = 90, m_meshV = 45;
     struct vertex {
         glm::vec3 position = NO_VEC3;
         glm::vec3 light_normal = NO_VEC3;
@@ -162,197 +211,277 @@ private:
     };
     std::vector<vertex> vertices;
     std::vector<tri> tris;
-    // Update flags
+
+    // Update flags - will probably be handled via update*() parameters
     //bool dirty_geometry = true;
     //bool dirty_time = true;
+
     // OpenGL
     VertexBufferLayout* vbl = nullptr;
     VertexArray* va = nullptr;
     VertexBuffer* vb = nullptr;
     IndexBuffer* ib = nullptr;
     Shader* shdr = nullptr;
-    Texture* texture_day = nullptr;
-    Texture* texture_night = nullptr;
-    //Texture* texture_overlay = nullptr;
+    Texture* m_texture1 = nullptr;   // E.g. day and night textures
+    Texture* m_texture2 = nullptr;   // Might add third for overlays such as temperature maps or eclipse paths
+    Texture* m_texture3 = nullptr;   // Currently used for bump height mapping
     //unsigned int texture_overlay_mode = NONE;
+
 };
-// Meridian
-class Longitude2 : public SceneObject {
+
+
+// ----------
+//  Meridian   (half Great Circle of Longitude)
+// ----------
+class Longitude : public SceneObject {
 public:
-    Longitude2(Scene* scene, Earth2* geometry, double lon, float width = 0.005f, glm::vec4 color = LIGHT_GREY) {
-        name = "Longitude"; // Add latitude in degrees?
-        this->lon = lon;
-        // Build a more generic Geometry object that handles a celestial objects geometry so Sun. Moon & Planets can be ellipsoids or whatever
-        locref = geometry; // Using this now, so it can be updated to geometry later, and not be Earth2 specific
-        path = new GenericPath{ scene,width,color }; // Use Scene to generate !!! Well, GenericPath uses Scene to create PolyCurve(s).
-        generate();
-    }
-    ~Longitude2() {
-        parent->removeChild(this);
-        delete path;
-    }
-    void generate() {
-        glm::vec3 pos{ 0.0f };
-        for (double lat = -pi2; lat <= pi2; lat += deg2rad) {
-            pos = (locref->*locpos)(lat, lon, 0.0, true); // Dynamically calls earth->getLoc3D() (Earth2::getLoc3D())
-            path->addPoint(pos);
-        }
-        path->generate();
-    }
-    void update() {
-        path->clearPoints();
-        generate();
-    }
+    Longitude(Scene* scene, BodyGeometry* geometry, double lon, float width = 0.005f, glm::vec4 color = LIGHT_GREY);
+    ~Longitude();
+    void generate();
+    void update();
+    void draw(Camera* cam) override;
 private:
-    locPos locpos = &Earth2::getLoc3D;
-    Earth2* locref{ nullptr };
+    bglocPos locpos = &BodyGeometry::getLoc3D;
+    BodyGeometry* locref{ nullptr };
     GenericPath* path{ nullptr };
     double lon{ 0.0 };
 };
-// Circle of Latitude
-class Latitude2 : public SceneObject {
+
+// ----------
+//  Parallel   (Circle of Latitude)
+// ----------
+class Latitude : public SceneObject {
 public:
-    Latitude2(Scene* scene, Earth2* geometry, double lat, float width = 0.005f, glm::vec4 color = LIGHT_GREY) {
-        name = "Latitude"; // Add latitude in degrees?
-        this->lat = lat;
-        // Build a more generic Geometry object that handles a celestial objects geometry so Sun. Moon & Planets can be ellipsoids or whatever
-        locref = geometry; // Using this now, so it can be updated to geometry later, and not be Earth2 specific
-        path = new GenericPath{ scene,width,color }; // Use Scene to generate !!! Well, GenericPath uses Scene to create PolyCurve(s).
-        generate();
-    }
-    ~Latitude2() {
-        parent->removeChild(this);
-        delete path;
-    }
-    void generate() {
-        glm::vec3 pos{ 0.0f };
-        for (double lon = -pi; lon <= pi; lon += deg2rad) {
-            pos = (locref->*locpos)(lat, lon, 0.0, true); // Dynamically calls earth->getLoc3D() (Earth2::getLoc3D())
-            path->addPoint(pos);
-        }
-        path->generate();
-    }
-    void update() {
-        path->clearPoints();
-        generate();
-    }
+    Latitude(Scene* scene, BodyGeometry* geometry, double lat, float width = 0.005f, glm::vec4 color = LIGHT_GREY);
+    ~Latitude();
+    void setColor(glm::vec4 color);
+    void setWidth(float width);
+    void generate();
+    void update();
+    void draw(Camera* cam) override;
 private:
-    locPos locpos = &Earth2::getLoc3D;
-    Earth2* locref{ nullptr };
+    bglocPos locpos = &BodyGeometry::getLoc3D;
+    BodyGeometry* locref{ nullptr };
     GenericPath* path{ nullptr };
     double lat{ 0.0 };
 };
-// Prime Meridian
-class PrimeMeridian2 : public Longitude2 {
+
+
+// ----------------
+//  Prime Meridian
+// ----------------
+class PrimeMeridian : public Longitude {
 public:
-    PrimeMeridian2(Scene* scene, Earth2* geometry, float width = 0.007f, glm::vec4 color = LIGHT_RED) : Longitude2(scene, geometry, 0.0, width, color) {
-        name = "Prime Meridian";
-    }
+    PrimeMeridian(Scene* scene, BodyGeometry* geometry, float width = 0.007f, glm::vec4 color = LIGHT_RED);
 };
-// Equator v2.0 - To test with Earth2 and other celestial objects
-class Equator2 : public Latitude2 {
+
+// ---------
+//  Equator    - To test with Earth2 and other celestial objects (those are now BodyGeometry)
+// ---------
+class Equator : public Latitude {
 public:
-    Equator2(Scene* scene, Earth2* geometry, float width = 0.005f, glm::vec4 color = LIGHT_RED) : Latitude2(scene, geometry, 0.0, width, color) {
-        name = "Equator";
-    }
+    Equator(Scene* scene, BodyGeometry* geometry, float width = 0.005f, glm::vec4 color = LIGHT_RED);
 };
-// Grid
+
+// ------
+//  Grid
+// ------
 class Grid : public SceneObject {
 public:
-    Grid(Scene* scene, Earth2* geometry, double spacing) {
-        name = "Graticule";
-        parent = geometry;
-        parent->addChild(this);
-        equator = new Equator2{ scene, geometry, 0.007f };
-        equator->setParent(this);
-        primemeridian = new PrimeMeridian2{ scene, geometry, 0.007f };
-        primemeridian->setParent(this);
-        for (double lat = -pi2; lat <= pi2; lat += 15 * deg2rad) {
-            if (abs(lat) > tiny) {
-                latitudes.emplace_back(new Latitude2(scene, geometry, lat));
-                latitudes.back()->setParent(this);
-            }
-        }
-        for (double lon = -pi; lon <= pi; lon += 15 * deg2rad) {
-            if (abs(lon) > tiny) {
-                longitudes.emplace_back(new Longitude2(scene, geometry, lon));
-                longitudes.back()->setParent(this);
-            }
-        }
-    }
-    ~Grid() {
-        parent->removeChild(this);
-        delete equator;
-        delete primemeridian;
-        for (auto lat : latitudes) delete lat;
-        for (auto lon : longitudes) delete lon;
-    }
-    void update() {
-        for (auto child : children) {
-            child->update();
-        }
-    }
+    Grid(Scene* scene, BodyGeometry* geometry, double spacing = 15.0);
+    ~Grid();
+    void update();
+    void draw(Camera* cam) override;
 private:
-    Equator2* equator{ nullptr };
-    PrimeMeridian2* primemeridian{ nullptr };
-    std::vector<Latitude2*> latitudes;
-    std::vector<Longitude2*> longitudes;
+    Equator* equator{ nullptr };
+    PrimeMeridian* primemeridian{ nullptr };
+    std::vector<Latitude*> latitudes;
+    std::vector<Longitude*> longitudes;
 };
-// Small Circle - Circle with given radius and lat lon position
-//  Used for Tissot markers, Circle of equal altitude, etc
+
+
+
+// --------------
+//  Small Circle
+// --------------
 class SmallCircle : public SceneObject {
 private:
     LLH location{ 0.0,0.0,0.0 };
     double radius = 0.0;
-    locPos locpos = &Earth2::getLoc3D;
-    Earth2* locref{ nullptr };
+    bglocPos locpos = &BodyGeometry::getLoc3D;
+    BodyGeometry* locref{ nullptr };
     GenericPath* path{ nullptr };
 public:
-    SmallCircle(Scene* scene, Earth2* geometry, LLH location, double radius, float width = 0.005f, glm::vec4 color = LIGHT_ORANGE)
-    : location(location), radius(radius) {
-        name = "Small Circle";
-        m_scene = scene;
-        this->color = color;
-        locref = geometry; // Using this now, so it can be updated to geometry later, and not be Earth2 specific
-        path = new GenericPath{ scene,width,color }; // Use Scene to generate !!! Well, GenericPath uses Scene to create PolyCurve(s).
-        generate();
-    }
-    ~SmallCircle() {
-        parent->removeChild(this);
-        delete path;
-    }
-    // A radius of r degrees on the surface of a sphere with radius R has a chord (flat) radius of  R*sin(r).
-    // 
-    void generate() { // Generate by drawing circle around north pole and rotating into place by lat/lon
-        glm::vec3 pos{ 0.0f };
-        double const stepsize = tau / 360.0; // deg2rad;
-        double const zangle = location.lon - pi;   // Negative of angle to rotate around Z, to center above X axis
-        double const yangle = location.lat - pi2;  // Really -(90-lat) Negative of angle to rotate around Y to center on north pole
-        double const cy = cos(yangle);
-        double const sy = sin(yangle);
-        double const cz = cos(zangle);
-        double const sz = sin(zangle);
-        double const lz = sin(pi2 - radius);
-        for (double angle = -pi; angle <= pi; angle += stepsize) {
-            double lx = cos(pi2 - radius) * cos(angle);
-            double ly = cos(pi2 - radius) * sin(angle);
-            double l2x = lx * cy + lz * sy;
-            double l3x = l2x * cz - ly * sz;
-            double l3y = l2x * sz + ly * cz;
-            double lat = atan2(-lx * sy + lz * cy, sqrt(l3x * l3x + l3y * l3y));
-            double lon = atan2(l3y, l3x);
-            pos = (locref->*locpos)(lat, lon, location.dst, true); // Dynamically calls earth->getLoc3D() (Earth2::getLoc3D())
-            path->addPoint(pos);
-        }
-        path->generate();
-    }
-    void update() {
-        path->clearPoints();
-        generate();
-    }
+    SmallCircle(Scene* scene, BodyGeometry* geometry, LLH location, double radius, float width = 0.005f, glm::vec4 color = LIGHT_ORANGE);
+    ~SmallCircle();
+    void generate();
+    void update();
+    void draw(Camera* cam) override;
 };
-class GreatCircle : public SceneObject {
 
+//class GreatCircle : public SceneObject {
+// It is not straight forward to generate truly correct Great Ellipses using just Loc3D and Nml3D functions.
+// So perhaps it is time to build a more complete geometry library, either in BodyGeometry or separately.
+// This would be an excellent opportunity to support more ellipsoid models too.
+//};
+
+
+
+// ----------
+//  Ecliptic
+// ----------
+// Requires GreatCircle, so implement that first
+// Also, figure out which parameters are needed to orient the ecliptic correctly on Earth.
+// Perhaps a reasonable approximation is plotting the solar GP path in a 24 hour bracket around the timepoint.
+
+
+
+// ------------------------
+//  Small Celestial Object
+// ------------------------
+// This is meant for small representations of Sun, planets (incl Earth), Moon, everything roughly spherical
+// They only need low resolution textures, so they can share an atlas
+// Implement as spheres or ellipsoids, only a single geometry. So no need for transformations.
+// Some of the planets have rings, it would be nice to add those. Consider if you can do this with ring shadows
+// For solar system modeling, the following are objects we would like to associate:
+// - Orbit
+// - Orbital plane
+// - Rotation axis
+// - Distance vector (from any to any)
+// - Billboard with name
+// Rendering light/dark sides is important, and should be optional when used as GP markers for example
+// Positioning in a solar system and on a celestial object (mostly Earth) as GP are very different calculations,
+// So multiple calculating objects may end up using these.
+// See classes Planetoid, SubSolar, SubLunar, Dots in SolarSystem; these should all be redundant after this class is complete
+
+
+// -------------
+//  DetailedSky
+// -------------
+class DetailedSky : public BodyGeometry {
+    Scene* m_scene = nullptr;
+    float m_radius{ 5.0f };
+    //glm::vec3 SunLightDir = glm::vec3(0.0f, 1.0f, 0.0f);
+    //glm::vec3 camLightDir = { 1.0f, 0.0f, 0.0f };
+    //glm::vec4 sunDir = { 0.0f, 0.0f, 0.0f, 1.0f };
+    //bool w_sinsol = true;
+    //bool w_refract = true;
+    //bool w_twilight = true;
+    bool textured = false;
+    float m_alpha = 1.0f;
+    Dots* m_dotsFactory = nullptr;
+    size_t m_sundot = NO_UINT;
+    Equator* equatorOb = nullptr;
+    PrimeMeridian* primemOb = nullptr;
+public:
+    DetailedSky(Scene* scene, std::string mode, unsigned int meshU, unsigned int meshV, float radius = 1.0f);
+    ~DetailedSky();
+    void setTexture(bool tex);
+    void addEquator();
+    void addPrimeMeridian();
+    void update();
+    // Specific GPU parameters that are particular to Earth and thus not set up in BodyGeometry
+    bool drawSpecific(Camera* cam, Shader* shdr);
+    void myGUI();
+
+};
+
+// ----------------
+//  Detailed Earth
+// ----------------
+class DetailedEarth : public BodyGeometry {
+// DetailedEarth TODO:
+// - add twilight and refraction control
+// - perhaps refraction control can be improved, the current model in Earth is a bit ad hoc
+// - it would be nice to have twilight that is gradual from 100% to 0% sunlight instead of just the 3 bands
+// - add tropics and arctics, with a generic way to tint coordinate regions
+//   (note that Earth has GUI editing of the tint colors, very nice to have)
+//   (perhaps texture coordinates can be used to make this pixel based rather than triangle based, i.e. move it to the shader)
+// - add Moon direction so the fragment shader can also do lunar insolation areas
+// - add GenericPath object derived from SceneObject, so it can be used for the various paths (instead of the current mess in Earth)
+// - revisit the Earth modifications for adjustable eccentricity (see special shader)
+// - add Location and Location Groups, perhaps to BodyGeometry rather than DetailedEarth and DetailedMoon
+// - add GUI adjustable texture offsets and implement cropping
+// - Consider how to re-work the shadow casting options. Currently they are difficult to use, and deliver poor results
+// - Certainly move the astronomical tracking to Astronomy instead of local member variables
+// - Get everything working with recalculating every frame, before implementing a lot of caching options
+//   (that should help identify where caching is useful, and the best place/way to implement)
+// - SubLunar and SubSolar should be refactored into a general object that can be used for planets etc too
+//   (allow to integrate these with the SubPointSolver objects?) The Solvers also need refactoring!
+// - add shadow cones in a generic way if possible
+// - add DetailedSky as a celestial sphere?
+
+    Scene* m_scene = nullptr;
+    float m_radius{ 1.0f };
+    glm::vec3 SunLightDir = glm::vec3(0.0f, 1.0f, 0.0f);
+    glm::vec3 camLightDir = { 1.0f, 0.0f, 0.0f };
+    glm::vec4 sunDir = { 0.0f, 0.0f, 0.0f, 1.0f };
+    bool w_sinsol = true;
+    bool w_refract = true;
+    bool w_twilight = true;
+    float m_alpha = 1.0f;
+    Dots* m_dotsFactory = nullptr;
+    size_t m_sundot = NO_UINT;
+    Equator* equatorOb = nullptr;
+    PrimeMeridian* primemOb = nullptr;
+public:
+    DetailedEarth(Scene* scene, std::string mode, unsigned int meshU, unsigned int meshV, float radius = 1.0f);
+    ~DetailedEarth();
+    void addEquator();
+    void addPrimeMeridian();
+    void update();
+    // Specific GPU parameters that are particular to Earth and thus not set up in BodyGeometry
+    bool drawSpecific(Camera* cam, Shader* shdr);
+    void myGUI();
+};
+
+
+// ---------------
+//  Detailed Moon
+// ---------------
+class DetailedMoon : public BodyGeometry {
+public:
+    // For GUI
+    bool gui_geocentric = true;     // true = geocentric mode, false = topocentric (i.e. topoLat,topoLon contains observer position)
+    float gui_topoLat = 0.0f;
+    float gui_topoLon = 0.0f;
+    Equator* equatorOb = nullptr;
+private:
+    Scene* m_scene = nullptr;
+    float m_radius{ 1.0f };
+    float m_camDist = 384400;       // km
+    glm::vec3 SunLightDir = glm::vec3(0.0f, 1.0f, 0.0f);
+    glm::vec3 camLightDir = { 1.0f, 0.0f, 0.0f };
+    float sunBumpmapScale = 0.0005f;
+    float lightBumpmapScale = 0.015f;
+    //bool geocentric = true;     // true = geocentric mode, false = topocentric (i.e. topoLat,topoLon contains observer position)
+    double topoLat = NO_DOUBLE;   // NO_DOUBLE when Geocentric rather than Topocentric (e.g. to match NASAs yearly Moon videos)
+    double topoLon = NO_DOUBLE; 
+    glm::vec4 sunDir = { 0.0f, 0.0f, 0.0f, 1.0f };
+    glm::vec3 earthDir = { 0.0f, 0.0f, 0.0f };
+    ParticleTrail* earthparticles = nullptr;
+    bool w_sinsol = true;
+    Dots* m_dotsFactory = nullptr;
+    size_t m_sundot = NO_UINT;
+    size_t m_earthdot = NO_UINT;
+    // Can these somehow just be kept in our BodyGeometry.children ? They'd then need a place to pick up parameters, perhaps via their parent?
+    PrimeMeridian* primemOb = nullptr;
+    Grid* gridOb = nullptr;
+    float scaleBumpmap = 0.001f;
+public:
+    DetailedMoon(Scene* scene, std::string mode, unsigned int meshU, unsigned int meshV, float radius = 1.0f);
+    ~DetailedMoon();
+    void setTopocentric(const double lat = NO_DOUBLE, const double lon = NO_DOUBLE, const bool rad = false);
+    void addSunGP();
+    void updateSunGP();
+    void addEarthGP();
+    void updateEarthGP();
+    void addEquator();
+    void addPrimeMeridian();
+    void addGrid(double spacing = 15.0);
+    void update();
+    bool drawSpecific(Camera* cam, Shader* shdr);
+    void myGUI();
 };
 
 
@@ -449,7 +578,8 @@ private:
     };
     float m_alpha = 1.0f; // Not working well at all - probably due to backface culling being switched off !!!
     bool mydebug = false; // Set to trip breakpoints during debugging
-    double m_JD = 0.0;
+    double m_jd_utc = 0.0;
+    double m_jd_tt = 0.0;
     bool timedirty = false;
     float m_param = 0.0f;
     double m_eccen = 0.0;
@@ -482,7 +612,7 @@ private:
     PolyCurve* suncurve = nullptr;
     float m_flatsunheight = 3000.0f;
     bool flatsundirty = false;
-    double m_moonJD = 0.0; // Time Moon was calculated
+    double m_moonJD = 0.0; // JD in TT when Moon was last calculated
     double m_moonDec = 0.0;
     double m_moonRA = 0.0;
     double m_moonHour = 0.0;
@@ -517,37 +647,39 @@ public:
     void Update();
     void draw(Camera* cam);
     unsigned int addLocGroup();
-    glm::vec3 getLoc3D(double rLat, double lon, double height = 0.0f);
-    glm::vec3 getNml3D(double lat, double lon, double height = 0.0f);
-    glm::vec3 getNorth3D(double lat, double lon, double height = 0.0f);
-    glm::vec3 getEast3D(double lat, double lon, double height = 0.0f);
-    glm::vec3 getLoc3D_XX(std::string mode, double lat, double lon, double height = 0.0f);
-    glm::vec3 getNml3D_XX(std::string mode, double lat, double lon, double height = 0.0f);
-    glm::vec3 getLoc3D_NS(double lat, double lon, double height = 0.0f);
-    glm::vec3 getNml3D_NS(double lat, double lon, double height = 0.0f);
-    glm::vec3 getLoc3D_AE(double lat, double lon, double height = 0.0f);
-    glm::vec3 getNml3D_AE(double lat, double lon, double height = 0.0f);
-    glm::vec3 getLoc3D_LB(double lat, double lon, double height = 0.0f);
-    glm::vec3 getNml3D_LB(double lat, double lon, double height = 0.0f);
-    glm::vec3 getLoc3D_LA(double lat, double lon, double height = 0.0f);
-    glm::vec3 getNml3D_LA(double lat, double lon, double height = 0.0f);
-    glm::vec3 getLoc3D_MW(double lat, double lon, double height = 0.0f);
-    glm::vec3 getNml3D_MW(double lat, double lon, double height = 0.0f);
-    glm::vec3 getLoc3D_ER(double lat, double lon, double height = 0.0f);
-    glm::vec3 getNml3D_ER(double lat, double lon, double height = 0.0f);
-    glm::vec3 getLoc3D_RC(double lat, double lon, double height = 0.0f);
-    glm::vec3 getNml3D_RC(double lat, double lon, double height = 0.0f);
-    glm::vec3 getLoc3D_EX(double lat, double lon, double height = 0.0f);
-    glm::vec3 getNml3D_EX(double lat, double lon, double height = 0.0f);
-    glm::vec3 getLoc3D_EE(double lat, double lon, double height = 0.0f);
-    glm::vec3 getNml3D_EE(double lat, double lon, double height = 0.0f);
-    glm::vec3 getLoc3D_E8(double lat, double lon, double height = 0.0f);
-    glm::vec3 getNml3D_E8(double lat, double lon, double height = 0.0f);
-    glm::vec3 getLoc3D_E7(double lat, double lon, double height = 0.0f);
-    glm::vec3 getNml3D_E7(double lat, double lon, double height = 0.0f);
+    // Geomtry calculations
+    glm::vec3 getLoc3D(double rLat, double lon, double height = 0.0);
+    glm::vec3 getNml3D(double lat, double lon, double height = 0.0);
+    glm::vec3 getNorth3D(double lat, double lon, double height = 0.0);
+    glm::vec3 getEast3D(double lat, double lon, double height = 0.0);
+    glm::vec3 getLoc3D_XX(std::string mode, double lat, double lon, double height = 0.0);
+    glm::vec3 getNml3D_XX(std::string mode, double lat, double lon, double height = 0.0);
+    glm::vec3 getLoc3D_NS(double lat, double lon, double height = 0.0);
+    glm::vec3 getNml3D_NS(double lat, double lon, double height = 0.0);
+    glm::vec3 getLoc3D_AE(double lat, double lon, double height = 0.0);
+    glm::vec3 getNml3D_AE(double lat, double lon, double height = 0.0);
+    glm::vec3 getLoc3D_LB(double lat, double lon, double height = 0.0);
+    glm::vec3 getNml3D_LB(double lat, double lon, double height = 0.0);
+    glm::vec3 getLoc3D_LA(double lat, double lon, double height = 0.0);
+    glm::vec3 getNml3D_LA(double lat, double lon, double height = 0.0);
+    glm::vec3 getLoc3D_MW(double lat, double lon, double height = 0.0);
+    glm::vec3 getNml3D_MW(double lat, double lon, double height = 0.0);
+    glm::vec3 getLoc3D_ER(double lat, double lon, double height = 0.0);
+    glm::vec3 getNml3D_ER(double lat, double lon, double height = 0.0);
+    glm::vec3 getLoc3D_RC(double lat, double lon, double height = 0.0);
+    glm::vec3 getNml3D_RC(double lat, double lon, double height = 0.0);
+    glm::vec3 getLoc3D_EX(double lat, double lon, double height = 0.0);
+    glm::vec3 getNml3D_EX(double lat, double lon, double height = 0.0);
+    glm::vec3 getLoc3D_EE(double lat, double lon, double height = 0.0);
+    glm::vec3 getNml3D_EE(double lat, double lon, double height = 0.0);
+    glm::vec3 getLoc3D_E8(double lat, double lon, double height = 0.0);
+    glm::vec3 getNml3D_E8(double lat, double lon, double height = 0.0);
+    glm::vec3 getLoc3D_E7(double lat, double lon, double height = 0.0);
+    glm::vec3 getNml3D_E7(double lat, double lon, double height = 0.0);
+    // Astronomy calculations
     LLH calcHADec2LatLon(LLH radec, bool rad = true);
     glm::vec3 calcHADec2Dir(LLH radec);
-    LLH calcRADec2LatLon(LLH radec, bool rad = true, double jd = NO_DOUBLE);
+    LLH calcRADec2LatLon(LLH radec, double jd_utc = NO_DOUBLE, bool rad = true);
     LLH getXYZtoLLH_NS(glm::vec3 pos);
     LLH getXYZtoLLH_AE(glm::vec3 pos);
     double calcHorizonDip(double height);
@@ -559,12 +691,13 @@ public:
     Intersection calcSumnerIntersection(LLH llh1, LLH llh2, bool rad);
     Intersection calcSumnerIntersection(double lat1, double lon1, double rad1, double lat2, double lon2, double rad2, bool rad = true);
     LLH getSextantLoc(size_t index);
-    LLH getSun(double jd = 0.0);
+    LLH getSun(double jd = NO_DOUBLE);
     LLH getSubsolar(double jd = 0.0, bool rad = true);
     LLH getPlanet(size_t planet, double jd = 0.0, bool rad = true);
-    LLH getMoon(double JD = 0.0);
+    LLH getMoon(double jd_utc = 0.0);
     void CalcMoon();
-    LLH CalcMoonJD(double JD);
+    LLH CalcMoonJD(double jd_utc);
+    // Various primitives (dots, arrows, paths ...)
     size_t addDot(double lat, double lon, double height, float size, glm::vec4 color = LIGHT_RED, bool radians = true);
     void changeDotLoc(size_t index, double lat, double lon, double height, bool radians);
     void deleteDot(size_t index);
@@ -575,6 +708,7 @@ public:
     void changeArrow3DTrueSun(float length = 1.2f, float width = locsunarrowwidth, glm::vec4 color = LIGHT_YELLOW);
     void updateArrow3DTrueSun(arrowcache& ar);
     void addLunarUmbraCone();
+    void addUmbraCone();
     glm::vec3 getSubsolarXYZ(double jd = 0.0);
     void addSubsolarPoint(float size = 0.03f);
     void deleteSubsolarPoint();
@@ -637,7 +771,6 @@ public:
     void addSubsolarPath(double begin = NO_DOUBLE, double finish = NO_DOUBLE, unsigned int steps = NO_UINT, bool fixed = false);
     void updateSubsolarPath();
     size_t addSumnerLine(LLH gp, double elevation, glm::vec4 color = SUNMERCOLOR, float width = sumnerlinewidth, bool rad = false);
-    size_t addSextantMeasurement(std::string starname, double elevation, double jd = NO_DOUBLE, glm::vec4 color = NO_COLOR, float width = pathwidth, bool rad = false);
     size_t addTissotIndicatrix(LLH location, double radius, bool rad = false, glm::vec4 color = LIGHT_ORANGE, float width = 0.005f);
     void removeTissotIndicatrix(size_t index);
     void updateTissotIndicatrix(TissotCache& tissot); // Geometry updates, no time dependence
@@ -651,11 +784,9 @@ public:
     size_t addArc(LLH llh1, LLH llh2, glm::vec4 color, float width, bool rad, calcFunc ca, unsigned int type);
     void changeArc(size_t index, glm::vec4 color = NO_COLOR, float width = NO_FLOAT);
     void deleteArc(size_t index);
-    void updateCompositePath3(polycache& p);
     void updateCompositePath2(polycache& p);
     void addArcPoint(glm::vec3 ap, bool first, bool last, glm::vec3& oldap, PolyCurve* curve);
     void updateCompositePath(polycache& p);
-    //void updateCompositePathOld(polycache& p);
 private:
     void genGeom();
     void updGeom();
@@ -663,11 +794,15 @@ private:
     void updateSun();
 };
 
+
+// ==========================================================
+//  Navigation Solvers
+// ==========================================================
+
 struct Intersection {
     LLH point1 = { 0.0, 0.0, 0.0 };
     LLH point2 = { 0.0, 0.0, 0.0 };
 };
-
 
 // REFACTOR? Could SubStellarPoint, SubPlanetaryPoint, SubSolarPoint, SubLunarPoint, SubSatellitePoint, etc share a common parent?
 // Could that parent be inherit from SceneObject ?
@@ -691,17 +826,8 @@ class SubStellarPoint {
 public:
     class Name {
     public:
-        void enable(Font* font, glm::vec4 color, float size) {
-            m_font = font;
-            if (color != NO_COLOR) m_color = color;
-            if (size != NO_FLOAT) m_size = size;
-            if (m_billboard == nullptr) m_billboard = new BillBoard(m_ssp->m_earth->m_scene, font, m_ssp->name, m_ssp->m_pos, m_color, m_size);
-            m_enabled = true;
-            update();
-        }
-        void update() {
-            m_billboard->update(m_ssp->m_pos + 0.1f * m_ssp->m_earth->getNml3D(m_ssp->m_loc.lat, m_ssp->m_loc.lon));
-        }
+        void enable(Font* font, glm::vec4 color, float size);
+        void update();
     private:
         glm::vec4 m_color = LIGHT_BLUE;
         float m_size = 0.0f;
@@ -710,29 +836,15 @@ public:
         Font* m_font = nullptr;
         BillBoard* m_billboard = nullptr;
         SubStellarPoint* m_ssp = nullptr;
-        Name(SubStellarPoint& ssp, std::string starname) {
-            m_name = starname;
-            m_ssp = &ssp;
-            m_color = m_ssp->m_color;
-        }
-        ~Name() {
-            if (m_billboard != nullptr) delete m_billboard;
-        }
+        Name(SubStellarPoint& ssp, std::string starname);
+        ~Name();
         friend class SubStellarPoint;
     };
     class Dot {
     public:
-        void enable(glm::vec4 color = NO_COLOR, float size = NO_FLOAT) {
-            if (color != NO_COLOR) m_color = color;
-            if (size != NO_FLOAT) m_size = size;
-            update();
-            enabled = true;
-        }
-        void disable() { enabled = false; }
-        void update() {
-            m_dotsF->changeXYZ(dotindex, m_ssp->m_pos, m_color, m_size);
-            //std::cout << "Dot position: " << m_ssp->m_pos.x << "," << m_ssp->m_pos.y << "," << m_ssp->m_pos.z << '\n';
-        }
+        void enable(glm::vec4 color = NO_COLOR, float size = NO_FLOAT);
+        void disable();
+        void update();
     private:
         glm::vec4 m_color = NO_COLOR;
         float m_size = locdotsize;
@@ -740,59 +852,17 @@ public:
         Dots* m_dotsF = nullptr;
         size_t dotindex = 0;
         bool enabled = false;
-        Dot(SubStellarPoint& ssp) {
-            m_ssp = &ssp;
-            m_color = m_ssp->m_color;
-            m_dotsF = m_ssp->m_earth->m_scene->getDotsFactory();
-            dotindex = m_dotsF->addXYZ(m_ssp->m_pos, glm::vec4(0.0f), m_size); // Color with alpha = 0.0f is not rendered (shader discards explicitly)
-        }
-        ~Dot() {
-            if (m_dotsF != nullptr) m_dotsF->remove(dotindex);
-        }
+        Dot(SubStellarPoint& ssp);
+        ~Dot();
         friend class SubStellarPoint;
     };
     class SumnerLine {
         // Must use more complex heuristics, it may cross poles, or seam (TWICE!) !!!
         // Seam/pole crossing can only be determined after rotations of centre to GP
     public:
-        void enable(glm::vec4 color = NO_COLOR, float width = NO_FLOAT) {
-            if (color != NO_COLOR) m_color = color;
-            if (width != NO_FLOAT) m_width = width;
-            update();
-            enabled = true;
-        }
-        void disable() { enabled = false; }
-        void update() {
-            //std::cout << "SubStellarPoint::SumnerLine::update() called\n";
-            // This is a copy of TissotIndicatrix, it is not happy near the south pole, so consider using Earth::updateCompositePath()
-            // mechanism, or extract that into a full object on it's own. Figure out if passing a calc function outside the class is 
-            // different than what Earth uses now.
-            // Be aware that these are small circles, so they typically cross the seam TWICE when they do cross the seam!
-
-            // Additionally, simulating equal elevation curves on other Earth geometries would be interesting!
-            // Can this be done with a mode setting? Only update() needs to be changed, all other functions are agnostic.
-            // Of course, the SubPointSolver class also needs to be enhanced.
-            curve->changePolyCurve(m_color, m_width);
-            curve->clearPoints();
-            double const zangle = m_ssp->m_loc.lon - pi;   // Negative of angle to rotate around Z, to center above X axis
-            double const yangle = m_ssp->m_loc.lat - pi2;  // Really -(90-lat) Negative of angle to rotate around Y to center on north pole
-            double const cy = cos(yangle);
-            double const sy = sin(yangle);
-            double const cz = cos(zangle);
-            double const sz = sin(zangle);
-            double const lz = sin(pi2 - m_ssp->m_elevation);
-            for (double a = 0.0; a <= tau; a += tau / steps) {
-                double lx = cos(pi2 - m_ssp->m_elevation) * cos(a);
-                double ly = cos(pi2 - m_ssp->m_elevation) * sin(a);
-                double l2x = lx * cy + lz * sy;
-                double l3x = l2x * cz - ly * sz;
-                double l3y = l2x * sz + ly * cz;
-                double lat = atan2(-lx * sy + lz * cy, sqrt(l3x * l3x + l3y * l3y));
-                double lon = atan2(l3y, l3x);
-                curve->addPoint(m_ssp->m_earth->getLoc3D(lat, lon));
-            }
-            curve->generate();
-        }
+        void enable(glm::vec4 color = NO_COLOR, float width = NO_FLOAT);
+        void disable();
+        void update();
     private:
         SubStellarPoint* m_ssp = nullptr;
         bool enabled = true;
@@ -800,81 +870,40 @@ public:
         float m_width = pathwidth;
         PolyCurve* curve = nullptr;
         unsigned int steps = 360;
-        SumnerLine(SubStellarPoint& ssp) {
-            m_ssp = &ssp;
-            if (m_ssp->m_color != NO_COLOR) m_color = m_ssp->m_color;
-            curve = m_ssp->m_earth->m_scene->newPolyCurve(m_color, m_width, steps);
-            update();
-        }
-        ~SumnerLine() {
-            if (curve != nullptr) m_ssp->m_earth->m_scene->deletePolyCurve(curve);
-        }
+        SumnerLine(SubStellarPoint& ssp);
+        ~SumnerLine();
         friend class SubStellarPoint;
     };
     class Radius {
         // Should this allow more than one radius line?
     public:
-        void enable() { enabled = true; };
-        void changeAzimuth(double bearing, bool rad) {
-            if (!rad) bearing *= deg2rad;
-            m_bearing = tau - bearing;
-            update();
-        }
-        void changeAzimuthTo(LLH target, bool rad) {
-            if (!rad) { target.lat *= deg2rad; target.lon *= deg2rad; }
-            // Sets the radius bearing to point towards the supplied point
-            m_bearing = atan2(cos(target.lat) * sin(target.lon - m_ssp->m_loc.lon),
-                cos(m_ssp->m_loc.lat) * sin(target.lat) - sin(m_ssp->m_loc.lat) * cos(target.lat) * cos(target.lon - m_ssp->m_loc.lon));
-            while (m_bearing > tau) m_bearing -= tau;
-            while (m_bearing < 0.0) m_bearing += tau;
-            //std::cout << "Location: " << m_ssp->m_loc.lat * rad2deg << "," << m_ssp->m_loc.lon * rad2deg << "\n";
-            //std::cout << "Target: " << target.lat * rad2deg << "," << target.lon * rad2deg << "\n";
-            //std::cout << "Bearing: " << m_bearing * rad2deg << '\n';
-            update();
-        }
-        void update() {
-            if (!enabled) return; // Skip update if not enabled
-            // Uses only stored values which are all already converted to radians.
-            double const zangle = m_ssp->m_loc.lon - pi;   // Negative of angle to rotate around Z, to center above X axis
-            double const yangle = m_ssp->m_loc.lat - pi2;  // Really -(90-lat) Negative of angle to rotate around Y to center on north pole
-            double const cy = cos(yangle);
-            double const sy = sin(yangle);
-            double const cz = cos(zangle);
-            double const sz = sin(zangle);
-            double const lz = sin(pi2 - m_ssp->m_elevation);
-            double lx = cos(pi2 - m_ssp->m_elevation) * cos(tau - m_bearing);
-            double ly = cos(pi2 - m_ssp->m_elevation) * sin(tau - m_bearing);
-            double l2x = lx * cy + lz * sy;
-            double l3x = l2x * cz - ly * sz;
-            double l3y = l2x * sz + ly * cz;
-            double lat = atan2(-lx * sy + lz * cy, sqrt(l3x * l3x + l3y * l3y));
-            double lon = atan2(l3y, l3x);
-            // lat,lon is now the radius end point
-            if (m_radius == NO_UINT) m_radius = m_ssp->m_earth->addGreatArc(m_ssp->m_loc, { lat, lon, 0.0 }, LIGHT_BLUE, 0.003f, true);
-            else m_ssp->m_earth->changeGreatArc(m_radius, m_ssp->m_loc, { lat, lon, 0.0 }, true);
-        }
+        void enable();
+        void changeAzimuth(double bearing, bool rad);
+        void changeAzimuthTo(LLH target, bool rad);
+        void update();
     private:
         SubStellarPoint* m_ssp = nullptr;
         bool enabled = false;
         size_t m_radius = NO_UINT; // Earth Arc index
         double m_bearing = 0.0;    // Radians clockwise from north
         glm::vec4 m_color = NO_COLOR;
-        Radius(SubStellarPoint& ssp) : m_ssp(&ssp) {
-        }
-        ~Radius() {
-            if (m_radius != NO_UINT) m_ssp->m_earth->removeGreatArc(m_radius);
-        }
+        Radius(SubStellarPoint& ssp);
+        ~Radius();
         friend class SubStellarPoint;
     };
-
     glm::vec3 m_pos = glm::vec3(0.0f); // XYZ in World
     LLH m_loc = { 0.0, 0.0, 0.0 };     // Lat, Lon
     LLH m_decra = { 0.0, 0.0, 0.0 };   // Declination & right ascension Equatorial Earth Centered - kept in radians
     double m_dist_lat = 0.0;
     bool locked = false;               // Freeze in time, for sextant measurements etc
     std::string name;
-    double m_elevation = pi4;
-    double m_jd = NO_DOUBLE;
+    double m_elevation = 0.0;
+    double m_rawElevation = 0.0;
+    double m_indexError = 0.0; // Simply use zero rather than NO_DOUBLE, subtracting is faster than comparing and then subtracting
+    double m_observerHeight = NO_DOUBLE;
+    double m_temperature = NO_DOUBLE;
+    double m_pressure = NO_DOUBLE;
+    double m_jd = NO_DOUBLE; // JD in TT (Dynamical Time)
     glm::vec4 m_color = NO_COLOR;
     Earth* m_earth = nullptr;
     // Scene* m_scene = m_earth->m_scene;
@@ -883,71 +912,16 @@ public:
     SubStellarPoint::SumnerLine* sumner = nullptr;
     SubStellarPoint::Name* nametag = nullptr;
     SubStellarPoint::Radius* radius = nullptr;
-
-    SubStellarPoint(Earth& earth, const std::string& starname, const bool lock = false, const double jd = NO_DOUBLE, const glm::vec4 color = NO_COLOR) {
-        m_earth = &earth;
-        name = starname;
-        locked = lock;
-        m_jd = jd;
-        if (color == NO_COLOR) m_color = m_earth->m_scene->m_astro->getColorbyName(name);
-        else m_color = color;
-        m_decra = m_earth->m_scene->m_astro->getTrueDecRAbyNameJD(name, m_jd, true);
-        //m_decra = m_earth->m_scene->m_astro->getDecRAbyName(name, true);
-        m_loc = m_earth->calcRADec2LatLon(m_decra, true, m_jd);
-        m_loc.lat += m_dist_lat; // Is always 0.0 at construction time, is changed by shiftSpeedTime()
-        //m_earth->addDot(m_decra.lat, m_decra.lon, 0.0, 0.02f, LIGHT_RED, true);
-        m_pos = m_earth->getLoc3D(m_loc.lat, m_loc.lon);
-        dot = new SubStellarPoint::Dot(*this);
-        sumner = new SubStellarPoint::SumnerLine(*this);
-        nametag = new SubStellarPoint::Name(*this, name);
-        radius = new SubStellarPoint::Radius(*this);
-
-    }
-    ~SubStellarPoint() {
-        if (dot != nullptr) delete dot;
-        if (sumner != nullptr) delete sumner;
-        if (nametag != nullptr) delete nametag;
-        if (radius != nullptr) delete radius;
-    }
-    void shiftSpeedTime(double bearing, double knots, double minutes) {
-        // Assume bearing is 0 degrees North
-        // !!! FIX: This is not the correct way !!!
-        // Check the following resources:
-        // https://apps.dtic.mil/sti/pdfs/ADA423226.pdf
-        // https://aa.usno.navy.mil/downloads/reports/ghk_posmo.pdf
-        // file:///C:/Users/micha/Downloads/New_Computational_Methods_for_Solving_Problems_of_.pdf
-        if (bearing != 0.0) {
-            std::cout << "ERROR: SubStellarPoint::shiftSpeedTime() only supports a bearing of 0 degrees north.\n";
-            return;
-        }
-        // 1 knot equals 1 nautical mile per hour
-        m_dist_lat = deg2rad * minutes * knots / 3600.0;  // knots/60 = NM per minute, * minutes = NMs in interval, /60 = degrees in interval
-        m_loc.lat += m_dist_lat;
-    }
-    void setElevation(double elevation, bool rad = false) {
-        // Actually stores the radius of the SumnerLine, so maybe rename the variable, at best it is the co-elevation !!!
-        m_elevation = pi2 - (rad ? elevation : elevation * deg2rad);
-    }
-    LLH getDetails(bool rad) {
-        //if (rad) return { m_loc.lat, m_loc.lon, m_elevation };
-        //else return { rad2deg * m_loc.lat, rad2deg * m_loc.lon, rad2deg * m_elevation };
-        // Ternary might be faster than if (), and using initializers is preferred.
-        return rad ? LLH{ m_loc.lat, m_loc.lon, m_elevation } : LLH{ rad2deg * m_loc.lat, rad2deg * m_loc.lon, rad2deg * m_elevation };
-    }
-    void update() {
-        //std::cout << "SubStellarPoint::update()\n";
-        if (!locked) { // Locked means don't update location with time
-            m_loc = m_earth->calcRADec2LatLon(m_decra); // m_jd not passed, so Earth calculates new location based on current time
-            m_loc.lat += m_dist_lat;
-        }
-        // position may still change with the same location if Earth morphs
-        m_pos = m_earth->getLoc3D(m_loc.lat, m_loc.lon);
-        // Still update to geometry and camera orientation
-        dot->update();
-        sumner->update();
-        radius->update();
-        nametag->update();
-    }
+    SubStellarPoint(Earth& earth, const std::string& starname, const bool lock = false, const double jd_tt = NO_DOUBLE, const glm::vec4 color = NO_COLOR);
+    ~SubStellarPoint();
+    void shiftSpeedTime(double bearing, double knots, double minutes);
+    void adjustElevation();
+    void setElevation(double elevation, bool rad = false);
+    void setIndexError(double indexError, bool rad = false);
+    void setObserverHeight(double observerHeight);
+    void setRefraction(double temperature, double pressure);
+    LLH getDetails(bool rad);
+    void update();
 };
 
 
@@ -958,165 +932,18 @@ class SubPointSolver {
     // Solves a fix for 3 observations using SubPoint - should evolve into n-point solver
     // 1) add points, 2) pull solution
 public:
-    SubPointSolver(Earth* earth) : m_earth(earth) {
-
-    }
-    SubStellarPoint* addSubStellarPoint(const std::string starname, const double elevation, bool rad = false, const double jd = NO_DOUBLE) {
-        // Create a new SubStellarPoint and add it to the solver, returning a reference to the caller
-        double mjd = jd;
-        if (mjd == NO_DOUBLE) mjd = m_earth->m_scene->m_astro->getJD();
-        m_ssps.push_back(new SubStellarPoint(*m_earth, starname, true, mjd, NO_COLOR));
-        m_ssps.back()->setElevation(elevation, rad);
-        return m_ssps.back();
-    }
-    void addSubStellarPoint(SubStellarPoint* ssp) {
-        // Add an existing SubStellarPoint to the solver
-        m_ssps.push_back(ssp);
-    }
+    SubPointSolver(Earth* earth);
+    SubStellarPoint* addSubStellarPoint(const std::string starname, const double elevation, bool rad = false, const double jd_tt = NO_DOUBLE);
+    void addSubStellarPoint(SubStellarPoint* ssp);
     // Perhaps add feature to show the star in the observable color, which is already available anyway !!!
     // - Best achieved by making the star color the default color in SubStellarPoint
-    void showSumnerLines(glm::vec4 color = NO_COLOR, float width = NO_FLOAT) {
-        for (auto& s : m_ssps) {
-            s->sumner->enable(color, width);
-        }
-    }
-    void showNames(Font* font, glm::vec4 color = NO_COLOR, float size = NO_FLOAT) {
-        for (auto& s : m_ssps) {
-            s->nametag->enable(font, color, size);
-        }
-    }
-    void showDots(glm::vec4 color = NO_COLOR, float size = NO_FLOAT) {
-        for (auto& s : m_ssps) {
-            s->dot->enable(color, size);
-        }
-    }
-    void update() {
-        for (auto& s : m_ssps) {
-            s->update();
-        }
-    }
-    LLH calcLocation(bool rad) { // Calculates intersections on a spherical Earth (NS). Possibly add AE, ER etc.
-        // Should check if at least 3 points were supplied already !!!
-
-        // Calculate intersections of the SumnerLines
-        isect12 = calcSumnerIntersection(m_ssps[0]->getDetails(true), m_ssps[1]->getDetails(true), true);
-        isect23 = calcSumnerIntersection(m_ssps[1]->getDetails(true), m_ssps[2]->getDetails(true), true);
-        isect31 = calcSumnerIntersection(m_ssps[2]->getDetails(true), m_ssps[0]->getDetails(true), true);
-        // Should sanity check the results, if the circles do not intersect !!!
-
-        // From Intersections pick the points that are near each other.
-        // - Since the radii of the SumnerLines are always 90 degrees or less,
-        //   this means from the Intersections of A and B, pick the one nearest to C's elevation.
-        //   When doing so, consider that the distance may cross the seam or a pole,
-        //   so use a proper distance function from Bowditch or similar.
-        // - UPD: It turns out the above assumption is incorrect, what is needed is the distance closest to the radius of C
-        //   (which is obvious once it is realized). NOTE: SubStellarPoint stores RADIUS in m_elevation !!!
-        double dst1 = 0.0, dst2 = 0.0;
-        dst1 = abs(calcArcDist(isect12.point1, m_ssps[2]->m_loc, true) - m_ssps[2]->m_elevation); // Note m_ssps indexes from 0
-        dst2 = abs(calcArcDist(isect12.point2, m_ssps[2]->m_loc, true) - m_ssps[2]->m_elevation);
-        spoint1 = (dst1 < dst2) ? isect12.point1 : isect12.point2;
-        dst1 = abs(calcArcDist(isect23.point1, m_ssps[0]->m_loc, true) - m_ssps[0]->m_elevation);
-        dst2 = abs(calcArcDist(isect23.point2, m_ssps[0]->m_loc, true) - m_ssps[0]->m_elevation);
-        spoint2 = (dst1 < dst2) ? isect23.point1 : isect23.point2;
-        dst1 = abs(calcArcDist(isect31.point1, m_ssps[1]->m_loc, true) - m_ssps[1]->m_elevation);
-        dst2 = abs(calcArcDist(isect31.point2, m_ssps[1]->m_loc, true) - m_ssps[1]->m_elevation);
-        spoint3 = (dst1 < dst2) ? isect31.point1 : isect31.point2;
-        // Use those nearest points to find Most Plausible Position (MPP).
-        // = Correct method is to calculate the centroid of the points,
-        //   but there are other interesting possibilities that one could show, just to rule them out (phrased in terms of triangles):
-        //   o orthocentre - shortest distance from the sides of the triangle (is it?), intersection of perpendiculars through opposite vertex
-        //   o circumcentre - The centre of the circumscribing circle, this is equidistant from the triangle vertices
-        //   o inscribed centre - centre of inscribed circle
-        //   v centroid - centre of mass, intersection of median lines which go from middle of side to opposite corner
-        //   o It is the centroid that is considered the right way to interpolate. Fortunately it is also the simplest
-        //     to calculate, just average the coordinates of the 3 points. On a sphere this is slightly more complex,
-        //     but for small triangles there is little difference, except for seam and pole considerations.
-
-        // This is not great at the seam. OR if the points surround a pole
-        //solution = { (spoint1.lat + spoint2.lat + spoint3.lat) / 3.0, (spoint1.lon + spoint2.lon + spoint3.lon) / 3.0, 0.0 };
-        // Another way is to average spherical to cartesian coordinates, and normalize the resulting position vector to lie on the surface,
-        // then project back to spherical coordinates. That can then be projected with the actual geometry in use.
-        glm::vec3 p1 = m_earth->getLoc3D_NS(spoint1.lat, spoint1.lon);
-        glm::vec3 p2 = m_earth->getLoc3D_NS(spoint2.lat, spoint2.lon);
-        glm::vec3 p3 = m_earth->getLoc3D_NS(spoint3.lat, spoint3.lon);
-        solution = m_earth->getXYZtoLLH_NS(glm::normalize((p1 + p2 + p3) / 3.0f)); // Earth radius is 1.0f, otherwise multiply by earth_r
-
-        //
-        // centroid calculation with more points is slightly less straight forward, see:
-        // https://gis.stackexchange.com/questions/164267/how-exactly-is-the-centroid-of-polygons-calculated#:~:text=The%20centroid%20(a.k.a.%20the%20center,%2B%20y2%20%2B%20y3)%2F3.
-        // https://drive.google.com/file/d/0B6wCLzdYQE_gOUVTc0FuOVFZbHM/view?usp=sharing&resourcekey=0-4Vdlynw2E9fKwpHclOJxEQ
-        // (last one from https://sites.google.com/site/navigationalalgorithms/Home/papersnavigation which has other great reads too)
-        if (rad) return solution;
-        else return { rad2deg * solution.lat, rad2deg * solution.lon, 0.0 };
-    }
-    Intersection calcSumnerIntersection(LLH llh1, LLH llh2, bool rad) {
-        // Returns NO_DOUBLE for all values if there are no intersections (circles are concentric or antipodal)
-        // Source: https://gis.stackexchange.com/questions/48937/calculating-intersection-of-two-circles
-        if (!rad) {
-            llh1.lat *= deg2rad; llh1.lon *= deg2rad; llh1.dst *= deg2rad;
-            llh2.lat *= deg2rad; llh2.lon *= deg2rad; llh2.dst *= deg2rad;
-        }
-        // transform from spherical to cartesian coordinates using LLH to store coordinates as doubles: (lat,lon,dst) <- (x,y,z)
-        LLH pos1{ cos(llh1.lon) * cos(llh1.lat), sin(llh1.lon) * cos(llh1.lat), sin(llh1.lat) };
-        LLH pos2{ cos(llh2.lon) * cos(llh2.lat), sin(llh2.lon) * cos(llh2.lat), sin(llh2.lat) };
-        // q equal to pos1 dot pos2
-        double q = pos1.lat * pos2.lat + pos1.lon * pos2.lon + pos1.dst * pos2.dst;
-        double q2 = q * q;
-        // q2 == 1.0 gives DIV0 in the following, and indicates that the points coincide or are antipodal.
-        if (abs(q2 - 1.0) < verytiny) {
-            std::cout << "Earth::calcSumnerIntersection() the circles are not intersecting! (q*q is very close to 1.0)\n";
-            return { {NO_DOUBLE, NO_DOUBLE, NO_DOUBLE},{NO_DOUBLE, NO_DOUBLE, NO_DOUBLE} };
-        }
-        // pos0 will be a unique point on the line of intersection of the two planes defined by the two distance circles
-        double a = (cos(llh1.dst) - cos(llh2.dst) * q) / (1 - q2);
-        double b = (cos(llh2.dst) - cos(llh1.dst) * q) / (1 - q2);
-        // pos0 is a linear combination of pos1 and pos2 with the parameters a and b
-        LLH pos0 = { a * pos1.lat + b * pos2.lat, a * pos1.lon + b * pos2.lon, a * pos1.dst + b * pos2.dst };
-        // n equal to pos1 cross pos2, normal to both
-        LLH n = { pos1.lon * pos2.dst - pos1.dst * pos2.lon, pos1.dst * pos2.lat - pos1.lat * pos2.dst, pos1.lat * pos2.lon - pos1.lon * pos2.lat };
-        // t = sqrt((1.0 - dot(pos0, pos0)) / glm::dot(n, n)); (a vector dot itself is of course the square of its magnitude
-        double t = sqrt((1.0 - (pos0.lat * pos0.lat + pos0.lon * pos0.lon + pos0.dst * pos0.dst)) / (n.lat * n.lat + n.lon * n.lon + n.dst * n.dst));
-        //isect1 = pos0 + t * n and isect2 = pos0 - t * n, where t is a scalar
-        LLH isect1 = { pos0.lat + t * n.lat, pos0.lon + t * n.lon, pos0.dst + t * n.dst };
-        LLH isect2 = { pos0.lat - t * n.lat, pos0.lon - t * n.lon, pos0.dst - t * n.dst };
-        // Transform back to spherical coordinates - Are isect1 & 2 always unit vectors? !!!
-        LLH ll1 = { atan2(isect1.dst, sqrt(isect1.lat * isect1.lat + isect1.lon * isect1.lon)),
-            atan2(isect1.lon, isect1.lat), sqrt(isect1.lat * isect1.lat + isect1.lon * isect1.lon + isect1.dst * isect1.dst) };
-        LLH ll2 = { atan2(isect2.dst, sqrt(isect2.lat * isect2.lat + isect2.lon * isect2.lon)),
-            atan2(isect2.lon, isect2.lat), sqrt(isect2.lat * isect2.lat + isect2.lon * isect2.lon + isect2.dst * isect2.dst) };
-        // if degrees were passed in, return degrees rather than radians
-        if (!rad) {
-            ll1 = { ll1.lat * rad2deg, ll1.lon * rad2deg, ll1.dst * rad2deg };
-            ll2 = { ll2.lat * rad2deg, ll2.lon * rad2deg, ll2.dst * rad2deg };
-        }
-        return { ll1, ll2 };
-    }
-    double calcArcDist(LLH llh1, LLH llh2, bool rad) {
-        // Calculate great circle distance using Vincenty formula simplified for sphere rather than ellipsoid.
-        // Source: https://en.wikipedia.org/wiki/Great-circle_distance#Computational_formulas
-        // NOTE: The Vector version given in the same source is interesting.
-        //       If locations are given by position normals rather than lat&lon, then:
-        //       ArcDistance = atan2( |n1 x n2| / (n1 . n2) ) on a unit sphere.
-        if (!rad) {
-            llh1.lat *= deg2rad; // doubles
-            llh1.lon *= deg2rad;
-            llh2.lat *= deg2rad;
-            llh2.lon *= deg2rad;
-        }
-        double sin1 = sin(llh1.lat);
-        double sin2 = sin(llh2.lat);
-        double cos1 = cos(llh1.lat);
-        double cos2 = cos(llh2.lat);
-        double dlon = llh2.lon - llh1.lon;
-        double sind = sin(dlon);
-        double cosd = cos(dlon);
-        double a = sqrt(pow((cos2 * sind), 2) + pow((cos1 * sin2 - sin1 * cos2 * cosd), 2));
-        double b = sin1 * sin2 + cos1 * cos2 * cosd;
-        double dist = atan2(a, b);
-        if (!rad) dist *= rad2deg;
-        return dist;
-    }
-
+    void showSumnerLines(glm::vec4 color = NO_COLOR, float width = NO_FLOAT);
+    void showNames(Font* font, glm::vec4 color = NO_COLOR, float size = NO_FLOAT);
+    void showDots(glm::vec4 color = NO_COLOR, float size = NO_FLOAT);
+    void update();
+    LLH calcLocation(bool rad);
+    Intersection calcSumnerIntersection(LLH llh1, LLH llh2, bool rad);
+    double calcArcDist(LLH llh1, LLH llh2, bool rad);
 private:
     Earth* m_earth = nullptr;
     std::vector<SubStellarPoint*> m_ssps;
@@ -1128,6 +955,43 @@ private:
     LLH spoint3;
     LLH solution;
 };              
+
+
+// --------------------
+//  Three Point Solver
+// --------------------
+class ThreePointSolver {
+    // Solves a fix for 3 observations using StellarSubPoint
+    // 1) add points, 2) optionally set other parameters, 3) pull solution
+public:
+    ThreePointSolver(Earth* earth);
+    SubStellarPoint* addSubStellarPoint(const std::string starname, const double elevation, bool rad = false, const double jd_tt = NO_DOUBLE);
+    void addSubStellarPoint(SubStellarPoint* ssp);
+    void setIndexError(double indexError, bool rad = false);
+    void setObserverHeight(double observerHeight);
+    void setRefraction(double temperature, double pressure);
+    void showSumnerLines(glm::vec4 color = NO_COLOR, float width = NO_FLOAT);
+    void showNames(Font* font, glm::vec4 color = NO_COLOR, float size = NO_FLOAT);
+    void showDots(glm::vec4 color = NO_COLOR, float size = NO_FLOAT);
+    void update();
+    LLH calcLocation(bool rad);
+    Intersection calcSumnerIntersection(LLH llh1, LLH llh2, bool rad);
+    double calcArcDist(LLH llh1, LLH llh2, bool rad);
+private:
+    //double m_obsHeight = 0.0;    // meters
+    //double m_temperature = 10.0; // Celsius
+    //double m_pressure = 1010.0;  // mbar or hPa
+    //double m_indexError = 0.0;   // radians
+    Earth* m_earth = nullptr;
+    std::vector<SubStellarPoint*> m_ssps;
+    Intersection isect12;
+    Intersection isect23;
+    Intersection isect31;
+    LLH spoint1;
+    LLH spoint2;
+    LLH spoint3;
+    LLH solution;
+};
 
 
 // ----------
@@ -1252,63 +1116,10 @@ public:
     };
     class AziEleGrid {
     public:
-        AziEleGrid(Location* location, double stepsize, float width, glm::vec4 color = LIGHT_PURPLE) : m_location(location) {
-            m_stepsize = stepsize; // always given in radians
-            for (double angle = 0.0; angle < tau; angle += m_stepsize) {
-                addAzimuthCircle(angle, width, color);
-            }
-            for (double angle = -pi2; angle < pi2; angle += m_stepsize) {
-                addElevationCircle(angle, width, color);
-            }
-        }
-        void update(bool time, bool morph) {
-            if (!morph) return; // Time passing does not change azi ele grid
-            if (azicircles.size() != 0) {
-                unsigned int i = 0;
-                double azi = 0.0;
-                for (auto c : azicircles) {
-                    azi = m_stepsize * (double)i;
-                    c->clearPoints();
-                    for (double ele = -pi2; ele <= pi2 + tiny; ele += deg2rad) {
-                        glm::vec3 point = m_location->getPosition() + m_location->m_radius * m_location->calcEleAzi2Dir({ ele,azi,0.0 });
-                        c->addPoint(point);
-                    }
-                    i++;
-                    c->generate();
-                }
-            }
-            if (elecircles.size() != 0) {
-                unsigned int i = 0;
-                double ele = 0.0;
-                for (auto c : elecircles) {
-                    ele = m_stepsize * (double)i;
-                    c->clearPoints();
-                    for (double azi = 0.0; azi <= tau; azi += deg2rad) {
-                        glm::vec3 point = m_location->getPosition() + m_location->m_radius * m_location->calcEleAzi2Dir({ ele,azi,0.0 });
-                        c->addPoint(point);
-                    }
-                    i++;
-                    c->generate();
-                }
-            }
-        }
-        void addAzimuthCircle(double azi, float width, glm::vec4 color) {
-            // Actually a half-circle
-            azicircles.emplace_back(new GenericPath(m_location->m_scene, width, color));
-            for (double ele = -pi2; ele <= pi2 + tiny; ele += deg2rad) {
-                glm::vec3 point = m_location->getPosition() + m_location->m_radius * m_location->calcEleAzi2Dir({ ele,azi,0.0 });
-                azicircles.back()->addPoint(point);
-            }
-            azicircles.back()->generate();
-        }
-        void addElevationCircle(double ele, float width, glm::vec4 color) {
-            elecircles.emplace_back(new GenericPath(m_location->m_scene, width, color));
-            for (double azi = 0.0; azi <= tau; azi += deg2rad) {
-                glm::vec3 point = m_location->getPosition() + m_location->m_radius * m_location->calcEleAzi2Dir({ ele,azi,0.0 });
-                elecircles.back()->addPoint(point);
-            }
-            elecircles.back()->generate();
-        }
+        AziEleGrid(Location* location, double stepsize, float width, glm::vec4 color = LIGHT_PURPLE);
+        void update(bool time, bool morph);
+        void addAzimuthCircle(double azi, float width, glm::vec4 color);
+        void addElevationCircle(double ele, float width, glm::vec4 color);
     private:
         double m_stepsize{ 15.0 * deg2rad };
         Location* m_location{ nullptr };
@@ -1319,7 +1130,7 @@ public:
 
     Location::TrueSun* truesun = nullptr;
     Location::FlatSun* flatsun = nullptr;
-    Location::AziEleGrid* azielegrid{ nullptr };
+    Location::AziEleGrid* azielegrid = nullptr;
 private:
     struct arrowcache {
         glm::vec3 position;
@@ -1433,7 +1244,7 @@ public:
     glm::vec3 calcEleAzi2Dir(LLH heading, bool radians = true);
     LLH calcDir2EleAzi(glm::vec3 direction, bool rads = true);
     glm::vec3 calcDecRA2Dir(double jd, double dec, double ra, bool rad = false);
-    glm::vec3 calcDirRADec(double ra, double dec, double jd = 0.0);
+    //glm::vec3 calcDirRADec(double ra, double dec, double jd = 0.0);
     glm::vec3 getTrueSunDir(double jd = 0.0);
     glm::vec3 getFlatSunDir(double jd = 0.0);
     glm::mat4 calcWorld2LocalMatrix();
@@ -1668,7 +1479,7 @@ private:
     Location* m_location = nullptr;
     //double m_JD = 0.0;
     float m_gsid = 0.0f; // Greenwich Hour Angle
-    bool m_movable;
+    bool m_movable = true;
     float m_Radius = 2.0f;
     unsigned int m_meshU = 0;
     unsigned int m_meshV = 0;
@@ -1707,7 +1518,7 @@ public:
     glm::vec3 getLoc3D_NS(double lat, double lon);
     void addLineStarStar(const std::string star1, const std::string star2, glm::vec4 color = NO_COLOR, float width = NO_FLOAT);
 private:
-    void loadStars();
+    //void loadStars();
     void genGeom();
     float getMagnitude2Radius(double magnitude);
 };
@@ -1716,6 +1527,7 @@ private:
 // -------------
 //  PathTracker
 // -------------
+// !!! FIX: Convert or update to (also?) use GenericPath !!!
 template<typename T>
 class PathTracker {
     // Similar to a Lerper, but able to move a Location, Camera LookAt, etc. along one or two std::vector<glm::vec3> path(s)

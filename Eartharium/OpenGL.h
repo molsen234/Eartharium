@@ -39,6 +39,8 @@
 //#define STB_IMAGE_IMPLEMENTATION
 //#include <stb_image.h>
 
+
+// !!! FIX: DON'T DO THESE HERE !!!
 // Task specific includes for astronomy calculations
 //#define AAPLUS_VSOP87_NO_HIGH_PRECISION
 #include "AAplus/AADate.h"
@@ -63,7 +65,11 @@
 #include "AAplus/AAPlanetaryPhenomena2.h"
 #include "AAplus/AADiameters.h"
 #include "AAplus/AARefraction.h"
+#include "AAplus/AADynamicalTime.h"
+#include "AAplus/AAPrecession.h"
+#include "AAplus/AAPhysicalMoon.h"
 
+// !!! FIX: DON'T DO THESE HERE !!!
 // My includes
 #include "config.h"
 
@@ -82,6 +88,7 @@ void GLAPIENTRY MessageCallback(GLenum source, GLenum type, GLuint id, GLenum se
 class Scene;
 class World;
 class Camera;
+class Texture;
 
 
 // ----------------------
@@ -187,6 +194,61 @@ public:
 };
 
 
+
+// -----------------
+//  Texture Library
+// -----------------
+// Texture Slots - Just a note to remember which texture slots are in use on the GPU
+// Shadows = 1, SkyBox = 2, Earth = 3 + 4, Sundot = 5, Moondot = 6, OutputRender = 7, Font = 8, DetailedMoon = 9.
+// There is probably  no real reason why the textures can't share a texture slot, look into that. I think the max is 32.
+
+enum TextureType {
+	DUMMY = 0,
+	SHADOWS,
+	SKYBOX,
+	EARTH_DAY,
+	EARTH_NIGHT,
+	SUNDOT,
+	MOONDOT,
+	OUTPUT_RENDER,
+	FONT_MAP,
+	MOON_FULL,
+	MOON_BUMP,
+	EARTH_BUMP,
+	SKY_FULL
+};
+class TextureLibrary {
+	struct TextureEntry {
+		unsigned int Type = maxuint;
+		unsigned int RenderID = maxuint;
+		GLint slot = 0;
+		Texture* tex = nullptr;
+		unsigned int count = 0;
+		std::string file;
+	};
+	std::array<TextureEntry, 13> textures = { {
+		{ DUMMY, maxuint, DUMMY, nullptr, 0, "" },       // Dummy entry until I decide how to handle GL_TEXTUREx allocation
+		{ SHADOWS, maxuint, GL_TEXTURE1, nullptr, 0, "" },       // Not loaded from file
+		{ SKYBOX, maxuint, GL_TEXTURE2, nullptr, 0, "" },        // Not loaded from file
+		{ EARTH_DAY, maxuint, GL_TEXTURE3, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\large map 8192x4096.png" },
+		{ EARTH_NIGHT, maxuint, GL_TEXTURE4, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\BlackMarble_2012_8192x4096_ice.png" },
+		{ SUNDOT, maxuint, GL_TEXTURE5, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\2k_sun.png" },
+		{ MOONDOT, maxuint, GL_TEXTURE6, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\2k_moon.png" },
+		{ OUTPUT_RENDER, maxuint, GL_TEXTURE7, nullptr, 0, "" }, // Not loaded from file
+		{ FONT_MAP, maxuint, GL_TEXTURE8, nullptr, 0, "" },      // Not loaded from file
+		{ MOON_FULL, maxuint, GL_TEXTURE9, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\moon 8192x4096.png" },
+		{ MOON_BUMP, maxuint, GL_TEXTURE10, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\moon height 8192x4096.png" },
+		// EGM-96 geoid from: https://www.agisoft.com/downloads/geoids/
+		//{ EARTH_BUMP, maxuint, GL_TEXTURE11, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\us_nga_egm96_15arcmin.png" }
+		{ EARTH_BUMP, maxuint, GL_TEXTURE11, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\earth height 8192x4096.png" },
+		{ SKY_FULL, maxuint, GL_TEXTURE12, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\starmap-gimp_8k (8192x4096 celestial coords).png" }
+		//{ SKY_FULL, maxuint, GL_TEXTURE12, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\earth height 8192x4096.png" }
+	} };
+public:
+	Texture* getTexture(unsigned int texture);
+};
+
+
 // ----------------
 //  Texture Buffer
 // ----------------
@@ -231,10 +293,13 @@ public:
 	unsigned int GetRenderID();
 	void SetUniform1i(const std::string& name, unsigned int v0);
 	void SetUniform4f(const std::string& name, float v0, float v1, float v2, float v3);
+	void SetUniform4f(const std::string& name, glm::vec4 v);
 	void SetUniform3f(const std::string& name, float v0, float v1, float v2);
+	void SetUniform3f(const std::string& name, glm::vec3 v);
 	void SetUniform2f(const std::string& name, float v0, float v1);
 	void SetUniform1f(const std::string& name, float v0);
 	void SetUniformMatrix4f(const std::string& name, const glm::mat4 matrix);
+	void SetUniformMatrix3f(const std::string& name, const glm::mat3 matrix);
 private:
 	ShaderProgramSource ParseShader();
 	unsigned int CompileShader(unsigned int type, const std::string& source);
@@ -258,7 +323,9 @@ enum ShaderType {
 	GLYPH_SHADER,
 	PLANETOID_SHADER,
 	SKY_BOX_SHADER,
-	SKY_SPHERE_SHADER
+	SKY_SPHERE_SHADER,
+	MOON_SHADER,
+	SKY_SHADER
 };
 class ShaderLibrary {
 	//World* m_world = nullptr;
@@ -269,7 +336,7 @@ class ShaderLibrary {
 		unsigned int count = 0;
 		std::string file;
 	};
-	std::array<ShaderEntry, 12> shaders = { {
+	std::array<ShaderEntry, 14> shaders = { {
 		{ EARTH_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\earth.glsl" },
 		{ EARTH_SHADOW_MAP_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitiveshadow.glsl" },
 		{ EARTH_SHADOW_BOX_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitivesdwbox.glsl" },
@@ -281,7 +348,9 @@ class ShaderLibrary {
 		{ GLYPH_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\glyph.glsl" },
 		{ PLANETOID_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\planetoid.glsl" },
 		{ SKY_BOX_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\skybox.glsl" },
-		{ SKY_SPHERE_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\skysphere.glsl" }
+		{ SKY_SPHERE_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\skysphere.glsl" },
+		{ MOON_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\moon.glsl" },
+		{ SKY_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\sky.glsl" }
 	} };
 public:
 	//ShaderLibrary() = default;

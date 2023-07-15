@@ -38,6 +38,7 @@ IMPORTANT
   UPD: This is now slightly better. Earth still has no lines though.
 
 - Apparently the day and night textures for Earth do not match well in ice coverage at the poles.
+  UPD: Slightly better now.
 
 = GUI crashes when certain objects do not exist. 
 
@@ -131,6 +132,10 @@ Spheres
 - Should also support a basic grid like lat/lon on Earth, for astronomy explanations
 - Transparency can be moved from Dots to here, to give a good render order - have to think about blending some more.
 = Support textured objects, but those will probably derive from a basic Sphere
+
+Moon
+----
+Lots of Moon parameters: https://nssdc.gsfc.nasa.gov/planetary/factsheet/moonfact.html
 
 Earth
 -----
@@ -253,7 +258,7 @@ Other ideas
   + Possiply inherit from base Primitive class
   + Still need to do Dots and Cylinders - done!
   + Normalize the primitive cache's in Earth/Location/etc
-    + Still need to review Location again - done!
+  + Still need to review Location again - done!
 
 - Would a Star class be useful? Could tie to SkyBox and Location / Earth and help manage catalogue
 - Implement a Location catalogue (airports, major cities, etc), and billboard callout for Location or Earth::Dot
@@ -272,6 +277,7 @@ http://ftgl.sourceforge.net/docs/html/ (successor to gltt)
 https://github.com/bantamtools/ftgl
 Some notes on improving imgui font rendering: https://github.com/nothings/stb/tree/master/tests/oversample
 ImGui Icons and mixing fonts: https://github.com/juliettef/IconFontCppHeaders
+* Actually using MSDF from Chumsky (github)
 
 
 LocationArrows
@@ -296,16 +302,4 @@ LocationArrows
   o Length
   o Width
   o 
-
-
-
-
-
-
-
-
-
-
-
-
 

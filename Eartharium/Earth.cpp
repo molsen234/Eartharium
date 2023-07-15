@@ -4,18 +4,9 @@
 // ----------
 //  LocGroup
 // ----------
-
-// NOTE: Implement using std::list rather than tightvec !!!
-// - I have forgotten why, will have to revisit
-// - Oh! So GUI can eventually easily iterate over it without showing the deleted ones.
 LocGroup::LocGroup(Earth* e, unsigned int identifier) {
-    // LocGroup allows Earth
     earth = e;
-    id = identifier; // Check earth for duplicates? Or return unique id instead? !!!
-    //locations.reserve(locgrpreserve);
-    //std::cout << "LocGroup created: " << identifier << " (Capacity: " << locations.capacity() <<")\n";
-    //world = earth->m_world;
-    //std::cout << "LocGroup::Locgroup: Created group " << id << " with reserve " << locations.capacity() << ".\n";
+    id = identifier;
 }
 LocGroup::~LocGroup() {
     clear();
@@ -27,6 +18,7 @@ unsigned int LocGroup::size() {
     return (unsigned int)locations.size();
 }
 Location* LocGroup::addLocation(double dLat, double dLon, bool rad, float rsky) {
+    // implemented with std::list of Location pointers to keep a dense datastructure for easy GUI construction etc.
     locations.emplace_back(new Location(earth, dLat, dLon, rad, rsky));
     return locations.back();
 }
@@ -312,20 +304,17 @@ void SubLunar::genGeom(float radius) {
     }
 }
 
+// --------------
+//  BodyGeometry
+// --------------
+BodyGeometry::BodyGeometry(Scene* scene, unsigned int material, std::string mode, unsigned int meshU, unsigned int meshV, float gpuRadius)
+    : SceneObject(scene), m_mode(mode), m_radius(gpuRadius), m_meshU(meshU), m_meshV(meshV) {
+    std::cout << material << " ";
+    vertices.reserve(((size_t)meshU + 1) * ((size_t)meshV + 1));
+    tris.reserve((size_t)(meshU * (size_t)meshV * (size_t)sizeof(Tri)));
 
-
-
-// ------------
-//  Earth v2.0
-// ------------
-Earth2::Earth2(Scene* scene, const std::string mode, const unsigned int uMesh, const unsigned int vMesh) : m_meshU(uMesh), m_meshV(vMesh) {
-    m_scene = scene;
-    position = glm::vec3(0.0f);
-    vertices.reserve(((size_t)m_meshU + 1) * ((size_t)m_meshV + 1));
-    tris.reserve((size_t)(m_meshU * (size_t)m_meshV * (size_t)sizeof(Tri)));
-
-    setMode(mode); // Before genMesh, as it uses getLoc3D
-    genMesh();
+    setMode(mode);
+    createShape();
 
     vbl = new VertexBufferLayout;
     vbl->Push<float>(3);   // Vertex pos
@@ -337,125 +326,138 @@ Earth2::Earth2(Scene* scene, const std::string mode, const unsigned int uMesh, c
     vb = new VertexBuffer(&vertices[0], (unsigned int)vertices.size() * sizeof(vertex));
     ib = new IndexBuffer((unsigned int*)&tris[0], (unsigned int)tris.size() * 3);
     va->AddBuffer(*vb, *vbl, true);
-    shdr = m_scene->m_app->getShaderLib()->getShader(EARTH_SHADER);
-    //smshdr = m_scene->m_app->getShaderLib()->getShader(EARTH_SHADOW_MAP_SHADER);
-    //sbshdr = m_scene->m_app->getShaderLib()->getShader(EARTH_SHADOW_BOX_SHADER);
-    texture_day = new Texture(daytexfile, GL_TEXTURE3);
-    texture_night = new Texture(nighttexfile, GL_TEXTURE4);
 
+    // Fold these into a Material library - work in progress
+    //shdr = m_scene->m_app->getShaderLib()->getShader(MOON_SHADER);
+    //m_texture1 = m_scene->m_app->getTextureLib()->getTexture(MOON_FULL);
+    shdr = m_scene->m_app->getShaderLib()->getShader(Materials[material].shader);
+    m_texture1 = m_scene->m_app->getTextureLib()->getTexture(Materials[material].texture1);
+    if (Materials[material].texture2 != NO_UINT) m_texture2 = m_scene->m_app->getTextureLib()->getTexture(Materials[material].texture2);
+    if (Materials[material].texture3 != NO_UINT) m_texture3 = m_scene->m_app->getTextureLib()->getTexture(Materials[material].texture3);
+    std::cout << m_texture1 << '\n';
 }
-Earth2::~Earth2() {
-    tris.clear();
-    vertices.clear();
-    delete texture_night;
-    delete texture_day;
+BodyGeometry::~BodyGeometry() {
+    delete m_texture1;
     delete ib;
     delete vb;
     delete va;
     delete vbl;
 }
-void Earth2::setMode(const std::string mode) {
+void BodyGeometry::setMode(const std::string mode) {
     std::string sMode = mode.substr(0, 2);
     std::string eMode = mode.substr(2, 2);
     // Could this be initialized in an array or vector? !!!
     if (sMode == "NS") {
-        pos_mode1 = &Earth2::getLoc3D_NS;
-        nml_mode1 = &Earth2::getNml3D_NS;
+        pos_mode1 = &BodyGeometry::getLoc3D_NS;
+        nml_mode1 = &BodyGeometry::getNml3D_NS;
     }
     if (sMode == "AE") {
-        pos_mode1 = &Earth2::getLoc3D_AE;
-        nml_mode1 = &Earth2::getNml3D_AE;
+        pos_mode1 = &BodyGeometry::getLoc3D_AE;
+        nml_mode1 = &BodyGeometry::getNml3D_AE;
     }
     if (sMode == "ER") {
-        pos_mode1 = &Earth2::getLoc3D_ER;
-        nml_mode1 = &Earth2::getNml3D_ER;
+        pos_mode1 = &BodyGeometry::getLoc3D_ER;
+        nml_mode1 = &BodyGeometry::getNml3D_ER;
     }
     // Other mode1 assignments here...
     if (pos_mode1 == nullptr) {
-        std::cout << "ERROR: Earth2::setMode(): Could not assign geometry function to start mode \"" << sMode << "\", it is unknown! Default: NS\n";
-        pos_mode1 = &Earth2::getLoc3D_NS;
-        nml_mode1 = &Earth2::getNml3D_NS;
+        std::cout << "ERROR: BodyGeometry::setMode(): Could not assign geometry function to start mode \"" << sMode << "\", it is unknown! Default: NS\n";
+        pos_mode1 = &BodyGeometry::getLoc3D_NS;
+        nml_mode1 = &BodyGeometry::getNml3D_NS;
     }
     if (eMode == "NS") {
-        pos_mode2 = &Earth2::getLoc3D_NS;
-        nml_mode2 = &Earth2::getNml3D_NS;
+        pos_mode2 = &BodyGeometry::getLoc3D_NS;
+        nml_mode2 = &BodyGeometry::getNml3D_NS;
     }
     if (eMode == "AE") {
-        pos_mode2 = &Earth2::getLoc3D_AE;
-        nml_mode2 = &Earth2::getNml3D_AE;
+        pos_mode2 = &BodyGeometry::getLoc3D_AE;
+        nml_mode2 = &BodyGeometry::getNml3D_AE;
     }
     if (eMode == "ER") {
-        pos_mode2 = &Earth2::getLoc3D_ER;
-        nml_mode2 = &Earth2::getNml3D_ER;
+        pos_mode2 = &BodyGeometry::getLoc3D_ER;
+        nml_mode2 = &BodyGeometry::getNml3D_ER;
     }
     // Other mode2 assignments here...
     if (eMode == "") {
         pos_mode2 = nullptr;
         nml_mode2 = nullptr;
     }
-    if (pos_mode2 == nullptr) {
-        std::cout << "ERROR: Earth2::setMode(): Could not assign geometry function to end mode \"" << eMode << "\", it is unknown! Default: AE\n";
-        pos_mode2 = &Earth2::getLoc3D_AE;
-        nml_mode2 = &Earth2::getNml3D_AE;
+    else if (pos_mode2 == nullptr) {
+        std::cout << "ERROR: BodyGeometry::setMode(): Could not assign geometry function to end mode \"" << eMode << "\", it is unknown! Default: AE\n";
+        pos_mode2 = &BodyGeometry::getLoc3D_AE;
+        nml_mode2 = &BodyGeometry::getNml3D_AE;
     }
 }
-void Earth2::setMorphParameter(float parameter) {
+std::string BodyGeometry::getMode() {
+    return m_mode;
+}
+void BodyGeometry::setMorphParameter(float parameter) {
     //std::cout << "Morph updated!\n";
     morph_param = parameter;
 }
-float Earth2::getMorphParameter() {
+float BodyGeometry::getMorphParameter() {
     return morph_param;
 }
-glm::vec3 Earth2::getLoc3D(const double rLat, const double rLon, const double height, const bool rad) {
+glm::vec3 BodyGeometry::getLoc3D(const LLH loc, const bool rad) {
     /// <summary>
-    /// Takes Earth latitude and longitude in radians to glm::vec3 Cartesian coordinate in world space
+    /// Takes latitude and longitude in radians to glm::vec3 Cartesian coordinate in world/object space
     /// </summary>
     /// <param name="rLat">Latitude given in -pi/2 to pi/2 radians</param>
     /// <param name="rLon">Longitude given in -pi to pi radians from Greenwich meridian (east of south)</param>
     /// <param name="height">Optional height above geoid surface in km, defaults to 0.0</param>
     /// <param name="rad">Optional flag to indicate if angles are in radians, defaults to false</param>
     /// <returns>Cartesian coordinates glm::vec3 in world space units for currently active geoid geometry</returns>
-    if (pos_mode2 == nullptr) return (this->*pos_mode1)(rLat, rLon, height, rad);
-    return morph_param * (this->*pos_mode2)(rLat, rLon, height, rad) + (1.0f - morph_param) * (this->*pos_mode1)(rLat, rLon, height, rad);
+    if (pos_mode2 == nullptr) return (this->*pos_mode1)(loc, rad);
+    return morph_param * (this->*pos_mode2)(loc, rad) + (1.0f - morph_param) * (this->*pos_mode1)(loc, rad);
 }
-glm::vec3 Earth2::getNml3D(const double rLat, const double rLon, const bool rad) {
-    if (nml_mode2 == nullptr) return (this->*nml_mode1)(rLat, rLon, rad);
-    return glm::normalize(morph_param * (this->*nml_mode2)(rLat, rLon, rad) + (1.0f - morph_param) * (this->*nml_mode1)(rLat, rLon, rad));
+glm::vec3 BodyGeometry::getNml3D(const LLH loc, const bool rad) {
+    if (nml_mode2 == nullptr) return (this->*nml_mode1)(loc, rad);
+    return glm::normalize(morph_param * (this->*nml_mode2)(loc, rad) + (1.0f - morph_param) * (this->*nml_mode1)(loc, rad));
 }
-glm::vec3 Earth2::getLoc3D_NS(const double rLat, const double rLon, const double height, const bool rad) {
-    double lat = rLat, lon = rLon;
+glm::vec3 BodyGeometry::getLoc3D_NS(const LLH loc, const bool rad) {
+    double lat = loc.lat, lon = loc.lon;
     if (!rad) {
         lat *= deg2rad;
         lon *= deg2rad;
     }
-    double h = radius + height * radius / earthradius; // Height above center in world coordinates
+    double h = m_radius + loc.dst; // Height above center in world coordinates
     float w = (float)(cos(lat) * h);
     float x = (float)(cos(lon) * w);
     float y = (float)(sin(lon) * w);
     float z = (float)(sin(lat) * h);
     return glm::vec3(x, y, z);
 }
-glm::vec3 Earth2::getNml3D_NS(const double rLat, const double rLon, const bool rad) {
-    return glm::normalize(getLoc3D_NS(rLat, rLon, 0.0, rad));
+glm::vec3 BodyGeometry::getNml3D_NS(const LLH loc, const bool rad) {
+    //return glm::normalize(getLoc3D_NS(rLat, rLon));
+    double lat = loc.lat, lon = loc.lon; // To keep const promise
+    if (!rad) {
+        lat *= deg2rad;
+        lon *= deg2rad;
+    }
+    float w = (float)(cos(lat));                     // Slightly simplified, as radius and height are irrelevant on a sphere
+    float x = (float)(cos(lon) * w);
+    float y = (float)(sin(lon) * w);
+    float z = (float)(sin(lat));
+    return glm::normalize(glm::vec3(x, y, z));
 }
-glm::vec3 Earth2::getLoc3D_AE(const double rLat, const double rLon, const double height, const bool rad) {
-    double lat = rLat, lon = rLon;
+glm::vec3 BodyGeometry::getLoc3D_AE(const LLH loc, const bool rad) {
+    double lat = loc.lat, lon = loc.lon;
     if (!rad) {
         lat *= deg2rad;
         lon *= deg2rad;
     }
     // NOTE: This choice of w gives an equator equal to that of a spherical Earth !!!
     //       Should really use a scale where north pole to equator distance matches
-    double w = (pi2 - lat) * radius / pi2;
+    double w = (pi2 - lat) * m_radius / pi2;
     float x = (float)(cos(lon) * w);
     float y = (float)(sin(lon) * w);
-    return glm::vec3(x, y, height * radius / earthradius);
+    return glm::vec3(x, y, loc.dst);
 }
-glm::vec3 Earth2::getNml3D_AE(const double rLat, const double rLon, const bool rad) {
+glm::vec3 BodyGeometry::getNml3D_AE(const LLH loc, const bool rad) {
     return glm::vec3(0.0f, 0.0f, 1.0f);
 }
-glm::vec3 Earth2::getLoc3D_ER(const double rLat, const double rLon, const double height, const bool rad) {
-    double lat = rLat, lon = rLon;
+glm::vec3 BodyGeometry::getLoc3D_ER(const LLH loc, const bool rad) {
+    double lat = loc.lat, lon = loc.lon;
     if (!rad) {
         lat *= deg2rad;
         lon *= deg2rad;
@@ -464,58 +466,29 @@ glm::vec3 Earth2::getLoc3D_ER(const double rLat, const double rLon, const double
     if (lat > pi2 + tiny || lat < -pi2 - tiny) std::cout << "WARNING: Earth2::getLoc3D_ER(): lat is out of range: " << lat << "\n";
     if (lon > pi + tiny || lon < -pi - tiny) std::cout << "WARNING: Earth2::getLoc3D_ER(): lon is out of range: " << lon << "\n";
     // The simple scale used *does* preserve the north pole to equator distance from a sphere, since on a unit sphere that distance is pi/2.
-    return glm::vec3(height * radius / earthradius, lon * radius, lat * radius);
+    return glm::vec3(loc.dst, lon * m_radius, lat * m_radius);
 }
-glm::vec3 Earth2::getNml3D_ER(const double rLat, const double rLon, const bool rad) {
+glm::vec3 BodyGeometry::getNml3D_ER(const LLH loc, const bool rad) {
     return glm::vec3(1.0f, 0.0f, 0.0f);
 }
-
-void Earth2::draw(Camera* cam) {
-    // Shader setup
-    shdr->Bind();
-    glm::mat4 pv = cam->getProjMat() * cam->getViewMat();
-    shdr->SetUniformMatrix4f("projview", pv);
-    //if (w_sinsol) shdr->SetUniform3f("sunDir", SunLightDir.x, SunLightDir.y, SunLightDir.z);
-    //if (!w_sinsol) shdr->SetUniform3f("sunDir", 0.0f, 0.0f, 0.0f);
-    //if (w_linsol) shdr->SetUniform3f("moonDir", MoonLightDir.x, MoonLightDir.y, MoonLightDir.z);
-    //if (!w_linsol) shdr->SetUniform3f("moonDir", 0.0f, 0.0f, 0.0f);
-    //if (w_refract) shdr->SetUniform1f("refraction", 1.0f);
-    //else shdr->SetUniform1f("refraction", 0.0f);
-    shdr->SetUniform3f("sunDir", 0.0f, 0.0f, 0.0f);
-    shdr->SetUniform3f("moonDir", 0.0f, 0.0f, 0.0f);
-    shdr->SetUniform1f("refraction", 0.0f);
-
-    shdr->SetUniform3f("lightDir", cam->CamLightDir.x, cam->CamLightDir.y, cam->CamLightDir.z);
-    shdr->SetUniform1i("dayTexture", texture_day->GetTextureSlot());
-    shdr->SetUniform1i("nightTexture", texture_night->GetTextureSlot());
-    shdr->SetUniform1f("alpha", 1.0f);
-    //shdr->SetUniform1f("twilight", w_twilight ? 1.0f : 0.0f);
-    shdr->SetUniform1f("twilight", 0.0f);
-    va->Bind();
-    ib->Bind();
-    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-    glDisable(GL_CULL_FACE); // It is irritating that Earth disappears when seen from back-/in-side
-    glDrawElements(GL_TRIANGLES, ib->GetCount(), GL_UNSIGNED_INT, 0);
-    glEnable(GL_CULL_FACE);
-    // Cleanup
-    va->Unbind();
-    ib->Unbind();
-    shdr->Unbind();
-}
-void Earth2::update() {
-    //std::cout << "Earth2::update(): morph_param = " << morph_param << "\n";
-    updateMorph();
-}
-void Earth2::genMesh() {
+// FIX !!! Add additional geometries here !!!
+// Note: Earth IAU 76 shape referenced in Meeus 1992 chapter 11.
+//void draw(Camera* cam); // draw() and update() should be supplied by SceneObject, they relate to the rendering.
+//void update() override;
+// createShape() might get tri and vert vectors if rendering is done in SceneObject or elsewhere - decide in constructor
+void BodyGeometry::createShape() {    // Creates the mesh geometry, should probably only be called once at creation
     double lat, lon;
-    for (unsigned int v = 0; v <= m_meshV; v++) {     // -pi/2 to pi/2 => (v/m_meshV)*pi -pi/2
+    // Build mesh from bottom left to top right, meridian by meridian
+    for (unsigned int v = 0; v <= m_meshV; v++) {  // -pi/2 to pi/2 => (v/m_meshV)*pi -pi/2
         lat = (pi * v / m_meshV) - pi2;
         for (unsigned int u = 0; u <= m_meshU; u++) {
             lon = (tau * u / m_meshU) - pi;
-            glm::vec3 pos = getLoc3D(lat, lon, 0.0, true);     // position of vertex
-            glm::vec3 nms = getNml3D_NS(lat, lon, true);       // Insolation normal, always NS (or G8?)
-            glm::vec3 nml = getNml3D(lat, lon, true);          // Geometry normal, for camera lighting
-            vertices.push_back({ pos, nms, nml, glm::vec2(u / (float)m_meshU + texoffset_x / 8192.0f, v / (float)m_meshV) + texoffset_y / 4096.0f, BLACK });
+            //lon = (pi * u / m_meshU) - pi;
+            glm::vec3 loc = getLoc3D({ lat, lon, 0.0 }, true);     // position of vertex
+            glm::vec3 nms = getNml3D_NS({ lat, lon }, true);  // Insolation normal, always NS (or G8?)
+            glm::vec3 nml = getNml3D({ lat, lon }, true);     // Geometry normal, for camera lighting
+            vertices.push_back({ loc, nms, nml, glm::vec2(u / (float)(m_meshU) + texoffset_x / 8192.0f, v / (float)m_meshV) + texoffset_y / 4096.0f, BLACK });
+            //vertices.push_back({ loc, nms, nml, glm::vec2(u / (float)(m_meshU*2) + texoffset_x / 8192.0f, v / (float)m_meshV) + texoffset_y / 4096.0f, BLACK });
             if (u < m_meshU && v < m_meshV) {
                 tris.push_back({ (m_meshU + 1) * v + u , (m_meshU + 1) * (v + 1) + u, (m_meshU + 1) * (v + 1) + 1 + u });
                 tris.push_back({ (m_meshU + 1) * (v + 1) + 1 + u, (m_meshU + 1) * v + u + 1, (m_meshU + 1) * v + u });
@@ -523,15 +496,17 @@ void Earth2::genMesh() {
         }
     }
 }
-void Earth2::updateMorph() { // Only updates vertices, including vertex colors used for arctics and tropics overlay
+void BodyGeometry::updateShape() {    // Updates the mesh geometry, called when tex offset, mode or morph param change
     unsigned int i = 0;
-    float lat, lon;
+    double lat, lon;
+    // Update mesh from bottom left to top right, meridian by meridian
     for (unsigned int v = 0; v <= m_meshV; v++) {
-        lat = (pif * v / m_meshV) - pi2f;
+        lat = (pi * v / m_meshV) - pi2;
         for (unsigned int u = 0; u <= m_meshU; u++) {
-            lon = (tauf * u / m_meshU) - pif;
-            vertices[i].position = getLoc3D(lat, lon, 0.0, true);
-            vertices[i].surface_normal = getNml3D(lat, lon, true);
+            lon = (tau * u / m_meshU) - pi;
+            //lon = (pi * u / m_meshU) - pi;
+            vertices[i].position = getLoc3D({ lat, lon, 0.0 }, true);
+            vertices[i].surface_normal = getNml3D({ lat, lon }, true);
             // NOTE: This is only partial separation between geometry and insolation, maybe a more general approach will be good
             //       e.g. to show how wrong it looks to have flat Earth insolation on a globe, etc.
             //if (do_eccentriclight) vertices[i].normal_i = getNml3D_EE(lat, lon, 0.0f);
@@ -542,17 +517,507 @@ void Earth2::updateMorph() { // Only updates vertices, including vertex colors u
         }
     }
     vb->LoadData(&vertices[0], (unsigned int)vertices.size() * sizeof(vertex));
-    // This object was updated, so update children
-    for (auto& child : children) {
+}
+void BodyGeometry::draw(Camera* cam) {
+    // !!! FIX: Shader and Textures should be a Material !!!
+    //          When fixing, add support for single channel and float value textures
+    if (hidden) return; // Don't draw anything if this object is marked as hidden
+    shdr->Bind();
+    glm::mat4 pv = cam->getProjMat() * cam->getViewMat();
+    shdr->SetUniformMatrix4f("world", worldmatrix);
+    shdr->SetUniformMatrix4f("projview", pv);
+    if (m_texture1 != nullptr) shdr->SetUniform1i("texture1", m_texture1->GetTextureSlot());
+    if (m_texture2 != nullptr) shdr->SetUniform1i("texture2", m_texture2->GetTextureSlot());
+    if (m_texture3 != nullptr) shdr->SetUniform1i("texture3", m_texture3->GetTextureSlot());
+    va->Bind();
+    ib->Bind();
+    // Maybe add a matching cleanup if user allocates and binds special GPU resources?
+    bool drawn = drawSpecific(cam, shdr);
+    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); //Note: For GL_FRONT_AND_BACK, also do glDisable(GL_CULL_FACE)
+    //glDisable(GL_CULL_FACE); // It is irritating that Earth disappears when seen from back-/in-side
+    if (!drawn) glDrawElements(GL_TRIANGLES, ib->GetCount(), GL_UNSIGNED_INT, 0);
+    //glEnable(GL_CULL_FACE);
+    // Cleanup
+    va->Unbind();
+    ib->Unbind();
+    shdr->Unbind();
+}
+bool BodyGeometry::drawSpecific(Camera* cam, Shader* shdr) { return false; }
+
+
+// ----------
+//  Meridian   (half Great Circle of Longitude)
+// ----------
+Longitude::Longitude(Scene* scene, BodyGeometry* geometry, double lon, float width, glm::vec4 color) : SceneObject(scene) {
+    name = "Longitude"; // Add latitude in degrees?
+    this->lon = lon;
+    locref = geometry;
+    path = new GenericPath{ scene,width,color }; // Use Scene to generate !!! Well, GenericPath uses Scene to create PolyCurve(s).
+    generate();
+}
+Longitude::~Longitude() {
+    m_parent->removeChild(this);
+    delete path;
+}
+void Longitude::generate() {
+    glm::vec3 pos{ 0.0f };
+    for (double lat = -pi2; lat <= pi2; lat += deg2rad) {
+        pos = (locref->*locpos)({ lat, lon, 0.0 }, true); // Dynamically calls earth->getLoc3D() (Earth2::getLoc3D())
+        path->addPoint(glm::mat3(worldmatrix) * pos);
+    }
+    path->generate();
+}
+void Longitude::update() {
+    path->clearPoints();
+    generate();
+}
+void Longitude::draw(Camera* cam) {}
+
+
+
+// ----------
+//  Parallel   (Circle of Latitude)
+// ----------
+Latitude::Latitude(Scene* scene, BodyGeometry* geometry, double lat, float width, glm::vec4 color) : SceneObject(scene) {
+    name = "Latitude"; // Add latitude in degrees?
+    this->lat = lat;
+    locref = geometry;
+    path = new GenericPath{ scene,width,color };
+    generate();
+}
+Latitude::~Latitude() {
+    // !!! FIX: Also remove own children, or figure out how to deal with them !!!
+    //          For now Latitude doesn't have children
+    m_parent->removeChild(this);
+    delete path;
+}
+void Latitude::setColor(glm::vec4 color) {
+    path->setColor(color);
+}
+void Latitude::setWidth(float width) {
+    path->setWidth(width);
+}
+void Latitude::generate() {
+    glm::vec3 pos{ 0.0f };
+    // !!! FIX: Might run to < pi instead of <= pi, and add starting point to end (lat, -pi) to ensure closed path !!!
+    for (double lon = -pi; lon <= pi; lon += deg2rad) {
+        pos = (locref->*locpos)({ lat, lon, 0.0 }, true);
+        path->addPoint(glm::mat3(worldmatrix) * pos);
+    }
+    path->generate();
+}
+void Latitude::update() {
+    path->clearPoints();
+    generate();
+}
+void Latitude::draw(Camera* cam) {}
+
+
+// ----------------
+//  Prime Meridian
+// ----------------
+PrimeMeridian::PrimeMeridian(Scene* scene, BodyGeometry* geometry, float width, glm::vec4 color) : Longitude(scene, geometry, 0.0, width, color) {
+        name = "Prime Meridian";
+    }
+
+// ---------
+//  Equator    - To test with Earth2 and other celestial objects (those are now BodyGeometry)
+// ---------
+Equator::Equator(Scene* scene, BodyGeometry* geometry, float width, glm::vec4 color) : Latitude(scene, geometry, 0.0, width, color) {
+    name = "Equator";
+}
+
+// ------
+//  Grid
+// ------
+Grid::Grid(Scene* scene, BodyGeometry* geometry, double spacing) : SceneObject(scene) {
+    // !!! FIX: Should probably accept a passed in name !!!
+    // !!! FIX: To be generic, it should take a location function so it can be used for EleAzi or DecRA in Location and LatLon in Earth !!!
+    //          Or rather, the geometry passed in should be usable for Location too. This may require more consideration...
+    name = "Graticule";
+    m_parent = geometry;
+    m_parent->addChild(this);
+    equator = new Equator{ scene, geometry, 0.007f };
+    equator->setParent(this);
+    primemeridian = new PrimeMeridian{ scene, geometry, 0.007f };
+    primemeridian->setParent(this);
+    for (double lat = -pi2; lat <= pi2; lat += spacing * deg2rad) {
+        if (abs(lat) > tiny) {
+            latitudes.emplace_back(new Latitude(scene, geometry, lat));
+            latitudes.back()->setParent(this);
+        }
+    }
+    for (double lon = -pi; lon <= pi; lon += spacing * deg2rad) {
+        if (abs(lon) > tiny) {
+            longitudes.emplace_back(new Longitude(scene, geometry, lon));
+            longitudes.back()->setParent(this);
+        }
+    }
+}
+Grid::~Grid() {
+    m_parent->removeChild(this);
+    delete equator;
+    delete primemeridian;
+    for (auto lat : latitudes) delete lat;
+    for (auto lon : longitudes) delete lon;
+}
+void Grid::update() {
+    for (auto child : children) {
         child->update();
+    }
+}
+void Grid::draw(Camera* cam) {}
+
+
+
+// --------------
+//  Small Circle
+// --------------
+//  Used for Tissot markers, Circle of equal altitude, etc
+SmallCircle::SmallCircle(Scene* scene, BodyGeometry* geometry, LLH location, double radius, float width, glm::vec4 color)
+    : SceneObject(scene), location(location), radius(radius) {
+    // width and color are optional
+    name = "Small Circle";
+    m_scene = scene;
+    this->color = color;
+    locref = geometry; // Using this now, so it can be updated to geometry later, and not be Earth2 specific
+    path = new GenericPath{ scene,width,color }; // Use Scene to generate !!! Well, GenericPath uses Scene to create PolyCurve(s).
+    generate();
+}
+SmallCircle::~SmallCircle() {
+    m_parent->removeChild(this);
+    delete path;
+}
+// A radius of r degrees on the surface of a sphere with radius R has a chord (flat) radius of  R*sin(r).
+// 
+void SmallCircle::generate() { // Generate by drawing circle around north pole and rotating into place by lat/lon
+    glm::vec3 pos{ 0.0f };
+    double const stepsize = tau / 360.0; // deg2rad;
+    double const zangle = location.lon - pi;   // Negative of angle to rotate around Z, to center above X axis
+    double const yangle = location.lat - pi2;  // Really -(90-lat) Negative of angle to rotate around Y to center on north pole
+    double const cy = cos(yangle);
+    double const sy = sin(yangle);
+    double const cz = cos(zangle);
+    double const sz = sin(zangle);
+    double const lz = sin(pi2 - radius);
+    for (double angle = -pi; angle <= pi; angle += stepsize) {
+        double lx = cos(pi2 - radius) * cos(angle);
+        double ly = cos(pi2 - radius) * sin(angle);
+        double l2x = lx * cy + lz * sy;
+        double l3x = l2x * cz - ly * sz;
+        double l3y = l2x * sz + ly * cz;
+        double lat = atan2(-lx * sy + lz * cy, sqrt(l3x * l3x + l3y * l3y));
+        double lon = atan2(l3y, l3x);
+        pos = (locref->*locpos)({ lat, lon, location.dst }, true); // Dynamically calls earth->getLoc3D() (Earth2::getLoc3D())
+        path->addPoint(pos);
+    }
+    path->generate();
+}
+void SmallCircle::update() {
+    path->clearPoints();
+    generate();
+}
+void SmallCircle::draw(Camera* cam) {}
+
+
+// --------------
+//  Detailed Sky
+// --------------
+DetailedSky::DetailedSky(Scene* scene, std::string mode, unsigned int meshU, unsigned int meshV, float radius)
+    : BodyGeometry(scene, DETAILED_SKY, mode, meshU, meshV, radius), m_scene(scene) {
+    name = "Detailed Sky";
+    // Should all the thousands of stars be children ?? If so, don't use Dots directly.
+    m_dotsFactory = m_scene->getDotsFactory();
+    addEquator();
+    update();
+}
+DetailedSky::~DetailedSky() {};
+void DetailedSky::setTexture(bool tex) {  // rename to useTexture()
+    // true = render the texture, false = do not render the texture
+    textured = tex;
+}
+bool DetailedSky::drawSpecific(Camera* cam, Shader* shdr) { 
+    shdr->SetUniform3f("lDir", glm::normalize(cam->getPosition()));             // lDir
+    //glDisable(GL_CULL_FACE); // Allow sky texture to be seen from both inside and outside
+
+    //std::cout << "DetailedSky::drawSpecific() textured = " << textured << '\n';
+    // If textured == false, pretend we already rendered, so BodyGeometry::draw() will skip the rendering.
+    return !textured;
+}
+void DetailedSky::addEquator() {
+    equatorOb = new Equator(m_scene, this);
+    equatorOb->setParent(this);
+}
+void DetailedSky::addPrimeMeridian() {}
+void DetailedSky::update() {
+    worldmatrix = glm::mat4(1.0f);
+}
+void DetailedSky::myGUI() {
+    if (ImGui::CollapsingHeader(name.c_str())) {
+        ImGui::Checkbox("Use Texture", &textured);
+    }
+}
+
+
+// ----------------
+//  Detailed Earth
+// ----------------
+DetailedEarth::DetailedEarth(Scene* scene, std::string mode, unsigned int meshU, unsigned int meshV, float radius)
+    : BodyGeometry(scene, DETAILED_EARTH, mode, meshU, meshV, radius), m_scene(scene) {
+
+    name = "Detailed Earth";
+    m_dotsFactory = m_scene->getDotsFactory();
+    update();
+}
+DetailedEarth::~DetailedEarth() {
+}
+//void DetailedEarth::addSunGP() {
+//    m_sundot = m_dotsFactory->addXYZ(worldmatrix * sunDir * m_radius, SUNCOLOR, 0.015f);
+//}
+//void DetailedEarth::updateSunGP() {
+//    m_dotsFactory->changeXYZ(m_sundot, worldmatrix * sunDir * m_radius, SUNCOLOR, 0.015f);
+//}
+//void DetailedEarth::addEarthGP() {
+//    m_earthdot = m_dotsFactory->addXYZ(glm::inverse(glm::mat3(worldmatrix)) * earthDir * m_radius, EARTHCOLOR, 0.015f);
+//}
+//void DetailedEarth::updateEarthGP() {
+//    m_dotsFactory->changeXYZ(m_earthdot, glm::inverse(glm::mat3(worldmatrix)) * earthDir * m_radius, EARTHCOLOR, 0.015f);
+//    if (earthparticles != nullptr) earthparticles->push(earthDir * m_radius);
+//}
+void DetailedEarth::addEquator() {
+    equatorOb = new Equator(m_scene, this);
+    equatorOb->setParent(this);
+}
+void DetailedEarth::addPrimeMeridian() {
+    primemOb = new PrimeMeridian(m_scene, this);
+    primemOb->setParent(this);
+}
+//void DetailedEarth::addGrid(double spacing) {
+//    gridOb = new Grid(m_scene, this, spacing);
+//}
+void DetailedEarth::update() {
+    updateShape();  // Update actual geometry provided by BodyGeometry
+    worldmatrix = glm::mat4(1.0f);
+
+    LLH subsolar = m_scene->m_astro->getDecGHA(SUN); // subsolar.lon is west of south, 0 to tau
+    if (subsolar.lon < pi) subsolar.lon = -subsolar.lon;
+    else subsolar.lon = tau - subsolar.lon;  // subsolar.lon is now -pi to pi east of south - Is this the right choice to store? !!!
+    //if (do_eccentriclight) { SunLightDir = getNml3D_EE(subsolar.lat, subsolar.lon, 0.0f); return; }
+    SunLightDir = getLoc3D_NS(subsolar, true);
+}
+bool DetailedEarth::drawSpecific(Camera* cam, Shader* shdr) {
+    // Object specific shader uniforms etc
+    //cam->camDst = m_camDist;
+    //shdr->SetUniformMatrix4f("world", worldmatrix);
+    if (w_sinsol) shdr->SetUniform3f("sunDir", SunLightDir);  // sDir
+    if (!w_sinsol) shdr->SetUniform3f("sunDir", 0.0f, 0.0f, 0.0f);
+    camLightDir = glm::normalize(cam->getPosition());
+    shdr->SetUniform3f("lightDir", camLightDir);             // lDir
+
+    //if (w_linsol) shdr->SetUniform3f("moonDir", MoonLightDir.x, MoonLightDir.y, MoonLightDir.z);
+    //if (!w_linsol) shdr->SetUniform3f("moonDir", 0.0f, 0.0f, 0.0f);
+
+    if (w_refract) shdr->SetUniform1f("refraction", 1.0f);
+    else shdr->SetUniform1f("refraction", 0.0f);
+    //shdr->SetUniform1f("alpha", m_alpha);
+    shdr->SetUniform1f("alpha", 1.0f);
+    shdr->SetUniform1f("twilight", w_twilight ? 1.0f : 0.0f);
+    // Scale the heightmap to a pleasing effect, which is apparently different for Sun light and scene light.
+    shdr->SetUniform1f("sunBumpScale", 0.0005f); // In DetailedMoon these are member vars.
+    shdr->SetUniform1f("lightBumpScale", 0.015f);
+
+
+    //if (earthparticles != nullptr) earthparticles->draw();
+    if (equatorOb != nullptr) equatorOb->draw(cam);
+    if (primemOb != nullptr) primemOb->draw(cam);
+    return false; // Didn't actually draw yet.
+}
+void DetailedEarth::myGUI() {
+    if (ImGui::CollapsingHeader(name.c_str())) {
+        ////// This should be in BodyGeometry, but how to integrate with each user of BodyGeometry (DetailedEarth in this case)
+        ////// Something like parent->myGUI() ?
+        ////ImGui::SliderFloat("Tex X", &l.layer->m_scene->m_app->currentEarth->texture_x, -10.0f, 10.0f);
+        ////ImGui::SliderFloat("Tex Y", &l.layer->m_scene->m_app->currentEarth->texture_y, -10.0f, 10.0f);
+        ////const char* items[] = { "AENS", "AEER", "AERC", "AEE8", "NSER", "NSRC", "NSE8", "ERRC", "ERE8", "RCE8" };
+        //const char* items[] = { "AENS", "AEER", "NSER" };
+        //if (ImGui::BeginCombo("Earth type", getMode().c_str())) {
+        //    for (int n = 0; n < IM_ARRAYSIZE(items); n++) {
+        //        bool is_selected = (getMode().c_str() == items[n]);
+        //        if (ImGui::Selectable(items[n], is_selected)) {
+        //            setMode((std::string)items[n]);
+        //            setMorphParameter(0.0f);
+        //        }
+        //        if (is_selected) ImGui::SetItemDefaultFocus();
+        //    }
+        //    ImGui::EndCombo();
+        //}
+        //ImGui::SliderFloat("Param", &l.layer->m_scene->m_app->currentEarth->param, 0.0f, 1.0f);
+        //// Overlay colors
+        //ImGui::ColorEdit4("Tropics", (float*)&l.layer->m_scene->m_app->currentEarth->tropics, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
+        //ImGui::SameLine();
+        //ImGui::Checkbox("Tropics Overlay", &l.layer->m_scene->m_app->currentEarth->tropicsoverlay);
+        //ImGui::ColorEdit4("Arctics", (float*)&l.layer->m_scene->m_app->currentEarth->arctics, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
+        //ImGui::SameLine();
+        //ImGui::Checkbox("Arctics Overlay", &l.layer->m_scene->m_app->currentEarth->arcticsoverlay);
+        //ImGui::Checkbox("Lunar insolation", &l.layer->m_scene->m_app->currentEarth->w_linsol);
+        //ImGui::Checkbox("Insolation", &gui_geocentric);
+        //if (ImGui::CollapsingHeader("Sun")) {
+            ImGui::Checkbox("Solar Insolation", &w_sinsol);
+            ImGui::Checkbox("Solar Twilight", &w_twilight);
+            ImGui::Checkbox("Solar Refraction", &w_refract);
+            //ImGui::SliderFloat("Sun Height", &l.layer->m_scene->m_app->currentEarth->flatsunheight, 0.0f, 100000.0f);
+        //}
+    }
+}
+
+// ---------------
+//  Detailed Moon
+// ---------------
+DetailedMoon::DetailedMoon(Scene* scene, std::string mode, unsigned int meshU, unsigned int meshV, float radius)
+    : BodyGeometry(scene, DETAILED_MOON, mode, meshU, meshV, radius), m_scene(scene) {
+
+    //!!! FIX: Should set up our own camera, since we will be manipulating it. Offer a method to get the camera if desired. !!!
+    name = "Detailed Moon";
+    hasgui = true;
+    // Moon actual figure geometry: https://articles.adsabs.harvard.edu/pdf/1972Moon....5..149W
+    // Ellipsoid approximation and many other parameters: https://nssdc.gsfc.nasa.gov/planetary/factsheet/moonfact.html
+    // Moon is only 2-3km out of round in any direction, this is less than 1 pixel when whole Moon is filling a 1080p screen.
+
+    m_dotsFactory = m_scene->getDotsFactory();
+    // Experimental
+    earthparticles = new ParticleTrail(m_scene, 1000, EARTHCOLOR, 0.005f, 5);
+    update();   // This is the astronomy based update function, not the geometry one.
+}
+DetailedMoon::~DetailedMoon() {
+    // !!! FIX: Scene does not provide a method to relinguish an obtained DotsFactory. Add one and conditionally call it here. !!!
+    // m_scene->releasDotsFactory(m_dotsFactory);
+}
+// Should probably have setObserverPos(double,double,bool) and setGeocentricMode(bool)
+void DetailedMoon::setTopocentric(const double lat, const double lon, const bool rad) {
+    // Set Topological position, i.e. observe latitude and longitude on Earth.
+    // Calling without parameters configures for Geocentric rather than Topocentric view.
+    if (lat == NO_DOUBLE || lon == NO_DOUBLE) {
+        gui_geocentric = true;
+        topoLat = NO_DOUBLE;
+        topoLon = NO_DOUBLE;
+        return;
+    }
+    gui_geocentric = false;
+    topoLat = lat;
+    topoLon = lon;
+    if (!rad) {
+        topoLat *= deg2rad;
+        topoLon *= deg2rad;
     }
     return;
 }
 
+void DetailedMoon::addSunGP() {
+    m_sundot = m_dotsFactory->addXYZ(worldmatrix * sunDir * m_radius, SUNCOLOR, 0.015f);
+}
+void DetailedMoon::updateSunGP() {
+    m_dotsFactory->changeXYZ(m_sundot, worldmatrix * sunDir * m_radius, SUNCOLOR, 0.015f);
+}
+void DetailedMoon::addEarthGP() {
+    m_earthdot = m_dotsFactory->addXYZ(glm::inverse(glm::mat3(worldmatrix)) * earthDir * m_radius, EARTHCOLOR, 0.015f);
+}
+void DetailedMoon::updateEarthGP() {
+    m_dotsFactory->changeXYZ(m_earthdot, glm::inverse(glm::mat3(worldmatrix)) * earthDir * 1.001f * m_radius, EARTHCOLOR, 0.015f);
+    if (earthparticles != nullptr) earthparticles->push(earthDir * m_radius);
+}
+void DetailedMoon::addEquator() {
+    equatorOb = new Equator(m_scene, this);
+    equatorOb->setParent(this);
+}
+void DetailedMoon::addPrimeMeridian() {
+    primemOb = new PrimeMeridian(m_scene, this);
+    primemOb->setParent(this);
+}
+void DetailedMoon::addGrid(double spacing) {
+    gridOb = new Grid(m_scene, this, spacing);
+}
+void DetailedMoon::update() {
+    updateShape();  // Update actual geometry provided by BodyGeometry
+    // Calculate sunDir and camera orientation/location based on astronomical calculations
+    double currentJD = m_scene->m_astro->getJD_TT();
+    double rotY = 0.0, rotZ = 0.0, rotX = 0.0;
+    CAAPhysicalMoonDetails libration;
+    // Earth Moon distance
+    double moonDist = CAAMoon::RadiusVector(currentJD); // RadiusVector() returns in km - seems consistently 40km low for Jan 2023.
+    if (gui_geocentric) {
+        libration = CAAPhysicalMoon::CalculateGeocentric(currentJD);
+    }
+    else {
+        // Maybe work out the exact value? OR just ignore it, the difference is 2% in apparent size
+        // In addition to the geocentric radius (chapter 11 in Meeus I think, CAAGlobe2),
+        // the orientation angle Observer-EarthCenter-Moon must be used.
+        moonDist -= earthradius;
+        libration = CAAPhysicalMoon::CalculateTopocentric(currentJD, topoLon * rad2deg, topoLat * rad2deg);
+        // Is the parallactic angle (Chapter 14) included in libration.P ?
+    }
+    rotY = libration.b * deg2rad;
+    rotZ = libration.l * deg2rad;
+    rotX = libration.P * deg2rad;
 
+    // Adjust camera distance so the size of the Moon shows correctly (e.g. supermoon)
+    m_camDist = (float)moonDist * m_radius / (float)moonradius;
+    // Selenographic position of the Sun (use for rendering terminator in shader)
+    CAASelenographicMoonDetails selsun = CAAPhysicalMoon::CalculateSelenographicPositionOfSun(currentJD,/* bHighPrecision */ true);
+    SunLightDir = getNml3D_NS({ selsun.b0, selsun.l0 }, false);
 
+    worldmatrix = glm::mat4(1.0f);
+    worldmatrix = glm::rotate(worldmatrix, (float)rotY, glm::vec3(0.0f, 1.0f, 0.0f));
+    worldmatrix = glm::rotate(worldmatrix, (float)-rotZ, glm::vec3(0.0f, 0.0f, 1.0f));
+    worldmatrix = glm::rotate(worldmatrix, (float)rotX, glm::vec3(1.0f, 0.0f, 0.0f));
+    earthDir = getNml3D({ -rotY, -rotZ }, true);
+    sunDir = { getNml3D({ selsun.b0, selsun.l0 }, false), 1.0f };
 
+    if (m_sundot != NO_UINT) updateSunGP();
+    // !!! FIX: This does not work well with topocentric mode. !!!
+    if (m_earthdot != NO_UINT) updateEarthGP();
 
+    // Primitive Lunar Eclipse finder - distance is ad hoc and probably not entirely right
+    //if (abs(selsun.b0 - libration.b) < 0.5 && abs(selsun.l0 - libration.l) < 0.5) {
+    //    std::cout << m_scene->m_astro->getTimeString()
+    //        << " Sun: " << selsun.b0 << "," << selsun.l0
+    //        << " Earth: " << libration.b << "," << libration.l
+    //        << " Diff: " << abs(selsun.b0 - libration.b) << "," << abs(selsun.l0 - libration.l) << "\n";
+    //}
+
+    if (m_scene->m_app->dumpdata && false) {  // && true = enable, && false = disable
+        std::cout << m_scene->m_astro->getTimeString()
+            << " Sun: " << selsun.b0 << "," << selsun.l0
+            << " Earth: " << libration.b << "," << libration.l
+            << "\n";
+    }
+}
+bool DetailedMoon::drawSpecific(Camera* cam, Shader* shdr) {
+    // Object specific shader uniforms etc
+    cam->camDst = m_camDist;
+    shdr->SetUniformMatrix4f("world", worldmatrix);
+    if (w_sinsol) shdr->SetUniform3f("sDir", SunLightDir);
+    if (!w_sinsol) shdr->SetUniform3f("sDir", 0.0f, 0.0f, 0.0f);
+    camLightDir = glm::normalize(cam->getPosition());
+    shdr->SetUniform3f("lDir", camLightDir);
+    shdr->SetUniform1f("sunBumpScale", sunBumpmapScale);
+    shdr->SetUniform1f("lightBumpScale", lightBumpmapScale);
+
+    //if (earthparticles != nullptr) earthparticles->draw();
+    if (equatorOb != nullptr) equatorOb->draw(cam);
+    if (primemOb != nullptr) primemOb->draw(cam);
+    return false; // Didn't draw yet
+}
+void DetailedMoon::myGUI() {
+    if (ImGui::CollapsingHeader(name.c_str())) {
+        ImGui::Checkbox("Geocentric", &gui_geocentric);
+        gui_topoLat = (float)(topoLat * rad2deg);
+        gui_topoLon = (float)(topoLon * rad2deg);
+        ImGui::SliderFloat("Latitude", &gui_topoLat, -89.9999f, 89.9999f);
+        ImGui::SliderFloat("Longitude", &gui_topoLon, -179.9999f, 180.0f);
+        topoLat = (double)gui_topoLat * deg2rad;
+        topoLon = (double)gui_topoLon * deg2rad;
+    }
+}
 
 
 // -------
@@ -682,8 +1147,9 @@ void Earth::Update() {
         //mydebug = true;
         flatsundirty = true;
     }
-    if (m_JD != m_scene->m_astro->getJD()) {
-        m_JD = m_scene->m_astro->getJD();
+    if (m_jd_utc != m_scene->m_astro->getJD_UTC()) {
+        m_jd_utc = m_scene->m_astro->getJD_UTC();
+        m_jd_tt = m_scene->m_astro->getJD_TT();
         timedirty = true;
     }
     // if timedirty
@@ -810,8 +1276,11 @@ void Earth::draw(Camera* cam) {  // Alternatively pass a pv matrix = projMat * v
         if (w_refract) shdr->SetUniform1f("refraction", 1.0f);
         else shdr->SetUniform1f("refraction", 0.0f);
         shdr->SetUniform3f("lightDir", cam->CamLightDir.x, cam->CamLightDir.y, cam->CamLightDir.z);
-        shdr->SetUniform1i("dayTexture", daytex->GetTextureSlot());
-        shdr->SetUniform1i("nightTexture", nighttex->GetTextureSlot());
+        // Following 4 entries adjusted to be DetailedEarth compatible (so they can share shader, and not cause further shader multiplication)
+        shdr->SetUniform1i("texture1", daytex->GetTextureSlot());
+        shdr->SetUniform1i("texture2", nighttex->GetTextureSlot());
+        shdr->SetUniform1f("sunBumpScale", 0.0f);
+        shdr->SetUniform1f("lightBumpScale", 0.0f);
         shdr->SetUniform1f("alpha", m_alpha);
         shdr->SetUniform1f("twilight", w_twilight ? 1.0f : 0.0f);
     }
@@ -1186,7 +1655,7 @@ glm::vec3 Earth::getNml3D_E7(double rLat, double rLon, double height) {
     return glm::normalize(nml);
 }
 LLH Earth::calcHADec2LatLon(LLH radec, bool rad) {
-    //return radec;
+    // Map HA [0 ; pi) -> [0 ; -pi) and [pi ; tau) -> [pi ; 0)
     if (!rad) {
         radec.lat *= deg2rad;
         radec.lon *= deg2rad;
@@ -1203,10 +1672,10 @@ glm::vec3 Earth::calcHADec2Dir(LLH radec) {
     radec = calcHADec2LatLon(radec);
     return getLoc3D(radec.lat, radec.lon, 0.0);
 }
-LLH Earth::calcRADec2LatLon(LLH radec, bool rad, double jd) {
-    if (jd == NO_DOUBLE) // jd was not specified, so go with current time
+LLH Earth::calcRADec2LatLon(LLH radec, double jd_utc, bool rad) { // Needs JD as UTC
+    if (jd_utc == NO_DOUBLE) // jd was not specified, so go with current time
         return calcHADec2LatLon({ radec.lat, rad ? (m_scene->m_astro->getGsid() - radec.lon) : (rad2deg * m_scene->m_astro->getGsid() - radec.lon), 0.0 }, rad);
-    return calcHADec2LatLon({ radec.lat, rad ? (m_scene->m_astro->getGsid(jd) - radec.lon) : (rad2deg * m_scene->m_astro->getGsid(jd) - radec.lon), 0.0 }, rad);
+    return calcHADec2LatLon({ radec.lat, rad ? (m_scene->m_astro->getGsid(jd_utc) - radec.lon) : (rad2deg * m_scene->m_astro->getGsid(jd_utc) - radec.lon), 0.0 }, rad);
 }
 LLH Earth::getXYZtoLLH_NS(glm::vec3 pos) {
     // NOTE: Gives height above Center of Earth, not height above Surface!! (i.e. geocentric, not topocentric)
@@ -1215,7 +1684,7 @@ LLH Earth::getXYZtoLLH_NS(glm::vec3 pos) {
     float diag = sqrt(pos.x * pos.x + pos.y * pos.y);
     if (diag < 0.0000001f && pos.z + (float)tiny > 1.0f) return { pi2, 0.0, 0.0 }; // atan2 seems to flip out at the singularities
     if (diag < 0.0000001f && pos.z - (float)tiny < -1.0f) return { -pi2, 0.0, 0.0 };
-    return LLH({ atan2(pos.z, sqrt(pos.x * pos.x + pos.y * pos.y)), atan2(pos.y, pos.x), glm::length(pos) });
+    return { atan2(pos.z, diag), atan2(pos.y, pos.x), glm::length(pos) };
 }
 LLH Earth::getXYZtoLLH_AE(glm::vec3 pos) {
     // Check if XY is outside the AE disc !!! - I.e. if w below is larger than radius
@@ -1227,14 +1696,15 @@ LLH Earth::getXYZtoLLH_AE(glm::vec3 pos) {
     return ret;
 }
 double Earth::calcHorizonDip(double height) {
+    // For sextant dip correction, so maybe rename this function to something more appropriate.
     // height in meters above surface, returns arc minutes - Figure out validity for large heights in comparison to full formula
     // Source: https://www.madinstro.net/sundry/navsext.html
     return 1.753 * sqrt(height);
 }
-double Earth::calcSunSemiDiameter(double jd) {
+double Earth::calcSunSemiDiameter(double jd_tt) {
     // Sun semidiameter in arc minutes as apparent from Earth - should it support radians too? Add when required.
-    if (jd == NO_DOUBLE) jd = m_scene->m_astro->getJD();
-    return CAADiameters::SunSemidiameterA(m_scene->m_astro->EcDstEarth(jd)) / 60.0;
+    if (jd_tt == NO_DOUBLE) jd_tt = m_scene->m_astro->getJD_TT();
+    return CAADiameters::SunSemidiameterA(m_scene->m_astro->EcDstEarth(jd_tt)) / 60.0;
 }
 double Earth::calcRefractionAlmanac(double elevation, double temperature, double pressure) {
     // returns refraction correction in arcminutes. Takes elevation in degrees, temperature in Celcius (centigrade), pressure in hPa (mbar)
@@ -1250,7 +1720,7 @@ double Earth::calcBrianLeakeDistance(const double elevation, bool rad) {
     double ea = elevation;
 
     // Convert to degrees if input was in radians
-    if (rad) ea = elevation * rad2deg;
+    if (rad) ea *= rad2deg;
     
     // "triangulated distance" in miles
     // Adjacent side of triangle with angle elevation and opposite height of polaris
@@ -1334,13 +1804,13 @@ LLH Earth::getPlanet(size_t planet, double jd, bool rad) {
     return m_scene->m_astro->getDecGHA(planet, jd, rad);
 }
 void Earth::CalcMoon() {
-    double currentJD = m_scene->m_astro->getJD();
+    double currentJD = m_scene->m_astro->getJD_TT();
     if (m_moonJD == currentJD) return;
     double elon = CAAMoon::EclipticLongitude(currentJD);  // lambda
     double elat = CAAMoon::EclipticLatitude(currentJD);   // beta
     double Epsilon = CAANutation::TrueObliquityOfEcliptic(currentJD);
     CAA2DCoordinate equa = CAACoordinateTransformation::Ecliptic2Equatorial(elon, elat, Epsilon);
-    m_moonDist = CAAMoon::RadiusVector(m_JD); // RadiusVector() returns in km
+    m_moonDist = CAAMoon::RadiusVector(currentJD); // RadiusVector() returns in km
     m_moonRA = hrs2rad * equa.X;
     m_moonDec = deg2rad * equa.Y;
     m_moonHour = m_moonRA - m_scene->m_astro->getGsid(); // Gsid returns in radians now, so don't convert!
@@ -1350,16 +1820,16 @@ void Earth::CalcMoon() {
     MoonLightDir.z = (float)(sin(m_moonDec));
     m_moonJD = currentJD;
 }
-LLH Earth::getMoon(double JD) {
-    if (JD == 0.0) return LLH{ m_moonDec, m_moonHour, m_moonDist };
-    return CalcMoonJD(JD);
+LLH Earth::getMoon(double jd_utc) {
+    if (jd_utc == 0.0) return LLH{ m_moonDec, m_moonHour, m_moonDist };
+    return CalcMoonJD(jd_utc);
 }
-LLH Earth::CalcMoonJD(double JD) {
+LLH Earth::CalcMoonJD(double jd_utc) {
     // NOTE: Returns position of Moon at JD, does NOT update m_moon*
-    double gsidtime = CAASidereal::ApparentGreenwichSiderealTime(JD); // Nonstd JD, don't just pick from World
-    double elon = CAAMoon::EclipticLongitude(JD);  // lambda
-    double elat = CAAMoon::EclipticLatitude(JD);   // beta
-    double Epsilon = CAANutation::TrueObliquityOfEcliptic(JD);
+    double gsidtime = CAASidereal::ApparentGreenwichSiderealTime(jd_utc); // Nonstd JD, don't just pick from World
+    double elon = CAAMoon::EclipticLongitude(EDateTime::getJDUTC2TT(jd_utc));  // lambda
+    double elat = CAAMoon::EclipticLatitude(EDateTime::getJDUTC2TT(jd_utc));   // beta
+    double Epsilon = CAANutation::TrueObliquityOfEcliptic(EDateTime::getJDUTC2TT(jd_utc));
     CAA2DCoordinate equa = CAACoordinateTransformation::Ecliptic2Equatorial(elon, elat, Epsilon);
     return { deg2rad * equa.Y, hrs2rad * (equa.X - gsidtime), m_moonDist }; // m_moonDist?
 }
@@ -1426,6 +1896,8 @@ void Earth::changeArrow3DTrueSun(float length, float width, glm::vec4 color) {
     }
 }
 void Earth::updateArrow3DTrueSun(arrowcache& ar) {
+    //LLH sun = getSun();
+    //std::cout << "Earth::updateArrow3DTrueSun(): getSun: " << sun.lat << "," << sun.lon << "\n";
     m_arrows->changeStartDirLen(ar.index, glm::vec3(0.0f), calcHADec2Dir(getSun()), ar.length, ar.width, ar.color);
 }
 void Earth::addLunarUmbraCone() {
@@ -1442,10 +1914,21 @@ void Earth::addLunarUmbraCone() {
     size_t index = m_dots->addXYZ(moonpos/(float)(earthradius*10.0), WHITE, 0.1f);
     // !!! FIX: the Dot index is not stored, are we missing a delete? !!!
 }
-glm::vec3 Earth::getSubsolarXYZ(double jd) {
-    if (jd == 0.0) return flatSun;
-    if (jd == m_JD) return flatSun;
-    LLH mysun = m_scene->m_astro->getDecGHA(SUN, jd); // subsolar.lon is west of south, 0 to tau
+void Earth::addUmbraCone() {
+    // Interesting: https://oldblog.erikras.com/2011/12/16/how-big-is-the-earths-shadow-on-the-moon
+    const float shadowlen = 219.5f; // Shadow cone length in Earth radii
+    LLH sun = m_scene->m_astro->getDecGHA(SUN); // sun.dst = 0.0
+    if (sun.lon < pi) sun.lon = -sun.lon;
+    else sun.lon = tau - sun.lon; // subsolar.lon is now -pi to pi east of south
+    glm::vec3 sunpos = getLoc3D_NS(sun.lat, sun.lon, sun.dst);
+    size_t index = m_scene->getViewConesFactory()->addStartDirLen(-shadowlen * sunpos, -sunpos, shadowlen, 1.01f, glm::vec4(0.4f, 0.4f, 0.4f, 0.6f));
+}
+
+
+glm::vec3 Earth::getSubsolarXYZ(double jd_utc) {
+    if (jd_utc == 0.0) return flatSun;
+    if (jd_utc == m_jd_utc) return flatSun;
+    LLH mysun = m_scene->m_astro->getDecGHA(SUN, EDateTime::getJDUTC2TT(jd_utc)); // subsolar.lon is west of south, 0 to tau
     if (mysun.lon < pi) mysun.lon = -mysun.lon;
     else mysun.lon = tau - mysun.lon;                          // subsolar.lon is now -pi to pi east of south
     return getLoc3D(mysun.lat, mysun.lon, m_flatsunheight / earthradius);
@@ -1497,7 +1980,7 @@ void Earth::updateSubsolarPole() {
     m_cylinders->changeStartEnd(m_sunpole, solarGP, flatSun, 0.003f, LIGHT_YELLOW);
 }
 void Earth::addSubsolarCone_NS(glm::vec4 color) {
-    // https ://stackoverflow.com/questions/64881275/satellite-on-orbit-create-the-tangent-cone-from-point-to-sphere
+    // https://stackoverflow.com/questions/64881275/satellite-on-orbit-create-the-tangent-cone-from-point-to-sphere
     // (see also https://en.wikipedia.org/wiki/Tangent_lines_to_circles#Outer_tangent but not as useful)
     //glm::vec3 pos = getLoc3D(m_sunDec, m_sunHour, m_flatsunheight / earthradius);
     double rE = 1.0f;  //self.NSscale # Radius of Earth
@@ -1529,7 +2012,7 @@ glm::vec3 Earth::getSublunarXYZ() {
 void Earth::addSublunarPoint(float size) {
     //std::cout << "Sublunar point : " << m_moonDec << ", " << m_moonHour << "\n";
     if (m_moonob != nullptr) return;
-    if (m_JD == 0.0) CalcMoon();
+    if (m_jd_utc == 0.0) CalcMoon();
     m_moonob = new SubLunar(m_scene, 16, 32, size);
     double moon_lon = m_moonHour;
     while (moon_lon > pi) moon_lon -= tau;
@@ -1670,8 +2153,8 @@ void Earth::updateSunSectors() {
     int sector = 1;
     for (auto&p : m_polycache) {   // Ugly but it works for now.
         if (p.type == SUNSECTOR) {
-            p.path->clearPoints();
-            p.path2->clearPoints();
+            p.gpath->clearPoints();
+            //p.path2->clearPoints();
             if (sector == 1) { p.llh1 = subsolar; p.llh2 = top; }
             if (sector == 2) { p.llh1 = subsolar; p.llh2 = btm; }
             if (sector == 3) { p.llh1 = lft; p.llh2 = top; }
@@ -1680,7 +2163,7 @@ void Earth::updateSunSectors() {
             if (sector == 6) { p.llh1 = rgt; p.llh2 = btm; }
             if (sector == 7) { p.llh1 = subsolar; p.llh2 = lft; }
             if (sector == 8) { p.llh1 = subsolar; p.llh2 = rgt; }
-            updateCompositePath(p);
+            updateCompositePath2(p);
             sector++;
         }
     }
@@ -1688,11 +2171,11 @@ void Earth::updateSunSectors() {
 void Earth::removeSunSectors() {
     for (auto& p : m_polycache) {
         if (p.type == SUNSECTOR) {
-            if (p.path != nullptr) m_scene->deletePolyCurve(p.path);
-            if (p.path2 != nullptr) m_scene->deletePolyCurve(p.path2);
+            if (p.gpath != nullptr) m_scene->deletePolyCurve(p.path);
+            //if (p.path2 != nullptr) m_scene->deletePolyCurve(p.path2);
             p.type = NONE;
-            p.path = nullptr;
-            p.path2 = nullptr;
+            p.gpath = nullptr;
+            //p.path2 = nullptr;
         }
     }
 }
@@ -1726,7 +2209,7 @@ void Earth::removeGrid() {
     }
 }
 void Earth::addTropics(float size, glm::vec4 color) {
-    // NOTE: Tropics seem to be fixed by convention but arctics not? That is false according to wikipedia articles on the tropics
+    double earthtropics = m_scene->m_astro->TrueObliquityOfEcliptic(m_scene->m_astro->getJD_TT());
     addLatitudeCurve(earthtropics, color, size, false, TROPIC);  // Cancer
     addLatitudeCurve(-earthtropics, color, size, false, TROPIC); // Capricorn
 }
@@ -1736,9 +2219,9 @@ void Earth::removeTropics() {
     }
 }
 void Earth::addArcticCirles(float size, glm::vec4 color) {
-    // NOTE: Arctic circle location should account for refraction? No, but nutation ideally, according to definition
-    addLatitudeCurve(eartharctics, color, size, false, ARCTIC);
-    addLatitudeCurve(-eartharctics, color, size, false, ARCTIC);
+    double eartharctics = 90.0 - m_scene->m_astro->TrueObliquityOfEcliptic(m_scene->m_astro->getJD_TT());
+    addLatitudeCurve(eartharctics, color, size, false, ARCTIC);   // Arctic
+    addLatitudeCurve(-eartharctics, color, size, false, ARCTIC);  // Antarctic
 }
 void Earth::removeArcticCircles() {
     for (auto& po : m_polycache) {
@@ -1825,12 +2308,12 @@ void Earth::addEcliptic() {
     //NOTE: Assumes that Ecliptic curve is an exact great circle, because:
     // 1) The ecliptic plane slices through Earth without curvature
     // 2) The center of the Earth aleays lies in the ecliptic plane by definition
-    double obliquity = m_scene->m_astro->getEclipticObliquity(NO_DOUBLE, true);
+    double obliquity = m_scene->m_astro->TrueObliquityOfEcliptic(NO_DOUBLE, true);
     m_ecliptic = addTissotIndicatrix({ pi2 - obliquity, clampmPitoPi(-m_scene->m_astro->getGsid() - pi2), 0.0 }, pi2, true, GREEN, 0.005f);  // Should really have a more generically named primitive
 }
 void Earth::updateEcliptic() {
     if (m_ecliptic == NO_UINT) return;
-    double obliquity = m_scene->m_astro->getEclipticObliquity(NO_DOUBLE, true);
+    double obliquity = m_scene->m_astro->TrueObliquityOfEcliptic(NO_DOUBLE, true);
     TissotCache* ecliptic = &tissotcache[m_ecliptic];
     ecliptic->lat = pi2 - obliquity;
     ecliptic->lon = clampmPitoPi(-m_scene->m_astro->getGsid() - pi2);
@@ -2022,19 +2505,6 @@ size_t Earth::addSumnerLine(LLH gp, double elevation, glm::vec4 color, float wid
     // A Sumner Line is a (small or, at the limit a great) circle centered on the GP of a celestial body
     // where an observer would measure the (corrected) elevation given.
     return addTissotIndicatrix(gp, rad ? pi2 - elevation : 90.0 - elevation, rad, color, width);
-}
-size_t Earth::addSextantMeasurement(std::string starname, double elevation, double jd, glm::vec4 color, float width, bool rad) {
-    // This doesn't really make sense as a member function. There may be a helper class/struct that can store
-    // the sextant measurements, and that might interface with addSumnerLine() !!!
-    // Think about above later, let's get something working first to gain intuition.
-    LLH decra = { 0.0, 0.0, 0.0 };
-    bool propermotion = false;
-    
-    if (propermotion) decra = m_scene->m_astro->getDecRAwithPMbyName(starname, m_scene->m_astro->getJD(), rad);
-    else decra = m_scene->m_astro->getDecRAbyName(starname, rad);
-    
-    //std::cout << "Found Dec,RA: " << decra.lat << "," << decra.lon << " for name: " << starname << '\n';
-    return addTissotIndicatrix(calcRADec2LatLon(decra, rad), rad ? pi2 - elevation : 90.0 - elevation, rad, color, width);
 }
 size_t Earth::addTissotIndicatrix(LLH location, double radius, bool rad, glm::vec4 color, float width) {
     // Note: radius is given in degrees/radians, not distance units
@@ -2634,124 +3104,6 @@ void Earth::updateCompositePath(polycache& p) {
     //std::cout << "Curve generation completed.\n";
     return;
 }
-//void Earth::updateCompositePathOld(polycache& p) {
-//    // NOTE: Height is awkward, not currently tracked/lerped !!!
-//    //       For Moon and Sun groundpath it is not needed. But for the Lerp and Great paths, it might be nice!
-//    //       Satellites and Planes will be implemented with a separate custom path anyway.
-//
-//    glm::vec3 oldap = glm::vec3(1000.0);
-//    PolyCurve* curve = p.path;
-//    double histep = 1.3 * deg2rad;
-//    double lostep = 0.24 * deg2rad;
-//    double dflonflip = 270.0 * deg2rad; //(180.0 - tiny)* deg2rad;
-//    // Get useful old location and add first point to curve
-//    LLH first = (this->*p.ca)(p.llh1, p.llh2, 0.0, p.refraction, true);
-//    LLH llhf = first;
-//    glm::vec3 tp = getLoc3D(llhf.lat, llhf.lon, 0.0);
-//    addArcPoint(tp, true, false, oldap, curve); // First=true
-//    LLH oldf = llhf;
-//
-//    // IMPORTANT: df must stay in range [0;p.fend] otherwise it makes no sense !!! Plz revise!
-//    double dist = calcArcDist(p.llh1, p.llh2, true);
-//    double df = 1.0 / (rad2deg * dist); // Reasonable initial stepsize of 1 step per degree? !!!
-//    //std::cout << "Initial df: " << df << "\n";
-//    if (p.type == MOONTERMINATOR) { 
-//        df = deg2rad;
-//    }
-//    double f = 0.0; // NOTE: df is added right away in while loop below, but f=0.0 point is already added above.
-//    double stepscale = 2.0;
-//    unsigned int half = 0;
-//    unsigned int doub = 0;
-//    double dflat = 0.0;
-//    double dflon = 0.0;
-//    double ilat = 0.0;
-//    bool pole = false;
-//    glm::vec3 ip1 = glm::vec3(0.0f);
-//    glm::vec3 ip2 = glm::vec3(0.0f);
-//    while (f < p.fend) {
-//        f += df;
-//        half = 0;
-//        doub = 0;
-//        while (true) {
-//            llhf = (this->*p.ca)(p.llh1, p.llh2, f, p.refraction, true);
-//            dflat = abs(llhf.lat - oldf.lat);
-//            dflon = abs(llhf.lon - oldf.lon);
-//            // When crossing seam, lon goes from -180 to 180 or reverse; near 360 difference.
-//            // When crossing pole, lon goes from 0 to 180 or -180, or from -90 to 90, or from -170 to 10 or reverse; near 180 difference.
-//
-//            // Doubling / increasing
-//            if (dflat < lostep && dflon < lostep) { // Should really check the sum of squares ?
-//                //std::cout << "+df: " << df << " dflat,dflon: " << dflat << "," << dflon << " oldf: " << oldf.lat << "," << oldf.lon << " llhf: " << llhf.lat << "," << llhf.lon << "\n";
-//                f -= df; // Should this not be -= ? !!! 
-//                df *= stepscale;
-//                f += df;
-//                doub++;
-//                if (doub == 11) {
-//                    std::cout << "After *1/2^11, stepsize is still too small, giving up!\n";
-//                    if (p.fend == 1.0) df = 1.0 / dist;
-//                    if (p.fend == tau) df = deg2rad;
-//                    f += df;
-//                    break;
-//                }
-//                continue;
-//            }
-//            // Triggers when step is within limits and no lon inversion
-//            if (dflat < histep && dflon < histep) break;
-//            // Triggers when step is within limits and lon has seam inversion - inversion dealt with below
-//            if (dflat < histep && dflon > dflonflip) {
-//                pole = false;
-//                break;
-//            }
-//            // Triggers when step is within limits and lon has pole inversion
-//            if (dflat < histep && abs(dflon) + tiny > pi) {
-//                pole = true;
-//                break;
-//            }
-//            // Halving / reducing
-//            if (dflat > histep || dflon > histep) { // (dflat > histep || (dflonflip > dflon && dflon > histep))
-//                //std::cout << "-df: " << df << " dflat,dflon: " << dflat << "," << dflon << " oldf: " << oldf.lat << "," << oldf.lon << " llhf: " << llhf.lat << "," << llhf.lon << "\n";
-//                f -= df; // Undo the step we took
-//                df /= stepscale;
-//                f += df;
-//                half++;
-//                if (half == 11) {
-//                    std::cout << "After *2^11, stepsize is still too big, giving up!\n";
-//                    if (p.fend == 1.0) df = 1.0 / dist;
-//                    if (p.fend == tau) df = deg2rad;
-//                    f += df;
-//                    break;
-//                }
-//                continue;
-//            }
-//        }
-//        // Here we have the next point ready
-//        tp = getLoc3D(llhf.lat, llhf.lon, 0.0f);
-//        // If a seam is crossed, split the path and insert intermediate points
-//        if (abs(llhf.lon - oldf.lon) > pi2) { // Longitude inversion at seam
-//            if (oldf.lon > llhf.lon) { // Passed counter clockwise (+ to -)
-//                ilat = oldf.lat - (pi - oldf.lon) * (oldf.lat - llhf.lat) / (llhf.lon + tau - oldf.lon);
-//                ip1 = getLoc3D(ilat, pi - tiny);
-//                ip2 = getLoc3D(ilat, tiny - pi);
-//            }
-//            else { // Passed clockwise
-//                ilat = oldf.lat - (pi - oldf.lon) * (oldf.lat - llhf.lat) / (llhf.lon + tau - oldf.lon);
-//                ip2 = getLoc3D(ilat, pi - tiny);
-//                ip1 = getLoc3D(ilat, tiny - pi);
-//            }
-//            // Now insert the extra points to end one path and begin the next
-//            addArcPoint(ip1, false, true, oldap, curve); // last=true so cap path and start new one
-//            curve->generate();
-//            curve = p.path2;
-//            addArcPoint(ip2, true, false, oldap, curve);  // First point in new path
-//        }
-//        if (0.0 < f && f < p.fend) addArcPoint(tp, false, false, oldap, curve);
-//        oldf = llhf;
-//    }
-//    if (!p.closed) addArcPoint(getLoc3D(p.llh2.lat, p.llh2.lon), false, true, oldap, curve); // End point of open path - last = true
-//    if (p.closed) addArcPoint(getLoc3D(first.lat, first.lon), false, true, oldap, curve); // End point of closed path - last = true
-//    curve->generate();
-//    return;
-//}
 
 void Earth::genGeom() {
     double lat, lon;
@@ -2831,6 +3183,606 @@ void Earth::updateSun() {
     SunLightDir.x = (float)cos(subsolar.lon) * w;
     SunLightDir.y = (float)sin(subsolar.lon) * w;
     SunLightDir.z = (float)sin(subsolar.lat);
+}
+
+
+
+
+
+
+// -------------------
+//  Sub Stellar Point
+// -------------------
+    // GP of a star, along with Sumner line and useful calculations
+    // Might contain
+    // + a locator dot
+    // + a circle of elevation (Sumner line)
+    // + radius at adjustable bearing (clockwise from north)
+    // + billboard text with name (need to add color)
+    // - Improve color handling, maybe set a default color in SubStellarPoint, which is adopted (and can be overridden in components)
+    // - Implement calls to update() such that they are only called when something has changed
+    // - getter for paths in SumnerLine and Radius, so they can be used by PathTracker
+    // - changeXX functions for all parameters
+    // - Might add a pole straight up (simple long Cylinder), as Earth::*SubSolarpoint*() has that
+void SubStellarPoint::Name::enable(Font* font, glm::vec4 color, float size) {
+    m_font = font;
+    if (color != NO_COLOR) m_color = color;
+    if (size != NO_FLOAT) m_size = size;
+    if (m_billboard == nullptr) m_billboard = new BillBoard(m_ssp->m_earth->m_scene, font, m_ssp->name, m_ssp->m_pos, m_color, m_size);
+    m_enabled = true;
+    update();
+}
+void SubStellarPoint::Name::update() {
+    m_billboard->update(m_ssp->m_pos + 0.1f * m_ssp->m_earth->getNml3D(m_ssp->m_loc.lat, m_ssp->m_loc.lon));
+}
+SubStellarPoint::Name::Name(SubStellarPoint& ssp, std::string starname) {
+    m_name = starname;
+    m_ssp = &ssp;
+    m_color = m_ssp->m_color;
+}
+SubStellarPoint::Name::~Name() {
+    if (m_billboard != nullptr) delete m_billboard;
+}
+void SubStellarPoint::Dot::enable(glm::vec4 color, float size) {
+    if (color != NO_COLOR) m_color = color;
+    if (size != NO_FLOAT) m_size = size;
+    update();
+    enabled = true;
+}
+void SubStellarPoint::Dot::disable() { enabled = false; }
+void SubStellarPoint::Dot::update() {
+    m_dotsF->changeXYZ(dotindex, m_ssp->m_pos, m_color, m_size);
+    //std::cout << "Dot position: " << m_ssp->m_pos.x << "," << m_ssp->m_pos.y << "," << m_ssp->m_pos.z << '\n';
+}
+SubStellarPoint::Dot::Dot(SubStellarPoint& ssp) {
+    m_ssp = &ssp;
+    m_color = m_ssp->m_color;
+    m_dotsF = m_ssp->m_earth->m_scene->getDotsFactory();
+    dotindex = m_dotsF->addXYZ(m_ssp->m_pos, glm::vec4(0.0f), m_size); // Color with alpha = 0.0f is not rendered (shader discards explicitly)
+}
+SubStellarPoint::Dot::~Dot() {
+    if (m_dotsF != nullptr) m_dotsF->remove(dotindex);
+}
+void SubStellarPoint::SumnerLine::enable(glm::vec4 color, float width) {
+    if (color != NO_COLOR) m_color = color;
+    if (width != NO_FLOAT) m_width = width;
+    update();
+    enabled = true;
+}
+void SubStellarPoint::SumnerLine::disable() { enabled = false; }
+void SubStellarPoint::SumnerLine::update() {
+    //std::cout << "SubStellarPoint{" << m_ssp << "}::SumnerLine::update() called\n";
+    // This is a copy of TissotIndicatrix, it is not happy near the south pole, so consider using Earth::updateCompositePath()
+    // mechanism, or extract that into a full object on it's own. Figure out if passing a calc function outside the class is 
+    // different than what Earth uses now.
+    // Be aware that these are small circles, so they typically cross the seam TWICE when they do cross the seam!
+
+    // Additionally, simulating equal elevation curves on other Earth geometries would be interesting!
+    // Can this be done with a mode setting? Only update() needs to be changed, all other functions are agnostic.
+    // Of course, the SubPointSolver class also needs to be enhanced.
+    curve->changePolyCurve(m_color, m_width);
+    curve->clearPoints();
+    double const zangle = m_ssp->m_loc.lon - pi;   // Negative of angle to rotate around Z, to center above X axis
+    double const yangle = m_ssp->m_loc.lat - pi2;  // Really -(90-lat) Negative of angle to rotate around Y to center on north pole
+    double const cy = cos(yangle);
+    double const sy = sin(yangle);
+    double const cz = cos(zangle);
+    double const sz = sin(zangle);
+    double const lz = sin(pi2 - m_ssp->m_elevation);
+    for (double a = 0.0; a <= tau; a += tau / steps) {
+        double lx = cos(pi2 - m_ssp->m_elevation) * cos(a);
+        double ly = cos(pi2 - m_ssp->m_elevation) * sin(a);
+        double l2x = lx * cy + lz * sy;
+        double l3x = l2x * cz - ly * sz;
+        double l3y = l2x * sz + ly * cz;
+        double lat = atan2(-lx * sy + lz * cy, sqrt(l3x * l3x + l3y * l3y));
+        double lon = atan2(l3y, l3x);
+        curve->addPoint(m_ssp->m_earth->getLoc3D(lat, lon));
+    }
+    curve->generate();
+}
+SubStellarPoint::SumnerLine::SumnerLine(SubStellarPoint& ssp) {
+    m_ssp = &ssp;
+    if (m_ssp->m_color != NO_COLOR) m_color = m_ssp->m_color;
+    curve = m_ssp->m_earth->m_scene->newPolyCurve(m_color, m_width, steps);
+    update();
+}
+SubStellarPoint::SumnerLine::~SumnerLine() {
+    if (curve != nullptr) m_ssp->m_earth->m_scene->deletePolyCurve(curve);
+}
+void SubStellarPoint::Radius::enable() { enabled = true; }
+void SubStellarPoint::Radius::changeAzimuth(double bearing, bool rad) {
+    if (!rad) bearing *= deg2rad;
+    m_bearing = tau - bearing;
+    update();
+}
+void SubStellarPoint::Radius::changeAzimuthTo(LLH target, bool rad) {
+    if (!rad) { target.lat *= deg2rad; target.lon *= deg2rad; }
+    // Sets the radius bearing to point towards the supplied point
+    m_bearing = atan2(cos(target.lat) * sin(target.lon - m_ssp->m_loc.lon),
+        cos(m_ssp->m_loc.lat) * sin(target.lat) - sin(m_ssp->m_loc.lat) * cos(target.lat) * cos(target.lon - m_ssp->m_loc.lon));
+    while (m_bearing > tau) m_bearing -= tau;
+    while (m_bearing < 0.0) m_bearing += tau;
+    //std::cout << "Location: " << m_ssp->m_loc.lat * rad2deg << "," << m_ssp->m_loc.lon * rad2deg << "\n";
+    //std::cout << "Target: " << target.lat * rad2deg << "," << target.lon * rad2deg << "\n";
+    //std::cout << "Bearing: " << m_bearing * rad2deg << '\n';
+    update();
+}
+void SubStellarPoint::Radius::update() {
+    if (!enabled) return; // Skip update if not enabled
+    // Uses only stored values which are all already converted to radians.
+    double const zangle = m_ssp->m_loc.lon - pi;   // Negative of angle to rotate around Z, to center above X axis
+    double const yangle = m_ssp->m_loc.lat - pi2;  // Really -(90-lat) Negative of angle to rotate around Y to center on north pole
+    double const cy = cos(yangle);
+    double const sy = sin(yangle);
+    double const cz = cos(zangle);
+    double const sz = sin(zangle);
+    double const lz = sin(pi2 - m_ssp->m_elevation);
+    double lx = cos(pi2 - m_ssp->m_elevation) * cos(tau - m_bearing);
+    double ly = cos(pi2 - m_ssp->m_elevation) * sin(tau - m_bearing);
+    double l2x = lx * cy + lz * sy;
+    double l3x = l2x * cz - ly * sz;
+    double l3y = l2x * sz + ly * cz;
+    double lat = atan2(-lx * sy + lz * cy, sqrt(l3x * l3x + l3y * l3y));
+    double lon = atan2(l3y, l3x);
+    // lat,lon is now the radius end point
+    if (m_radius == NO_UINT) m_radius = m_ssp->m_earth->addGreatArc(m_ssp->m_loc, { lat, lon, 0.0 }, LIGHT_BLUE, 0.003f, true);
+    else m_ssp->m_earth->changeGreatArc(m_radius, m_ssp->m_loc, { lat, lon, 0.0 }, true);
+}
+SubStellarPoint::Radius::Radius(SubStellarPoint& ssp) : m_ssp(&ssp) {
+}
+SubStellarPoint::Radius::~Radius() {
+    if (m_radius != NO_UINT) m_ssp->m_earth->removeGreatArc(m_radius);
+}
+SubStellarPoint::SubStellarPoint(Earth& earth, const std::string& starname, const bool lock, const double jd_tt, const glm::vec4 color) {
+    m_earth = &earth;
+    name = starname;
+    locked = lock;
+    if (jd_tt != NO_DOUBLE) m_jd = jd_tt;
+    if (color == NO_COLOR) m_color = m_earth->m_scene->m_astro->getColorbyName(name);
+    else m_color = color;
+    m_decra = m_earth->m_scene->m_astro->getTrueDecRAbyName(name, m_jd, true);
+    //m_decra = m_earth->m_scene->m_astro->getDecRAbyName(name, true);
+    m_loc = m_earth->calcRADec2LatLon(m_decra, EDateTime::getJDTT2UTC(m_jd), true);
+    m_loc.lat += m_dist_lat; // Is always 0.0 at construction time, is changed by shiftSpeedTime()
+    //m_earth->addDot(m_decra.lat, m_decra.lon, 0.0, 0.02f, LIGHT_RED, true);
+    m_pos = m_earth->getLoc3D(m_loc.lat, m_loc.lon);
+    dot = new SubStellarPoint::Dot(*this);
+    sumner = new SubStellarPoint::SumnerLine(*this);
+    nametag = new SubStellarPoint::Name(*this, name);
+    radius = new SubStellarPoint::Radius(*this);
+}
+SubStellarPoint::~SubStellarPoint() {
+    if (dot != nullptr) delete dot;
+    if (sumner != nullptr) delete sumner;
+    if (nametag != nullptr) delete nametag;
+    if (radius != nullptr) delete radius;
+}
+void SubStellarPoint::shiftSpeedTime(double bearing, double knots, double minutes) {
+    // Assume bearing is 0 degrees North
+    // !!! FIX: This is not the correct way !!!
+    // Check the following resources:
+    // https://apps.dtic.mil/sti/pdfs/ADA423226.pdf
+    // https://aa.usno.navy.mil/downloads/reports/ghk_posmo.pdf
+    // file:///C:/Users/micha/Downloads/New_Computational_Methods_for_Solving_Problems_of_.pdf
+    if (bearing != 0.0) {
+        std::cout << "ERROR: SubStellarPoint::shiftSpeedTime() only supports a bearing of 0 degrees north.\n";
+        return;
+    }
+    // 1 knot equals 1 nautical mile per hour
+    m_dist_lat = deg2rad * minutes * knots / 3600.0;  // knots/60 = NM per minute, * minutes = NMs in interval, /60 = degrees in interval
+    m_loc.lat += m_dist_lat;
+}
+void SubStellarPoint::adjustElevation() {
+    double dip = (m_observerHeight == NO_DOUBLE) ? 0.0 : deg2rad * dms2deg(0.0, 1.76 * sqrt(m_observerHeight), 0.0);
+    m_elevation = m_rawElevation - m_indexError - dip;
+    double refraction = (m_temperature == NO_DOUBLE || m_pressure == NO_DOUBLE) ? 0.0 : deg2rad * 60 * dms2deg(0.0, m_earth->calcRefractionBennett(rad2deg * m_elevation, m_temperature, m_pressure), 0.0);
+    m_elevation -= refraction; // Reverse the predicted refraction to get from apparent to true elevation
+    //std::cout << "SubStellarPoint {" << this << "} - " << name
+    //    //<< ": Index Error = " << Astronomy::angle2DMstring(m_indexError, true)
+    //    << " Dip = " << Astronomy::angle2DMstring(dip, true)
+    //    << " Refraction = " << Astronomy::angle2DMSstring(refraction, true)
+    //    << " True ele = " << Astronomy::angle2DMSstring(m_elevation, true)
+    //    << "\n";
+    // FIX: !!! Internally we apparently use co-latitude, check calculations in *PointSolver and in SubStellarPoint::SumnerLine !!!
+    m_elevation = pi2 - m_elevation;
+}
+void SubStellarPoint::setElevation(double elevation, bool rad) {
+    // Actually stores the radius of the SumnerLine, so maybe rename the variable, at best it is the co-elevation !!!
+    m_rawElevation = rad ? elevation : elevation * deg2rad;
+}
+void SubStellarPoint::setIndexError(double indexError, bool rad) {
+    m_indexError = rad ? indexError : deg2rad * indexError;
+}
+void SubStellarPoint::setObserverHeight(double observerHeight) {
+    m_observerHeight = observerHeight;
+}
+void SubStellarPoint::setRefraction(double temperature, double pressure) {
+    // If at least one argument is NO_DOUBLE, refraction calculation is not performed.
+    m_temperature = temperature;
+    m_pressure = pressure;
+}
+LLH SubStellarPoint::getDetails(bool rad) {
+    adjustElevation();
+    return rad ? LLH{ m_loc.lat, m_loc.lon, m_elevation } : LLH{ rad2deg * m_loc.lat, rad2deg * m_loc.lon, rad2deg * m_elevation };
+}
+void SubStellarPoint::update() {
+    //std::cout << "SubStellarPoint::update()\n";
+    if (!locked) { // Locked means don't update location with time
+        m_loc = m_earth->calcRADec2LatLon(m_decra); // m_jd not passed, so Earth calculates new location based on current time
+        m_loc.lat += m_dist_lat;
+    }
+    // position may still change with the same location if Earth morphs
+    m_pos = m_earth->getLoc3D(m_loc.lat, m_loc.lon);
+    // Still update to geometry and camera orientation (for the name billboard)
+    adjustElevation();
+    dot->update();
+    sumner->update();
+    radius->update();
+    nametag->update();
+}
+
+
+// -----------------
+//  SubPoint Solver
+// -----------------
+    // Solves a fix for 3 observations using SubPoint - should evolve into n-point solver
+    // 1) add points, 2) pull solution
+SubPointSolver::SubPointSolver(Earth* earth) : m_earth(earth) {
+
+}
+SubStellarPoint* SubPointSolver::addSubStellarPoint(const std::string starname, const double elevation, bool rad, const double jd_tt) {
+    // Create a new SubStellarPoint and add it to the solver, returning a reference to the caller
+    double myjd = jd_tt;
+    if (myjd == NO_DOUBLE) myjd = m_earth->m_scene->m_astro->getJD_TT();
+    m_ssps.push_back(new SubStellarPoint(*m_earth, starname, true, myjd, NO_COLOR));
+    m_ssps.back()->setElevation(elevation, rad);
+    return m_ssps.back();
+}
+void SubPointSolver::addSubStellarPoint(SubStellarPoint* ssp) {
+    // Add an existing SubStellarPoint to the solver
+    m_ssps.push_back(ssp);
+}
+// Perhaps add feature to show the star in the observable color, which is already available anyway !!!
+// - Best achieved by making the star color the default color in SubStellarPoint
+void SubPointSolver::showSumnerLines(glm::vec4 color, float width) {
+    for (auto& s : m_ssps) {
+        s->sumner->enable(color, width);
+    }
+}
+void SubPointSolver::showNames(Font* font, glm::vec4 color, float size) {
+    for (auto& s : m_ssps) {
+        s->nametag->enable(font, color, size);
+    }
+}
+void SubPointSolver::showDots(glm::vec4 color, float size) {
+    for (auto& s : m_ssps) {
+        s->dot->enable(color, size);
+    }
+}
+void SubPointSolver::update() {
+    for (auto& s : m_ssps) {
+        s->update();
+    }
+}
+LLH SubPointSolver::calcLocation(bool rad) { // Calculates intersections on a spherical Earth (NS). Possibly add AE, ER etc.
+    // Should check if at least 3 points were supplied already !!!
+
+    // Calculate intersections of the SumnerLines
+    isect12 = calcSumnerIntersection(m_ssps[0]->getDetails(true), m_ssps[1]->getDetails(true), true);
+    isect23 = calcSumnerIntersection(m_ssps[1]->getDetails(true), m_ssps[2]->getDetails(true), true);
+    isect31 = calcSumnerIntersection(m_ssps[2]->getDetails(true), m_ssps[0]->getDetails(true), true);
+    // Should sanity check the results, if the circles do not intersect !!!
+
+    // From Intersections pick the points that are near each other.
+    // - Since the radii of the SumnerLines are always 90 degrees or less,
+    //   this means from the Intersections of A and B, pick the one nearest to C's elevation.
+    //   When doing so, consider that the distance may cross the seam or a pole,
+    //   so use a proper distance function from Bowditch or similar.
+    // - UPD: It turns out the above assumption is incorrect, what is needed is the distance closest to the radius of C
+    //   (which is obvious once it is realized). NOTE: SubStellarPoint stores RADIUS in m_elevation !!!
+    double dst1 = 0.0, dst2 = 0.0;
+    dst1 = abs(calcArcDist(isect12.point1, m_ssps[2]->m_loc, true) - m_ssps[2]->m_elevation); // Note m_ssps indexes from 0
+    dst2 = abs(calcArcDist(isect12.point2, m_ssps[2]->m_loc, true) - m_ssps[2]->m_elevation);
+    spoint1 = (dst1 < dst2) ? isect12.point1 : isect12.point2;
+    dst1 = abs(calcArcDist(isect23.point1, m_ssps[0]->m_loc, true) - m_ssps[0]->m_elevation);
+    dst2 = abs(calcArcDist(isect23.point2, m_ssps[0]->m_loc, true) - m_ssps[0]->m_elevation);
+    spoint2 = (dst1 < dst2) ? isect23.point1 : isect23.point2;
+    dst1 = abs(calcArcDist(isect31.point1, m_ssps[1]->m_loc, true) - m_ssps[1]->m_elevation);
+    dst2 = abs(calcArcDist(isect31.point2, m_ssps[1]->m_loc, true) - m_ssps[1]->m_elevation);
+    spoint3 = (dst1 < dst2) ? isect31.point1 : isect31.point2;
+    // Use those nearest points to find Most Plausible Position (MPP).
+    // = Correct method is to calculate the centroid of the points,
+    //   but there are other interesting possibilities that one could show, just to rule them out (phrased in terms of triangles):
+    //   o orthocentre - shortest distance from the sides of the triangle (is it?), intersection of perpendiculars through opposite vertex
+    //   o circumcentre - The centre of the circumscribing circle, this is equidistant from the triangle vertices
+    //   o inscribed centre - centre of inscribed circle
+    //   v centroid - centre of mass, intersection of median lines which go from middle of side to opposite corner
+    //   o It is the centroid that is considered the right way to interpolate. Fortunately it is also the simplest
+    //     to calculate, just average the coordinates of the 3 points. On a sphere this is slightly more complex,
+    //     but for small triangles there is little difference, except for seam and pole considerations.
+
+    // This is not great at the seam. OR if the points surround a pole
+    //solution = { (spoint1.lat + spoint2.lat + spoint3.lat) / 3.0, (spoint1.lon + spoint2.lon + spoint3.lon) / 3.0, 0.0 };
+    // Another way is to average spherical to cartesian coordinates, and normalize the resulting position vector to lie on the surface,
+    // then project back to spherical coordinates. That can then be projected with the actual geometry in use.
+    glm::vec3 p1 = m_earth->getLoc3D_NS(spoint1.lat, spoint1.lon);
+    glm::vec3 p2 = m_earth->getLoc3D_NS(spoint2.lat, spoint2.lon);
+    glm::vec3 p3 = m_earth->getLoc3D_NS(spoint3.lat, spoint3.lon);
+    solution = m_earth->getXYZtoLLH_NS(glm::normalize((p1 + p2 + p3) / 3.0f)); // Earth radius is 1.0f, otherwise multiply by earth_r
+
+    //
+    // centroid calculation with more points is slightly less straight forward, see:
+    // https://gis.stackexchange.com/questions/164267/how-exactly-is-the-centroid-of-polygons-calculated#:~:text=The%20centroid%20(a.k.a.%20the%20center,%2B%20y2%20%2B%20y3)%2F3.
+    // https://drive.google.com/file/d/0B6wCLzdYQE_gOUVTc0FuOVFZbHM/view?usp=sharing&resourcekey=0-4Vdlynw2E9fKwpHclOJxEQ
+    // (last one from https://sites.google.com/site/navigationalalgorithms/Home/papersnavigation which has other great reads too)
+    if (rad) return solution;
+    else return { rad2deg * solution.lat, rad2deg * solution.lon, 0.0 };
+}
+Intersection SubPointSolver::calcSumnerIntersection(LLH llh1, LLH llh2, bool rad) {
+    // Returns NO_DOUBLE for all values if there are no intersections (circles are concentric or antipodal)
+    // Source: https://gis.stackexchange.com/questions/48937/calculating-intersection-of-two-circles
+    if (!rad) {
+        llh1.lat *= deg2rad; llh1.lon *= deg2rad; llh1.dst *= deg2rad;
+        llh2.lat *= deg2rad; llh2.lon *= deg2rad; llh2.dst *= deg2rad;
+    }
+    // transform from spherical to cartesian coordinates using LLH to store coordinates as doubles: (lat,lon,dst) <- (x,y,z)
+    LLH pos1{ cos(llh1.lon) * cos(llh1.lat), sin(llh1.lon) * cos(llh1.lat), sin(llh1.lat) };
+    LLH pos2{ cos(llh2.lon) * cos(llh2.lat), sin(llh2.lon) * cos(llh2.lat), sin(llh2.lat) };
+    // q equal to pos1 dot pos2
+    double q = pos1.lat * pos2.lat + pos1.lon * pos2.lon + pos1.dst * pos2.dst;
+    double q2 = q * q;
+    // q2 == 1.0 gives DIV0 in the following, and indicates that the points coincide or are antipodal.
+    if (abs(q2 - 1.0) < verytiny) {
+        std::cout << "Earth::calcSumnerIntersection() the circles are not intersecting! (q*q is very close to 1.0)\n";
+        return { {NO_DOUBLE, NO_DOUBLE, NO_DOUBLE},{NO_DOUBLE, NO_DOUBLE, NO_DOUBLE} };
+    }
+    // pos0 will be a unique point on the line of intersection of the two planes defined by the two distance circles
+    double a = (cos(llh1.dst) - cos(llh2.dst) * q) / (1 - q2);
+    double b = (cos(llh2.dst) - cos(llh1.dst) * q) / (1 - q2);
+    // pos0 is a linear combination of pos1 and pos2 with the parameters a and b
+    LLH pos0 = { a * pos1.lat + b * pos2.lat, a * pos1.lon + b * pos2.lon, a * pos1.dst + b * pos2.dst };
+    // n equal to pos1 cross pos2, normal to both
+    LLH n = { pos1.lon * pos2.dst - pos1.dst * pos2.lon, pos1.dst * pos2.lat - pos1.lat * pos2.dst, pos1.lat * pos2.lon - pos1.lon * pos2.lat };
+    // t = sqrt((1.0 - dot(pos0, pos0)) / glm::dot(n, n)); (a vector dot itself is of course the square of its magnitude
+    double t = sqrt((1.0 - (pos0.lat * pos0.lat + pos0.lon * pos0.lon + pos0.dst * pos0.dst)) / (n.lat * n.lat + n.lon * n.lon + n.dst * n.dst));
+    //isect1 = pos0 + t * n and isect2 = pos0 - t * n, where t is a scalar
+    LLH isect1 = { pos0.lat + t * n.lat, pos0.lon + t * n.lon, pos0.dst + t * n.dst };
+    LLH isect2 = { pos0.lat - t * n.lat, pos0.lon - t * n.lon, pos0.dst - t * n.dst };
+    // Transform back to spherical coordinates - Are isect1 & 2 always unit vectors? !!!
+    LLH ll1 = { atan2(isect1.dst, sqrt(isect1.lat * isect1.lat + isect1.lon * isect1.lon)),
+        atan2(isect1.lon, isect1.lat), sqrt(isect1.lat * isect1.lat + isect1.lon * isect1.lon + isect1.dst * isect1.dst) };
+    LLH ll2 = { atan2(isect2.dst, sqrt(isect2.lat * isect2.lat + isect2.lon * isect2.lon)),
+        atan2(isect2.lon, isect2.lat), sqrt(isect2.lat * isect2.lat + isect2.lon * isect2.lon + isect2.dst * isect2.dst) };
+    // if degrees were passed in, return degrees rather than radians
+    if (!rad) {
+        ll1 = { ll1.lat * rad2deg, ll1.lon * rad2deg, ll1.dst * rad2deg };
+        ll2 = { ll2.lat * rad2deg, ll2.lon * rad2deg, ll2.dst * rad2deg };
+    }
+    return { ll1, ll2 };
+}
+double SubPointSolver::calcArcDist(LLH llh1, LLH llh2, bool rad) {
+    // Calculate great circle distance using Vincenty formula simplified for sphere rather than ellipsoid.
+    // Source: https://en.wikipedia.org/wiki/Great-circle_distance#Computational_formulas
+    // NOTE: The Vector version given in the same source is interesting.
+    //       If locations are given by position normals rather than lat&lon, then:
+    //       ArcDistance = atan2( |n1 x n2| / (n1 . n2) ) on a unit sphere.
+    if (!rad) {
+        llh1.lat *= deg2rad; // doubles
+        llh1.lon *= deg2rad;
+        llh2.lat *= deg2rad;
+        llh2.lon *= deg2rad;
+    }
+    double sin1 = sin(llh1.lat);
+    double sin2 = sin(llh2.lat);
+    double cos1 = cos(llh1.lat);
+    double cos2 = cos(llh2.lat);
+    double dlon = llh2.lon - llh1.lon;
+    double sind = sin(dlon);
+    double cosd = cos(dlon);
+    double a = sqrt(pow((cos2 * sind), 2) + pow((cos1 * sin2 - sin1 * cos2 * cosd), 2));
+    double b = sin1 * sin2 + cos1 * cos2 * cosd;
+    double dist = atan2(a, b);
+    if (!rad) dist *= rad2deg;
+    return dist;
+}
+
+
+
+
+
+// --------------------
+//  Three Point Solver
+// --------------------
+    // Solves a fix for 3 observations using StellarSubPoint
+    // 1) add points, 2) optionally set other parameters, 3) pull solution
+ThreePointSolver::ThreePointSolver(Earth* earth) : m_earth(earth) {
+}
+SubStellarPoint* ThreePointSolver::addSubStellarPoint(const std::string starname, const double elevation, bool rad, const double jd_tt) {
+    // Create a new SubStellarPoint and add it to the solver, returning a reference to the caller
+    if (m_ssps.size() > 2) {
+        std::cout << "WARNING: ThreePointSolver::addSubStellarPoint() There are already 3 stars defined. Ignoring star: " << starname << " and returning last added star.\n";
+        return m_ssps.back();
+    }
+    double myjd = jd_tt;
+    if (myjd == NO_DOUBLE) myjd = m_earth->m_scene->m_astro->getJD_TT();
+    m_ssps.push_back(new SubStellarPoint(*m_earth, starname, true, myjd, NO_COLOR));
+    m_ssps.back()->setElevation(elevation, rad);
+    return m_ssps.back();
+}
+void ThreePointSolver::addSubStellarPoint(SubStellarPoint* ssp) {
+    // Add an existing SubStellarPoint to the solver
+    if (m_ssps.size() > 2) {
+        std::cout << "WARNING: ThreePointSolver::addSubStellarPoint() There are already 3 stars defined. Ignoring!\n";
+        return;
+    }
+    m_ssps.push_back(ssp);
+}
+void ThreePointSolver::setIndexError(double indexError, bool rad) {
+    for (auto& s : m_ssps) {
+        s->setIndexError(indexError, rad);
+    }
+}
+void ThreePointSolver::setObserverHeight(double observerHeight) {
+    //m_obsHeight = observerHeight;
+    for (auto& s : m_ssps) {
+        s->setObserverHeight(observerHeight);
+    }
+}
+void ThreePointSolver::setRefraction(double temperature, double pressure) {
+    //m_temperature = temperature;
+    //m_pressure = pressure;
+    for (auto& s : m_ssps) {
+        s->setRefraction(temperature, pressure);
+    }
+}
+void ThreePointSolver::showSumnerLines(glm::vec4 color, float width) {
+    for (auto& s : m_ssps) {
+        s->sumner->enable(color, width);
+    }
+}
+void ThreePointSolver::showNames(Font* font, glm::vec4 color, float size) {
+    for (auto& s : m_ssps) {
+        s->nametag->enable(font, color, size);
+    }
+}
+void ThreePointSolver::showDots(glm::vec4 color, float size) {
+    for (auto& s : m_ssps) {
+        s->dot->enable(color, size);
+    }
+}
+void ThreePointSolver::update() {
+    for (auto& s : m_ssps) {
+        s->update();
+    }
+}
+LLH ThreePointSolver::calcLocation(bool rad) { // Calculates intersections on a spherical Earth (NS). Possibly add AE, ER etc.
+    // Should check if at least 3 points were supplied already !!!
+    if (m_ssps.size() < 3) {
+        std::cout << "WARNING: ThreePointSolver::calcLocation() There are less than 3 stars defined. Can't calculate, so returning invalid location!\n";
+        return LLH{ NO_DOUBLE, NO_DOUBLE, NO_DOUBLE };
+    }
+
+    // adjust and refract in SSPs or here??? I want to see the difference in the SumnerLines, so in SSPs!
+
+
+    // Calculate intersections of the SumnerLines
+    isect12 = calcSumnerIntersection(m_ssps[0]->getDetails(true), m_ssps[1]->getDetails(true), true);
+    isect23 = calcSumnerIntersection(m_ssps[1]->getDetails(true), m_ssps[2]->getDetails(true), true);
+    isect31 = calcSumnerIntersection(m_ssps[2]->getDetails(true), m_ssps[0]->getDetails(true), true);
+    // Should sanity check the results, if the circles do not intersect !!!
+
+    // From Intersections pick the points that are near each other.
+    // - Since the radii of the SumnerLines are always 90 degrees or less,
+    //   this means from the Intersections of A and B, pick the one nearest to C's elevation.
+    //   When doing so, consider that the distance may cross the seam or a pole,
+    //   so use a proper distance function from Bowditch or similar.
+    // - UPD: It turns out the above assumption is incorrect, what is needed is the distance closest to the radius of C
+    //   (which is obvious once it is realized). NOTE: SubStellarPoint stores RADIUS in m_elevation !!!
+    double dst1 = 0.0, dst2 = 0.0;
+    dst1 = abs(calcArcDist(isect12.point1, m_ssps[2]->m_loc, true) - m_ssps[2]->m_elevation); // Note m_ssps indexes from 0
+    dst2 = abs(calcArcDist(isect12.point2, m_ssps[2]->m_loc, true) - m_ssps[2]->m_elevation);
+    spoint1 = (dst1 < dst2) ? isect12.point1 : isect12.point2;
+    dst1 = abs(calcArcDist(isect23.point1, m_ssps[0]->m_loc, true) - m_ssps[0]->m_elevation);
+    dst2 = abs(calcArcDist(isect23.point2, m_ssps[0]->m_loc, true) - m_ssps[0]->m_elevation);
+    spoint2 = (dst1 < dst2) ? isect23.point1 : isect23.point2;
+    dst1 = abs(calcArcDist(isect31.point1, m_ssps[1]->m_loc, true) - m_ssps[1]->m_elevation);
+    dst2 = abs(calcArcDist(isect31.point2, m_ssps[1]->m_loc, true) - m_ssps[1]->m_elevation);
+    spoint3 = (dst1 < dst2) ? isect31.point1 : isect31.point2;
+    // Use those nearest points to find Most Plausible Position (MPP).
+    // = Correct method is to calculate the centroid of the points,
+    //   but there are other interesting possibilities that one could show, just to rule them out (phrased in terms of triangles):
+    //   o orthocentre - shortest distance from the sides of the triangle (is it?), intersection of perpendiculars through opposite vertex
+    //   o circumcentre - The centre of the circumscribing circle, this is equidistant from the triangle vertices
+    //   o inscribed centre - centre of inscribed circle
+    //   v centroid - centre of mass, intersection of median lines which go from middle of side to opposite corner
+    //   o It is the centroid that is considered the right way to interpolate. Fortunately it is also the simplest
+    //     to calculate, just average the coordinates of the 3 points. On a sphere this is slightly more complex,
+    //     but for small triangles there is little difference, except for seam and pole considerations.
+
+    // This is not great at the seam. OR if the points surround a pole
+    //solution = { (spoint1.lat + spoint2.lat + spoint3.lat) / 3.0, (spoint1.lon + spoint2.lon + spoint3.lon) / 3.0, 0.0 };
+    // Another way is to average spherical to cartesian coordinates, and normalize the resulting position vector to lie on the surface,
+    // then project back to spherical coordinates. That can then be projected with the actual geometry in use.
+    glm::vec3 p1 = m_earth->getLoc3D_NS(spoint1.lat, spoint1.lon);
+    glm::vec3 p2 = m_earth->getLoc3D_NS(spoint2.lat, spoint2.lon);
+    glm::vec3 p3 = m_earth->getLoc3D_NS(spoint3.lat, spoint3.lon);
+    solution = m_earth->getXYZtoLLH_NS(glm::normalize((p1 + p2 + p3) / 3.0f)); // Earth radius is 1.0f, otherwise multiply by earth_r
+
+    //
+    // centroid calculation with more points is slightly less straight forward, see:
+    // https://gis.stackexchange.com/questions/164267/how-exactly-is-the-centroid-of-polygons-calculated#:~:text=The%20centroid%20(a.k.a.%20the%20center,%2B%20y2%20%2B%20y3)%2F3.
+    // https://drive.google.com/file/d/0B6wCLzdYQE_gOUVTc0FuOVFZbHM/view?usp=sharing&resourcekey=0-4Vdlynw2E9fKwpHclOJxEQ
+    // (last one from https://sites.google.com/site/navigationalalgorithms/Home/papersnavigation which has other great reads too)
+    if (rad) return solution;
+    else return { rad2deg * solution.lat, rad2deg * solution.lon, 0.0 };
+}
+Intersection ThreePointSolver::calcSumnerIntersection(LLH llh1, LLH llh2, bool rad) {
+    // Returns NO_DOUBLE for all values if there are no intersections (circles are concentric or antipodal)
+    // Source: https://gis.stackexchange.com/questions/48937/calculating-intersection-of-two-circles
+    if (!rad) {
+        llh1.lat *= deg2rad; llh1.lon *= deg2rad; llh1.dst *= deg2rad;
+        llh2.lat *= deg2rad; llh2.lon *= deg2rad; llh2.dst *= deg2rad;
+    }
+    // transform from spherical to cartesian coordinates using LLH to store coordinates as doubles: (lat,lon,dst) <- (x,y,z)
+    LLH pos1{ cos(llh1.lon) * cos(llh1.lat), sin(llh1.lon) * cos(llh1.lat), sin(llh1.lat) };
+    LLH pos2{ cos(llh2.lon) * cos(llh2.lat), sin(llh2.lon) * cos(llh2.lat), sin(llh2.lat) };
+    // q equal to pos1 dot pos2
+    double q = pos1.lat * pos2.lat + pos1.lon * pos2.lon + pos1.dst * pos2.dst;
+    double q2 = q * q;
+    // q2 == 1.0 gives DIV0 in the following, and indicates that the points coincide or are antipodal.
+    if (abs(q2 - 1.0) < verytiny) {
+        std::cout << "Earth::calcSumnerIntersection() the circles are not intersecting! (q*q is very close to 1.0)\n";
+        return { {NO_DOUBLE, NO_DOUBLE, NO_DOUBLE},{NO_DOUBLE, NO_DOUBLE, NO_DOUBLE} };
+    }
+    // pos0 will be a unique point on the line of intersection of the two planes defined by the two distance circles
+    double a = (cos(llh1.dst) - cos(llh2.dst) * q) / (1 - q2);
+    double b = (cos(llh2.dst) - cos(llh1.dst) * q) / (1 - q2);
+    // pos0 is a linear combination of pos1 and pos2 with the parameters a and b
+    LLH pos0 = { a * pos1.lat + b * pos2.lat, a * pos1.lon + b * pos2.lon, a * pos1.dst + b * pos2.dst };
+    // n equal to pos1 cross pos2, normal to both
+    LLH n = { pos1.lon * pos2.dst - pos1.dst * pos2.lon, pos1.dst * pos2.lat - pos1.lat * pos2.dst, pos1.lat * pos2.lon - pos1.lon * pos2.lat };
+    // t = sqrt((1.0 - dot(pos0, pos0)) / glm::dot(n, n)); (a vector dot itself is of course the square of its magnitude
+    double t = sqrt((1.0 - (pos0.lat * pos0.lat + pos0.lon * pos0.lon + pos0.dst * pos0.dst)) / (n.lat * n.lat + n.lon * n.lon + n.dst * n.dst));
+    //isect1 = pos0 + t * n and isect2 = pos0 - t * n, where t is a scalar
+    LLH isect1 = { pos0.lat + t * n.lat, pos0.lon + t * n.lon, pos0.dst + t * n.dst };
+    LLH isect2 = { pos0.lat - t * n.lat, pos0.lon - t * n.lon, pos0.dst - t * n.dst };
+    // Transform back to spherical coordinates - Are isect1 & 2 always unit vectors? !!!
+    LLH ll1 = { atan2(isect1.dst, sqrt(isect1.lat * isect1.lat + isect1.lon * isect1.lon)),
+        atan2(isect1.lon, isect1.lat), sqrt(isect1.lat * isect1.lat + isect1.lon * isect1.lon + isect1.dst * isect1.dst) };
+    LLH ll2 = { atan2(isect2.dst, sqrt(isect2.lat * isect2.lat + isect2.lon * isect2.lon)),
+        atan2(isect2.lon, isect2.lat), sqrt(isect2.lat * isect2.lat + isect2.lon * isect2.lon + isect2.dst * isect2.dst) };
+    // if degrees were passed in, return degrees rather than radians
+    if (!rad) {
+        ll1 = { ll1.lat * rad2deg, ll1.lon * rad2deg, ll1.dst * rad2deg };
+        ll2 = { ll2.lat * rad2deg, ll2.lon * rad2deg, ll2.dst * rad2deg };
+    }
+    return { ll1, ll2 };
+}
+double ThreePointSolver::calcArcDist(LLH llh1, LLH llh2, bool rad) {
+    // Calculate great circle distance using Vincenty formula simplified for sphere rather than ellipsoid.
+    // Source: https://en.wikipedia.org/wiki/Great-circle_distance#Computational_formulas
+    // NOTE: The Vector version given in the same source is interesting.
+    //       If locations are given by position normals rather than lat&lon, then:
+    //       ArcDistance = atan2( |n1 x n2| / (n1 . n2) ) on a unit sphere.
+    if (!rad) {
+        llh1.lat *= deg2rad; // doubles
+        llh1.lon *= deg2rad;
+        llh2.lat *= deg2rad;
+        llh2.lon *= deg2rad;
+    }
+    double sin1 = sin(llh1.lat);
+    double sin2 = sin(llh2.lat);
+    double cos1 = cos(llh1.lat);
+    double cos2 = cos(llh2.lat);
+    double dlon = llh2.lon - llh1.lon;
+    double sind = sin(dlon);
+    double cosd = cos(dlon);
+    double a = sqrt(pow((cos2 * sind), 2) + pow((cos1 * sin2 - sin1 * cos2 * cosd), 2));
+    double b = sin1 * sin2 + cos1 * cos2 * cosd;
+    double dist = atan2(a, b);
+    if (!rad) dist *= rad2deg;
+    return dist;
 }
 
 
@@ -2973,7 +3925,7 @@ void Location::Update(bool time, bool morph, bool sunflat) {
     }
     truesun->update(time, morph);
     flatsun->update(time, morph);
-    azielegrid->update(time, morph);
+    if (azielegrid) azielegrid->update(time, morph);
 }
 void Location::Draw(Camera* cam) {
     // Don't draw Primitives derived objects, as they are drawn from World.
@@ -3067,28 +4019,20 @@ LLH Location::calcDir2EleAzi(glm::vec3 direction, bool rads) {
     llh.lat = pi2 - acos(glm::dot(glm::vec3(0.0f, 0.0f, 1.0f), localdir));
     return llh;
 }
-glm::vec3 Location::calcDecRA2Dir(double jd, double dec, double ra, bool rad) {
-    // Defaults to taking degrees, set rad = true otherwise. Pass jd = NO_DOUBLE to us current JD
+glm::vec3 Location::calcDecRA2Dir(double jd_utc, double dec, double ra, bool rad) {
+    // Defaults to taking degrees, set rad = true otherwise. Pass jd = NO_DOUBLE to use current JD
     if (!rad) {
         dec *= deg2rad;
         ra *= deg2rad;
     }
-    if (jd == NO_DOUBLE) jd = m_scene->m_astro->getJD();
-    double gsidtime = m_scene->m_astro->getGsid(jd); // In radians
+    if (jd_utc == NO_DOUBLE) jd_utc = m_scene->m_astro->getJD_UTC();
+    double gsidtime = m_scene->m_astro->getGsid(jd_utc); // In radians
     double gha = gsidtime - ra; // calcGeo2Topo() needs GHA, not LHA
     LLH topocentric = m_scene->m_astro->calcGeo2Topo({ dec, gha, 0.0 }, { m_lat, m_lon, 0.0 });
     //std::cout << "Elevation, Azimuth: " << rad2deg * topocentric.lat << ", " << rad2deg * topocentric.lon << "\n";
     //std::cout << "Elevation with refraction: " << rad2deg * topocentric.lat - m_earth->calcRefractionBennett(rad2deg * topocentric.lat, 10.0, 1010.0) << '\n';
     glm::vec3 dir = calcEleAzi2Dir(topocentric, true);
     return dir;
-}
-glm::vec3 Location::calcDirRADec(double ra, double dec, double jd) {
-    // Takes RA and Dec in degrees and JD, returns normalized vec3 direction
-    if (jd == 0.0) jd = m_scene->m_astro->getJD();
-    double gsidtime = m_scene->m_astro->getGsid(jd); // In radians
-    double lha = gsidtime + m_lon - deg2rad * ra;
-    LLH topocentric = m_scene->m_astro->calcGeo2Topo({ deg2rad * dec, lha, 0.0 }, { m_lat, m_lon, 0.0 });
-    return calcEleAzi2Dir(topocentric, true);
 }
 glm::mat4 Location::calcWorld2LocalMatrix() {
     // Returns a matrix that takes cartesian world coordinates (X,Y,Z) into cartesian local coordinates (north,east,zenith)
@@ -3197,7 +4141,7 @@ void Location::TrueSun::enableEleAngText(Font* font) {
     glm::vec3 dir = glm::cross(up, camdir);
     up = glm::cross(camdir, dir);
     char dstring[10];
-    sprintf(dstring, "%03.3f°", rad2deg * localsun.lat);
+    snprintf(dstring, sizeof(dstring), "%03.3f°", rad2deg * localsun.lat);
     std::string angle = dstring;
     m_eleangtext = m_location->m_scene->getTextFactory()->newText(font, angle, 0.08f, defaultcolor, pos, dir, up);
 }
@@ -3209,7 +4153,7 @@ void Location::TrueSun::updateEleAngText() {
     up = glm::cross(camdir, dir);
     m_eleangtext->updatePosDirUp(pos, dir, up);
     char dstring[10];
-    sprintf(dstring, "%03.3f°", rad2deg * localsun.lat);
+    snprintf(dstring, sizeof(dstring), "%03.3f°", rad2deg * localsun.lat);
     std::string angle = dstring;
     m_eleangtext->updateText(angle);
 }
@@ -3224,7 +4168,7 @@ void Location::TrueSun::enableAziAngText(Font* font) {
     glm::vec3 dir = glm::cross(up, camdir);
     up = glm::cross(camdir, dir);
     char dstring[10];
-    sprintf(dstring, "%03.3f°", 180.0 + rad2deg * localsun.lon);
+    snprintf(dstring, sizeof(dstring), "%03.3f°", 180.0 + rad2deg * localsun.lon);
     std::string angle = dstring;
     m_aziangtext = m_location->m_scene->getTextFactory()->newText(font, angle, 0.06f, defaultcolor, pos, dir, up);
 }
@@ -3236,7 +4180,7 @@ void Location::TrueSun::updateAziAngText() {
     up = glm::cross(camdir, dir);
     m_aziangtext->updatePosDirUp(pos, dir, up);
     char dstring[10];
-    sprintf(dstring, "%03.3f°", 180.0 + rad2deg * localsun.lon);
+    snprintf(dstring, sizeof(dstring), "%03.3f°", 180.0 + rad2deg * localsun.lon);
     std::string angle = dstring;
     m_aziangtext->updateText(angle);
 }void Location::TrueSun::enablePath24() {
@@ -3261,11 +4205,11 @@ double Location::TrueSun::getAzimuth(bool radians) {
     return localsun.lon * rad2deg;
 }
 double Location::TrueSun::getSolarNoonJD() {
-    // This will not actually work. Due to Earth orbit around the Sun, this will always be slightly off !!!
-    // Use interpolation methods instead.
+    // FIX: !!! This will not actually work. Due to Earth orbit around the Sun, this will always be slightly off !!!
+    //          Use interpolation methods instead.
     double diff = m_location->m_lon - m_location->m_earth->calcHADec2LatLon(sun).lon;
-    if (diff < 0.0) return (diff + tau) / tau + m_location->m_scene->m_astro->getJD();
-    return diff / tau + m_location->m_scene->m_astro->getJD();
+    if (diff < 0.0) return (diff + tau) / tau + m_location->m_scene->m_astro->getJD_UTC();
+    return diff / tau + m_location->m_scene->m_astro->getJD_UTC();
 }
 // ------------------------------- Flat Sun object ------------------------------- //
 Location::FlatSun::FlatSun(Location* location) : m_location(location) {
@@ -3350,7 +4294,7 @@ void Location::FlatSun::enableEleAngText(Font* font) {
     glm::vec3 dir = glm::cross(up, camdir);
     up = glm::cross(camdir, dir);
     char dstring[10];
-    sprintf(dstring, "%03.3f°", rad2deg * localsun.lat);
+    snprintf(dstring, sizeof(dstring), "%03.3f°", rad2deg * localsun.lat);
     std::string angle = dstring;
     m_eleangtext = m_location->m_scene->getTextFactory()->newText(font, angle, 0.08f, defaultcolor, pos, dir, up);
 }
@@ -3362,7 +4306,7 @@ void Location::FlatSun::updateEleAngText() {
     up = glm::cross(camdir, dir);
     m_eleangtext->updatePosDirUp(pos, dir, up);
     char dstring[10];
-    sprintf(dstring, "%03.3f°", rad2deg * localsun.lat);
+    snprintf(dstring, sizeof(dstring), "%03.3f°", rad2deg * localsun.lat);
     std::string angle = dstring;
     m_eleangtext->updateText(angle);
 }
@@ -3377,7 +4321,7 @@ void Location::FlatSun::enableAziAngText(Font* font) {
     glm::vec3 dir = glm::cross(up, camdir);
     up = glm::cross(camdir, dir);
     char dstring[10];
-    sprintf(dstring, "%03.3f°", clamp0to360(rad2deg * localsun.lon - 180.0));
+    snprintf(dstring, sizeof(dstring), "%03.3f°", clamp0to360(rad2deg * localsun.lon - 180.0));
     std::string angle = dstring;
     m_aziangtext = m_location->m_scene->getTextFactory()->newText(font, angle, 0.08f, defaultcolor, pos, dir, up);
 }
@@ -3389,7 +4333,7 @@ void Location::FlatSun::updateAziAngText() {
     up = glm::cross(camdir, dir);
     m_aziangtext->updatePosDirUp(pos, dir, up);
     char dstring[10];
-    sprintf(dstring, "%03.3f°", clamp0to360(rad2deg * localsun.lon - 180.0));
+    snprintf(dstring, sizeof(dstring), "%03.3f°", clamp0to360(rad2deg * localsun.lon - 180.0));
     std::string angle = dstring;
     m_aziangtext->updateText(angle);
 }void Location::FlatSun::enablePath24() {
@@ -3418,10 +4362,10 @@ double Location::FlatSun::getAzimuth(bool radians) {
 }
 void Location::FlatSun::doPath24() {
     // Change to smarter date/time based start and end
-    // For now, just sweep 1 JD centered on current epoch
+    // For now, just sweep 1 JD centered on current time
     //float height = 0.0/earthradius; // Observer height in km to Earth radii 
     m_path24->clearPoints();
-    double myJD = m_location->m_scene->m_astro->getJD() + 0.5;
+    double myJD = m_location->m_scene->m_astro->getJD_TT() + 0.5;
     for (double fday = myJD - 1.0; fday < myJD; fday += 0.01) {
         //m_path24->addPoint(m_location->m_pos + m_location->getFlatSunDir(fday) * m_location->m_radius);
         sun = m_location->m_scene->m_astro->getDecGHA(SUN, fday); // Current Sun GHA, Dec, no JD specified
@@ -3435,8 +4379,71 @@ void Location::FlatSun::doPath24() {
     m_path24->generate();
 }
 
+Location::AziEleGrid::AziEleGrid(Location* location, double stepsize, float width, glm::vec4 color) : m_location(location) {
+    m_stepsize = stepsize; // always given in radians
+    for (double angle = 0.0; angle < tau; angle += m_stepsize) {
+        addAzimuthCircle(angle, width, color);
+    }
+    for (double angle = -pi2; angle < pi2; angle += m_stepsize) {
+        addElevationCircle(angle, width, color);
+    }
+}
+void Location::AziEleGrid::update(bool time, bool morph) {
+    if (!morph) return; // Time passing does not change azi ele grid
+    if (azicircles.size() != 0) {
+        unsigned int i = 0;
+        double azi = 0.0;
+        for (auto c : azicircles) {
+            azi = m_stepsize * (double)i;
+            c->clearPoints();
+            for (double ele = -pi2; ele <= pi2 + tiny; ele += deg2rad) {
+                glm::vec3 point = m_location->getPosition() + m_location->m_radius * m_location->calcEleAzi2Dir({ ele,azi,0.0 });
+                c->addPoint(point);
+            }
+            i++;
+            c->generate();
+        }
+    }
+    if (elecircles.size() != 0) {
+        unsigned int i = 0;
+        double ele = 0.0;
+        for (auto c : elecircles) {
+            ele = m_stepsize * (double)i;
+            c->clearPoints();
+            for (double azi = 0.0; azi <= tau; azi += deg2rad) {
+                glm::vec3 point = m_location->getPosition() + m_location->m_radius * m_location->calcEleAzi2Dir({ ele,azi,0.0 });
+                c->addPoint(point);
+            }
+            i++;
+            c->generate();
+        }
+    }
+}
+void Location::AziEleGrid::addAzimuthCircle(double azi, float width, glm::vec4 color) {
+    // Actually a half-circle
+    azicircles.emplace_back(new GenericPath(m_location->m_scene, width, color));
+    for (double ele = -pi2; ele <= pi2 + tiny; ele += deg2rad) {
+        glm::vec3 point = m_location->getPosition() + m_location->m_radius * m_location->calcEleAzi2Dir({ ele,azi,0.0 });
+        azicircles.back()->addPoint(point);
+    }
+    azicircles.back()->generate();
+}
+void Location::AziEleGrid::addElevationCircle(double ele, float width, glm::vec4 color) {
+    elecircles.emplace_back(new GenericPath(m_location->m_scene, width, color));
+    for (double azi = 0.0; azi <= tau; azi += deg2rad) {
+        glm::vec3 point = m_location->getPosition() + m_location->m_radius * m_location->calcEleAzi2Dir({ ele,azi,0.0 });
+        elecircles.back()->addPoint(point);
+    }
+    elecircles.back()->generate();
+}
+
+
+
+
+
 // Generics
 void Location::addLocSky(float size, glm::vec4 color) {
+    // !!! FIX: Should use SkySphere object instead !!!
     size = m_radius;
     size_t index = m_dots->addXYZ(m_pos, color, size);
     m_dotcache.push_back({ m_pos, size, color, index, LOCSKY });
@@ -3467,7 +4474,6 @@ void Location::updateLocSky(dotcache& d) {
     d.position = m_pos;
     m_dots->changeXYZ(d.index, m_pos, d.color, d.size);
 }
-
 void Location::addHorizon(glm::vec4 color, float width) {
     PolyCurve* path = m_scene->newPolyCurve(color, width);
     doPathHorizon(path);
@@ -3479,6 +4485,8 @@ void Location::updatePathHorizon(polycache& pc) {
     return;
 }
 void Location::doPathHorizon(PolyCurve* path) {
+    // !!! FIX: Should calculate visible horizon angle based on height for curved geometries !!!
+    // !!! TODO: Might want to distinguish between geometric horizon and refracted horizon, but the effect is small !!!
     glm::vec3 dir;
     for (double azi = 0; azi <= tau; azi += deg2rad) {
         dir = calcEleAzi2Dir({ 0.0, azi, 0.0 }, true);
@@ -3869,7 +4877,7 @@ void Location::doPath3DFlatSun(PolyCurve* path) {
     // Change to smarter date/time based start and end
     // For now, just sweep 1 JD centered on current epoch
     //float height = 0.0/earthradius; // Observer height in km to Earth radii 
-    double myJD = m_scene->m_astro->getJD() + 0.5;
+    double myJD = m_scene->m_astro->getJD_UTC() + 0.5;
     for (double fday = myJD - 1.0; fday < myJD; fday += 0.01) {
         path->addPoint(m_pos + getFlatSunDir(fday) * m_radius);
     }
@@ -3888,7 +4896,7 @@ void Location::updatePath3DTrueMoon(polycache p) {
 void Location::doPath3DTrueMoon(PolyCurve* path) {
     // Change to smarter date/time based start and end
     // For now, just sweep 1 JD centered on current epoch
-    double myJD = m_scene->m_astro->getJD() + 0.5;
+    double myJD = m_scene->m_astro->getJD_UTC() + 0.5;
     for (double fday = myJD - 1.0; fday < myJD; fday += 0.01) {
         LLH moon = m_earth->getMoon(fday);
         CAA2DCoordinate localmoon = CAACoordinateTransformation::Equatorial2Horizontal(
@@ -3910,7 +4918,7 @@ void Location::updateTrueLunalemma(polycache p) {
     return;
 }
 void Location::doTrueLunalemma(PolyCurve* path) {
-    double myJD = m_scene->m_astro->getJD();
+    double myJD = m_scene->m_astro->getJD_UTC();
     // Rough estimate by dividing sidereal month into 360 and compensating for 4 minutes per degree of celestial rotation: 1.036507 (24 hrs 52.57mins)
     // 1.035028 is from https://www.flickr.com/photos/vanamonde81/49859483963/in/dateposted/ and seems to work perfectly
     glm::vec3 dir = glm::vec3(0.0f);
@@ -3939,9 +4947,10 @@ void Location::updatePath3DRADec(polycache& pa) {
 void Location::doPath3DRADec(double ra, double dec, PolyCurve* path) {
     // Change to smarter date/time based start and end
     // For now, just sweep 1 JD centered on current epoch
-    double myJD = m_scene->m_astro->getJD() + 0.5;
+    // !!! FIX: Allow radians via bool rad !!!
+    double myJD = m_scene->m_astro->getJD_UTC() + 0.5;
     for (double fday = myJD - 1.0; fday < myJD; fday += 0.01) {
-        glm::vec3 point = m_pos + calcDirRADec(ra, dec, fday) * m_radius;
+        glm::vec3 point = m_pos + calcDecRA2Dir(fday, dec, ra, false) * m_radius;
         path->addPoint(point);
     }
     path->generate();
@@ -3954,7 +4963,7 @@ void Location::doPath3DRADec(double ra, double dec, PolyCurve* path) {
 SolarSystem::SolarSystem(Scene* scene, bool geocentric) : m_scene(scene), m_geocentric(geocentric) {
     //std::cout << "SolarSystem::SolarSystem()\n";
     m_astro = m_scene->m_astro;
-    m_jd = m_astro->getJD();
+    m_jd = m_astro->getJD_TT();
     glm::vec3 earthpos = CalcEarth() + m_sunpos;
     m_sunpos = m_geocentric ? -earthpos : glm::vec3(0.0f);
     m_earthpos = m_geocentric ? glm::vec3(0.0f) : earthpos;
@@ -3976,7 +4985,7 @@ void SolarSystem::Update() {
     if (orbits != m_orbits) changeOrbits();
     if (trails != m_trails) changeTrails();
     if (traillen != m_traillen) changeTraillen();
-    m_jd = m_astro->getJD();
+    m_jd = m_astro->getJD_TT();
     SunPos(true);
     EarthPos(true);
     for (unsigned int p = MERCURY; p <= EARTH; p++) {
@@ -4012,11 +5021,11 @@ void SolarSystem::clearTrails() {
         if (m_PlanetTrail[p] != nullptr) m_PlanetTrail[p]->clear();
     }
 }
-glm::vec3 SolarSystem::CalcPlanet(size_t planet, double jd) {
-    if (jd == 0.0) jd = m_jd;
-    const double lon = m_astro->getEcLon(planet, jd);  // Radians
-    const double lat = m_astro->getEcLat(planet, jd);  // Radians
-    const double dst = m_astro->getRadius(planet, jd, /* km */ false);  // AU
+glm::vec3 SolarSystem::CalcPlanet(size_t planet, double jd_tt) {
+    if (jd_tt == 0.0) jd_tt = m_jd;
+    const double lon = m_astro->getEcLon(planet, jd_tt);  // Radians
+    const double lat = m_astro->getEcLat(planet, jd_tt);  // Radians
+    const double dst = m_astro->getRadius(planet, jd_tt, /* km */ false);  // AU
     return Ecliptic2Cartesian(lat, lon, dst);
 }
 void SolarSystem::PlanetPos(size_t planet, bool update) {
@@ -4051,18 +5060,18 @@ void SolarSystem::SunPos(bool update) {
 void SolarSystem::SunOrbit(bool update) {
     m_SunPath = new PolyCurve(m_scene, SUNCOLOR, solsyspathwidth);
     double siderealyear = 366; // Sun days
-    for (double jd = m_astro->getJD() - 0.5 * siderealyear; jd < m_astro->getJD() + 0.5 * siderealyear; jd += siderealyear / 360) {
+    for (double jd = m_astro->getJD_TT() - 0.5 * siderealyear; jd < m_astro->getJD_TT() + 0.5 * siderealyear; jd += siderealyear / 360) {
         glm::vec3 pos = CalcSun(jd);
         m_SunPath->addPoint(pos);
     }
     m_SunPath->generate();
     m_SunPath->draw(m_scene->w_camera); // Default cam, NOT always correct !!!
 }
-glm::vec3 SolarSystem::CalcSun(double jd) {
-    if (jd == 0.0) jd = m_jd;
-    const double lon = m_astro->EcLonEarth(jd);
-    const double lat = m_astro->EcLatEarth(jd);
-    const double dst = m_astro->EcDstEarth(jd);
+glm::vec3 SolarSystem::CalcSun(double jd_tt) {
+    if (jd_tt == 0.0) jd_tt = m_jd;
+    const double lon = m_astro->EcLonEarth(jd_tt);
+    const double lat = m_astro->EcLatEarth(jd_tt);
+    const double dst = m_astro->EcDstEarth(jd_tt);
     return -Ecliptic2Cartesian(lat,lon,dst);
 }
 void SolarSystem::EarthPos(bool update) {
@@ -4072,11 +5081,11 @@ void SolarSystem::EarthPos(bool update) {
     //pos += m_sunpos;
     if (m_EarthTrail != nullptr && m_trails) m_EarthTrail->push(m_earthpos);
 }
-glm::vec3 SolarSystem::CalcEarth(double jd) {
-    if (jd == 0.0) jd = m_jd;
-    const double lon = m_astro->EcLonEarth(jd);
-    const double lat = m_astro->EcLatEarth(jd);
-    const double dst = m_astro->EcDstEarth(jd);
+glm::vec3 SolarSystem::CalcEarth(double jd_tt) {
+    if (jd_tt == 0.0) jd_tt = m_jd;
+    const double lon = m_astro->EcLonEarth(jd_tt);
+    const double lat = m_astro->EcLatEarth(jd_tt);
+    const double dst = m_astro->EcDstEarth(jd_tt);
     return Ecliptic2Cartesian(lat, lon, dst);
 }
 glm::vec3 SolarSystem::Ecliptic2Cartesian(double Brad, double Lrad, double dst) {
@@ -4170,7 +5179,7 @@ SkySphere::SkySphere(Scene* scene, unsigned int meshU, unsigned int meshV, bool 
     // If I simply scale stardots distances and radii by Location::m_radius/1000.0f and then offset by Location::m_pos it should work?
     // For rendering, it is better to disable backface culling and leave glFrontFace() alone
 
-    // Note: Make radius configurable, and allow to rezize.
+    // Note: Make radius configurable, and allow to resize.
     //  Requires rendering using the default Camera transform rather than the Sky one.
     m_verts.reserve(((size_t)m_meshU + 1) * ((size_t)m_meshV + 1));
     m_tris.reserve((size_t)(m_meshU * (size_t)m_meshV * (size_t)sizeof(Tri)));
@@ -4197,7 +5206,7 @@ SkySphere::SkySphere(Scene* scene, unsigned int meshU, unsigned int meshV, bool 
     tex = new Texture(texfile, GL_TEXTURE2);
     //m_world->SetSkySphereOb(this);
     //loadStars();
-    UpdateTime(m_scene->m_astro->getJD());
+    UpdateTime(m_scene->m_astro->getJD_UTC());
 }
 SkySphere::~SkySphere() {
     delete tex;
@@ -4263,12 +5272,13 @@ void SkySphere::draw() {
     }
     return;
 }
-void SkySphere::UpdateTime(double jd) {
+void SkySphere::UpdateTime(double jd_utc) {
     // HACK to keep steady background when displaying SolarSystem, check that it is orientated correctly !!!
     // Problem with this hack is, it will now create a SolarSystem and move on.
     //if (m_scene->getSolsysOb() != nullptr) return;
-    m_gsid = (float)(m_scene->m_astro->getGsid(jd));
+    m_gsid = (float)(m_scene->m_astro->getGsid());
     // Update Dot cache with rotation
+    //std::cout << "SkySphere::UpdateTime() : m_gsid = " << m_gsid << ", m_astro = " << m_scene->m_astro << '\n';
     for (auto& d : m_dotcache) {
         updateDotDecRA(d);
     }
@@ -4318,11 +5328,15 @@ void SkySphere::addDotDecRA(unsigned int unique, double dec, double ra, glm::vec
     return; // (unsigned int)m_dotcache.size() - 1;
 }
 void SkySphere::updateDotDecRA(dotcache& dot) {
-    LLH mydecra = m_scene->m_astro->calcTrueDecRa({ dot.lat,dot.lon }); //, m_scene->m_astro->getJD());
+    // FIX: !!! This only calculates the Precession !!!
+    //      Consider which RA/Dec value to store and how much calculation we want for thouands of stars per frame
+    //      RA/Dec only needs recalculation when the time changes, not when the observer location changes.
+    //      So half of this function can be skipped if time is frozen.
+    LLH mydecra = m_scene->m_astro->calcTrueDecRa({ dot.lat,dot.lon }); // , m_scene->m_astro->getJD_UTC());
     glm::vec3 pos = getDecRA2Pos3D(mydecra.lat, mydecra.lon);
     m_dots->changeXYZ(dot.index, pos, dot.color, dot.size);
     //std::cout << "updateDotDecRA(): " << dot.lat << "," << dot.lon << "\n";
-    //VPRINT(pos);
+    //if (dot.index == 1) VPRINT(pos);
     return;
 }
 void SkySphere::addGrid(float width) {

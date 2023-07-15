@@ -162,7 +162,9 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Eartharium\AAplus\AADiameters.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AADynamicalTime.cpp" />
     <ClCompile Include="Eartharium\AAplus\AAGlobe.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAPhysicalMoon.cpp" />
     <ClCompile Include="Eartharium\AAplus\AAPrecession.cpp" />
     <ClCompile Include="Eartharium\AAplus\AARefraction.cpp" />
     <ClCompile Include="Eartharium\AAplus\AAVSOP87.cpp" />
@@ -216,13 +218,15 @@
     <ClCompile Include="Eartharium\ImGUI\implot.cpp" />
     <ClCompile Include="Eartharium\ImGUI\implot_demo.cpp" />
     <ClCompile Include="Eartharium\ImGUI\implot_items.cpp" />
-    <ClCompile Include="Eartharium\mdoOpenGL.cpp" />
+    <ClCompile Include="Eartharium\OpenGL.cpp" />
     <ClCompile Include="Eartharium\Primitives.cpp" />
     <ClCompile Include="Eartharium\Utilities.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Eartharium\AAplus\AADiameters.h" />
+    <ClInclude Include="Eartharium\AAplus\AADynamicalTime.h" />
     <ClInclude Include="Eartharium\AAplus\AAGlobe.h" />
+    <ClInclude Include="Eartharium\AAplus\AAPhysicalMoon.h" />
     <ClInclude Include="Eartharium\AAplus\AAPrecession.h" />
     <ClInclude Include="Eartharium\AAplus\AARefraction.h" />
     <ClInclude Include="Eartharium\AAplus\AAVSOP87.h" />
@@ -278,7 +282,7 @@
     <ClInclude Include="Eartharium\ImGUI\imstb_rectpack.h" />
     <ClInclude Include="Eartharium\ImGUI\imstb_textedit.h" />
     <ClInclude Include="Eartharium\ImGUI\imstb_truetype.h" />
-    <ClInclude Include="Eartharium\mdoOpenGL.h" />
+    <ClInclude Include="Eartharium\OpenGL.h" />
     <ClInclude Include="Eartharium\Primitives.h" />
     <ClInclude Include="Eartharium\config.h" />
     <ClInclude Include="Eartharium\shaders\line.glsl" />
@@ -293,10 +297,12 @@
     <None Include="Eartharium\shaders\blit.glsl" />
     <None Include="Eartharium\shaders\earth.glsl" />
     <None Include="Eartharium\shaders\glyph.glsl" />
+    <None Include="Eartharium\shaders\moon.glsl" />
     <None Include="Eartharium\shaders\planetoid.glsl" />
     <None Include="Eartharium\shaders\primitive.glsl" />
     <None Include="Eartharium\shaders\primitivesdwbox.glsl" />
     <None Include="Eartharium\shaders\sdwboxearth.glsl" />
+    <None Include="Eartharium\shaders\sky.glsl" />
     <None Include="Eartharium\shaders\skybox.glsl" />
     <None Include="Eartharium\shaders\primitiveshadow.glsl" />
     <None Include="Eartharium\shaders\shadowearth.glsl" />

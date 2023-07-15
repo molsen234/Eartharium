@@ -719,7 +719,7 @@ std::string tzFile::getLocalTime(tzFile::iana_tz& timezonedb, const std::string&
     char tza[] = "1234567890";
     for (size_t i = 0; i < tzformat.size(); i++) { // Insert Rule.LETTER/S
         if (tzformat[i] == '%') {
-            sprintf(tza, tzformat.c_str(), abbr.c_str());
+            snprintf(tza, sizeof(tza), tzformat.c_str(), abbr.c_str());
             tzabbr = tza;
             break;
         }
@@ -737,7 +737,7 @@ std::string tzFile::getLocalTime(tzFile::iana_tz& timezonedb, const std::string&
     // Build date time string
     char ltime[] = "12345678901234567890123456789012345678901234567890";
     std::string localtime;
-    sprintf(ltime, "%04d-%02d-%02d %02d:%02d:%02.0f %s\n",
+    snprintf(ltime, sizeof(ltime), "%04d-%02d-%02d %02d:%02d:%02.0f %s\n",
         (int)stime.year, (int)stime.month, (int)stime.day, (int)stime.hour, (int)stime.minute, stime.second, tzabbr.c_str());
     localtime = ltime;
     return localtime; // "It is many o'clock!";

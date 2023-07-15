@@ -1,4 +1,5 @@
 //#include "config.h"
+
 #include "Primitives.h"  // includes mdoOpenGL.h which includes all other headers
 #include "Earth.h"
 //#include "Astronomy.h"
@@ -12,15 +13,32 @@
 
 
 
+// -------------
+//  SceneObject
+// -------------
+SceneObject::SceneObject(Scene* scene, bool isroot) : m_scene(scene) {
+    if (!isroot) m_scene->scenetree->addSceneObject(this, nullptr);
+    //std::cout << "SceneObject::SceneObject(" << this << ": " << m_scene->scenetree << "\n";
+}
+void SceneObject::setParent(SceneObject* parent) {
+    // !!! FIX: !!!
+    // setParent() is dangerous, it is possible to create loops in the family tree
+    // Is it enough to scan back up to the SceneTree root to prevent this?
+    if (parent == nullptr) return; // Allow unparenting objects??
+    m_parent = parent;
+    m_scene->scenetree->rootRemove(this);
+    m_parent->addChild(this);
+}
+
 
 
 // --------
 //  Camera
 // --------
-Camera::Camera(Scene* scene) {
+Camera::Camera(Scene* scene) : SceneObject(scene) {
     m_scene = scene;
+    name = "camera";
     update();
-    //Recalc();   NOTE: Set reasonable defaults in Primitives.h and do Recalc() so cam starts in well defined configuration !!!
 }
 void Camera::setLatLonFovDist(float lat, float lon, float fov, float dst) {
     camLat = lat;
@@ -61,6 +79,7 @@ void Camera::setPosLLH(LLH llh) {
     while (camLon > 180.0) camLon -= 360.0;
     while (camLon < -180.0) camLon += 360.0;
     // How to normalize latitude properly? Not practical as 100 should go to 80 and longitude should change 180 whereas 360 should simply go to 0.
+    // More importantly, panning across a pole would end up with the camera upside down and ruin the up vector.
     // Better to just snap to valid range.
     if (camLat > 90.0) camLat = 90.0;
     if (camLat < -90.0) camLat = -90.0;
@@ -110,12 +129,13 @@ void Camera::Recalc() {
 //  Scene
 // -------
 Scene::Scene(Application* app) : m_app(app) {
+    // Do first! E.g. Camera is a SceneObject, so Camera cannot be created before SceneTree!
+    scenetree = new SceneTree(this);
     // Set up a default Camera - Why? It doesn't save a lot of work, and is rather inconsistent. Well, to satisfy the keyboard controller.
     w_camera = newCamera("Default Cam");  // Will also be m_cameras[0]
     if (m_app->currentCam == nullptr) m_app->currentCam = w_camera;
     // Cameras need a scene to look at, so they should be derived from Scene::newCamera() or similar
     // Need to support more than one Camera per scene, so it should return a reference that can be passed to RenderLayer3D
-    scenetree = new SceneTree;
 }
 Scene::~Scene() {
     // Verify that all objects are deleted here !!!
@@ -128,6 +148,9 @@ Scene::~Scene() {
     if (m_viewconesOb != nullptr) delete m_viewconesOb;
     if (m_skydotsOb != nullptr) delete m_skydotsOb;
     if (m_dotsOb != nullptr) delete m_dotsOb;
+    //if (m_threepointsolvers.size() > 0) {
+    //    for (auto tps : m_threepointsolvers) { delete tps; }
+    //}
     delete scenetree; // Always created in constructor
 }
 Camera* Scene::newCamera(const std::string name) {
@@ -148,6 +171,10 @@ void Scene::clearScene() {
     if (m_earthOb != nullptr) {
         delete m_earthOb;
         m_earthOb = nullptr;
+    }
+    if (m_dmoonOb != nullptr) {
+        delete m_dmoonOb;
+        m_dmoonOb = nullptr;
     }
     if (m_solsysOb != nullptr) {
         delete m_solsysOb;
@@ -177,6 +204,8 @@ void Scene::render(Camera* cam) {
     scenetree->updateBreathFirst();
     // Should take fbo render target !!!
     if (m_earthOb != nullptr) m_earthOb->Update(); // Make sure primitives are up to date before casting their shadows (Earth updates Locations)
+    if (m_dmoonOb != nullptr) m_dmoonOb->update();
+    if (m_dskyOb != nullptr) m_dskyOb->update();
     if (m_solsysOb != nullptr) m_solsysOb->Update();
     if (m_skysphereOb != nullptr) m_skysphereOb->UpdateTime(0.0); // Default time
     // Do shadow pass here
@@ -192,8 +221,11 @@ void Scene::render(Camera* cam) {
     if (m_skyboxOb != nullptr) {
         m_skyboxOb->Draw();
     }
-    if (earth) earth->draw(cam); // Earth2 experimental
+    //if (earth) earth->draw(cam); // Earth2 experimental
+    if (m_dskyOb) m_dskyOb->draw(cam);
     if (m_earthOb != nullptr) m_earthOb->draw(cam);
+    if (m_dmoonOb != nullptr) m_dmoonOb->draw(cam);
+    if (m_dearthOb != nullptr) m_dearthOb->draw(cam);
     if (m_solsysOb != nullptr) m_solsysOb->Draw();
     if (m_countrybordersOb != nullptr) m_countrybordersOb->update();
     if (m_timezonesOb != nullptr) m_timezonesOb->update();
@@ -317,6 +349,36 @@ Earth* Scene::getEarth() {
         return nullptr;
     }
 }
+DetailedSky* Scene::newDetailedSky(std::string mode, unsigned int mU, unsigned int mV, float radius) {
+    if (m_dskyOb == nullptr) m_dskyOb = new DetailedSky(this, mode, mU, mV, radius);
+    return m_dskyOb;
+}
+DetailedEarth* Scene::newDetailedEarth(std::string mode, unsigned int mU, unsigned int mV, float radius) {
+    if (m_dearthOb == nullptr) m_dearthOb = new DetailedEarth(this, mode, mU, mV, radius);
+    return m_dearthOb;
+}
+DetailedEarth* Scene::getDetailedEarth() {
+    // NOTE: Don't use this unless you know what you are doing. It is meant to be an internal function.
+    if (m_dearthOb != nullptr) return m_dearthOb;
+    else {
+        std::cout << "WARNING: Scene::getDetailedEarth(): was asked for DetailedEarth object, but none is available!\n";
+        std::cout << " (ideally Scene::getDetailedEarth() should never be called from anywhere, is there for shadows (using SubSolar) until PointLight is implemented)\n";
+        return nullptr;
+    }
+}
+DetailedMoon* Scene::newDetailedMoon(std::string mode, unsigned int mU, unsigned int mV, float radius) {
+    if (m_dmoonOb == nullptr) m_dmoonOb = new DetailedMoon(this, mode, mU, mV, radius);
+    return m_dmoonOb;
+}
+DetailedMoon* Scene::getDetailedMoon() {
+    // NOTE: Don't use this unless you know what you are doing. It is meant to be an internal function.
+    if (m_dmoonOb != nullptr) return m_dmoonOb;
+    else {
+        std::cout << "WARNING: Scene::getDetailedMoon(): was asked for DetailedMoon object, but none is available!\n";
+        std::cout << " (ideally Scene::getDetailedMoon() should never be called from anywhere, is there for shadows (using SubSolar) until PointLight is implemented)\n";
+        return nullptr;
+    }
+}
 Minifigs* Scene::newMinifigs() { // Only single observer at the moment, fix this (like PolyCurve for example) !!!
     if (m_minifigsOb == nullptr) m_minifigsOb = new Minifigs(this);
     return m_minifigsOb;
@@ -347,12 +409,17 @@ void Scene::deletePolyLine(PolyLine* curve) {
         delete curve;
     }
 }
-Earth2* Scene::newEarth2(std::string mode, const unsigned int mU, const unsigned int mV, SceneObject* parent) {
-    earth = new Earth2(this, mode, mU, mV);
-    earth->setParent(parent);
-    scenetree->addSceneObject(earth, parent);
-    return earth;
+ThreePointSolver* Scene::newThreePointSolver(Earth* earth) {
+    m_threepointsolvers.push_back(new ThreePointSolver(earth));
+    return m_threepointsolvers.back();
 }
+
+//Earth2* Scene::newEarth2(std::string mode, const unsigned int mU, const unsigned int mV, SceneObject* parent) {
+//    earth = new Earth2(this, mode, mU, mV);
+//    earth->setParent(parent);
+//    scenetree->addSceneObject(earth, parent);
+//    return earth;
+//}
 
 
 // -------------
@@ -469,8 +536,9 @@ void RenderLayerText::render() {
         ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.06f, 0.06f, 0.06f, 0.75f));
         ImGui::PushFont(m_font);
         ImGui::Begin("Date and Time UTC", nullptr, ImGuiWindowFlags_NoDecoration); // | ImGuiWindowFlags_NoBackground); // Create a window and append into it.
-        std::string datetime;
-        m_astro->getTimeString((char*)datetime.c_str());
+//        std::string datetime;
+//        m_astro->getTimeString(datetime);
+        std::string datetime = m_astro->getTimeString();
         ImGui::Text(datetime.c_str());
         ImGui::PopFont();
         ImGui::PopStyleColor();
@@ -531,13 +599,20 @@ void RenderLayerGUI::render() {
                     // Camera
                     // Sets app.currentCam so keyboard handler can update the parameters
                     if (ImGui::CollapsingHeader("Camera")) {
-                        l.layer->m_scene->m_app->currentCam = l.layer->m_scene->w_camera;
-                        ImGui::SliderFloat("CamLat", &l.layer->m_scene->w_camera->camLat, -90.0f, 90.0f);
-                        ImGui::SliderFloat("CamLon", &l.layer->m_scene->w_camera->camLon, -179.9f, 180.0f);
-                        ImGui::SliderFloat("FoV", &l.layer->m_scene->w_camera->camFoV, CAMERA_MIN_FOV, CAMERA_MAX_FOV);
-                        ImGui::SliderFloat("Dist", &l.layer->m_scene->w_camera->camDst, CAMERA_MIN_DIST, CAMERA_MAX_DIST);
-                        ImGui::SliderFloat("Clip Near", &l.layer->m_scene->w_camera->camNear, 0.01f, 5.0f);
-                        ImGui::SliderFloat("Clip Far", &l.layer->m_scene->w_camera->camFar, 10.0f, 15000.0f);
+                        //l.layer->m_scene->m_app->currentCam = l.layer->m_scene->w_camera;
+                        Camera* curcam = l.layer->m_cam;
+                        //ImGui::SliderFloat("CamLat", &l.layer->m_scene->w_camera->camLat, -90.0f, 90.0f);
+                        //ImGui::SliderFloat("CamLon", &l.layer->m_scene->w_camera->camLon, -179.9f, 180.0f);
+                        //ImGui::SliderFloat("FoV", &l.layer->m_scene->w_camera->camFoV, CAMERA_MIN_FOV, CAMERA_MAX_FOV);
+                        //ImGui::SliderFloat("Dist", &l.layer->m_scene->w_camera->camDst, CAMERA_MIN_DIST, CAMERA_MAX_DIST);
+                        //ImGui::SliderFloat("Clip Near", &l.layer->m_scene->w_camera->camNear, 0.01f, 5.0f);
+                        //ImGui::SliderFloat("Clip Far", &l.layer->m_scene->w_camera->camFar, 10.0f, 15000.0f);
+                        ImGui::SliderFloat("CamLat", &curcam->camLat, -90.0f, 90.0f);
+                        ImGui::SliderFloat("CamLon", &curcam->camLon, -179.9f, 180.0f);
+                        ImGui::SliderFloat("FoV", &curcam->camFoV, CAMERA_MIN_FOV, CAMERA_MAX_FOV);
+                        ImGui::SliderFloat("Dist", &curcam->camDst, CAMERA_MIN_DIST, CAMERA_MAX_DIST);
+                        ImGui::SliderFloat("Clip Near", &curcam->camNear, 0.01f, 5.0f);
+                        ImGui::SliderFloat("Clip Far", &curcam->camFar, 10.0f, 15000.0f);
                         //ImGui::SliderFloat("Cam<->Light", &camlightsep, 0.0f, 10.0f);  // Edit 1 float using a slider from 0.0f to 1.0f
                         if (ImGui::Button("Himawari-8")) {
                             l.layer->m_scene->w_camera->setLatLonFovDist(0.03f, 140.7f, 21.0f, 5.612f);
@@ -597,12 +672,12 @@ void RenderLayerGUI::render() {
                         //ImGui::SameLine();
                         if (ImGui::Button("-1 Step")) {
                             l.layer->m_astro->addTime(-mytimestep.da, -mytimestep.hr, -mytimestep.mi, -mytimestep.se, do_eot);
-                            std::cout << "Subtracted time (d,h,m,s): " << mytimestep.da << "," << mytimestep.hr << "," << mytimestep.mi << "," << mytimestep.se << '\n';
+                            //std::cout << "Subtracted time (d,h,m,s): " << mytimestep.da << "," << mytimestep.hr << "," << mytimestep.mi << "," << mytimestep.se << '\n';
                         }
                         ImGui::SameLine();
                         if (ImGui::Button("+1 Step")) {
                             l.layer->m_astro->addTime(mytimestep.da, mytimestep.hr, mytimestep.mi, mytimestep.se, do_eot);
-                            std::cout << "Added time (d,h,m,s): " << mytimestep.da << "," << mytimestep.hr << "," << mytimestep.mi << "," << mytimestep.se << '\n';
+                            //std::cout << "Added time (d,h,m,s): " << mytimestep.da << "," << mytimestep.hr << "," << mytimestep.mi << "," << mytimestep.se << '\n';
                         }
                         ImGui::SliderFloat("Time of Day", &slideday, 0.0f, 24.0f);
                         if (prevslideday != slideday) {
@@ -612,6 +687,12 @@ void RenderLayerGUI::render() {
                         }
                         //ImGui::SliderFloat("year", &slideyear, 0.0f, 365.0f);
                     }
+                    // DetailedEarth
+                    if (l.layer->m_scene->m_dearthOb) l.layer->m_scene->m_dearthOb->myGUI();
+                    // DetailedMoon
+                    if (l.layer->m_scene->m_dmoonOb) l.layer->m_scene->m_dmoonOb->myGUI();
+                    // DetailedSky
+                    if (l.layer->m_scene->m_dskyOb) l.layer->m_scene->m_dskyOb->myGUI();
                     // Solar System object
                     if (l.layer->m_scene->m_solsysOb != nullptr) {
                         if (ImGui::CollapsingHeader("Solar System")) {
@@ -701,7 +782,7 @@ void RenderLayerGUI::render() {
         //        //ImGui::SliderFloat("Cam<->Light", &camlightsep, 0.0f, 10.0f);
         //    }
         //}
-        ImGui::ShowDemoWindow();
+        //ImGui::ShowDemoWindow();
         ImGui::End();
     }
 }
@@ -788,14 +869,16 @@ void RenderLayerPlot::setCurrentTime(double time) {
 Application::Application() {
     // Set up everyhing that is non-optional and singular (e.g. Main Window)
     m_shaderlib = new ShaderLibrary();
+    m_texturelib = new TextureLibrary();
     m_layers.reserve(16); // ?? Might need to be a list instead of a vector
 
 }
 // DESTRUCTOR: Should ideally tear down the things we set up
 
 ShaderLibrary* Application::getShaderLib() { return m_shaderlib; }
+TextureLibrary* Application::getTextureLib() { return m_texturelib; }
 Astronomy* Application::newAstronomy() { return new Astronomy(); }  // These may want to save references for clean-up, or maybe not !!!
-Scene* Application::newScene() { return new Scene(this); }
+Scene* Application::newScene() { return new Scene(this); }          // Or they may go the way of the Dodo :)
 int Application::initWindow() {
     if (start_fullscreen) w_width = 1920;
     else w_width = 1280;
@@ -863,10 +946,13 @@ void Application::update() {
         currentCam->dumpParameters(currentframe);
         dumpcam = false;
     }
-    if (dumptime&& currentEarth != nullptr) {
+    if (dumptime && currentEarth != nullptr) {
         currentEarth->m_scene->m_astro->dumpCurrentTime(currentframe);
         dumptime = false;
     }
+}
+bool Application::shouldClose() {
+    return glfwWindowShouldClose(window);
 }
 float Application::getAspect() {
     // When rendering to the application window, and that window is out of focus/view on the screen, this returns 0.0f !!!
@@ -1045,11 +1131,12 @@ void Application::render() {
     glfwSwapBuffers(window); // Swap rendered screen to front
     currentframe++;
     if (currentframe == 100000) incSequence(); // Protect against issues with frame counter wrapping in filename which only allows 5 digits
+    dumpdata = false;
 }
 void Application::writeFrame(unsigned int framebuffer) {
     std::string fullname = "C:\\Coding\\Eartharium\\Eartharium\\AnimOut\\" + basefname;
     char numerator[20];
-    sprintf(numerator, "S%03d-%05d.png", currentseq, currentframe);
+    snprintf(numerator, sizeof(numerator), "S%03d-%05d.png", currentseq, currentframe);
     fullname.append(numerator);
     if (framebuffer == 0) {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1354,6 +1441,33 @@ void Glyphs::drawGlyphs() {
     va->Bind();
     glDrawArrays(GL_TRIANGLES, 0, (GLsizei)glyphItems.size());
 } 
+
+
+// ------------
+//  Bill Board
+// ------------
+// Builds a TextString and keeps it oriented towards the camera.
+BillBoard::BillBoard(Scene* scene, Font* font, std::string text, glm::vec3 position, glm::vec4 color, float size) : m_scene(scene), m_font(font), m_text(text), m_pos(position) {
+    glm::vec3 up = m_scene->w_camera->getUp(); // glm::vec3(0.0f, 0.0f, 1.0f);
+    glm::vec3 camdir = glm::normalize(m_scene->w_camera->position - m_pos);
+    glm::vec3 dir = glm::cross(up, camdir);
+    m_textstring = m_scene->getTextFactory()->newText(m_font, "Sample Text", size, color, m_pos, dir, up);
+    m_textstring->updatePosDirUp(m_pos, dir, up);
+    m_textstring->updateText(m_text);
+}
+void BillBoard::update(glm::vec3 position) {
+    // position defaults to previous position if unspecified
+    if (position != NO_VEC3) m_pos = position;
+    glm::vec3 up = m_scene->w_camera->getUp(); // glm::vec3(0.0f, 0.0f, 1.0f);
+    glm::vec3 camdir = glm::normalize(m_scene->w_camera->position - m_pos);
+    glm::vec3 dir = glm::cross(up, camdir);
+    //m_textstring = m_scene->getTextFactory()->newText(m_font, "Sample Text", 0.08f, YELLOW, m_pos, dir, up);
+    m_textstring->updatePosDirUp(m_pos, dir, up);
+}
+void BillBoard::changeColorSize(glm::vec4 color, float size) {
+    if (color != NO_COLOR) m_textstring->m_color = color;
+    if (size == NO_FLOAT) m_textstring->m_size = size;
+}
 
 
 // ------------
@@ -1986,6 +2100,62 @@ void PolyCurve::genGeom() { // Single segment
         }
     }
 }
+
+
+// --------------
+//  Generic Path
+// --------------
+GenericPath::GenericPath(Scene* scene, float width, glm::vec4 color) { // : SceneObject(scene) {
+    if (scene == nullptr) return;
+    if (color == NO_COLOR) color = GREEN;
+    if (width == NO_FLOAT) width = 0.005f;
+    m_scene = scene;
+    m_color = color;
+    m_width = width;
+    m_curves.emplace_back(m_scene->newPolyCurve(m_color, m_width, NO_UINT));
+    m_curve = 0;
+}
+GenericPath::~GenericPath() {
+    for (auto& c : m_curves) {
+        m_scene->deletePolyCurve(c);
+    }
+    m_curves.clear();
+}
+void GenericPath::setColor(glm::vec4 color) {
+    m_color = color;
+    for (auto p : m_curves) {
+        p->changePolyCurve(m_color);
+    }
+}
+void GenericPath::setWidth(float width) {
+    m_width = width;
+    for (auto p : m_curves) {
+        p->changePolyCurve(NO_COLOR, m_width);
+    }
+}
+void GenericPath::addPoint(glm::vec3 point) {
+    m_curves[m_curve]->addPoint(point);
+}
+void GenericPath::addSplit(glm::vec3 point1, glm::vec3 point2) {
+    // point1 is last point in current PolyCurve, point2 is first point in next PolyCurve
+    m_curves[m_curve]->addPoint(point1);
+    if (m_curves.size() - 1 <= m_curve) m_curves.emplace_back(m_scene->newPolyCurve(m_color, m_width, NO_UINT));
+    m_curve++;
+    m_curves[m_curve]->addPoint(point2);
+}
+void GenericPath::clearPoints() {
+    // Don't delete PolyCurve objects, reuse them as needed. Empty PolyCurve will be skipped in PolyCurve::draw()
+    for (auto& c : m_curves) {
+        c->clearPoints();
+    }
+    m_curve = 0;
+}
+void GenericPath::generate() {
+    for (auto& c : m_curves) {
+        c->generate();
+    }
+}
+void GenericPath::draw(Camera* cam) {} // SceneObject children need a draw() but here the PolyCurve takes care of drawing independently
 
 
 // --------
@@ -2770,7 +2940,7 @@ SkyDots::Index SkyDots::vertex_for_edge(Lookup& lookup, VertexList& vertices, In
 //  Dots
 // ------
 Dots::Dots(Scene* scene) : Primitives(scene, 2000, 1000) {
-    m_Primitives.reserve(20000);
+    m_Primitives.reserve(DOTS_RESERVE);
     genGeom();
     init();
 }

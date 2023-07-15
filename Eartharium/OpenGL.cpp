@@ -1,4 +1,4 @@
-#include "mdoOpenGL.h"
+#include "OpenGL.h"
 #include "Primitives.h"
 
 
@@ -108,15 +108,25 @@ void VertexArray::AddBuffer(const VertexBuffer& vb, const VertexBufferLayout& la
 }
 
 
+// -----------------
+//  Texture Library
+// -----------------
+Texture* TextureLibrary::getTexture(unsigned int texture) {
+    if (textures[texture].tex == nullptr) textures[texture].tex = new Texture(textures[texture].file, textures[texture].slot);
+    textures[texture].count++;
+    return textures[texture].tex;
+}
+
 // ----------------
 //  Texture Buffer
 // ----------------
 // Alternative constructor for textures rendered on GPU? (Insolation)
 // (Those don't need loading, but a reference class might be handy.
 // Revise this idea when making a material class.
+// UPD: Turns out insolation can be rendered directly in the shader, so no need for texturing
+//      However, there is a need for overlays of temperature maps etc.
 Texture::Texture(const std::string& filepath, unsigned int texslot)  // Pass in force channels param for SOIL2? GL parameters for texture?
-	: m_FilePath(filepath), m_RenderID(0), m_TextureSlot(texslot)
-{
+	: m_FilePath(filepath), m_RenderID(0), m_TextureSlot(texslot) {
 	LoadTextureFile();
 	glActiveTexture(m_TextureSlot);
 	glGenTextures(1, &m_RenderID);
@@ -124,10 +134,10 @@ Texture::Texture(const std::string& filepath, unsigned int texslot)  // Pass in 
     //std::cout << "Texture::Texture(): TextureSlot: " << m_TextureSlot - GL_TEXTURE0 << ", RenderID: " << m_RenderID << ".\n";
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     if (glfwExtensionSupported("GL_ARB_texture_filter_anisotropic")) {
         GLfloat value, max_anisotropy = 4.0f; /* don't exceed this value...*/
         glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &value);
@@ -152,7 +162,7 @@ void Texture::LoadTextureFile() {
 	// NOTE: SOIL2 chokes on large image files when asked to flip_y, so flip images before loading them.
 	i_image = SOIL_load_image(m_FilePath.c_str(), &i_width, &i_height, &i_channels, 0);
 	if (!i_image) { std::cout << "FAILED LOADING TEXTURE IMAGE FROM DISC! " << m_FilePath.c_str() << std::endl; }
-	//else { std::cout << "Texture slot "<< m_TextureSlot <<  " loaded: " << m_FilePath.c_str() << ", " << &i_image << ", " << i_width << ", " << i_height << std::endl; }
+	else { std::cout << "Texture slot "<< m_TextureSlot <<  " loaded: " << m_FilePath.c_str() << ", " << &i_image << ", " << i_width << ", " << i_height << std::endl; }
 	return;
 }
 void Texture::Bind() {
@@ -176,8 +186,7 @@ unsigned int Texture::GetTextureSlot() { return m_TextureSlot-GL_TEXTURE0; }
 //  Shader 
 // --------
 Shader::Shader(const std::string& filepath)
-    : m_FilePath(filepath), m_RenderID(0)
-{
+    : m_FilePath(filepath), m_RenderID(0) {
     ShaderProgramSource source = ParseShader();
     m_RenderID = CreateShader(source.VertexSource, source.GeometrySource, source.FragmentSource);
 }
@@ -202,9 +211,17 @@ void Shader::SetUniform4f(const std::string& name, float v0, float v1, float v2,
     int location = Shader::GetUniformLocation(name);
     glUniform4f(location, v0, v1, v2, v3);
 }
+void Shader::SetUniform4f(const std::string& name, glm::vec4 v) {
+    int location = Shader::GetUniformLocation(name);
+    glUniform4f(location, v.x, v.y, v.z, v.w);
+}
 void Shader::SetUniform3f(const std::string& name, float v0, float v1, float v2) {
     int location = Shader::GetUniformLocation(name);
     glUniform3f(location, v0, v1, v2);
+}
+void Shader::SetUniform3f(const std::string& name, glm::vec3 v) {
+    int location = Shader::GetUniformLocation(name);
+    glUniform3f(location, v.x, v.y, v.z);
 }
 void Shader::SetUniform2f(const std::string& name, float v0, float v1) {
     int location = Shader::GetUniformLocation(name);
@@ -215,16 +232,15 @@ void Shader::SetUniform1f(const std::string& name, float v0) {
     glUniform1f(location, v0);
 }
 void Shader::SetUniformMatrix4f(const std::string& name, const glm::mat4 matrix) {
-    //std::cout << "Shader::SetUniformMatrix4f{" << m_RenderID << "}";
-    //std::cout << "(" << name << ", " << &matrix << ")\n";
-    int location = Shader::GetUniformLocation(name); // This is causing the crash
-    //std::cout << "location = " << location << "\n";
+    int location = Shader::GetUniformLocation(name);
     glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(matrix));
 }
+void Shader::SetUniformMatrix3f(const std::string& name, const glm::mat3 matrix) {
+    int location = Shader::GetUniformLocation(name);
+    glUniformMatrix3fv(location, 1, GL_FALSE, glm::value_ptr(matrix));
+}
 int Shader::GetUniformLocation(const std::string& name) {
-    //std::cout << "Shader::GetUniformLocation{" << m_RenderID << "}(" << name << ")\n";
-    int retval = glGetUniformLocation(m_RenderID, name.c_str());
-    return retval;
+    return glGetUniformLocation(m_RenderID, name.c_str());
 }
 ShaderProgramSource Shader::ParseShader() {
     enum class ShaderType {

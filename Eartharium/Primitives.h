@@ -1,9 +1,10 @@
 #pragma once
 
-#include "mdoOpenGL.h"
-#include "Utilities.h"
 #include <iterator>
 #include <queue>
+
+#include "OpenGL.h"
+#include "Utilities.h"
 
 struct LLH {
     double lat{ 0.0 };
@@ -124,13 +125,16 @@ class Minifigs;
 class SkyBox;
 class SkySphere;
 class Earth;
-class Earth2;
+//class Earth2;
+class BodyGeometry;
+class DetailedMoon;
+class DetailedEarth;
+class DetailedSky;
 class Location;
 class SphereUV;
 class SolarSystem;
 class StarTrail;
 class Astronomy;
-class RenderChain;
 class Application;
 class Scene;
 class PolyCurve;
@@ -141,8 +145,11 @@ class TimeZones;
 class Font;
 class TextString;
 class TextFactory;
+class Scene;
 class SceneObject;
 class SceneTree;
+//class ShapeFile;
+class ThreePointSolver;
 
 
 // --------
@@ -405,37 +412,66 @@ void tightvec<T>::remove(size_t oid, bool debug) {
 // and offer a way to indicate what to measure to etc. I have yet to work out the requirements ...
 class SceneObject {
 protected:
-    glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f);
-    glm::vec4 orientation = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f); // Up vec3 + rotation about up, from which angle?
-    glm::vec4 color = WHITE;
     //Material* material = nullptr;
-    //glm::mat4 worldmatrix = glm::mat4(1.0f);
     unsigned int id = 0;
     //unsigned int type = 0;
     //primobj primitiveobject;            // The geometry etc of this object (of type SceneObject::type)
 public:
+    // !!! TODO: position, scale, orientation are relative to parent when parented to another SceneObject !!!
     glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
+    glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f);
+    // Orientation might be replaced with Euler angles or quaternion    
+    glm::vec4 orientation = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f); // Up vec3 + rotation about up, from which angle?
+    glm::mat4 worldmatrix = glm::mat4(1.0f); // Collects parent worldmatrix and applies position, scale, orientation
+    glm::vec4 color = WHITE;
     std::string name = "Object";
+    bool hidden = false;  // Hide object by bailing early from draw();
     Scene* m_scene = nullptr;
-    SceneObject* parent = nullptr;
+    SceneObject* m_parent = nullptr;
     std::list<SceneObject*> children;
+
+    SceneObject(Scene* scene, bool isroot = false);
+
     void addChild(SceneObject* object) {
         children.push_back(object);
     }
     void removeChild(SceneObject* child) {
         children.remove(child);
     }
-    void setParent(SceneObject* parent) { 
-        if (parent == nullptr) return; // Allow unparented objects
-        parent = parent;
-        parent->addChild(this);
+    void setParent(SceneObject* parent);
+    SceneObject* getParent() {
+        return m_parent;
     }
-    SceneObject* getParent() { return parent; }
-    void setID(unsigned int oid) { id = oid; }
-    unsigned int getID() { return id; }
+    void setID(unsigned int oid) {
+        id = oid;
+    }
+    unsigned int getID() {
+        return id;
+    }
+    void setWorldMat(glm::mat4 mat) {
+        // !!! FIX: Do we want to do this? Maybe only if unparented? It is hard to keep position, scale, orientation up to date
+        std::cout << "WARNING!!! Calling SceneObject::setWorldMat() directly makes it impossible to keep position, scale, oriention updated!\n";
+        worldmatrix = mat;
+    }
+    glm::mat4 getWorldMat() {
+        return worldmatrix;
+    }
+    void inherit() {
+        // If parented, collect parent world matrix and apply pos,scale,rots
+        if (m_parent != nullptr) {
+            worldmatrix = m_parent->getWorldMat();
+            //std::cout << "\nInheriting!!\n\n";
+            //rotate
+            //scale
+            //worldmatrix = glm::translate(worldmatrix, position);
+            // Maybe just maintain a local instance matrix and do away with position, scale and orientation?
+        }
+        update();
+    }
     virtual void update() {
-        std::cout << "SceneObject::update(): derived object \"" << name << "\" has not overridden the update() function, and will not be updated.\n";
+        std::cout << "SceneObject[" << name << "]::update() : derived object \"" << name << "\" has not overridden the update() function, and will not be updated.\n";
     }
+    void virtual draw(Camera* cam) = 0;
 };
 
 
@@ -485,6 +521,7 @@ public:
     glm::vec3 getUp();
     glm::vec3 getPosition();
     void dumpParameters(unsigned int frame = 0);
+    void draw(Camera* cam) override {}
 private:
     void Recalc();
     //Application* m_app = nullptr;
@@ -513,11 +550,15 @@ public:
     unsigned int shadows = NONE;  // Create a way to update this from GUI or keyboard or python etc.
     SolarSystem* m_solsysOb = nullptr;
     Earth* m_earthOb = nullptr;
+    DetailedMoon* m_dmoonOb = nullptr;
+    DetailedEarth* m_dearthOb = nullptr;
+    DetailedSky* m_dskyOb = nullptr;
     SkySphere* m_skysphereOb = nullptr;
 private:
     std::vector<Camera*> m_cameras;
     std::vector<PolyCurve*> m_polycurves;
     std::vector<PolyLine*> m_polylines;
+    std::vector<ThreePointSolver*> m_threepointsolvers;
     float m_aspect = 1.0f;
     Minifigs* m_minifigsOb = nullptr;
     Dots* m_dotsOb = nullptr;
@@ -536,7 +577,7 @@ private:
     ShadowMap* m_shadowmap = nullptr;
     ShadowBox* m_shadowbox = nullptr;
     TextFactory* m_textFactory = nullptr;
-    Earth2* earth = nullptr;
+    //Earth2* earth = nullptr;
 public:
     Scene(Application* app);
     ~Scene();
@@ -567,12 +608,24 @@ public:
     ShadowMap* getShadowmapOb();
     Earth* newEarth(std::string mode, unsigned int mU, unsigned int mV);
     Earth* getEarth(); // May return nullptr, so user must check!
+    DetailedSky* newDetailedSky(std::string mode, unsigned int mU, unsigned int mV, float radius = 1.0f);
+    DetailedEarth* newDetailedEarth(std::string mode, unsigned int mU, unsigned int mV, float radius = 1.0f);
+    DetailedEarth* getDetailedEarth(); // May return nullptr, so user must check!
+    DetailedMoon* newDetailedMoon(std::string mode, unsigned int mU, unsigned int mV, float radius = 1.0f);
+    DetailedMoon* getDetailedMoon(); // May return nullptr, so user must check!
     Minifigs* newMinifigs();
     PolyCurve* newPolyCurve(glm::vec4 color, float width, size_t reserve = NO_UINT);
     void deletePolyCurve(PolyCurve* curve);
     PolyLine* newPolyLine(glm::vec4 color, float width, size_t reserve = NO_UINT);
     void deletePolyLine(PolyLine* curve);
-    Earth2* newEarth2(std::string mode, const unsigned int mU, const unsigned int mV, SceneObject* parent = nullptr);
+    ThreePointSolver* newThreePointSolver(Earth* earth);
+    //Earth2* newEarth2(std::string mode, const unsigned int mU, const unsigned int mV, SceneObject* parent = nullptr);
+};
+
+class SceneTreeRoot : public SceneObject {
+public:
+    SceneTreeRoot(Scene* scene, bool isroot) : SceneObject(scene, isroot) {}
+    void draw(Camera* cam) override {}
 };
 
 
@@ -581,19 +634,18 @@ public:
 // -----------
 // Meant to facilitate measuring distances and angles between any two objects, as well as implementing parenting of transformations and GUI traversal
 class SceneTree {
+    Scene* m_scene = nullptr;
     SceneObject* root = nullptr;
-    //Camera* camera = nullptr;
-    //tightvec<SceneObject*> objects; // tightvec, because erase()ing elements from std::vector is quite inefficient. Consider a std::list?
+    //Camera* camera = nullptr;   // NO! Camera should be a scene object, e.g. DetailedMoon where the camera should be placed relative to DetailedMoon
     std::queue<SceneObject*> breathfirst;
 public:
-    SceneTree() {
-        root = new SceneObject();
+    SceneTree(Scene* scene) : m_scene(scene) {
+        root = new SceneTreeRoot(m_scene, true);
         root->name = "root";
-        //objects.reserve(20); // Could not figure out how to pass the reserve value in constructor
         return;
     }
     ~SceneTree() {
-        delete root; // cascaded delete in SceneObject?
+        //delete root; // cascaded delete in SceneObject?
     }
     void updateBreathFirst() {
         //std::cout << "SceneTree::updateBreathFirst()\n";
@@ -601,33 +653,34 @@ public:
             breathfirst.push(c);
         }
         while (!breathfirst.empty()) {
-        breathfirst.front()->update();
-        for (auto c : breathfirst.front()->children) {
-            breathfirst.push(c);
-        }
-        breathfirst.pop();
+            breathfirst.front()->inherit(); // Inherit world transformation of parent
+            for (auto c : breathfirst.front()->children) {
+                breathfirst.push(c);
+            }
+            breathfirst.pop();
         }
     }
     void addSceneObject(SceneObject* object, SceneObject* parent) {
-        if (parent == nullptr) parent = root;
+        //std::cout << "SceneTree::addSceneObject(): " << object << "." << object->name;
+        
+        if (parent == nullptr) {
+            parent = root;
+        }
+        //std::cout << " Parent: " << parent << "." << parent->name; 
+        //std::cout << "\n";
         parent->addChild(object);
     }
-    //void addObject(SceneObject* ob) {
-    //    unsigned int id = objects.store(ob);
-    //    ob->setID(id);
-    //}
-    //void removeObject(SceneObject* ob) {
-    //    objects.remove(ob->getID());
-    //}
-    //void printObjects() {
-    //    for (auto& o : objects.m_Elements) {    // iterator runs over inner id directly, i.e. o is in underlying std::vector order.
-    //        std::cout << "Object: " << o->name << " " << o->getID() << "\n";
-    //    }
-    //    std::cout << "\n";
-    //    for (unsigned int oid = 0; oid < objects.size(); oid++) {   // Iterates over outer id, i.e. tightvec translates the [] index internally.
-    //        std::cout << "Object: " << objects[oid]->name << " " << objects[oid]->getID() << "\n";
-    //    }
-    //}
+    void rootRemove(SceneObject* object) {
+        root->children.remove(object);
+    }
+    void printSceneTree() {
+        for (auto r : root->children) {
+            std::cout << r << ":" << r->name << "\n";
+            for (auto c : r->children) {
+                std::cout << " -> " << c << ":" << c->name << "\n";
+            }
+        }
+    }
 };
 
 
@@ -828,7 +881,7 @@ public:
     Camera* currentCam = nullptr;
     Camera* locationCam = nullptr;
     Earth* currentEarth = nullptr;
-    Earth2* currentEarth2 = nullptr;
+    BodyGeometry* currentEarth2 = nullptr;
     bool togglefullwin = false;
     bool isfullscreen = false;
 
@@ -842,6 +895,7 @@ public:
     bool breakpoint = false;
     bool dumpcam = false;
     bool dumptime = false;
+    bool dumpdata = false;
 
     // Lunalemma parameters - here because lunalemma is simply a path allocated by a location
     float lunalemmaOffset = 0.0f;
@@ -877,6 +931,7 @@ public:
 
 private:
     ShaderLibrary* m_shaderlib = nullptr;
+    TextureLibrary* m_texturelib = nullptr;
 
     // For windowed / fullscreen control
     GLFWmonitor* monitor = nullptr;    // monitor handle, used when setting full screen mode
@@ -910,6 +965,7 @@ private:
 public:
     Application();
     ShaderLibrary* getShaderLib();
+    TextureLibrary* getTextureLib();
     Astronomy* newAstronomy();
     Scene* newScene();
     int initWindow();
@@ -919,6 +975,7 @@ public:
     int getWidth();
     int getHeight();
     void update();
+    bool shouldClose();
     float getAspect();
     void initImGUI();
     void beginImGUI();
@@ -1057,26 +1114,9 @@ public:
 class BillBoard {
 public:
     // Builds a TextString and keeps it oriented towards the camera.
-    BillBoard(Scene* scene, Font* font, std::string text, glm::vec3 position, glm::vec4 color, float size) : m_scene(scene), m_font(font), m_text(text), m_pos(position) {
-        glm::vec3 up = m_scene->w_camera->getUp(); // glm::vec3(0.0f, 0.0f, 1.0f);
-        glm::vec3 camdir = glm::normalize(m_scene->w_camera->position - m_pos);
-        glm::vec3 dir = glm::cross(up, camdir);
-        m_textstring = m_scene->getTextFactory()->newText(m_font, "Sample Text", size, color, m_pos, dir, up);
-        m_textstring->updatePosDirUp(m_pos, dir, up);
-        m_textstring->updateText(m_text);
-    }
-    void update(glm::vec3 position = NO_VEC3) {
-        if (position != NO_VEC3) m_pos = position;
-        glm::vec3 up = m_scene->w_camera->getUp(); // glm::vec3(0.0f, 0.0f, 1.0f);
-        glm::vec3 camdir = glm::normalize(m_scene->w_camera->position - m_pos);
-        glm::vec3 dir = glm::cross(up, camdir);
-        //m_textstring = m_scene->getTextFactory()->newText(m_font, "Sample Text", 0.08f, YELLOW, m_pos, dir, up);
-        m_textstring->updatePosDirUp(m_pos, dir, up);
-    }
-    void changeColorSize(glm::vec4 color, float size) {
-        if (color != NO_COLOR) m_textstring->m_color = color;
-        if (size == NO_FLOAT) m_textstring->m_size = size;
-    }
+    BillBoard(Scene* scene, Font* font, std::string text, glm::vec3 position, glm::vec4 color, float size);
+    void update(glm::vec3 position = NO_VEC3);
+    void changeColorSize(glm::vec4 color, float size);
 private:
     Scene* m_scene = nullptr;
     Font* m_font = nullptr;
@@ -1301,7 +1341,7 @@ private:
         double angle;
         bool expired = false;
         bool wide = false;                // false = always shortest angle, true = always clockwise wrt pole
-        glm::vec3 pole = glm::vec3(0.0f); // Pole to determine 
+        glm::vec3 pole = glm::vec3(0.0f); // Pole to determine
     };
     std::vector<AngleArc> m_arcs;
 public:
@@ -1382,51 +1422,23 @@ public:
 // --------------
 //  Generic Path
 // --------------
-class GenericPath : SceneObject {
+class GenericPath {   // : public SceneObject {
     // Flexibly allocates additional PolyCurve objects when addSplit() is called
     // Since PolyCurves are obtained from Scene, they are drawn automatically
     // - Add method to change color and width
     // - Add a way to traverse paths backwards and forwards, see Earth.h:ParticleTracker
 public:
-    GenericPath(Scene* scene, float width = NO_FLOAT, glm::vec4 color = NO_COLOR) {
-        if (scene == nullptr) return;
-        if (color == NO_COLOR) color = GREEN;
-        if (width == NO_FLOAT) width = 0.005f;
-        m_scene = scene;
-        m_color = color;
-        m_width = width;
-        m_curves.emplace_back(m_scene->newPolyCurve(m_color, m_width, NO_UINT));
-        m_curve = 0;
-    }
-    ~GenericPath() {
-        for (auto& c : m_curves) {
-            m_scene->deletePolyCurve(c);
-        }
-        m_curves.clear();
-    }
-    void addPoint(glm::vec3 point) {
-        m_curves[m_curve]->addPoint(point);
-    }
-    void addSplit(glm::vec3 point1, glm::vec3 point2) {
-        // point1 is last point in current PolyCurve, point2 is first point in next PolyCurve
-        m_curves[m_curve]->addPoint(point1);
-        if (m_curves.size() - 1 <= m_curve) m_curves.emplace_back(m_scene->newPolyCurve(m_color, m_width, NO_UINT));
-        m_curve++;
-        m_curves[m_curve]->addPoint(point2);
-    }
-    void clearPoints() {
-        // Don't delete PolyCurve objects, reuse them as needed. Empty PolyCurve will be skipped in PolyCurve::draw()
-        for (auto& c : m_curves) {
-            c->clearPoints();
-        }
-        m_curve = 0;
-    }
-    void generate() {
-        for (auto& c : m_curves) {
-            c->generate();
-        }
-    }
+    GenericPath(Scene* scene, float width = NO_FLOAT, glm::vec4 color = NO_COLOR);
+    ~GenericPath();
+    void setColor(glm::vec4 color);
+    void setWidth(float width);
+    void addPoint(glm::vec3 point);
+    void addSplit(glm::vec3 point1, glm::vec3 point2);
+    void clearPoints();
+    void generate();
+    void draw(Camera* cam);
 private:
+    Scene* m_scene = nullptr;
     glm::vec4 m_color{ NO_COLOR };
     float m_width{ NO_FLOAT };
     std::vector<PolyCurve*> m_curves;
@@ -1500,6 +1512,7 @@ private:
     VertexBufferLayout* vbl1 = nullptr;
     VertexBufferLayout* vbl2 = nullptr;
     IndexBuffer* ib = nullptr;
+    // !!! FIX: Are these dependencies really needed? Seems like they are begging for a refactoring !!!
     friend class SkyDots;
     friend class Glyphs;
 public:

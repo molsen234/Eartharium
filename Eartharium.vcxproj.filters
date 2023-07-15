@@ -27,7 +27,7 @@
     <ClCompile Include="Eartharium\glad.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Eartharium\mdoOpenGL.cpp">
+    <ClCompile Include="Eartharium\OpenGL.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Eartharium\Primitives.cpp">
@@ -195,9 +195,15 @@
     <ClCompile Include="Eartharium\AAplus\AAPrecession.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AADynamicalTime.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAPhysicalMoon.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Eartharium\mdoOpenGL.h">
+    <ClInclude Include="Eartharium\OpenGL.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Eartharium\Primitives.h">
@@ -383,6 +389,12 @@
     <ClInclude Include="Eartharium\geometry.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AADynamicalTime.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAPhysicalMoon.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Eartharium\shaders\primitive.glsl">
@@ -426,5 +438,7 @@
     </None>
     <None Include="Eartharium\shaders\glyph.glsl" />
     <None Include="Eartharium\mdo-test.py" />
+    <None Include="Eartharium\shaders\moon.glsl" />
+    <None Include="Eartharium\shaders\sky.glsl" />
   </ItemGroup>
 </Project>
