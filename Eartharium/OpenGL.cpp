@@ -162,7 +162,7 @@ void Texture::LoadTextureFile() {
 	// NOTE: SOIL2 chokes on large image files when asked to flip_y, so flip images before loading them.
 	i_image = SOIL_load_image(m_FilePath.c_str(), &i_width, &i_height, &i_channels, 0);
 	if (!i_image) { std::cout << "FAILED LOADING TEXTURE IMAGE FROM DISC! " << m_FilePath.c_str() << std::endl; }
-	else { std::cout << "Texture slot "<< m_TextureSlot <<  " loaded: " << m_FilePath.c_str() << ", " << &i_image << ", " << i_width << ", " << i_height << std::endl; }
+	//else { std::cout << "Texture slot "<< m_TextureSlot <<  " loaded: " << m_FilePath.c_str() << ", " << &i_image << ", " << i_width << ", " << i_height << std::endl; }
 	return;
 }
 void Texture::Bind() {

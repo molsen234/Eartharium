@@ -86,14 +86,15 @@ struct CelestialDetail {  // Used for CelestialPath entries
 // keeps a planetary position in Ecliptic and optionally Celestial coordinates
 	double jd = 0.0;
 	// FIX: !!! Should probably use LLH to store these !!!
-	double eclat = 0.0;  // Heliocentric Ecliptic coordinates
-	double eclon = 0.0;
-	double ecdst = 0.0;  // Solar distance in AU
+	double heclat = 0.0;  // Heliocentric Ecliptic coordinates
+	double heclon = 0.0;
+	double hecdst = 0.0;  // Solar distance in AU
 	double geora = 0.0;  // Geocentric Horizontal coordinates
 	double geodec = 0.0;
 	double geogha = 0.0;
 	double geodst = 0.0; // Earth distance in AU
 };
+
 
 // ---------------
 //  CelestialPath
@@ -125,6 +126,7 @@ public:
 	void decref();
 private:
 };
+
 
 // -----------
 //  Astronomy
@@ -164,6 +166,11 @@ private:
 	EDateTime m_datetime;    // Default constructor initializes to current system time in UTC
 	double m_gsidtime = 0.0; // Greenwich sidereal time in radians
 	double eot = 0.0;
+	double m_meangsid = 0.0;
+	double m_meanobliquity = 0.0;
+	double m_trueobliquity = 0.0;
+	double m_nutationinlongitude = 0.0;
+
 	tightvec<CelestialPath*> cacheCP;
 	// Planet current time cached parameters (Tip: planet 0 is the Sun)
 	// This could be done using a vector<CelestialDetail> instead, if refcnt is added to CelestialDetail. Check where changes are needed !!!
@@ -189,59 +196,45 @@ public:
 	double getJD_TT();
 	void setUnixTime(double utime);
 	void addTime(double d, double h, double min, double sec, bool eot = false);
+	std::string getTimeString();
+	void updateTimeString();
+	bool isLeapYear(double year);
 	void dumpCurrentTime(unsigned int frame = NO_UINT);
 
 	double calculateGsid(const double jd_utc);
+	double calcGsid(const double jd_utc);
 	double getGsid(const double jd_utc = NO_DOUBLE);
+	double MeanGreenwichSiderealTime(double jd_utc, bool rad = false) noexcept;
 	double getEoT(double jd_tt = NO_DOUBLE);
-	std::string getTimeString();
-	void updateTimeString();
-	int getString2UnixTime(std::string& string);
-	int getDateTime2UnixTime(double year, double month, double day, double hour, double minute, double seconds);
-	double getJD2UnixTime(double jd_utc = 0.0);
-	double getUnixTime2JD(double ut);
-	int calcUnixTimeYearDay(double year, double month, double day);
-	bool isLeapYear(double year);
-
-	unsigned int enablePlanet(size_t planet);
-	unsigned int disablePlanet(size_t planet);
-	LLH getDecRA(size_t planet, double jd_tt = NO_DOUBLE);
-	LLH getDecGHA(size_t planet, double jd_tt = NO_DOUBLE, bool rad = true);
-	void updateGeocentric(size_t planet);
+	// Coordinate transformations
 	LLH calcEc2Geo(double Lambda, double Beta, double Epsilon);
 	LLH calcGeo2Topo(LLH pos, LLH loc);
-	double secs2deg(double seconds);
-	double rangezero2tau(double rad);
-	double rangepi2pi(double rad);
-	static std::string angle2DMSstring(double angle, bool rad = false);
-	static std::string angle2uDMSstring(double angle, bool rad = false);
-	static std::string angle2uHMSstring(double angle, bool rad = false);
-	static std::string angle2DMstring(double angle, bool rad = false);
-	//static std::string angle2uDMstring(double angle, bool rad = false);
-	static std::string latlonFormat(double lat, double lon, bool rad = false);
-	static std::string radecFormat(double ra, double dec, bool rad = false);
-	static std::string azeleFormat(double az, double ele, bool rad = false);
-	//double getEclipticObliquity(double jd_tt = NO_DOUBLE, bool rad = false);
-	//CAAEllipticalPlanetaryDetails calcEllipticalRad(double JD, unsigned int planet);
-	CelestialDetail getDetails(double jd_tt, size_t planet, unsigned int type);
-
-	CelestialPath* getCelestialPath(size_t planet, double startoffset, double endoffset, unsigned int steps, unsigned int type, bool fixed = false);
-	void updateCelestialPaths();
-	void removeCelestialPath(CelestialPath* path);
-
-	CAA2DCoordinate EclipticAberration(double Lambda, double Beta, double jd_tt);
-	CAA2DCoordinate FK5Correction(double Longitude, double Latitude, double jd_tt);
-	CAA2DCoordinate EquatorialAberration(double Alpha, double Delta, double jd_tt, bool bHighPrecision);
-	double NutationInLongitude(double jd_tt, bool rad = false);
+	LLH calcDecHA2GP(LLH decra, bool rad = false);
+	LLH calcDecRA2GP(LLH decra, double jd_utc, bool rad = false);
+	LLH getDecRA(size_t planet, double jd_tt = NO_DOUBLE);
+	LLH getDecGHA(size_t planet, double jd_tt = NO_DOUBLE, bool rad = true);
+	// General astronomical adjustments
+	CAA2DCoordinate EclipticAberration(double Beta, double Lambda, double jd_tt, bool rad = false);
+	CAA2DCoordinate EquatorialAberration(double dec, double ra, double jd_tt, bool rad = false);
+	CAA2DCoordinate FK5Correction(double Latitude, double Longitude, double jd_tt, bool rad = false);
+	LLH PrecessDecRA(const LLH decra, const double jd_tt = NO_DOUBLE, const double JD0 = JD2000); // If no Epoch, assume J2000
 	double MeanObliquityOfEcliptic(double jd_tt, bool rad = false);
 	double TrueObliquityOfEcliptic(double jd_tt, bool rad = false);
 	double NutationInObliquity(double jd_tt, bool rad = false);
-	double NutationInRightAscension(double ra, double dec, double obliq, double nut_lon, double nut_obl, bool rad = false);
+	double NutationInLongitude(double jd_tt, bool rad = false);
 	double NutationInDeclination(double ra, double obliq, double nut_lon, double nut_obl, bool rad = false);
+	double NutationInRightAscension(double dec, double ra, double obliq, double nut_lon, double nut_obl, bool rad = false);
 	// Stellar Earth Centered Equatorial
 	LLH getTrueDecRAbyName(const std::string starname, double jd_tt = NO_DOUBLE, bool rad = false);
-	LLH calcTrueDecRa(const LLH decra, const double jd_tt = NO_DOUBLE, const double JD0 = JD2000); // If no Epoch, assume J2000
-	// Ecliptic (Heliocentric)
+	//LLH calcTrueDecRa(const LLH decra, const double jd_tt = NO_DOUBLE, const double JD0 = JD2000); // If no Epoch, assume J2000
+	// Planetary calculations
+	unsigned int enablePlanet(size_t planet);
+	unsigned int disablePlanet(size_t planet);
+	CelestialDetail getDetails(double jd_tt, size_t planet, unsigned int type);
+	CelestialPath* getCelestialPath(size_t planet, double startoffset, double endoffset, unsigned int steps, unsigned int type, bool fixed = false);
+	void updateCelestialPaths();
+	void removeCelestialPath(CelestialPath* path);
+	// Planetary Heliocentric Ecliptic Coordinates
 	double getEcLat(size_t planet, double jd_tt);
 	double getEcLon(size_t planet, double jd_tt);
 	double getRadius(size_t planet, double jd_tt, bool km = true);
@@ -269,7 +262,27 @@ public:
 	double EcLonNeptune(double jd_tt);
 	double EcLatNeptune(double jd_tt);
 	double EcDstNeptune(double jd_tt);
+	// Static functions, available without object instantiation
+	int getString2UnixTime(std::string& string);
+	int getDateTime2UnixTime(double year, double month, double day, double hour, double minute, double seconds);
+	double getJD2UnixTime(double jd_utc = NO_DOUBLE);
+	double getUnixTime2JD(double ut);
+	int calcUnixTimeYearDay(double year, double month, double day);
+	double secs2deg(double seconds);
+	double rangezero2tau(double rad);
+	double rangepi2pi(double rad);
+	double rangezero2threesixty(double deg);
+	double rangezero2twentyfour(double hrs);
+	static std::string angle2DMSstring(double angle, bool rad = false);
+	static std::string angle2uDMSstring(double angle, bool rad = false);
+	static std::string angle2uHMSstring(double angle, bool rad = false);
+	static std::string angle2DMstring(double angle, bool rad = false);
+	//static std::string angle2uDMstring(double angle, bool rad = false);
+	static std::string formatLatLon(double lat, double lon, bool rad = false);
+	static std::string formatDecRA(double dec, double ra, bool rad = false);
+	static std::string formatEleAz(double az, double ele, bool rad = false);
 private:
+	void updateGeocentric(size_t planet);
 	void updateGsid();
 	void update();
 };

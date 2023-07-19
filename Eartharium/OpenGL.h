@@ -79,7 +79,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 //void processInput(GLFWwindow* window);
 void saveImage(std::string& filepath, GLFWwindow* w, unsigned int framebuffer = 0, int width = 0, int height = 0);
 
-// Actually still in Application.cpp because it uses global vars (the callback cannot be in a class, it is C and not C++)
+// Actually still in Eartharium.cpp because it uses global vars (the callback cannot be in a class, it is C and not C++)
 void keyboard_callback(GLFWwindow*, int key, int scancode, int action, int mods);
 void GLAPIENTRY MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam);
 
@@ -215,7 +215,8 @@ enum TextureType {
 	MOON_FULL,
 	MOON_BUMP,
 	EARTH_BUMP,
-	SKY_FULL
+	SKY_FULL,
+	PLANETOID_ATLAS
 };
 class TextureLibrary {
 	struct TextureEntry {
@@ -226,7 +227,7 @@ class TextureLibrary {
 		unsigned int count = 0;
 		std::string file;
 	};
-	std::array<TextureEntry, 13> textures = { {
+	std::array<TextureEntry, 14> textures = { {
 		{ DUMMY, maxuint, DUMMY, nullptr, 0, "" },       // Dummy entry until I decide how to handle GL_TEXTUREx allocation
 		{ SHADOWS, maxuint, GL_TEXTURE1, nullptr, 0, "" },       // Not loaded from file
 		{ SKYBOX, maxuint, GL_TEXTURE2, nullptr, 0, "" },        // Not loaded from file
@@ -241,8 +242,8 @@ class TextureLibrary {
 		// EGM-96 geoid from: https://www.agisoft.com/downloads/geoids/
 		//{ EARTH_BUMP, maxuint, GL_TEXTURE11, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\us_nga_egm96_15arcmin.png" }
 		{ EARTH_BUMP, maxuint, GL_TEXTURE11, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\earth height 8192x4096.png" },
-		{ SKY_FULL, maxuint, GL_TEXTURE12, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\starmap-gimp_8k (8192x4096 celestial coords).png" }
-		//{ SKY_FULL, maxuint, GL_TEXTURE12, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\earth height 8192x4096.png" }
+		{ SKY_FULL, maxuint, GL_TEXTURE12, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\starmap-gimp_8k (8192x4096 celestial coords).png" },
+		{ PLANETOID_ATLAS, maxuint, GL_TEXTURE13, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\planetoid-atlas2 4096x2048.png" }
 	} };
 public:
 	Texture* getTexture(unsigned int texture);

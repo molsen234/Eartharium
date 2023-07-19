@@ -150,6 +150,7 @@ class SceneObject;
 class SceneTree;
 //class ShapeFile;
 class ThreePointSolver;
+class Planetoid;
 
 
 // --------
@@ -407,16 +408,13 @@ void tightvec<T>::remove(size_t oid, bool debug) {
 //  SceneObject
 // -------------
 // Being implemented
-// Meant to facilitate measuring distances and angles between any two objects, as well as implementing parenting of transformations
-// The plan is to have locations be children of a planetary object, arrows be children of locations, angle/distance texts be children of arrows,
-// and offer a way to indicate what to measure to etc. I have yet to work out the requirements ...
+// I have yet to fully work out the requirements ...
 class SceneObject {
 protected:
     //Material* material = nullptr;
     unsigned int id = 0;
-    //unsigned int type = 0;
-    //primobj primitiveobject;            // The geometry etc of this object (of type SceneObject::type)
 public:
+    std::string name = "Object";
     // !!! TODO: position, scale, orientation are relative to parent when parented to another SceneObject !!!
     glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
     glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f);
@@ -424,50 +422,20 @@ public:
     glm::vec4 orientation = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f); // Up vec3 + rotation about up, from which angle?
     glm::mat4 worldmatrix = glm::mat4(1.0f); // Collects parent worldmatrix and applies position, scale, orientation
     glm::vec4 color = WHITE;
-    std::string name = "Object";
     bool hidden = false;  // Hide object by bailing early from draw();
     Scene* m_scene = nullptr;
     SceneObject* m_parent = nullptr;
     std::list<SceneObject*> children;
-
     SceneObject(Scene* scene, bool isroot = false);
-
-    void addChild(SceneObject* object) {
-        children.push_back(object);
-    }
-    void removeChild(SceneObject* child) {
-        children.remove(child);
-    }
+    void addChild(SceneObject* object);
+    void removeChild(SceneObject* child);
     void setParent(SceneObject* parent);
-    SceneObject* getParent() {
-        return m_parent;
-    }
-    void setID(unsigned int oid) {
-        id = oid;
-    }
-    unsigned int getID() {
-        return id;
-    }
-    void setWorldMat(glm::mat4 mat) {
-        // !!! FIX: Do we want to do this? Maybe only if unparented? It is hard to keep position, scale, orientation up to date
-        std::cout << "WARNING!!! Calling SceneObject::setWorldMat() directly makes it impossible to keep position, scale, oriention updated!\n";
-        worldmatrix = mat;
-    }
-    glm::mat4 getWorldMat() {
-        return worldmatrix;
-    }
-    void inherit() {
-        // If parented, collect parent world matrix and apply pos,scale,rots
-        if (m_parent != nullptr) {
-            worldmatrix = m_parent->getWorldMat();
-            //std::cout << "\nInheriting!!\n\n";
-            //rotate
-            //scale
-            //worldmatrix = glm::translate(worldmatrix, position);
-            // Maybe just maintain a local instance matrix and do away with position, scale and orientation?
-        }
-        update();
-    }
+    SceneObject* getParent();
+    void setID(unsigned int oid);
+    unsigned int getID();
+    void setWorldMat(glm::mat4 mat);
+    glm::mat4 getWorldMat();
+    void inherit();
     virtual void update() {
         std::cout << "SceneObject[" << name << "]::update() : derived object \"" << name << "\" has not overridden the update() function, and will not be updated.\n";
     }
@@ -545,7 +513,7 @@ class Scene {
 public:
     SceneTree* scenetree = nullptr;
     Application* m_app = nullptr;
-    Astronomy* m_astro = nullptr; // Why is this here? Oh, so Earth can look it up. Probably should have a RenderLayer3D pointer instead.
+    Astronomy* astro = nullptr; // Why is this here? Oh, so Earth can look it up. Probably should have a RenderLayer3D pointer instead.
     Camera* w_camera = nullptr;
     unsigned int shadows = NONE;  // Create a way to update this from GUI or keyboard or python etc.
     SolarSystem* m_solsysOb = nullptr;
@@ -622,65 +590,29 @@ public:
     //Earth2* newEarth2(std::string mode, const unsigned int mU, const unsigned int mV, SceneObject* parent = nullptr);
 };
 
+
 class SceneTreeRoot : public SceneObject {
+// Just to have a place to stach the root (unparented) objects.
 public:
     SceneTreeRoot(Scene* scene, bool isroot) : SceneObject(scene, isroot) {}
     void draw(Camera* cam) override {}
 };
 
-
 // -----------
 //  SceneTree
 // -----------
-// Meant to facilitate measuring distances and angles between any two objects, as well as implementing parenting of transformations and GUI traversal
 class SceneTree {
     Scene* m_scene = nullptr;
     SceneObject* root = nullptr;
-    //Camera* camera = nullptr;   // NO! Camera should be a scene object, e.g. DetailedMoon where the camera should be placed relative to DetailedMoon
     std::queue<SceneObject*> breathfirst;
 public:
-    SceneTree(Scene* scene) : m_scene(scene) {
-        root = new SceneTreeRoot(m_scene, true);
-        root->name = "root";
-        return;
-    }
-    ~SceneTree() {
-        //delete root; // cascaded delete in SceneObject?
-    }
-    void updateBreathFirst() {
-        //std::cout << "SceneTree::updateBreathFirst()\n";
-        for (auto c : root->children) { // root is not a real scene object, so just add the children directly.
-            breathfirst.push(c);
-        }
-        while (!breathfirst.empty()) {
-            breathfirst.front()->inherit(); // Inherit world transformation of parent
-            for (auto c : breathfirst.front()->children) {
-                breathfirst.push(c);
-            }
-            breathfirst.pop();
-        }
-    }
-    void addSceneObject(SceneObject* object, SceneObject* parent) {
-        //std::cout << "SceneTree::addSceneObject(): " << object << "." << object->name;
-        
-        if (parent == nullptr) {
-            parent = root;
-        }
-        //std::cout << " Parent: " << parent << "." << parent->name; 
-        //std::cout << "\n";
-        parent->addChild(object);
-    }
-    void rootRemove(SceneObject* object) {
-        root->children.remove(object);
-    }
-    void printSceneTree() {
-        for (auto r : root->children) {
-            std::cout << r << ":" << r->name << "\n";
-            for (auto c : r->children) {
-                std::cout << " -> " << c << ":" << c->name << "\n";
-            }
-        }
-    }
+    SceneTree(Scene* scene);
+    ~SceneTree();
+    void updateBreathFirst();
+    void drawBreathFirst(Camera* cam); // Honor hidden flag (skip render), and maybe support defer (render last) for semi-transparent objects.
+    void addSceneObject(SceneObject* object, SceneObject* parent);
+    void rootRemove(SceneObject* object);
+    void printSceneTree();
 };
 
 
@@ -1715,7 +1647,7 @@ private:
 public:
     Dots(Scene* scene);
     size_t addXYZ(glm::vec3 pos, glm::vec4 color, float size);
-    void changeXYZ(size_t index, glm::vec3 pos, glm::vec4 color, float size);
+    void changeXYZ(size_t index, glm::vec3 pos, glm::vec4 color = NO_COLOR, float size = NO_FLOAT);
     void changeDot(size_t index, glm::vec4 color, float size);
     void removeDot(size_t index);
 private:

@@ -78,7 +78,9 @@ void SolSysTest(Application& app) {
     Font* font = new Font(fontname);
 
     SolarSystem* solsys = scene->getSolsysOb();
-
+    solsys->AddDistLine(SUN, MERCURY, MERCURYCOLOR, 0.01f);
+    solsys->AddDistLine(SUN, VENUS, VENUSCOLOR, 0.01f);
+    solsys->AddDistLine(SUN, MARS, MARSCOLOR, 0.01f);
     app.anim = false;
     app.renderoutput = false;
     while (!glfwWindowShouldClose(app.window)) {
@@ -2990,7 +2992,7 @@ void McToonChallengeV1(Application& app) {
 
     LLH solution = tps->calcLocation(false);  // could pass bools for dip, refraction
 
-    std::cout << "ThreePointSolver McToon location: " << astro->latlonFormat(solution.lat, solution.lon) << "\n";
+    std::cout << "ThreePointSolver McToon location: " << astro->formatLatLon(solution.lat, solution.lon) << "\n";
 
 
     //double dip_angle = rad2deg * atan2(sqrt(observer_height * (2.0 * earth_radius + observer_height)), earth_radius);
@@ -3052,8 +3054,9 @@ void McToonChallengeV1(Application& app) {
     LLH point = solver->calcLocation(false);
     point.dst = observer_height / 1000.0;  // Use observer height in geodesic calculation, it takes km rather than meters
     LLH geodetic = geocentric2geodesicWGS84(point);
-    std::cout << "\nSubPointSolver McToon:   " << astro->latlonFormat(point.lat, point.lon) << '\n';
-    std::cout << "In geodetic coordinates: " << astro->latlonFormat(geodetic.lat, geodetic.lon) << '\n';
+    std::cout << "ThreePointSolver McToon: " << astro->formatLatLon(solution.lat, solution.lon) << "\n";
+    std::cout << "\nSubPointSolver McToon:   " << astro->formatLatLon(point.lat, point.lon) << '\n';
+    std::cout << "In geodetic coordinates: " << astro->formatLatLon(geodetic.lat, geodetic.lon) << '\n';
 
     earth->addDot(dms2deg(46.0, 38.0, 36.0), dms2deg(-93.0, 22.0, 31.0), 0.0, 0.0009f, LIGHT_GREEN, false); // McToon's revealed pos from Exif
     earth->addDot(46.7124, -93.2742, 0.0, (6.75f * 0.0003f / 2.0f), YELLOW, false); // Clive Wells calculated pos, revealed accuracy 6.75 miles
@@ -3067,16 +3070,16 @@ void McToonChallengeV1(Application& app) {
     astro->setTime(2022, 3, 28.0, 5.0, 22.0, 33.0);
     LLH ssp1_decra = astro->getTrueDecRAbyName("Arcturus", jd_ssp1);
     //LLH ssp1_altaz = astro->calcGeo2Topo(ssp1_decra, point);
-    std::cout << " - Arcturus RA/Dec: " << astro->radecFormat(ssp1_decra.lon, ssp1_decra.lat) << '\n';
+    std::cout << " - Arcturus RA/Dec: " << astro->formatDecRA(ssp1_decra.lon, ssp1_decra.lat) << '\n';
     // Actual Catalogue RA/Dec
     LLH reg_cat = astro->getDecRAbyName("Arcturus");
-    std::cout << " - Arcturus Catalogue     RA/Dec: " << astro->radecFormat(reg_cat.lon, reg_cat.lat) << '\n';
+    std::cout << " - Arcturus Catalogue     RA/Dec: " << astro->formatDecRA(reg_cat.lon, reg_cat.lat) << '\n';
     // With Proper Motion applied
     LLH reg_pm = astro->getDecRAwithPMbyName("Arcturus", astro->getJD_TT());
-    std::cout << " - Arcturus w/Prop Motion RA/Dec: " << astro->radecFormat(reg_pm.lon, reg_pm.lat) << '\n';
+    std::cout << " - Arcturus w/Prop Motion RA/Dec: " << astro->formatDecRA(reg_pm.lon, reg_pm.lat) << '\n';
     // With Precession
     CAA2DCoordinate reg_prec = CAAPrecession::PrecessEquatorial(reg_pm.lon / 15.0, reg_pm.lat, EDateTime::getJDUTC2TT(JD2000), astro->getJD_TT());
-    std::cout << " - Arcturus w/Precession  RA/Dec: " << astro->radecFormat(reg_prec.X * 15.0, reg_prec.Y) << '\n';
+    std::cout << " - Arcturus w/Precession  RA/Dec: " << astro->formatDecRA(reg_prec.X * 15.0, reg_prec.Y) << '\n';
     // With Nutation
     double obliq = CAANutation::MeanObliquityOfEcliptic(astro->getJD_TT());
     double nutlon = CAANutation::NutationInLongitude(astro->getJD_TT());
@@ -3085,12 +3088,12 @@ void McToonChallengeV1(Application& app) {
     double reg_nut_dec = CAANutation::NutationInDeclination(reg_prec.X, obliq, nutlon, nutobl);
     reg_prec.X += (reg_nut_ra / 3600.0) / 15.0;
     reg_prec.Y += reg_nut_dec / 3600.0;
-    std::cout << " - Arcturus w/Nutation    RA/Dec: " << astro->radecFormat(reg_prec.X * 15.0, reg_prec.Y) << '\n';
+    std::cout << " - Arcturus w/Nutation    RA/Dec: " << astro->formatDecRA(reg_prec.X * 15.0, reg_prec.Y) << '\n';
     // With Aberration
     CAA2DCoordinate reg_aber = CAAAberration::EquatorialAberration(reg_prec.X, reg_prec.Y, astro->getJD_TT(), true);
     reg_prec.X += reg_aber.X;
     reg_prec.Y += reg_aber.Y;
-    std::cout << " - Arcturus w/Aberration  RA/Dec: " << astro->radecFormat(reg_prec.X * 15.0, reg_prec.Y) << '\n';
+    std::cout << " - Arcturus w/Aberration  RA/Dec: " << astro->formatDecRA(reg_prec.X * 15.0, reg_prec.Y) << '\n';
 
     //std::cout << "Acturus Azi/Ele: " << astro->latlonFormat(reg_)
     while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
@@ -3156,7 +3159,7 @@ void NullIslandTest(Application& app) {
     double temperature = 10.0;                  // Source: https://www.wunderground.com/history/daily/us/mn/cohasset/KHIB
     double pressure = 1010.0;
 
-    std::cout << "Test location: " << astro->latlonFormat(location.lat, location.lon, true) << "\n";
+    std::cout << "Test location: " << astro->formatLatLon(location.lat, location.lon, true) << "\n";
 
     // Calculate elevations from above parameters
     double gsid = astro->getGsid();
@@ -3164,18 +3167,18 @@ void NullIslandTest(Application& app) {
     std::cout << "GSID: " << gsid << "\n";
     star1_decra.lon = gsid - star1_decra.lon;
     LLH star1_altaz = astro->calcGeo2Topo(star1_decra, location);
-    std::cout << star1_name << " RA/Dec: " << astro->radecFormat(star1_decra.lon, star1_decra.lat, true) << '\n';
-    std::cout << star1_name << " Az/Ele: " << astro->azeleFormat(star1_altaz.lon, star1_altaz.lat, true) << '\n';
+    std::cout << star1_name << " RA/Dec: " << astro->formatDecRA(star1_decra.lat, star1_decra.lon, true) << '\n';
+    std::cout << star1_name << " Az/Ele: " << astro->formatEleAz(star1_altaz.lat, star1_altaz.lon, true) << '\n';
     LLH star2_decra = astro->getTrueDecRAbyName(star2_name, astro->getJD_TT(), true);
     star2_decra.lon = gsid - star2_decra.lon;
     LLH star2_altaz = astro->calcGeo2Topo(star2_decra, location);
-    std::cout << star2_name << " RA/Dec: " << astro->radecFormat(star2_decra.lon, star2_decra.lat, true) << '\n';
-    std::cout << star2_name << " Az/Ele: " << astro->azeleFormat(star2_altaz.lon, star2_altaz.lat, true) << '\n';
+    std::cout << star2_name << " RA/Dec: " << astro->formatDecRA(star2_decra.lat, star2_decra.lon, true) << '\n';
+    std::cout << star2_name << " Az/Ele: " << astro->formatEleAz(star2_altaz.lat, star2_altaz.lon, true) << '\n';
     LLH star3_decra = astro->getTrueDecRAbyName(star3_name, astro->getJD_TT(), true);
     star3_decra.lon = gsid - star3_decra.lon;
     LLH star3_altaz = astro->calcGeo2Topo(star3_decra, location);
-    std::cout << star3_name << " RA/Dec: " << astro->radecFormat(star3_decra.lon, star3_decra.lat, true) << '\n';
-    std::cout << star3_name << " Az/Ele: " << astro->azeleFormat(star3_altaz.lon, star3_altaz.lat, true) << '\n';
+    std::cout << star3_name << " RA/Dec: " << astro->formatDecRA(star3_decra.lat, star3_decra.lon, true) << '\n';
+    std::cout << star3_name << " Az/Ele: " << astro->formatEleAz(star3_altaz.lat, star3_altaz.lon, true) << '\n';
 
     // Set up ThreePointSolver (only supports stars at the moment & assumes all measures are taken at same location)
     ThreePointSolver* tps = scene->newThreePointSolver(earth);
@@ -3198,15 +3201,15 @@ void NullIslandTest(Application& app) {
 
     LLH solution = tps->calcLocation(false);  // could pass bools for dip, refraction
 
-    std::cout << "ThreePointSolver Null Island: " << astro->latlonFormat(solution.lat, solution.lon) << "\n\n";
+    std::cout << "ThreePointSolver Null Island: " << astro->formatLatLon(solution.lat, solution.lon) << "\n\n";
 
  
     // Actual Catalogue RA/Dec
     LLH reg_cat = astro->getDecRAbyName("Arcturus");
-    std::cout << " - Arcturus Catalogue     RA/Dec: " << astro->radecFormat(reg_cat.lon, reg_cat.lat) << '\n';
+    std::cout << " - Arcturus Catalogue     RA/Dec: " << astro->formatDecRA(reg_cat.lon, reg_cat.lat) << '\n';
     // With Proper Motion applied
     LLH reg_pm = astro->getDecRAwithPMbyName("Arcturus", astro->getJD_TT());
-    std::cout << " - Arcturus w/Prop Motion RA/Dec: " << astro->radecFormat(reg_pm.lon, reg_pm.lat) << '\n';
+    std::cout << " - Arcturus w/Prop Motion RA/Dec: " << astro->formatDecRA(reg_pm.lon, reg_pm.lat) << '\n';
     // With Precession
     //CAA2DCoordinate reg_prec = CAAPrecession::PrecessEquatorial(reg_pm.lon / 15.0, reg_pm.lat, EDateTime::getJDUTC2TT(JD2000), astro->getJD_TT());
 
@@ -3240,7 +3243,7 @@ void NullIslandTest(Application& app) {
     reg_prec.X = CAACoordinateTransformation::MapTo0To24Range(CAACoordinateTransformation::RadiansToHours(atan2(A, B) + zeta));
     reg_prec.Y = CAACoordinateTransformation::RadiansToDegrees(asin(C));
 
-    std::cout << " - Arcturus w/Precession  RA/Dec: " << astro->radecFormat(reg_prec.X * 15.0, reg_prec.Y) << '\n';
+    std::cout << " - Arcturus w/Precession  RA/Dec: " << astro->formatDecRA(reg_prec.X * 15.0, reg_prec.Y) << '\n';
     // With Nutation
     double obliq = CAANutation::MeanObliquityOfEcliptic(astro->getJD_TT());
     double nutlon = CAANutation::NutationInLongitude(astro->getJD_TT());
@@ -3249,12 +3252,12 @@ void NullIslandTest(Application& app) {
     double reg_nut_dec = CAANutation::NutationInDeclination(reg_prec.X, obliq, nutlon, nutobl);
     reg_prec.X += (reg_nut_ra / 3600.0) / 15.0;
     reg_prec.Y += reg_nut_dec / 3600.0;
-    std::cout << " - Arcturus w/Nutation    RA/Dec: " << astro->radecFormat(reg_prec.X * 15.0, reg_prec.Y) << '\n';
+    std::cout << " - Arcturus w/Nutation    RA/Dec: " << astro->formatDecRA(reg_prec.X * 15.0, reg_prec.Y) << '\n';
     // With Aberration
     CAA2DCoordinate reg_aber = CAAAberration::EquatorialAberration(reg_prec.X, reg_prec.Y, astro->getJD_TT(), true);
     reg_prec.X += reg_aber.X;
     reg_prec.Y += reg_aber.Y;
-    std::cout << " - Arcturus w/Aberration  RA/Dec: " << astro->radecFormat(reg_prec.X * 15.0, reg_prec.Y) << '\n';
+    std::cout << " - Arcturus w/Aberration  RA/Dec: " << astro->formatDecRA(reg_prec.X * 15.0, reg_prec.Y) << '\n';
 
     //std::cout << "Acturus Azi/Ele: " << astro->latlonFormat(reg_)
     while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
@@ -3373,7 +3376,7 @@ void McToonChallengeV2(Application& app) {
     solver->showDots(NO_COLOR, 0.02f);
 
     LLH point = solver->calcLocation(false);
-    std::cout << "\nSubPointSolver McToon: " << astro->latlonFormat(point.lat, point.lon) << '\n';
+    std::cout << "\nSubPointSolver McToon: " << astro->formatLatLon(point.lat, point.lon) << '\n';
 
     std::cout << "\nCalculated Azi/Ele at this location: \n";
 
@@ -3382,16 +3385,16 @@ void McToonChallengeV2(Application& app) {
     // My adaptation of AA+
     LLH ssp1_decra = astro->getTrueDecRAbyName("Regulus", jd_ssp1);
     //LLH ssp1_altaz = astro->calcGeo2Topo(ssp1_decra, point);
-    std::cout << " - Regulus RA/Dec: " << astro->radecFormat(ssp1_decra.lon, ssp1_decra.lat) << '\n';
+    std::cout << " - Regulus RA/Dec: " << astro->formatDecRA(ssp1_decra.lat, ssp1_decra.lon) << '\n';
     // Actual Catalogue RA/Dec
     LLH reg_cat = astro->getDecRAbyName("Regulus");
-    std::cout << " - Regulus Catalogue     RA/Dec: " << astro->radecFormat(reg_cat.lon, reg_cat.lat) << '\n';
+    std::cout << " - Regulus Catalogue     RA/Dec: " << astro->formatDecRA(reg_cat.lat, reg_cat.lon) << '\n';
     // With Proper Motion applied
     LLH reg_pm = astro->getDecRAwithPMbyName("Regulus",astro->getJD_TT());
-    std::cout << " - Regulus w/Prop Motion RA/Dec: " << astro->radecFormat(reg_pm.lon, reg_pm.lat) << '\n';
+    std::cout << " - Regulus w/Prop Motion RA/Dec: " << astro->formatDecRA(reg_pm.lat, reg_pm.lon) << '\n';
     // With Precession
     CAA2DCoordinate reg_prec = CAAPrecession::PrecessEquatorial(reg_pm.lon / 15.0, reg_pm.lat, EDateTime::getJDUTC2TT(JD2000), astro->getJD_TT());
-    std::cout << " - Regulus w/Precession  RA/Dec: " << astro->radecFormat(reg_prec.X * 15.0, reg_prec.Y) << '\n';
+    std::cout << " - Regulus w/Precession  RA/Dec: " << astro->formatDecRA(reg_prec.Y, reg_prec.X * 15.0) << '\n';
     // With Nutation
     double obliq = CAANutation::MeanObliquityOfEcliptic(astro->getJD_TT());
     double nutlon = CAANutation::NutationInLongitude(astro->getJD_TT());
@@ -3400,35 +3403,35 @@ void McToonChallengeV2(Application& app) {
     double reg_nut_dec = CAANutation::NutationInDeclination(reg_prec.X, obliq, nutlon, nutobl);
     reg_prec.X += (reg_nut_ra / 3600.0) / 15.0;
     reg_prec.Y += reg_nut_dec / 3600.0;
-    std::cout << " - Regulus w/Nutation    RA/Dec: " << astro->radecFormat(reg_prec.X * 15.0, reg_prec.Y) << '\n';
+    std::cout << " - Regulus w/Nutation    RA/Dec: " << astro->formatDecRA(reg_prec.Y, reg_prec.X * 15.0) << '\n';
     // With Aberration
     CAA2DCoordinate reg_aber = CAAAberration::EquatorialAberration(reg_prec.X, reg_prec.Y, astro->getJD_TT(), true);
     reg_prec.X += reg_aber.X;
     reg_prec.Y += reg_aber.Y;
-    std::cout << " - Regulus w/Aberration  RA/Dec: " << astro->radecFormat(reg_prec.X * 15.0, reg_prec.Y) << '\n';
+    std::cout << " - Regulus w/Aberration  RA/Dec: " << astro->formatDecRA(reg_prec.Y, reg_prec.X * 15.0) << '\n';
 
 
     astro->setTime(2028, 11, 13.0, 19.0, 0.0, 0.0);
     // My suspect function - Theta Persei examples 21.b & 23.a from AA Meeus.
     LLH tpe_decra = astro->getTrueDecRAbyName("* tet Per", astro->getJD_TT());
     //LLH ssp1_altaz = astro->calcGeo2Topo(ssp1_decra, point);
-    std::cout << " - Theta Persei RA/Dec: " << astro->radecFormat(tpe_decra.lon, tpe_decra.lat) << '\n';
+    std::cout << " - Theta Persei RA/Dec: " << astro->formatDecRA(tpe_decra.lat, tpe_decra.lon) << '\n';
     // Actual Catalogue RA/Dec
 
     LLH tpe_cat = astro->getDecRAbyName("* tet Per", false);
-    std::cout << " - Theta Persei Catalogue     RA/Dec: " << astro->radecFormat(tpe_cat.lon, tpe_cat.lat, false) << '\n';
+    std::cout << " - Theta Persei Catalogue     RA/Dec: " << astro->formatDecRA(tpe_cat.lat, tpe_cat.lon, false) << '\n';
     // With Proper Motion applied
     LLH tpe_pm = astro->getDecRAwithPMbyName("* tet Per", astro->getJD_TT());
-    std::cout << " - Theta Persei w/Prop Motion RA/Dec: " << astro->radecFormat(tpe_pm.lon, tpe_pm.lat) << '\n';
+    std::cout << " - Theta Persei w/Prop Motion RA/Dec: " << astro->formatDecRA(tpe_pm.lat, tpe_pm.lon) << '\n';
     // With Precession
     CAA2DCoordinate tpe_prec = CAAPrecession::PrecessEquatorial(tpe_pm.lon / 15.0, tpe_pm.lat, EDateTime::getJDUTC2TT(JD2000), astro->getJD_TT());
-    std::cout << " - Theta Persei w/Precession  RA/Dec: " << astro->radecFormat(tpe_prec.X * 15.0, tpe_prec.Y) << '\n';
+    std::cout << " - Theta Persei w/Precession  RA/Dec: " << astro->formatDecRA(tpe_prec.Y, tpe_prec.X * 15.0) << '\n';
     // With Nutation
     double tpe_obliq = CAANutation::MeanObliquityOfEcliptic(astro->getJD_TT()); // Degrees
     double tpe_nutlon = CAANutation::NutationInLongitude(astro->getJD_TT());    // Arcseconds
     double tpe_nutobl = CAANutation::NutationInObliquity(astro->getJD_TT());    // Arcseconds
     //double tpe_nut_ra = CAANutation::NutationInRightAscension(tpe_prec.X, tpe_prec.Y, tpe_obliq, tpe_nutlon, tpe_nutobl);  // Arcseconds
-    double tpe_nut_ra = astro->NutationInRightAscension(tpe_prec.X * 15.0 , tpe_prec.Y, tpe_obliq, tpe_nutlon / 3600.0, tpe_nutobl / 3600.0); // Degrees
+    double tpe_nut_ra = astro->NutationInRightAscension(tpe_prec.Y, tpe_prec.X * 15.0, tpe_obliq, tpe_nutlon / 3600.0, tpe_nutobl / 3600.0); // Degrees
     //double tpe_nut_dec = CAANutation::NutationInDeclination(tpe_prec.X, tpe_obliq, tpe_nutlon, tpe_nutobl);  // Arcseconds
     double tpe_nut_dec = astro->NutationInDeclination(tpe_prec.X * 15.0, tpe_obliq, tpe_nutlon / 3600.0, tpe_nutobl / 3600.0, false); // Degrees
     std::cout << "   - Mean Obliquity of Ecliptic:  " << astro->angle2DMSstring(tpe_obliq, false) << '\n';
@@ -3443,12 +3446,12 @@ void McToonChallengeV2(Application& app) {
     tpe_prec.X += (tpe_nut_ra / 15.0);
     //tpe_prec.Y += tpe_nut_dec / 3600.0;
     tpe_prec.Y += tpe_nut_dec;
-    std::cout << " - Theta Persei w/Nutation    RA/Dec: " << astro->radecFormat(tpe_prec.X * 15.0, tpe_prec.Y) << '\n';
+    std::cout << " - Theta Persei w/Nutation    RA/Dec: " << astro->formatDecRA(tpe_prec.Y, tpe_prec.X * 15.0) << '\n';
     // With Aberration
     CAA2DCoordinate tpe_aber = CAAAberration::EquatorialAberration(tpe_prec.X, tpe_prec.Y, astro->getJD_TT(), true);
     tpe_prec.X += tpe_aber.X;
     tpe_prec.Y += tpe_aber.Y;
-    std::cout << " - Theta Persei w/Aberration  RA/Dec: " << astro->radecFormat(tpe_prec.X * 15.0, tpe_prec.Y) << '\n';
+    std::cout << " - Theta Persei w/Aberration  RA/Dec: " << astro->formatDecRA(tpe_prec.Y, tpe_prec.X * 15.0) << '\n';
 
     //astro->setTime(2018, 11, 15.0, 18.0, 28.0, 15.0); // Regulus time
     astro->setTime(2018, 11, 15.0, 18.0, 32.0, 15.0);  // Duhbe time
@@ -3776,41 +3779,75 @@ void LunarData(Application& app) {
     cam->camNear = 5.0f;
     //cam->setCamLightPos()
 
-    //DetailedMoon* moon = scene->newDetailedMoon("NS", 180, 90, 1.0f);
-    //app.currentEarth2 = moon;
-    //moon->addSunGP();
-    //moon->addEarthGP();
+    DetailedMoon* moon = scene->newDetailedMoon("NSAE", 180, 90, 1.0f);
+    app.currentEarth2 = moon;
+    moon->addSunGP();
+    moon->addEarthGP();
+    moon->addLibrationTrail();
     //moon->setTopocentric(l_ams.lat, l_ams.lon);
     // NOTE: These can all expose their varius confguration settings directly via the object link.
-    //moon->addEquator();
-    //moon->equatorOb->setColor(GREY);
-    //moon->equatorOb->setWidth(0.003f);
-    //moon->addPrimeMeridian();
+    moon->addEquator();
+    moon->equatorOb->setColor(GREY);
+    moon->equatorOb->setWidth(0.003f);
+    moon->addPrimeMeridian();
+    moon->primemOb->setColor(GREY);
+    moon->primemOb->setWidth(0.003f);
     //moon->addGrid(10.0);
     
-    DetailedEarth* erf = scene->newDetailedEarth("NS", 180, 90, 1.0f);
-    erf->addEquator();
-    erf->addPrimeMeridian();
-    app.currentEarth2 = erf;
-
-    DetailedSky* sky = scene->newDetailedSky("NS", 90, 45, 1.2f);
-    sky->setTexture(true);
-
+    //DetailedEarth* erf = scene->newDetailedEarth("NS", 180, 90, 1.0f);
+    //erf->addEquator();
+    //erf->addPrimeMeridian();
+    //app.currentEarth2 = erf;
+    //DetailedSky* sky = scene->newDetailedSky("NS", 90, 45, 1.2f);
+    //sky->setTexture(true);
 
     //scene->scenetree->printSceneTree();
-
-
 
     while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
     {
         if (app.anim) {
             astro->addTime(0.0, 0.0, 30.0, 0.0);
+            //astro->setTimeNow();
         }
         app.render();
 
     }
 }
 
+void TestNewSunGP(Application& app) {
+    Astronomy* astro = app.newAstronomy();
+
+    astro->setTimeNow();
+    Scene* scene = app.newScene();
+    Camera* cam = scene->w_camera; // Pick up default camera
+    app.currentCam = cam;          // Bind camera to keyboard updates
+    RenderLayer3D* layer = app.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, nullptr);
+    text->setFont(app.m_font2);
+    text->setAstronomy(astro);
+    RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    gui->addLayer3D(layer, "EarthView");
+
+    DetailedEarth* erf = scene->newDetailedEarth("NSAE", 180, 90, 1.0f);
+    app.currentEarth2 = erf;
+    //erf->addEquator();
+    //erf->addPrimeMeridian();
+    erf->addSunGP();
+    //erf->m_sungp->setRadius(0.1f);
+    //erf->position = { 0.0f, 0.5f, 0.0f };
+
+    scene->scenetree->printSceneTree();
+
+    while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
+    {
+        if (app.anim) {
+            astro->setTimeNow();
+            //astro->addTime(0.0, 0.0, 30.0, 0.0);
+        }
+        app.render();
+
+    }
+}
 
 
 
@@ -4209,6 +4246,8 @@ int main(int argc, char** argv) {
 
     //StarMovement(app);
     LunarData(app);
+    //TestNewSunGP(app);
+
 
     // Cleanup
     glfwTerminate();

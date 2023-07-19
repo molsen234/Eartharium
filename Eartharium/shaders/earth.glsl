@@ -11,23 +11,25 @@ out vec3 lNormal;
 out vec4 bTint;
 out vec4 FragCoord;
 uniform mat4 projview;
-// To be added in future:
-//uniform mat4 worldmat;
-//uniform mat3 worldnormals; // Yes, this is a 3x3 matrix, as normals don't translate
+uniform mat4 world;
+uniform mat3 worldnormal;
 void main()
 {
-    // !!! FIX: Should apply object world matrix here, i.e. gl_Position = projview * worldmat * vec4(aPos,1.0) !!!
-    FragCoord = vec4(aPos, 1.0);
-    gl_Position = projview * vec4(aPos, 1.0); // projview = projection * view (from CPU)
+    FragCoord = world * vec4(aPos, 1.0);
+    gl_Position = projview * world * vec4(aPos, 1.0); // projview = projection * view (from CPU)
 
     TexCoord = aTexCoord;
-    // !!! FIX: Should apply normal transforms to these, i.e. nNormal = transpose(inverse(mat3(worldmat))) * mNormal !!!
-    //          This shader is used by Earth at the moment, not DetailedEarth, so currently no worldmat transform is applied.
-    //          Therefore the below works, as Earth is (0,0,0) centered with no rotation and has a scale radius = 1.0.
-    //          (When adding worldmat also supply the normal transform matrix from CPU instead of calculating it for every single vertex)
-    sNormal = normalize(aNormal);
-    lNormal = normalize(rNormal);
+
+    // FIX: No need to calculate norm_matrix for every vertex!
+    //mat3 norm_matrix = transpose(inverse(mat3(world))); //
+    sNormal = normalize(worldnormal * aNormal);
+    lNormal = normalize(worldnormal * rNormal);
     bTint = aTint;
+
+    // from moon.glsl
+    //sunDir = normalize(norm_matrix * sDir);
+    //lightDir = lDir;
+
 };
 
 #shader fragment

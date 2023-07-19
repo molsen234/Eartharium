@@ -20,6 +20,12 @@ SceneObject::SceneObject(Scene* scene, bool isroot) : m_scene(scene) {
     if (!isroot) m_scene->scenetree->addSceneObject(this, nullptr);
     //std::cout << "SceneObject::SceneObject(" << this << ": " << m_scene->scenetree << "\n";
 }
+void SceneObject::addChild(SceneObject* object) {
+    children.push_back(object);
+}
+void SceneObject::removeChild(SceneObject* child) {
+    children.remove(child);
+}
 void SceneObject::setParent(SceneObject* parent) {
     // !!! FIX: !!!
     // setParent() is dangerous, it is possible to create loops in the family tree
@@ -29,7 +35,34 @@ void SceneObject::setParent(SceneObject* parent) {
     m_scene->scenetree->rootRemove(this);
     m_parent->addChild(this);
 }
-
+void SceneObject::setID(unsigned int oid) {
+    id = oid;
+}
+unsigned int SceneObject::getID() {
+    return id;
+}
+void SceneObject::setWorldMat(glm::mat4 mat) {
+    // !!! FIX: Do we want to do this? Maybe only if unparented? It is hard to keep position, scale, orientation up to date
+    std::cout << "WARNING!!! Calling SceneObject::setWorldMat() directly makes it impossible to keep position, scale, oriention updated, so make sure to set those manually!\n";
+    worldmatrix = mat;
+    worldmatrix = glm::translate(worldmatrix, position);
+}
+glm::mat4 SceneObject::getWorldMat() {
+    return worldmatrix;
+}
+void SceneObject::inherit() {
+    // If parented, collect parent world matrix and apply pos,scale,rots
+    if (m_parent != nullptr) {
+        worldmatrix = m_parent->getWorldMat();
+        //std::cout << name << " inheriting from " << m_parent->name << "\n";
+        //rotate
+        //scale
+        //VPRINT(position);
+        worldmatrix = glm::translate(worldmatrix, position);
+        //std::cout << glm::to_string(worldmatrix) << '\n';
+    }
+    update();
+}
 
 
 // --------
@@ -158,6 +191,8 @@ Camera* Scene::newCamera(const std::string name) {
     cam->name = name;
     m_cameras.push_back(cam);
     return cam;
+    // As camera is SceneObject, is it still necessary to keep a list of cameras?
+    // Apparently the list is never used for anything anyway.
 }
 void Scene::setAspect(float aspect) { m_aspect = aspect; }
 float Scene::getAspect() { return m_aspect; }
@@ -201,10 +236,9 @@ void Scene::clearScene() {
 void Scene::render(Camera* cam) {
     // Might split into an update() member function? Or do all updates via SceneTree?
     if (!cam) cam = w_camera;
-    scenetree->updateBreathFirst();
+    scenetree->updateBreathFirst();  // Allow all SceneObjects to update their internals, e.g. position etc
     // Should take fbo render target !!!
     if (m_earthOb != nullptr) m_earthOb->Update(); // Make sure primitives are up to date before casting their shadows (Earth updates Locations)
-    if (m_dmoonOb != nullptr) m_dmoonOb->update();
     if (m_dskyOb != nullptr) m_dskyOb->update();
     if (m_solsysOb != nullptr) m_solsysOb->Update();
     if (m_skysphereOb != nullptr) m_skysphereOb->UpdateTime(0.0); // Default time
@@ -221,11 +255,13 @@ void Scene::render(Camera* cam) {
     if (m_skyboxOb != nullptr) {
         m_skyboxOb->Draw();
     }
-    //if (earth) earth->draw(cam); // Earth2 experimental
-    if (m_dskyOb) m_dskyOb->draw(cam);
+    // These should be drawn via SceneTree instead of here.
+    //if (m_dskyOb) m_dskyOb->draw(cam);
+    //if (m_dmoonOb != nullptr) m_dmoonOb->draw(cam);
+    //if (m_dearthOb != nullptr) m_dearthOb->draw(cam);
+    scenetree->drawBreathFirst(cam);
+
     if (m_earthOb != nullptr) m_earthOb->draw(cam);
-    if (m_dmoonOb != nullptr) m_dmoonOb->draw(cam);
-    if (m_dearthOb != nullptr) m_dearthOb->draw(cam);
     if (m_solsysOb != nullptr) m_solsysOb->Draw();
     if (m_countrybordersOb != nullptr) m_countrybordersOb->update();
     if (m_timezonesOb != nullptr) m_timezonesOb->update();
@@ -414,12 +450,66 @@ ThreePointSolver* Scene::newThreePointSolver(Earth* earth) {
     return m_threepointsolvers.back();
 }
 
-//Earth2* Scene::newEarth2(std::string mode, const unsigned int mU, const unsigned int mV, SceneObject* parent) {
-//    earth = new Earth2(this, mode, mU, mV);
-//    earth->setParent(parent);
-//    scenetree->addSceneObject(earth, parent);
-//    return earth;
-//}
+
+// -----------
+//  SceneTree
+// -----------
+// Meant to facilitate measuring distances and angles between any two objects, as well as implementing parenting of transformations and GUI traversal
+SceneTree::SceneTree(Scene* scene) : m_scene(scene) {
+    root = new SceneTreeRoot(m_scene, true);
+    root->name = "root";
+    return;
+}
+SceneTree::~SceneTree() {
+    //delete root; // cascaded delete in SceneObject?
+}
+void SceneTree::updateBreathFirst() {
+    //std::cout << "SceneTree::updateBreathFirst()\n";
+    for (auto c : root->children) { // root is not a real scene object, so just add the children directly.
+        breathfirst.push(c);
+    }
+    while (!breathfirst.empty()) {
+        breathfirst.front()->inherit(); // Inherit world transformation of parent
+        for (auto c : breathfirst.front()->children) {
+            breathfirst.push(c);
+        }
+        breathfirst.pop();
+    }
+}
+void SceneTree::drawBreathFirst(Camera* cam) {
+    //std::cout << "SceneTree::updateBreathFirst()\n";
+    for (auto c : root->children) { // root is not a real scene object, so just add the children directly.
+        breathfirst.push(c);
+    }
+    while (!breathfirst.empty()) {
+        breathfirst.front()->draw(cam); // Inherit world transformation of parent
+        for (auto c : breathfirst.front()->children) {
+            breathfirst.push(c);
+        }
+        breathfirst.pop();
+    }
+}
+void SceneTree::addSceneObject(SceneObject* object, SceneObject* parent) {
+    //std::cout << "SceneTree::addSceneObject(): " << object << "." << object->name;
+
+    if (parent == nullptr) {
+        parent = root;
+    }
+    //std::cout << " Parent: " << parent << "." << parent->name; 
+    //std::cout << "\n";
+    parent->addChild(object);
+}
+void SceneTree::rootRemove(SceneObject* object) {
+    root->children.remove(object);
+}
+void SceneTree::printSceneTree() {
+    for (auto r : root->children) {
+        std::cout << r << ":" << r->name << "\n";
+        for (auto c : r->children) {
+            std::cout << " -> " << c << ":" << c->name << "\n";
+        }
+    }
+}
 
 
 // -------------
@@ -463,7 +553,7 @@ void RenderLayer::animate() {
 RenderLayer3D::RenderLayer3D(float vpx1, float vpy1, float vpx2, float vpy2, Scene* scene, Astronomy* astro, Camera* cam, bool overlay)
     : m_scene(scene), m_astro(astro), m_cam(cam), m_overlay(overlay), RenderLayer(vpx1, vpy1, vpx2, vpy2) {
 
-    m_scene->m_astro = m_astro;
+    m_scene->astro = m_astro;
     float w = (float)m_scene->m_app->getWidth();
     float h = (float)m_scene->m_app->getHeight();
     updateViewport(w, h);
@@ -627,9 +717,9 @@ void RenderLayerGUI::render() {
                         ImGui::Text(l.layer->m_astro->timestr.c_str()); // At top because it should show the current time. Below may modify time.
                         ImGui::Checkbox("Equation of Time", &do_eot);
                         ImGui::SameLine();
-                        if (ImGui::Button("-")) { l.layer->m_astro->addTime(0.0, 0.0, l.layer->m_scene->m_astro->getEoT(), 0.0, do_eot); }
+                        if (ImGui::Button("-")) { l.layer->m_astro->addTime(0.0, 0.0, l.layer->m_scene->astro->getEoT(), 0.0, do_eot); }
                         ImGui::SameLine();
-                        if (ImGui::Button("+")) { l.layer->m_astro->addTime(0.0, 0.0, -l.layer->m_scene->m_astro->getEoT(), 0.0, do_eot); }
+                        if (ImGui::Button("+")) { l.layer->m_astro->addTime(0.0, 0.0, -l.layer->m_scene->astro->getEoT(), 0.0, do_eot); }
                         struct DefTimeStep { 
                             long yr; long mo; double da; double hr; double mi;  double se;
                             bool operator==(DefTimeStep& other) {
@@ -947,7 +1037,7 @@ void Application::update() {
         dumpcam = false;
     }
     if (dumptime && currentEarth != nullptr) {
-        currentEarth->m_scene->m_astro->dumpCurrentTime(currentframe);
+        currentEarth->m_scene->astro->dumpCurrentTime(currentframe);
         dumptime = false;
     }
 }
@@ -1773,6 +1863,7 @@ void SkyBox::loadCubemap(std::vector<std::string> faces) {
 //  ParticleTrail
 // ---------------
 // NOTE: Implement ability to trim() trail, and possibly to fade out whole trail
+// Also, this slowly fades while the animation is on pause. Maybe fade on new additions only.
 ParticleTrail::ParticleTrail(Scene* scene, unsigned int number, glm::vec4 color, float size, unsigned int spacing, bool taper) : m_scene(scene) {
     m_taper = taper;
     m_number = number;
@@ -1790,11 +1881,16 @@ void ParticleTrail::push(glm::vec3 pos) {
         m_gap -= 1;
         return;
     }
+    if (m_queue.size() > 0 && m_queue.begin()->position == pos) return; // Don't add duplicates. This also prevents the trail from fading while paused.
     float size = m_size;
     if (m_taper) {
         // Reduce size and opacity of trail
+        //glm::mat3 id = glm::mat3(1.0f);
         for (auto& p : m_queue) {  // Here whole trail could be faded out when desired
             p.size *= (float)m_sizefactor;
+            //p.position = id * p.position;  // test in preparation for making this a SceneObject. It causes no perceptible delay?
+            //                                  It will not work to repeatedly apply the world matrix. Current worldmatrix must be applied
+            //                                  to the original point stored every time. So, could add p.originalpos to the structure.
             //p.color.a *= 0.95f;
             m_scene->getDotsFactory()->changeXYZ(p.index, p.position, p.color, p.size);
         }

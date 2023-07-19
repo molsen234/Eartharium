@@ -13,6 +13,7 @@ out vec3 lNormal;
 out vec4 bTint;
 out vec3 sunDir;
 out vec3 lightDir;
+uniform mat3 worldnormal;
 uniform mat4 world;
 uniform mat4 projview;
 uniform vec3 sDir;
@@ -23,12 +24,13 @@ void main() {
     gl_Position = projview * world * vec4(aPos, 1.0);
     TexCoord = aTexCoord;
 
-    mat3 norm_matrix = transpose(inverse(mat3(world)));
-    sNormal = normalize(norm_matrix * aNormal);
-    lNormal = normalize(norm_matrix * rNormal);
-    sunDir = normalize(norm_matrix * sDir);
+    //mat3 norm_matrix = transpose(inverse(mat3(world))); //
+    sNormal = normalize(worldnormal * aNormal);
+    lNormal = normalize(worldnormal * rNormal);
+    sunDir = normalize(worldnormal * sDir);
 
-    lightDir = lDir;
+    lightDir = lDir; // transform or not?
+    //lightDir = sunDir;
     bTint = aTint;
 };
 
@@ -74,6 +76,7 @@ vec3 perturbNormalArb( vec3 surf_pos, vec3 surf_norm, vec2 dHdxy ) {
 }
 
 void main() {
+
     vec2 s_dHdxy = dHdxy_fwd(TexCoord, sunBumpScale);
     vec3 my_sNormal = perturbNormalArb(FragCoord.xyz, sNormal, s_dHdxy);
     //float dotsun = dot(sunDir, sNormal);

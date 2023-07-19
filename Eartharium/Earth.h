@@ -5,8 +5,9 @@
 // Protos - Allows classes to use pointers when they are defined above the class they want to point to.
 class Location;
 class SubStellarPoint;
-class Earth2;
+//class Earth2;
 class BodyGeometry;
+class SunGP;
 
 
 class LocGroup {
@@ -28,29 +29,6 @@ public:
     Location* addLocation(double lat, double lon, bool rad, float rsky);
     void removeLocation(Location* loc);
     void trimLocation();
-};
-
-
-class Planetoid {
-    Scene* m_scene = nullptr;
-    Shader* shdr = nullptr;
-    Texture* tex = nullptr;
-    VertexArray* va = nullptr;
-    VertexBuffer* vb = nullptr;
-    VertexBufferLayout* vbl = nullptr;
-    IndexBuffer* ib = nullptr;
-    std::vector<Vertex> m_verts;
-    std::vector<Tri> m_tris;
-    glm::vec3 position = glm::vec3(0.0f);
-public:
-    Planetoid(Scene* scene, unsigned int meshU, unsigned int meshV, float radius);
-    ~Planetoid();
-    void Update(glm::vec3 pos);
-    void Draw();
-    glm::vec3 getLoc3D_NS(float rLat, float rLon, float height, float radius);
-    //glm::vec3 getNml3D(float lat, float lon, float height = 0.0f);
-private:
-    void genGeom(float radius);
 };
 
 
@@ -237,6 +215,8 @@ class Longitude : public SceneObject {
 public:
     Longitude(Scene* scene, BodyGeometry* geometry, double lon, float width = 0.005f, glm::vec4 color = LIGHT_GREY);
     ~Longitude();
+    void setColor(glm::vec4 color);
+    void setWidth(float width);
     void generate();
     void update();
     void draw(Camera* cam) override;
@@ -420,19 +400,130 @@ class DetailedEarth : public BodyGeometry {
     bool w_refract = true;
     bool w_twilight = true;
     float m_alpha = 1.0f;
-    Dots* m_dotsFactory = nullptr;
-    size_t m_sundot = NO_UINT;
+    //Dots* m_dotsFactory = nullptr;
+    //size_t m_sundot = NO_UINT;
+    LLH subsolar{ 0.0, 0.0, 0.0 };
     Equator* equatorOb = nullptr;
     PrimeMeridian* primemOb = nullptr;
 public:
+    SunGP* m_sungp = nullptr;
     DetailedEarth(Scene* scene, std::string mode, unsigned int meshU, unsigned int meshV, float radius = 1.0f);
     ~DetailedEarth();
     void addEquator();
     void addPrimeMeridian();
+    //void addGrid();
+    void addSunGP();
+    glm::vec3 getSunGPLocation();
     void update();
     // Specific GPU parameters that are particular to Earth and thus not set up in BodyGeometry
     bool drawSpecific(Camera* cam, Shader* shdr);
     void myGUI();
+};
+
+// -----------
+//  Planetoid
+// -----------
+class Planetoid : public SceneObject {
+
+    struct AtlasMaterial {
+        unsigned int shader = 0;
+        unsigned int atlas = 0;
+        unsigned int texture1 = 0; // Index in the texture atlas, assuming evenly 4x4 tiled for now
+        unsigned int texture2 = 0; 
+        unsigned int texture3 = 0;
+    };
+    std::array<AtlasMaterial, 10> Materials = { {
+        // shader           texture file     day      ring     night
+        // 0 = Sun
+        { PLANETOID_SHADER, PLANETOID_ATLAS,       0, NO_UINT, NO_UINT },
+        // 1 = Mercury
+        { PLANETOID_SHADER, PLANETOID_ATLAS,       1, NO_UINT, NO_UINT },
+        // 2 = Venus
+        { PLANETOID_SHADER, PLANETOID_ATLAS,       2, NO_UINT, NO_UINT },
+        // 3 = Mars
+        { PLANETOID_SHADER, PLANETOID_ATLAS,       4, NO_UINT, NO_UINT },
+        // 4 = Jupiter
+        { PLANETOID_SHADER, PLANETOID_ATLAS,       5, NO_UINT, NO_UINT },
+        // 5 = Saturn
+        { PLANETOID_SHADER, PLANETOID_ATLAS,       6,      11, NO_UINT },
+        // 6 = Uranus
+        { PLANETOID_SHADER, PLANETOID_ATLAS,       7,      12, NO_UINT },
+        // 7 = Neptune
+        { PLANETOID_SHADER, PLANETOID_ATLAS,       8,      13, NO_UINT },
+        // 8 = Earth
+        { PLANETOID_SHADER, PLANETOID_ATLAS,       3, NO_UINT,      10 },
+        // 9 = Moon
+        { PLANETOID_SHADER, PLANETOID_ATLAS,       9, NO_UINT, NO_UINT }
+        // For last two atlas slots: asteroid and comet?, generic star and galaxy?, alternate Sun and Venus surface?
+    } };
+
+    Shader* shdr = nullptr;
+    Texture* tex = nullptr;
+    VertexArray* va = nullptr;
+    VertexBuffer* vb = nullptr;
+    VertexBufferLayout* vbl = nullptr;
+    IndexBuffer* ib = nullptr;
+    std::vector<Vertex> m_verts;
+    std::vector<Tri> m_tris;
+    VertexArray* varing = nullptr;
+    VertexBuffer* vbring = nullptr;
+    VertexBufferLayout* vblring = nullptr;
+    IndexBuffer* ibring = nullptr;
+    std::vector<Vertex> m_vertsring;
+    std::vector<Tri> m_trisring;
+    unsigned int material = NO_UINT;
+    unsigned int meshU = 0;
+    unsigned int meshV = 0;
+    float tex_rx = 4096.0f; // X resolution of atlas
+    float tex_ry = 2048.0f; // Y resolution of atlas
+    float tex_dx = 0.0f;    // Width of atlas tile
+    float tex_dy = 0.0f;    // height of atlas tile
+    float tex_lx = 0.0f;    // atlas x offset to tile
+    float tex_ly = 0.0f;    // atlas y offset to tile
+    float texring_dx = 0.0f;    // Width of atlas tile
+    float texring_dy = 0.0f;    // height of atlas tile
+    float texring_lx = 0.0f;    // atlas x offset to tile
+    float texring_ly = 0.0f;    // atlas y offset to tile
+public:
+    //glm::vec3 position = glm::vec3(0.0f);
+    Planetoid(Scene* scene, unsigned int texturetile, unsigned int meshU, unsigned int meshV, float radius);
+    ~Planetoid();
+    void setPosition(glm::vec3 pos);
+    void setRadius(float radius);
+    void update() {}; // Nothing to update
+    void draw(Camera* cam);
+    glm::vec3 getLoc3D_NS(float rLat, float rLon, float height, float radius);
+    //glm::vec3 getNml3D(float lat, float lon, float height = 0.0f);
+private:
+    void updateGeom(float radius);
+    void updateGeomRing(float r_i, float r_o);
+    void genGeom(float radius);
+    void genGeomRing(float r_i, float r_o);
+};
+
+
+// ------------------
+//  Sun Ground Point
+// ------------------
+class SunGP : public Planetoid {
+// Build more GP objects and see what they have in common to refactor
+// This is for the Sun, on Earth. How to extend to the Sun on the Moon etc?
+// Well, this far, it seems like there is nothing Earth specific here.
+public:
+    SunGP() = delete;
+    SunGP(Scene* scene, SceneObject* parent, glm::vec3 pos);
+    ~SunGP() = default;
+private:
+};
+
+// --------------------
+//  Earth Ground Point (on other celestial bodies)
+// --------------------
+class EarthGP : public Planetoid {
+public:
+    EarthGP() = delete;
+    EarthGP(Scene* scene, SceneObject* parent, glm::vec3 pos);
+    ~EarthGP() = default;
 };
 
 
@@ -445,27 +536,30 @@ public:
     bool gui_geocentric = true;     // true = geocentric mode, false = topocentric (i.e. topoLat,topoLon contains observer position)
     float gui_topoLat = 0.0f;
     float gui_topoLon = 0.0f;
+    float sunBumpmapScale = 0.0005f;
+    float lightBumpmapScale = 0.015f;
     Equator* equatorOb = nullptr;
+    PrimeMeridian* primemOb = nullptr;
+    SunGP* sungp = nullptr;
+    EarthGP* earthgp = nullptr;
+    ParticleTrail* librationtrail = nullptr;
 private:
     Scene* m_scene = nullptr;
     float m_radius{ 1.0f };
     float m_camDist = 384400;       // km
+    glm::vec3 earthDir = { 0.0f, 0.0f, 0.0f };
+    glm::vec4 sunDir = { 0.0f, 0.0f, 0.0f, 1.0f };
     glm::vec3 SunLightDir = glm::vec3(0.0f, 1.0f, 0.0f);
     glm::vec3 camLightDir = { 1.0f, 0.0f, 0.0f };
-    float sunBumpmapScale = 0.0005f;
-    float lightBumpmapScale = 0.015f;
+    glm::vec3 nullpos = glm::vec3(0.0f); // 3D position of null island, used for librationtrail
     //bool geocentric = true;     // true = geocentric mode, false = topocentric (i.e. topoLat,topoLon contains observer position)
     double topoLat = NO_DOUBLE;   // NO_DOUBLE when Geocentric rather than Topocentric (e.g. to match NASAs yearly Moon videos)
     double topoLon = NO_DOUBLE; 
-    glm::vec4 sunDir = { 0.0f, 0.0f, 0.0f, 1.0f };
-    glm::vec3 earthDir = { 0.0f, 0.0f, 0.0f };
-    ParticleTrail* earthparticles = nullptr;
     bool w_sinsol = true;
-    Dots* m_dotsFactory = nullptr;
-    size_t m_sundot = NO_UINT;
-    size_t m_earthdot = NO_UINT;
+    //Dots* m_dotsFactory = nullptr;
+    //size_t m_sundot = NO_UINT;
+    //size_t m_earthdot = NO_UINT;
     // Can these somehow just be kept in our BodyGeometry.children ? They'd then need a place to pick up parameters, perhaps via their parent?
-    PrimeMeridian* primemOb = nullptr;
     Grid* gridOb = nullptr;
     float scaleBumpmap = 0.001f;
 public:
@@ -476,6 +570,8 @@ public:
     void updateSunGP();
     void addEarthGP();
     void updateEarthGP();
+    void addLibrationTrail();
+    void updateLibrationTrail();
     void addEquator();
     void addPrimeMeridian();
     void addGrid(double spacing = 15.0);
