@@ -45,4 +45,5 @@ void main() {
     vec4 dCol = texture(texture1, TexCoord);
     float lfactor = clamp(dot(lightDir, lNormal),0.0,1.0); //+0.1;
     FragColor = vec4((dCol.rgb * lfactor),1.0);
+    FragColor = dCol; // lfactor is 0.0 on inside due to clamping
 };

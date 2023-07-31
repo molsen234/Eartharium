@@ -20,6 +20,7 @@ uniform vec3 sDir;
 uniform vec3 lDir;
 
 void main() {
+    //FragCoord = world * vec4(aPos, 1.0);
     FragCoord = world * vec4(aPos, 1.0);
     gl_Position = projview * world * vec4(aPos, 1.0);
     TexCoord = aTexCoord;
@@ -28,7 +29,7 @@ void main() {
     sNormal = normalize(worldnormal * aNormal);
     lNormal = normalize(worldnormal * rNormal);
     sunDir = normalize(worldnormal * sDir);
-
+    //sunDir = sDir;
     lightDir = lDir; // transform or not?
     //lightDir = sunDir;
     bTint = aTint;
@@ -38,7 +39,7 @@ void main() {
 #version 460 core
 
 in vec2 TexCoord;
-in vec4 FragCoord;
+in vec4 FragCoord;  // World coordinates of fragment, interpolated from vertices
 in vec3 sNormal; // Spherical normal, for insolation
 in vec3 lNormal; // Real normal, for scene lighting
 in vec4 bTint;
@@ -78,10 +79,11 @@ vec3 perturbNormalArb( vec3 surf_pos, vec3 surf_norm, vec2 dHdxy ) {
 void main() {
 
     vec2 s_dHdxy = dHdxy_fwd(TexCoord, sunBumpScale);
-    vec3 my_sNormal = perturbNormalArb(FragCoord.xyz, sNormal, s_dHdxy);
-    //float dotsun = dot(sunDir, sNormal);
+    // my_sNormal gets messed up when geometry is not NS (e.g. morph towards ER or AE),
+    // because FragCoord and sNormal are not related. So use sNormal as FragCoord estimate.
+    vec3 my_sNormal = perturbNormalArb(sNormal, sNormal, s_dHdxy); // sNormal is a good approximation to the FragCoord
+    //vec3 my_sNormal = sNormal;
     float dotsun = dot(sunDir, my_sNormal);
-    //vec4 dCol = texture(texture1, TexCoord);
     vec4 dCol = texture(texture1, TexCoord);
     FragColor = dCol;
     // Slightly feather the terminator for a more visually pleasing result

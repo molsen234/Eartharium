@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "Primitives.h"
+//#include "Primitives.h"
 
 // Protos
 struct ShapePart;

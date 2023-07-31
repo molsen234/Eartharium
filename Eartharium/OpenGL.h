@@ -1,76 +1,17 @@
 #pragma once
-#ifndef _MDO_OPENGL_H
-#define _MDO_OPENGL_H
 
 #define _CRT_SECURE_NO_WARNINGS
 
-// std library includes
-#include <vector>
-#include <list>
-#include <deque>
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <map>
 #include <array>
-#include <chrono>
-#include <ctime>
-#include <cstddef> // for AAMoon.cpp
-#include <algorithm>
-#include <set>
+#include <string>
+#include <vector>
 
 // OpenGL specific library includes
 #include <glad/glad.h>                   // Platform specific OpenGL call encapsulation
 #include <GLFW/glfw3.h>                  // Platform abstraction for OpenGL viewports and windowing
-#include <glm/glm.hpp>                   // OpenGL friendly linear algebra library
-#include <glm/gtc/type_ptr.hpp>          // Additional glm types
-#include <glm/gtc/matrix_transform.hpp>  // OpenGL projection and view matrices
-#include <glm/gtx/rotate_vector.hpp>     // Rotation matrices for glm
-#include <glm/gtx/string_cast.hpp>
-#include "ImGUI/imgui.h" // ImGUI user interface - Moved to ImGUI folder in project, as that makes impl files happy
-#include "ImGUI/imgui_impl_glfw.h"
-#include "ImGUI/imgui_impl_opengl3.h"
-//#include "ImGUI/imstb_truetype.h"
-#include "ImGUI/implot.h"
+
 #include <SOIL2/SOIL2.h>                 // Image library for loading textures from file and saving screenshots
-// If using stb_image instead of SOIL2 (lighter, but less capable)
-//#define STB_IMAGE_IMPLEMENTATION
-//#include <stb_image.h>
 
-
-// !!! FIX: DON'T DO THESE HERE !!!
-// Task specific includes for astronomy calculations
-//#define AAPLUS_VSOP87_NO_HIGH_PRECISION
-#include "AAplus/AADate.h"
-#include "AAplus/AACoordinateTransformation.h"
-#include "AAplus/AASun.h"
-#include "AAplus/AAMercury.h"
-#include "AAplus/AAVenus.h"
-#include "AAplus/AAEarth.h"
-#include "AAplus/AAMars.h"
-#include "AAplus/AAJupiter.h"
-#include "AAplus/AASaturn.h"
-#include "AAplus/AAUranus.h"
-#include "AAplus/AANeptune.h"
-#include "AAplus/AASidereal.h"
-#include "AAplus/AANutation.h"
-#include "AAplus/AAElliptical.h"
-#include "AAplus/AAAberration.h"
-#include "AAplus/AAFK5.h"
-#include "AAplus/AAMoon.h"
-#include "AAplus/AAEquationOfTime.h"
-#include "AAplus/AAPlanetaryPhenomena.h"
-#include "AAplus/AAPlanetaryPhenomena2.h"
-#include "AAplus/AADiameters.h"
-#include "AAplus/AARefraction.h"
-#include "AAplus/AADynamicalTime.h"
-#include "AAplus/AAPrecession.h"
-#include "AAplus/AAPhysicalMoon.h"
-
-// !!! FIX: DON'T DO THESE HERE !!!
-// My includes
 #include "config.h"
 
 // Protos
@@ -220,30 +161,30 @@ enum TextureType {
 };
 class TextureLibrary {
 	struct TextureEntry {
-		unsigned int Type = maxuint;
-		unsigned int RenderID = maxuint;
+		unsigned int Type = NO_UINT;
+		unsigned int RenderID = NO_UINT;
 		GLint slot = 0;
 		Texture* tex = nullptr;
 		unsigned int count = 0;
 		std::string file;
 	};
 	std::array<TextureEntry, 14> textures = { {
-		{ DUMMY, maxuint, DUMMY, nullptr, 0, "" },       // Dummy entry until I decide how to handle GL_TEXTUREx allocation
-		{ SHADOWS, maxuint, GL_TEXTURE1, nullptr, 0, "" },       // Not loaded from file
-		{ SKYBOX, maxuint, GL_TEXTURE2, nullptr, 0, "" },        // Not loaded from file
-		{ EARTH_DAY, maxuint, GL_TEXTURE3, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\large map 8192x4096.png" },
-		{ EARTH_NIGHT, maxuint, GL_TEXTURE4, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\BlackMarble_2012_8192x4096_ice.png" },
-		{ SUNDOT, maxuint, GL_TEXTURE5, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\2k_sun.png" },
-		{ MOONDOT, maxuint, GL_TEXTURE6, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\2k_moon.png" },
-		{ OUTPUT_RENDER, maxuint, GL_TEXTURE7, nullptr, 0, "" }, // Not loaded from file
-		{ FONT_MAP, maxuint, GL_TEXTURE8, nullptr, 0, "" },      // Not loaded from file
-		{ MOON_FULL, maxuint, GL_TEXTURE9, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\moon 8192x4096.png" },
-		{ MOON_BUMP, maxuint, GL_TEXTURE10, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\moon height 8192x4096.png" },
+		{ DUMMY, NO_UINT, DUMMY, nullptr, 0, "" },       // Dummy entry until I decide how to handle GL_TEXTUREx allocation
+		{ SHADOWS, NO_UINT, GL_TEXTURE1, nullptr, 0, "" },       // Not loaded from file
+		{ SKYBOX, NO_UINT, GL_TEXTURE2, nullptr, 0, "" },        // Not loaded from file
+		{ EARTH_DAY, NO_UINT, GL_TEXTURE3, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\large map 8192x4096.png" },
+		{ EARTH_NIGHT, NO_UINT, GL_TEXTURE4, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\BlackMarble_2012_8192x4096_ice.png" },
+		{ SUNDOT, NO_UINT, GL_TEXTURE5, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\2k_sun.png" },
+		{ MOONDOT, NO_UINT, GL_TEXTURE6, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\2k_moon.png" },
+		{ OUTPUT_RENDER, NO_UINT, GL_TEXTURE7, nullptr, 0, "" }, // Not loaded from file
+		{ FONT_MAP, NO_UINT, GL_TEXTURE8, nullptr, 0, "" },      // Not loaded from file
+		{ MOON_FULL, NO_UINT, GL_TEXTURE9, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\moon 8192x4096.png" },
+		{ MOON_BUMP, NO_UINT, GL_TEXTURE10, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\moon height 8192x4096.png" },
 		// EGM-96 geoid from: https://www.agisoft.com/downloads/geoids/
-		//{ EARTH_BUMP, maxuint, GL_TEXTURE11, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\us_nga_egm96_15arcmin.png" }
-		{ EARTH_BUMP, maxuint, GL_TEXTURE11, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\earth height 8192x4096.png" },
-		{ SKY_FULL, maxuint, GL_TEXTURE12, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\starmap-gimp_8k (8192x4096 celestial coords).png" },
-		{ PLANETOID_ATLAS, maxuint, GL_TEXTURE13, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\planetoid-atlas2 4096x2048.png" }
+		//{ EARTH_BUMP, NO_UINT, GL_TEXTURE11, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\us_nga_egm96_15arcmin.png" }
+		{ EARTH_BUMP, NO_UINT, GL_TEXTURE11, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\earth height 8192x4096.png" },
+		{ SKY_FULL, NO_UINT, GL_TEXTURE12, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\starmap-gimp_8k (8192x4096 celestial coords).png" },
+		{ PLANETOID_ATLAS, NO_UINT, GL_TEXTURE13, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\planetoid-atlas2 4096x2048.png" }
 	} };
 public:
 	Texture* getTexture(unsigned int texture);
@@ -317,6 +258,7 @@ enum ShaderType {
 	EARTH_SHADOW_MAP_SHADER,
 	EARTH_SHADOW_BOX_SHADER,
 	PRIMITIVE_SHADER,
+	PRIMITIVESO_SHADER,
 	LINE_SHADER,
 	PRIMITIVE_SHADOW_MAP_SHADER,
 	PRIMITIVE_SHADOW_BOX_SHADER,
@@ -331,27 +273,28 @@ enum ShaderType {
 class ShaderLibrary {
 	//World* m_world = nullptr;
 	struct ShaderEntry {
-		unsigned int Type = maxuint;
-		unsigned int RenderID = maxuint;
+		unsigned int Type = NO_UINT;
+		unsigned int RenderID = NO_UINT;
 		Shader* shdr = nullptr;
 		unsigned int count = 0;
 		std::string file;
 	};
-	std::array<ShaderEntry, 14> shaders = { {
-		{ EARTH_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\earth.glsl" },
-		{ EARTH_SHADOW_MAP_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitiveshadow.glsl" },
-		{ EARTH_SHADOW_BOX_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitivesdwbox.glsl" },
-		{ PRIMITIVE_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitive.glsl" },
-		{ LINE_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\line.glsl" },
-		{ PRIMITIVE_SHADOW_MAP_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitiveshadow.glsl" },
-		{ PRIMITIVE_SHADOW_BOX_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitivesdwbox.glsl" },
-		{ BLIT_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\blit.glsl" },
-		{ GLYPH_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\glyph.glsl" },
-		{ PLANETOID_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\planetoid.glsl" },
-		{ SKY_BOX_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\skybox.glsl" },
-		{ SKY_SPHERE_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\skysphere.glsl" },
-		{ MOON_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\moon.glsl" },
-		{ SKY_SHADER, maxuint, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\sky.glsl" }
+	std::array<ShaderEntry, 15> shaders = { {
+		{ EARTH_SHADER, NO_UINT, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\earth.glsl" },
+		{ EARTH_SHADOW_MAP_SHADER, NO_UINT, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitiveshadow.glsl" },
+		{ EARTH_SHADOW_BOX_SHADER, NO_UINT, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitivesdwbox.glsl" },
+		{ PRIMITIVE_SHADER, NO_UINT, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitive.glsl" },
+		{ PRIMITIVESO_SHADER, NO_UINT, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitiveSO.glsl" },
+		{ LINE_SHADER, NO_UINT, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\line.glsl" },
+		{ PRIMITIVE_SHADOW_MAP_SHADER, NO_UINT, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitiveshadow.glsl" },
+		{ PRIMITIVE_SHADOW_BOX_SHADER, NO_UINT, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitivesdwbox.glsl" },
+		{ BLIT_SHADER, NO_UINT, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\blit.glsl" },
+		{ GLYPH_SHADER, NO_UINT, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\glyph.glsl" },
+		{ PLANETOID_SHADER, NO_UINT, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\planetoid.glsl" },
+		{ SKY_BOX_SHADER, NO_UINT, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\skybox.glsl" },
+		{ SKY_SPHERE_SHADER, NO_UINT, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\skysphere.glsl" },
+		{ MOON_SHADER, NO_UINT, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\moon.glsl" },
+		{ SKY_SHADER, NO_UINT, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\sky.glsl" }
 	} };
 public:
 	//ShaderLibrary() = default;
@@ -360,44 +303,3 @@ public:
 };
 
 
-// ------------
-//  ShadowBox
-// ------------
-class ShadowBox {
-private:
-	Scene* m_scene;
-	unsigned int depthMapFBO = maxuint;
-	unsigned int width = 1024;
-	unsigned int height = 1024;
-public:
-	unsigned int depthCubemap = maxuint;
-	std::vector<glm::mat4> shadowTransforms;
-	float near = 0.01f;
-	float far = 20.0f;
-	ShadowBox(Scene* scene, unsigned int w, unsigned int h);
-	~ShadowBox();
-	void Render(Camera* cam, glm::vec3 lightPos);
-};
-
-
-// -----------
-//  ShadowMap
-// -----------
-class ShadowMap {
-private:
-	Scene* m_scene = nullptr;
-	unsigned int m_depthmapFBO;
-	unsigned int width;
-	unsigned int height;
-public:
-	Shader* shdr = nullptr;
-	unsigned int depthmap;
-	glm::mat4 lightSpaceMatrix = glm::mat4(1.0f);
-	ShadowMap(Scene* scene, unsigned int w, unsigned int h);
-	~ShadowMap();
-	void Bind();
-	void Unbind();
-	void Render(Camera* cam);
-};
-
-#endif // _MDO_OPENGL_H

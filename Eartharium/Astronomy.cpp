@@ -1,8 +1,18 @@
 
 #include <array>
+#include <string>
+#include <chrono>
+//#include <ctime>
+#include <fstream>
+#include <iostream>
+#include <sstream>
+
+#include "AAplus/AADynamicalTime.h"
+#include "AAplus/AAEquationOfTime.h"
+#include "AAplus/AAAberration.h"     // For CAAAberration::EarthVelocity
 
 #include "Astronomy.h"
-
+#include "config.h"
 
 // Coordinate systems:
 //  + Heliocentric ecliptic = Ecliptic Latitude, Ecliptic Longitude, Radius Vector
@@ -22,14 +32,6 @@
 
 // How to deal with getting calculations for paths vs reusing calculations for current moment?
 // Maybe calling without param jd for current time, and only updating stored values if calling a time function
-
-
-//  Protos
-class Earth;
-
-
-
-
 
 
 
@@ -402,12 +404,6 @@ bool EDateTime::isLeapYear(const long year) {
     if (year % 4 == 0) return true;
     return false;
 }
-
-
-
-
-
-
 
 
 // ---------------
@@ -820,29 +816,17 @@ void Astronomy::dumpCurrentTime(unsigned int frame) {
     std::cout << " - Julian Date (TT):  " << m_datetime.jd_tt() << '\n';
     std::cout << " - Julian Date (UTC): " << m_datetime.jd_utc() << '\n';
 }
-double Astronomy::calculateGsid(const double jd_utc) { // NOTE: !!! Expects JD in UTC !!!
-    /// <summary>
-    /// Public method to obtain Greenwich Sidereal Time from Julian Date in UTC
-    /// </summary>
-    return hrs2rad * CAASidereal::ApparentGreenwichSiderealTime(jd_utc);
-}
-double Astronomy::calcGsid(const double jd_utc) {
-    // AA+: CAASidereal::ApparentGreenwichSiderealTime()
-    const double m_meanobliquity{ MeanObliquityOfEcliptic(jd_utc) };
-    const double m_trueobliquity{ m_meanobliquity + (NutationInObliquity(jd_utc) / 3600) };
-    const double m_nutationinlongitude{ NutationInLongitude(jd_utc) };
 
-    //const double Value{ CAASidereal::MeanGreenwichSiderealTime(jd_utc) + (NutationInLongitude * cos(CAACoordinateTransformation::DegreesToRadians(TrueObliquity)) / 54000) };
-    //return CAACoordinateTransformation::MapTo0To24Range(Value);
-    return 0.0;
-}
-double Astronomy::getGsid(const double jd_utc) { // NOTE: !!! Expects JD in UTC !!!
-    /// <summary>
-    /// Public method to obtain Greenwich Sidereal Time from Julian Date. If no Julian Date is supplied, current time is used.
-    /// </summary>
-    //if (jd_utc == 0.0 || jd_utc == m_datetime.jd_utc()) return m_gsidtime;
-    //else return calculateGsid(jd_utc);
-    return (jd_utc == NO_DOUBLE || jd_utc == m_datetime.jd_utc()) ? m_gsidtime : calculateGsid(jd_utc);
+double Astronomy::ApparentGreenwichSiderealTime(double jd_utc, bool rad) noexcept {
+    // MEEUS98: Chapter 12
+    // AA+: CAASidereal::ApparentGreenwichSiderealTime(JD)
+    if (jd_utc == NO_DOUBLE) jd_utc = getJD_UTC();
+    double meanobliquity = MeanObliquityOfEcliptic(jd_utc, true);
+    double trueobliquity = m_meanobliquity + (NutationInObliquity(jd_utc, true));
+    double nutationinlongitude = NutationInLongitude(jd_utc, true);
+    double meangsid = MeanGreenwichSiderealTime(jd_utc, true);
+    double gsidtime = meangsid + (nutationinlongitude * cos(trueobliquity));
+    return rad ? gsidtime : rad2deg * gsidtime;
 }
 double Astronomy::MeanGreenwichSiderealTime(double jd_utc, bool rad) noexcept {
     // MEEUS98: Chapter 12
@@ -882,6 +866,8 @@ double Astronomy::getEoT(double jd_tt) {  // Expects JD in TT
     return CAAEquationOfTime::Calculate(jd_tt, true);
 }
 
+
+
 // Coordinate Transformations
 LLH Astronomy::calcEc2Geo(double Beta, double Lambda, double Epsilon) {
     LLH Equatorial;
@@ -911,7 +897,8 @@ LLH Astronomy::calcDecHA2GP(LLH decra, bool rad) {
         res.lon *= deg2rad;
     }
     if (res.lon < pi) res.lon = -res.lon;
-    else res.lon = tau - res.lon;  // subsolar.lon is now -pi to pi east of south
+    else res.lon = tau - res.lon;  // subsolar.lon is now -pi to pi east of south (or east of north?)
+    res.lon = clampmPitoPi(res.lon);
     if (!rad) {
         res.lat *= rad2deg;
         res.lon *= rad2deg;
@@ -921,7 +908,7 @@ LLH Astronomy::calcDecHA2GP(LLH decra, bool rad) {
 LLH Astronomy::calcDecRA2GP(LLH decra, double jd_utc, bool rad) { // Needs JD as UTC
     if (jd_utc == NO_DOUBLE) // jd was not specified, so go with current time
         return calcDecHA2GP({ decra.lat, rad ? (m_gsidtime - decra.lon) : (rad2deg * m_gsidtime - decra.lon), 0.0 }, rad);
-    return calcDecHA2GP({ decra.lat, rad ? (getGsid(jd_utc) - decra.lon) : (rad2deg * getGsid(jd_utc) - decra.lon), 0.0 }, rad);
+    return calcDecHA2GP({ decra.lat, rad ? (ApparentGreenwichSiderealTime(jd_utc) - decra.lon) : (rad2deg * ApparentGreenwichSiderealTime(jd_utc) - decra.lon), 0.0 }, rad);
 }
 LLH Astronomy::getDecRA(size_t planet, double jd_tt) {  // JD in TT
     //if (jd == 0.0) jd = m_jd;
@@ -939,7 +926,7 @@ LLH Astronomy::getDecGHA(size_t planet, double jd_tt, bool rad) { // JD in TT
 }
 
 // General astronomical adjustments
-CAA2DCoordinate Astronomy::EclipticAberration(double Beta, double Lambda, double jd_tt, bool rad) {
+LLH Astronomy::EclipticAberration(double Beta, double Lambda, double jd_tt, bool rad) {
     // From CAAAberration::EclipticAberration() converted to accept radians
     // See MEEUS98 Chapter 23 for Ron-Vondrák abberation
     double lambda = Lambda;
@@ -954,16 +941,16 @@ CAA2DCoordinate Astronomy::EclipticAberration(double Beta, double Lambda, double
     constexpr double k = 20.49552;
     double SunLongitude = rangezero2tau(EcLonEarth(jd_tt) + (tau * 0.5));
 
-    CAA2DCoordinate aberration;
-    aberration.X = (-k * cos(SunLongitude - lambda) + e * k * cos(pi - lambda)) / cos(beta) / 3600;
-    aberration.Y = -k * sin(Beta) * (sin(SunLongitude - lambda) - e * sin(pi - lambda)) / 3600;
+    LLH aberration;
+    aberration.lon = (-k * cos(SunLongitude - lambda) + e * k * cos(pi - lambda)) / cos(beta) / 3600;
+    aberration.lat = -k * sin(Beta) * (sin(SunLongitude - lambda) - e * sin(pi - lambda)) / 3600;
     if (rad) {
-        aberration.X *= deg2rad;
-        aberration.Y *= deg2rad;
+        aberration.lon *= deg2rad;
+        aberration.lat *= deg2rad;
     }
     return aberration;
 }
-CAA2DCoordinate Astronomy::EquatorialAberration(double dec, double ra, double jd_tt, bool rad) {
+LLH Astronomy::EquatorialAberration(double dec, double ra, double jd_tt, bool rad) {
     // See MEEUS98 Chapter 23 for Ron-Vondrák abberation
     double Dec = dec;
     double Ra = ra;
@@ -976,17 +963,17 @@ CAA2DCoordinate Astronomy::EquatorialAberration(double dec, double ra, double jd
     double cosAlpha = cos(Ra);
     double sinAlpha = sin(Ra);
     const CAA3DCoordinate velocity = CAAAberration::EarthVelocity(jd_tt, true); // high precision
-    CAA2DCoordinate aberration;
-    aberration.Y = -(((velocity.X * cosAlpha + velocity.Y * sinAlpha) * sinDelta - velocity.Z * cosDelta) / 17314463350.0);
-    aberration.X = (velocity.Y * cosAlpha - velocity.X * sinAlpha) / (17314463350.0 * cosDelta);
+    LLH aberration;
+    aberration.lat = -(((velocity.X * cosAlpha + velocity.Y * sinAlpha) * sinDelta - velocity.Z * cosDelta) / 17314463350.0);
+    aberration.lon = (velocity.Y * cosAlpha - velocity.X * sinAlpha) / (17314463350.0 * cosDelta);
     if (rad) {
-        aberration.Y *= deg2rad;
-        aberration.X *= deg2rad;
+        aberration.lat *= deg2rad;
+        aberration.lon *= deg2rad;
     }
     return aberration;
     // retval in radians
 }
-CAA2DCoordinate Astronomy::FK5Correction(double Latitude, double Longitude, double jd_tt, bool rad) {
+LLH Astronomy::FK5Correction(double Latitude, double Longitude, double jd_tt, bool rad) {
     double lat = Latitude;
     double lon = Longitude;
     if (rad) {
@@ -994,19 +981,19 @@ CAA2DCoordinate Astronomy::FK5Correction(double Latitude, double Longitude, doub
         lon *= rad2deg;
     }
     const double T = (jd_tt - JD2000) / 36525;
-    double Ldash = Longitude - deg2rad * T * (1.397 + 0.00031 * T);
-    CAA2DCoordinate fk5corr;
+    double Ldash = lon - deg2rad * T * (1.397 + 0.00031 * T);
+    LLH fk5corr;
     const double latcor = 0.03916 * (std::cos(Ldash) - std::sin(Ldash));
-    fk5corr.Y = CAACoordinateTransformation::DMSToDegrees(0, 0, latcor);
-    const double loncor = -0.09033 + 0.03916 * (std::cos(Ldash) + std::sin(Ldash)) * tan(Latitude);
-    fk5corr.X = CAACoordinateTransformation::DMSToDegrees(0, 0, loncor);
+    fk5corr.lat = dms2deg(0, 0, latcor);
+    const double loncor = -0.09033 + 0.03916 * (std::cos(Ldash) + std::sin(Ldash)) * tan(lat);
+    fk5corr.lon = dms2deg(0, 0, loncor);
     if (rad) {
-        fk5corr.X *= deg2rad;
-        fk5corr.Y *= deg2rad;
+        fk5corr.lon *= deg2rad;
+        fk5corr.lat *= deg2rad;
     }
     return fk5corr;
 }
-LLH Astronomy::PrecessDecRA(const LLH decra, const double jd_tt, const double JD0) {
+LLH Astronomy::PrecessDecRA(const LLH decra, const double jd_tt, const double JD0) {  // ALWAYS in RADIANS
     // Precess the Equinox for a geocentric coordinate (catalogue with proper motion applied)
     // AA+: CAAPrecession::PrecessEquatorial()
     // MEEUS92: Chapter 21
@@ -1020,9 +1007,9 @@ LLH Astronomy::PrecessDecRA(const LLH decra, const double jd_tt, const double JD
     const double t = (JD - JD0) / 36525;
     const double tsquared = t * t;
     const double tcubed = tsquared * t;
-    const double sigma = CAACoordinateTransformation::DegreesToRadians(CAACoordinateTransformation::DMSToDegrees(0, 0, (2306.2181 + 1.39656 * T - 0.000139 * Tsquared) * t + (0.30188 - 0.000344 * T) * tsquared + 0.017998 * tcubed));
-    const double zeta = CAACoordinateTransformation::DegreesToRadians(CAACoordinateTransformation::DMSToDegrees(0, 0, (2306.2181 + 1.39656 * T - 0.000139 * Tsquared) * t + (1.09468 + 0.000066 * T) * tsquared + 0.018203 * tcubed));
-    const double phi = CAACoordinateTransformation::DegreesToRadians(CAACoordinateTransformation::DMSToDegrees(0, 0, (2004.3109 - 0.8533 * T - 0.000217 * Tsquared) * t - (0.42665 + 0.000217 * T) * tsquared - 0.041833 * tcubed));
+    const double sigma = deg2rad * dms2deg(0, 0, (2306.2181 + 1.39656 * T - 0.000139 * Tsquared) * t + (0.30188 - 0.000344 * T) * tsquared + 0.017998 * tcubed);
+    const double zeta = deg2rad * dms2deg(0, 0, (2306.2181 + 1.39656 * T - 0.000139 * Tsquared) * t + (1.09468 + 0.000066 * T) * tsquared + 0.018203 * tcubed);
+    const double phi = deg2rad * dms2deg(0, 0, (2004.3109 - 0.8533 * T - 0.000217 * Tsquared) * t - (0.42665 + 0.000217 * T) * tsquared - 0.041833 * tcubed);
     const double A = cos(decra.lat) * sin(decra.lon + sigma);
     const double B = cos(phi) * cos(decra.lat) * cos(decra.lon + sigma) - sin(phi) * sin(decra.lat);
     const double C = sin(phi) * cos(decra.lat) * cos(decra.lon + sigma) + cos(phi) * sin(decra.lat);
@@ -1032,6 +1019,33 @@ LLH Astronomy::PrecessDecRA(const LLH decra, const double jd_tt, const double JD
     value.lat = asin(C);
     return value;
 }
+LLH Astronomy::PrecessJ2000DecRA(const LLH decra, const double jd_tt) {  // ALWAYS in RADIANS
+    // Precess the Equinox for a geocentric coordinate (catalogue with proper motion applied)
+    // AA+: CAAPrecession::PrecessEquatorial()
+    // MEEUS92: Chapter 21
+    // (Does NOT abberate)
+    // jd is desired Julian Day, default to current JD in relevant Astronomy object
+    double JD = jd_tt == NO_DOUBLE ? getJD_TT() : jd_tt;
+    if (JD == getJD_TT()) {
+        const double A = cos(decra.lat) * sin(decra.lon + prec_j2000_sigma);
+        const double B = prec_j2000_phi_c * cos(decra.lat) * cos(decra.lon + prec_j2000_sigma) - prec_j2000_phi_s * sin(decra.lat);
+        const double C = prec_j2000_phi_s * cos(decra.lat) * cos(decra.lon + prec_j2000_sigma) + prec_j2000_phi_c * sin(decra.lat);
+        return { asin(C), atan2(A, B) + prec_j2000_zeta, 0.0 };
+    }
+    else {
+        const double t = (JD - JD2000) / 36525;
+        const double tsquared = t * t;
+        const double tcubed = tsquared * t;
+        const double sigma = deg2rad * dms2deg(0, 0, (2306.2181) * t + (0.30188) * tsquared + 0.017998 * tcubed);
+        const double zeta = deg2rad * dms2deg(0, 0, (2306.2181) * t + (1.09468) * tsquared + 0.018203 * tcubed);
+        const double phi = deg2rad * dms2deg(0, 0, (2004.3109) * t - (0.42665) * tsquared - 0.041833 * tcubed);
+        // The above can be calculated once per time update and cached
+        const double A = cos(decra.lat) * sin(decra.lon + sigma);
+        const double B = cos(phi) * cos(decra.lat) * cos(decra.lon + sigma) - sin(phi) * sin(decra.lat);
+        const double C = sin(phi) * cos(decra.lat) * cos(decra.lon + sigma) + cos(phi) * sin(decra.lat);
+        return { asin(C), atan2(A, B) + zeta, 0.0 };
+    }
+}
 double Astronomy::MeanObliquityOfEcliptic(double jd_tt, bool rad) {
     // AA+: CAANutation::MeanObliquityOfEcliptic(JD)
     // MEEUS98: Chapter 22
@@ -1040,6 +1054,7 @@ double Astronomy::MeanObliquityOfEcliptic(double jd_tt, bool rad) {
     // Original Source:  http://articles.adsabs.harvard.edu/pdf/1986A%26A...157...59L
     // Original Erratum: http://articles.adsabs.harvard.edu/pdf/1986A%26A...164..437L
     // Good to 0.02" over 1000 years, several arc seconds over 10000 years (around J2000.0)
+    if (jd_tt == NO_DOUBLE) jd_tt = getJD_TT();
     const double U = (jd_tt - JD2000) / 3652500;  // U is JD in deca millenia, from J2000.0
     const double Usquared = U * U;
     const double Ucubed = Usquared * U;
@@ -1050,7 +1065,7 @@ double Astronomy::MeanObliquityOfEcliptic(double jd_tt, bool rad) {
     const double U8 = U7 * U;
     const double U9 = U8 * U;
     const double U10 = U9 * U;
-    double retval = CAACoordinateTransformation::DMSToDegrees(23, 26, 21.448)
+    double retval = dms2deg(23, 26, 21.448)
         - (secs2deg(4680.93) * U)
         - (secs2deg(1.55) * Usquared)
         + (secs2deg(1999.25) * Ucubed)
@@ -1064,24 +1079,26 @@ double Astronomy::MeanObliquityOfEcliptic(double jd_tt, bool rad) {
     return rad ? deg2rad * retval : retval;
 }
 double Astronomy::TrueObliquityOfEcliptic(double jd_tt, bool rad) {
+    if (jd_tt == NO_DOUBLE) jd_tt = getJD_TT();
     return MeanObliquityOfEcliptic(jd_tt, rad) + NutationInObliquity(jd_tt, rad);
 }
 double Astronomy::NutationInObliquity(double jd_tt, bool rad) {
     // Nutation in Obliquity from AA+ v2.30
     // NOTE: Different from NutationInLongitude(), here we use the COSINES of the nutation table!
+    if (jd_tt == NO_DOUBLE) jd_tt = getJD_TT();
     const double T = (jd_tt - JD2000) / 36525;
     const double Tsquared = T * T;
     const double Tcubed = Tsquared * T;
     double D = 297.85036 + (445267.111480 * T) - (0.0019142 * Tsquared) + (Tcubed / 189474);
-    D = CAACoordinateTransformation::MapTo0To360Range(D);
+    D = rangezero2threesixty(D);
     double M = 357.52772 + (35999.050340 * T) - (0.0001603 * Tsquared) - (Tcubed / 300000);
-    M = CAACoordinateTransformation::MapTo0To360Range(M);
+    M = rangezero2threesixty(M);
     double Mprime = 134.96298 + (477198.867398 * T) + (0.0086972 * Tsquared) + (Tcubed / 56250);
-    Mprime = CAACoordinateTransformation::MapTo0To360Range(Mprime);
+    Mprime = rangezero2threesixty(Mprime);
     double F = 93.27191 + (483202.017538 * T) - (0.0036825 * Tsquared) + (Tcubed / 327270);
-    F = CAACoordinateTransformation::MapTo0To360Range(F);
+    F = rangezero2threesixty(F);
     double omega = 125.04452 - (1934.136261 * T) + (0.0020708 * Tsquared) + (Tcubed / 450000);
-    omega = CAACoordinateTransformation::MapTo0To360Range(omega);
+    omega = rangezero2threesixty(omega);
     double value = 0;
     for (const auto& coeff : g_NutationCoefficients) {
         double argument = (coeff.D * D) + (coeff.M * M) + (coeff.Mprime * Mprime) + (coeff.F * F) + (coeff.omega * omega);
@@ -1095,24 +1112,25 @@ double Astronomy::NutationInLongitude(double jd_tt, bool rad) {
     // MEEUS98: Chapter 22
     // NOTE: Different from NutationInObliquity(), here we use the SINES of the nutation table!
     //       So only the for loop differs. Perhaps refactor/cache?
+    if (jd_tt == NO_DOUBLE) jd_tt = getJD_TT();
     const double T = (jd_tt - JD2000) / 36525;
     const double Tsquared = T * T;
     const double Tcubed = Tsquared * T;
     // Mean Elongation of the Moon from the Sun
     double D = 297.85036 + (445267.111480 * T) - (0.0019142 * Tsquared) + (Tcubed / 189474);
-    D = CAACoordinateTransformation::MapTo0To360Range(D);
+    D = rangezero2threesixty(D);
     // Mean Anomaly of the Sun (Earth)
     double M = 357.52772 + (35999.050340 * T) - (0.0001603 * Tsquared) - (Tcubed / 300000);
-    M = CAACoordinateTransformation::MapTo0To360Range(M);
+    M = rangezero2threesixty(M);
     // Mean Anomaly of the Moon
     double Mprime = 134.96298 + (477198.867398 * T) + (0.0086972 * Tsquared) + (Tcubed / 56250);
-    Mprime = CAACoordinateTransformation::MapTo0To360Range(Mprime);
+    Mprime = rangezero2threesixty(Mprime);
     // Moon's Argument of Latitude
     double F = 93.27191 + (483202.017538 * T) - (0.0036825 * Tsquared) + (Tcubed / 327270);
-    F = CAACoordinateTransformation::MapTo0To360Range(F);
+    F = rangezero2threesixty(F);
     // Longitude of the Ascending Node of the Moon's Mean Orbit on the Ecliptic, measured from the Mean Equinox of the Date
     double omega = 125.04452 - (1934.136261 * T) + (0.0020708 * Tsquared) + (Tcubed / 450000);
-    omega = CAACoordinateTransformation::MapTo0To360Range(omega);
+    omega = rangezero2threesixty(omega);
     double value = 0;
     for (const auto& coeff : g_NutationCoefficients) {
         const double argument = (coeff.D * D) + (coeff.M * M) + (coeff.Mprime * Mprime) + (coeff.F * F) + (coeff.omega * omega);
@@ -1148,7 +1166,6 @@ double Astronomy::NutationInRightAscension(double dec, double ra, double obliq, 
 LLH Astronomy::getTrueDecRAbyName(const std::string starname, double jd_tt, bool rad) {
     // Apply Proper Motion
     // (Note: see https://stargazerslounge.com/topic/289480-calculating-ra-and-decl-of-a-star/ which I read after implementing below)
-    //LLH decra = getDecRAwithPMbyName(starname, m_jd, true); // Always calculate from radians, convert at end to what bool rad indicates
     if (jd_tt == NO_DOUBLE) jd_tt = m_datetime.jd_tt();
     LLH decra = getDecRAwithPMbyName(starname, m_datetime.jd_tt(), true); // Always calculate from radians, convert at end to what bool rad indicates
     //std::cout << "Astronomy::getTrueDecRAbyName(): Catalogue RA(hrs), Dec(deg): " << radecFormat(decra.lon, decra.lat, true) << '\n';
@@ -1188,9 +1205,9 @@ LLH Astronomy::getTrueDecRAbyName(const std::string starname, double jd_tt, bool
     //std::cout << "Astronomy::getTrueDecRAbyNameJD(): Nutated RA(hrs), Dec(deg): " << radecFormat(decra.lon, decra.lat, true) << '\n';
     // Apply aberration
     //CAA2DCoordinate aberration = EquatorialAberration(decra.lon, decra.lat, m_jd, true);
-    CAA2DCoordinate aberration = EquatorialAberration(decra.lat, decra.lon, m_datetime.jd_tt(), true);
-    decra.lat += aberration.Y;
-    decra.lon += aberration.X;
+    LLH aberration = EquatorialAberration(decra.lat, decra.lon, m_datetime.jd_tt(), true);
+    decra.lat += aberration.lat;
+    decra.lon += aberration.lon;
     //std::cout << "Astronomy::getTrueDecRAbyNameJD(): Aberrated RA(hrs), Dec(deg): " << radecFormat(decra.lon, decra.lat, true) << '\n';
     // Ignore annual parallax
     if (!rad) {
@@ -1199,6 +1216,7 @@ LLH Astronomy::getTrueDecRAbyName(const std::string starname, double jd_tt, bool
     }
     return decra;
 }
+
 //LLH Astronomy::calcTrueDecRa(const LLH decra, const double jd_tt, const double JD0) {
 //    // Precess the Equinox for a geocentric coordinate (catalogue with proper motion applied)
 //    // AA+: CAAPrecession::PrecessEquatorial()
@@ -1324,15 +1342,15 @@ CelestialDetail Astronomy::getDetails(double jd_tt, size_t planet, unsigned int 
     const double Tsquared = T * T;
     const double Tcubed = Tsquared * T;
     double D = 297.85036 + (445267.111480 * T) - (0.0019142 * Tsquared) + (Tcubed / 189474);
-    D = CAACoordinateTransformation::MapTo0To360Range(D);
+    D = rangezero2threesixty(D);
     double M = 357.52772 + (35999.050340 * T) - (0.0001603 * Tsquared) - (Tcubed / 300000);
-    M = CAACoordinateTransformation::MapTo0To360Range(M);
+    M = rangezero2threesixty(M);
     double Mprime = 134.96298 + (477198.867398 * T) + (0.0086972 * Tsquared) + (Tcubed / 56250);
-    Mprime = CAACoordinateTransformation::MapTo0To360Range(Mprime);
+    Mprime = rangezero2threesixty(Mprime);
     double F = 93.27191 + (483202.017538 * T) - (0.0036825 * Tsquared) + (Tcubed / 327270);
-    F = CAACoordinateTransformation::MapTo0To360Range(F);
+    F = rangezero2threesixty(F);
     double omega = 125.04452 - (1934.136261 * T) + (0.0020708 * Tsquared) + (Tcubed / 450000);
-    omega = CAACoordinateTransformation::MapTo0To360Range(omega);
+    omega = rangezero2threesixty(omega);
     double nulon = 0;
     double nutobec = 0;
     for (const auto& coeff : g_NutationCoefficients) {
@@ -1354,7 +1372,7 @@ CelestialDetail Astronomy::getDetails(double jd_tt, size_t planet, unsigned int 
     const double U8 = U7 * U;
     const double U9 = U8 * U;
     const double U10 = U9 * U;
-    double obliqEc = CAACoordinateTransformation::DMSToDegrees(23, 26, 21.448)
+    double obliqEc = dms2deg(23, 26, 21.448)
         - (secs2deg(4680.93) * U)
         - (secs2deg(1.55) * Usquared)
         + (secs2deg(1999.25) * Ucubed)
@@ -1370,7 +1388,7 @@ CelestialDetail Astronomy::getDetails(double jd_tt, size_t planet, unsigned int 
     //Convert to RA and Dec
     LLH ApparentEqu = calcEc2Geo(appGeoLat, appGeoLon, deg2rad * obliqEc);
     details.geora = ApparentEqu.lon;
-    details.geogha = getGsid(EDateTime::getJDTT2UTC(jd_tt)) - details.geora;
+    details.geogha = ApparentGreenwichSiderealTime(EDateTime::getJDTT2UTC(jd_tt), true) - details.geora;
     details.geodec = ApparentEqu.lat;
     return details;
 }
@@ -1687,7 +1705,6 @@ double Astronomy::EcDstMars(double jd_tt) {
         R4 += (R4Coefficient.A * std::cos(R4Coefficient.B + (R4Coefficient.C * rho)));
     return (R0 + rho * (R1 + rho * (R2 + rho * (R3 + rho * R4)))) / 100000000;
 }
-// Jupiter
 double Astronomy::EcLonJupiter(double jd_tt) {
     const double rho = (jd_tt - 2451545) / 365250;
     double L0 = 0;
@@ -2041,7 +2058,7 @@ std::string Astronomy::angle2uDMSstring(double angle, bool rad) { // Unsigned ve
 std::string Astronomy::angle2uHMSstring(double angle, bool rad) { // Hour angles are always given in [0;24], thus unsigned
     if (rad) angle *= rad2hrs;
     else angle /= 15.0;
-    angle = clamp0to24(angle);
+    angle = rangezero2twentyfour(angle);
     std::string dstring;
     double hrs = abs(angle);
     double hr = floor(hrs);  // Does not give correct result when angle is negative
@@ -2121,8 +2138,21 @@ void Astronomy::updateGsid() { // Updates GSid, and sets nutation in the process
     m_gsidtime = m_meangsid + (m_nutationinlongitude * cos(m_trueobliquity));
     // All values are in radians use rad2hrs for gsids and rad2deg for the others
 }
+void Astronomy::updatePrecession() {
+    // Precession parameters for J2000 - applied to all stars, so well worth caching
+    // used in PrecessJ2000DecRA()
+    const double t = (m_datetime.jd_tt() - JD2000) / 36525;
+    const double tsquared = t * t;
+    const double tcubed = tsquared * t;
+    prec_j2000_sigma = deg2rad * dms2deg(0, 0, (2306.2181) * t + (0.30188) * tsquared + 0.017998 * tcubed);
+    prec_j2000_zeta = deg2rad * dms2deg(0, 0, (2306.2181) * t + (1.09468) * tsquared + 0.018203 * tcubed);
+    prec_j2000_phi = deg2rad * dms2deg(0, 0, (2004.3109) * t - (0.42665) * tsquared - 0.041833 * tcubed);
+    prec_j2000_phi_s = sin(prec_j2000_phi);
+    prec_j2000_phi_c = cos(prec_j2000_phi);
+}
 void Astronomy::update() {
     updateGsid();          // Also updates nutation and obliquity caches
+    updatePrecession();
     updateTimeString();
 
     // Update cached planetary positions to current time. Later, include Sun, Moon & Earth?

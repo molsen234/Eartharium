@@ -440,5 +440,6 @@
     <None Include="Eartharium\mdo-test.py" />
     <None Include="Eartharium\shaders\moon.glsl" />
     <None Include="Eartharium\shaders\sky.glsl" />
+    <None Include="Eartharium\shaders\primitiveSO.glsl" />
   </ItemGroup>
 </Project>

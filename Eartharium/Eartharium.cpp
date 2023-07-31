@@ -1,14 +1,17 @@
 
-#include "config.h"
-#include "OpenGL.h"
-#include "Primitives.h"
-#include "Earth.h"
-#include "Astronomy.h"
-// It would be good to clean up the header include hierarchy one day !!!
+#include <glm/gtx/string_cast.hpp>
 
-//#include <thread>
+// These are used by various scenarios, because stuff is missing from Astronomy
+#include "AAplus/AAEquationOfTime.h"
+#include "AAplus/AARefraction.h"
+#include "AAplus/AAPrecession.h"
+#include "AAplus/AANutation.h"
+#include "AAplus/AAAberration.h"
+#include "AAplus/AAMoon.h"
+#include "AAplus/AAPhysicalMoon.h"
 
-#include <python37/Python.h>
+// For the Python interface. Split into separate file if possible.
+#include <python310/Python.h>
 #include <pybind11/embed.h>
 #include <pybind11/stl.h>
 namespace py = pybind11;
@@ -16,6 +19,11 @@ namespace py = pybind11;
 // Protos
 void GLClearError();
 void GLPrintError();
+
+//#include "OpenGL.h"
+#include "Primitives.h"
+#include "Earth.h"
+#include "Astronomy.h"
 
 
 // -----------
@@ -157,7 +165,7 @@ void ScienceItOut_Response1(Application& app) {
     app.currentEarth = earth;
     unsigned int lg = earth->addLocGroup();
     earth->w_refract = false;
-    earth->w_sinsol = false;
+    earth->insolation = false;
     earth->w_twilight = false;
     earth->flatsunheight = 0.0f;
 
@@ -252,7 +260,7 @@ void Sandbox2_SIO(Application& app) { //https://www.youtube.com/watch?v=J7XmHIjK
     app.currentEarth = earth;
     unsigned int lg = earth->addLocGroup();
     earth->w_refract = true;
-    earth->w_sinsol = true;
+    earth->insolation = true;
     earth->w_twilight = false;
     earth->flatsunheight = 0.0f;
 
@@ -638,7 +646,7 @@ void SandboxSIO(Application& app) { // https://www.youtube.com/watch?v=Sq1V98vkf
     app.currentEarth = earth;
     unsigned int lg = earth->addLocGroup();
     earth->w_refract = false;
-    earth->w_sinsol = false;
+    earth->insolation = false;
     earth->w_twilight = false;
     earth->flatsunheight = 0.0f;
 
@@ -952,7 +960,7 @@ void SunSectorSandbox(Application& app) {
     app.currentEarth = earth;
     unsigned int lg = earth->addLocGroup();
     earth->w_refract = false;
-    earth->w_sinsol = false;
+    earth->insolation = false;
     earth->w_twilight = false;
     earth->flatsunheight = 0.0f;
 
@@ -1145,7 +1153,7 @@ void ICSTvsCoreyKell(Application& app) {
     app.currentEarth = earth;
     unsigned int lg = earth->addLocGroup();
     earth->w_refract = false;
-    earth->w_sinsol = false;
+    earth->insolation = false;
     earth->w_twilight = false;
     earth->flatsunheight = 0.0f;
 
@@ -1247,7 +1255,7 @@ void ICSTvsCoreyKell(Application& app) {
 
     // -- Sequence 011 - Add Darkness
     app.incSequence();
-    earth->w_sinsol = true;
+    earth->insolation = true;
     //app.render();
 
     app.incSequence();
@@ -2028,7 +2036,7 @@ void Sector45_001(Application& myapp) {
     //earth->addEquator(0.002f, WHITE);
     earth->flatsunheight = 0.0f; // Used for both Subsolar and Sublunar points
     earth->addSubsolarPoint();
-    earth->w_sinsol = true;
+    earth->insolation = true;
     earth->addSublunarPoint();
     //earth->w_linsol = true;
     earth->addTerminatorTrueSun();
@@ -2402,7 +2410,7 @@ void Brian_Leake_01(Application & app) {
 
     earth->flatsunheight = 5769.5f; // https://youtu.be/IiV7UIR1jxI?t=22
     earth->w_refract = false;
-    earth->w_sinsol = true;
+    earth->insolation = true;
     earth->w_twilight = true;
 
     earth->addSubsolarPoint(); // height is earth.m_flatsunheight
@@ -2473,7 +2481,7 @@ void Parenting_test(Application& app) {
     Earth* earth = scene->newEarth("NSER", 180, 90);
     app.currentEarth = earth;
 
-    earth->w_sinsol = false;
+    earth->insolation = false;
     //earth->addGrid();
     earth->addGreatArc({ 15.0, 170.0, 0.0 }, { 25.0, -10.0, 0.0 }, LIGHT_RED, 0.003f, false);
     earth->flatsunheight = 0.0f;
@@ -2611,7 +2619,7 @@ void AxialPrecession(Application& app) {
     size_t axisY = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,1.0f,0.0f }, 1.0f, axisWidth, GREEN);
     size_t axisZ = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, 1.0f, axisWidth, BLUE);
 
-    earth->w_sinsol = false;
+    earth->insolation = false;
     earth->addGrid();
     //earth->addGreatArc({ 15.0, 170.0, 0.0 }, { 25.0, -10.0, 0.0 }, LIGHT_RED, 0.003f, false);
     earth->flatsunheight = 0.0f;
@@ -2755,7 +2763,7 @@ void Lambertian(Application& app) {
     size_t axisY = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,1.0f,0.0f }, 1.0f, axisWidth, GREEN);
     size_t axisZ = arrowFac->addStartDirLen({ 0.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, 1.0f, axisWidth, BLUE);
 
-    earth->w_sinsol = true;
+    earth->insolation = true;
     earth->addGrid();
     earth->addGreatArc({ 90.0-tiny, 180.0, 0.0 }, { -90.0+tiny, 180.0, 0.0 }, LIGHT_RED, 0.003f, false);
     earth->flatsunheight = 0.0f;
@@ -3162,7 +3170,7 @@ void NullIslandTest(Application& app) {
     std::cout << "Test location: " << astro->formatLatLon(location.lat, location.lon, true) << "\n";
 
     // Calculate elevations from above parameters
-    double gsid = astro->getGsid();
+    double gsid = astro->ApparentGreenwichSiderealTime(astro->getJD_UTC());
     LLH star1_decra = astro->getTrueDecRAbyName(star1_name, astro->getJD_TT(), true);
     std::cout << "GSID: " << gsid << "\n";
     star1_decra.lon = gsid - star1_decra.lon;
@@ -3307,7 +3315,7 @@ void McToonChallengeV2(Application& app) {
 
     Earth* earth = scene->newEarth("NSAE", 180, 90);
     app.currentEarth = earth;
-    earth->w_sinsol = true;
+    earth->insolation = true;
     earth->addGrid();
     earth->addTropics();
     earth->addArcticCirles();
@@ -3490,7 +3498,7 @@ void SimpleDemo(Application& app) {
 
     Earth* earth = scene->newEarth("NSAE", 180, 90);
     app.currentEarth = earth;
-    earth->w_sinsol = true;
+    earth->insolation = true;
     earth->addGrid();
     earth->flatsunheight = 0.0f;
     earth->addSubsolarPoint();
@@ -3526,7 +3534,7 @@ void ColumbusEclipse(Application& app) {
     Earth* earth = scene->newEarth("NSAE", 180, 90);
     app.currentEarth = earth;
 
-    earth->w_sinsol = true;
+    earth->insolation = true;
     earth->addGrid();
     earth->flatsunheight = 0.0f;
     earth->addSubsolarPoint();
@@ -3581,7 +3589,7 @@ void StarMovement(Application& app) {
     Earth* earth = scene->newEarth("NSER", 180, 90);
     app.currentEarth = earth;
 
-    earth->w_sinsol = true;
+    earth->insolation = true;
     earth->addArrow3DTrueSun();
     //earth->addGrid();
     //earth->addGreatArc({ 15.0, 170.0, 0.0 }, { 25.0, -10.0, 0.0 }, LIGHT_RED, 0.003f, false);
@@ -3747,13 +3755,14 @@ void LunarData(Application& app) {
 
         std::cout << "J2000: " << astro->getTimeString() << " " << moonDist << " " << j2k.X << " " << j2k.Y;
         std::cout << " " << selsun.l0 << " " << selsun.b0 << "\n";
-        std::cout << "       " << libration.l << " " << libration.b << " " << clamp0to360(libration.P) << "\n";
+        std::cout << "       " << libration.l << " " << libration.b << " " << Astronomy::rangezero2threesixty(libration.P) << "\n";
     }
 
 
     // Test new DetailedMoon object
     //astro->setTimeNow();
-    astro->setTime(2020, 1, 27.0, 16.0, 0.0, 0.0);
+    //astro->setTime(2020, 1, 27.0, 16.0, 0.0, 0.0);
+    astro->setTime(2023, 7, 1.0, 0.0, 0.0, 0.0);
     Scene* scene = app.newScene();
     Camera* cam = scene->w_camera; // Pick up default camera
     app.currentCam = cam;          // Bind camera to keyboard updates
@@ -3779,19 +3788,19 @@ void LunarData(Application& app) {
     cam->camNear = 5.0f;
     //cam->setCamLightPos()
 
-    DetailedMoon* moon = scene->newDetailedMoon("NSAE", 180, 90, 1.0f);
+    DetailedMoon* moon = new DetailedMoon(scene, nullptr, "NSER", 180, 90, 1.0f);
     app.currentEarth2 = moon;
     moon->addSunGP();
     moon->addEarthGP();
     moon->addLibrationTrail();
     //moon->setTopocentric(l_ams.lat, l_ams.lon);
-    // NOTE: These can all expose their varius confguration settings directly via the object link.
+    // NOTE: These can all expose their various confguration settings directly via the object link.
     moon->addEquator();
-    moon->equatorOb->setColor(GREY);
-    moon->equatorOb->setWidth(0.003f);
+    moon->equator->setColor(LIGHT_RED);
+    moon->equator->setWidth(0.003f);
     moon->addPrimeMeridian();
-    moon->primemOb->setColor(GREY);
-    moon->primemOb->setWidth(0.003f);
+    moon->primem->setColor(LIGHT_RED);
+    moon->primem->setWidth(0.003f);
     //moon->addGrid(10.0);
     
     //DetailedEarth* erf = scene->newDetailedEarth("NS", 180, 90, 1.0f);
@@ -3801,13 +3810,14 @@ void LunarData(Application& app) {
     //DetailedSky* sky = scene->newDetailedSky("NS", 90, 45, 1.2f);
     //sky->setTexture(true);
 
-    //scene->scenetree->printSceneTree();
+    scene->scenetree->printSceneTree();
 
     while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
     {
         if (app.anim) {
             astro->addTime(0.0, 0.0, 30.0, 0.0);
             //astro->setTimeNow();
+            //app.anim = false; // Nice for single step action. <space> will set app.anim in app.render, and we get back here one frame later.
         }
         app.render();
 
@@ -3817,7 +3827,9 @@ void LunarData(Application& app) {
 void TestNewSunGP(Application& app) {
     Astronomy* astro = app.newAstronomy();
 
-    astro->setTimeNow();
+    //astro->setTimeNow();
+    astro->setTime(-2023, 7, 8.0, 11.0, 15.0, 0.0); // 99% of people seeing sunlight at this moment (and 2023-06-04 11:08 by symmetry)
+    //astro->setTime(2023, 1, 1.0, 0.0, 0.0, 0.0);
     Scene* scene = app.newScene();
     Camera* cam = scene->w_camera; // Pick up default camera
     app.currentCam = cam;          // Bind camera to keyboard updates
@@ -3828,21 +3840,34 @@ void TestNewSunGP(Application& app) {
     RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
     gui->addLayer3D(layer, "EarthView");
 
-    DetailedEarth* erf = scene->newDetailedEarth("NSAE", 180, 90, 1.0f);
+    // WARNING: This is using the OLD Earh class for comparison
+    //Earth* erf = scene->newEarth("NSER", 180, 80);
+    //app.currentEarth = erf;
+
+    // Here is the new DetailedEarth
+    DetailedEarth* erf = new DetailedEarth(scene, nullptr, "NSER", 180, 90, 1.0f);
     app.currentEarth2 = erf;
-    //erf->addEquator();
-    //erf->addPrimeMeridian();
+    erf->addEquator();
+    erf->addPrimeMeridian();
+    //erf->addArcticCircles();
+    //erf->addTropics();
     erf->addSunGP();
     //erf->m_sungp->setRadius(0.1f);
     //erf->position = { 0.0f, 0.5f, 0.0f };
-
+    erf->addGrid(15.0);
+    //erf->addCelestialSphere();
+    //erf->celestialgrid->setSpacing(24);
+    //erf->gridOb->setColor(LIGHT_GREY);
+    DetailedSky* sky = new DetailedSky(scene, nullptr, "NSAE", 180, 90, 3.0f);
+    sky->setTexture(false);
+    sky->addStars(4.0);
     scene->scenetree->printSceneTree();
 
     while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
     {
         if (app.anim) {
-            astro->setTimeNow();
-            //astro->addTime(0.0, 0.0, 30.0, 0.0);
+            //astro->setTimeNow();
+            astro->addTime(0.0, 0.0, 5.0, 0.0);
         }
         app.render();
 
@@ -4052,11 +4077,11 @@ PYBIND11_EMBEDDED_MODULE(eartharium, m) {
             py::arg("d"), py::arg("h"), py::arg("min"), py::arg("sec"), py::arg("eot")
         )
         // FIX: !!! Do we need both of these exposed to Python? !!!
-        .def("calculateGsid", &Astronomy::calculateGsid, "Returns Greenwich Sidereal Time for provided JD (in UTC)",
-            py::arg("jd_utc")
+        .def("ApparentGreenwichSiderealTime", &Astronomy::ApparentGreenwichSiderealTime, "Returns Greenwich Sidereal Time for provided JD (in UTC)",
+            py::arg("jd_utc"), py::arg("rad")
         )
-        .def("getGsid", &Astronomy::getGsid, "Returns Greenwich Sidereal Time for provided JD (in UTC), or for current JD if omitted",
-            py::arg("jd_utc")
+        .def("MeanGreenwichSiderealTime", &Astronomy::MeanGreenwichSiderealTime, "Returns Greenwich Sidereal Time for provided JD (in UTC), or for current JD if omitted",
+            py::arg("jd_utc"), py::arg("rad")
         )
         .def("getTimeString", &Astronomy::getTimeString, "Returns current time & date in string format YYYY-MM-DD HH:MM:SS UTC")
         ;
@@ -4245,8 +4270,8 @@ int main(int argc, char** argv) {
     //ColumbusEclipse(app);
 
     //StarMovement(app);
-    LunarData(app);
-    //TestNewSunGP(app);
+    //LunarData(app);
+    TestNewSunGP(app);
 
 
     // Cleanup

@@ -1,7 +1,99 @@
 #pragma once
 
+// C++ std::
+#include <vector>
+#include <map>
 #include <string>
+#include <iostream>
+
+// GLM
 #include <glm/glm.hpp>
+
+// AA+
+#include "AAplus/AAElliptical.h" // For the Enums
+
+
+const unsigned int maxuint = 4294967295;     // pow(2,32)-1 used to represent 'none' for various indices
+enum itemtype {
+    SUN = CAAElliptical::Object::SUN, // Don't move these celestial objects, they need to match with AA+ enums
+    MERCURY,
+    VENUS,
+    MARS,
+    JUPITER,
+    SATURN,
+    URANUS,
+    NEPTUNE,
+    EARTH,
+    MOON,
+    LOC,    // From here onwards, you can rearrange as you please.
+    ZENITH,
+    NORTH,
+    EAST,
+    NORMAL,  // Calculated differently than Zenith
+    FLATSKY_SP,
+    FLATSKY_GP, // GP mode for placing celestial bodies over Earth
+    FLATSKY_LC_DOME, // LC places everything at the correct AziEle for one particular location. If used on more than one location, objects are duplicated.
+    FLATSKY_LC_PLANE,// DOME projects to a hemisphere, PLANE to a flat ceiling.
+    FLATSKY_HD, // HALFDOME - Not a local setting
+    LOCSKY,
+    TRUESUN3D,
+    TRUEANALEMMA3D,
+    FLATSUN3D,
+    FLATANALEMMA3D,
+    SUNSECTOR,  // Corey Kell's 45 degree Sectors
+    TRUEMOON3D,
+    TRUELUNALEMMA3D,
+    TRUEPLANET3D,
+    SIDPLANET3D,
+    AZIELE3D,
+    RADEC3D,
+    ARROWEXTENT,
+    TANGENT,
+    MERIDIAN,
+    PARALLEL,
+    GRIDLAT,    // Used to identify which were added by addGrid();
+    GRIDLON,
+    EQUATOR,
+    PRIME_MERIDIAN,
+    ARCTIC,
+    TROPIC,
+    LATITUDE,
+    LONGITUDE,
+    HORIZON,
+    CIRCUMPOLAR,
+    DOT,
+    CURVE,
+    GREATARC,
+    LERPARC,
+    FLATARC,    // Aka Derp Arc - shortest distance on AE map
+    SUNTERMINATOR,
+    MOONTERMINATOR,
+    TISSOT,
+    SEMITERMINATOR,
+    FB_PLAIN,
+    FB_CUBEMAP,
+    SHADOW_MAP,
+    SHADOW_BOX,
+    EC,
+    ECGEO,
+    LAYER3D,
+    LAYERTEXT,
+    LAYERGUI,
+    LAYERPLOT,
+    HALT,        // These three are PathTracker modes
+    LOOP,
+    BOUNCE,
+    REFR_BENNETT, // J.Meeus
+    REFR_ALMANAC, // https://www.madinstro.net/sundry/navsext.html
+    ALL,
+    NONE = maxuint,
+};
+
+struct LLH {
+    double lat{ 0.0 };
+    double lon{ 0.0 };
+    double dst{ 0.0 };
+};
 
 // Camera movement via keyboard - These limits are used in Eartharium.cpp:keyboard_callback() for GLFW
 #define CAMERA_MAX_DIST 100.0f
@@ -115,7 +207,6 @@ const double hrs2rad = tau / 24.0;
 const double ninety = deg2rad * 89.99999;    // Used to avoid singularity at poles
 const double tiny = 0.00001;                 // Used to determine practically zero
 const double verytiny = 0.0000001;           // even closer to zero
-const unsigned int maxuint = 4294967295;     // pow(2,32)-1 used to represent 'none' for various indices
 const float maxfloat = FLT_MAX;
 const double maxdouble = DBL_MAX;
 
@@ -187,20 +278,174 @@ static double clampmPitoPi(double radians) {
 	while (radians > pi) radians -= tau;
 	return radians;
 }
-static double clamp0to360(double degrees) {
-	while (degrees > 360.0) degrees -= 360.0;
-	while (degrees < 0.0) degrees += 360.0;
-	return degrees;
+//static double clamp0to360(double degrees) {
+//// Is VERY slow in sidereal time calculations, when in year -2000, use Astronomy::rangezero2threesixty() instead.
+//	while (degrees > 360.0) degrees -= 360.0;
+//	while (degrees < 0.0) degrees += 360.0;
+//	return degrees;
+//}
+//static double clamp0toTau(double radians) {
+//	// See Astronomy::rangezero2tau(double rad) !!!
+//	while (radians > tau) radians -= tau;
+//	while (radians < 0.0) radians += tau;
+//	return radians;
+//}
+//static double clamp0to24(double radians) {
+//	// See Astronomy::rangezero2tau(double rad) !!!
+//	while (radians > 24.0) radians -= 24.0;
+//	while (radians < 0.0) radians += 24.0;
+//	return radians;
+//}
+
+
+// ----------
+//  TightVec
+// ----------
+template<typename T>
+class tightvec {
+public:
+    std::vector<T> m_Elements;
+    std::map<size_t, size_t> m_remap;
+    std::map<size_t, size_t> m_xmap;
+    std::vector<size_t> m_freed;
+    //tightvec<T>();
+    //~tightvec<T>();
+    size_t size();
+    size_t capacity();
+    void clear();
+    bool empty();
+    size_t physFirst();
+    T& operator[](size_t oid);
+    void reserve(size_t reserve);
+    size_t store(T element, bool debug = false);
+    T& retrieve(size_t oid);
+    void update(size_t oid, T element);
+    void remove(size_t oid, bool debug = false);
+};
+template<typename T>
+size_t tightvec<T>::size() {
+    return m_Elements.size();
 }
-static double clamp0toTau(double radians) {
-	// See Astronomy::rangezero2tau(double rad) !!!
-	while (radians > tau) radians -= tau;
-	while (radians < 0.0) radians += tau;
-	return radians;
+template<typename T>
+size_t tightvec<T>::capacity() {
+    return m_Elements.capacity();
 }
-static double clamp0to24(double radians) {
-	// See Astronomy::rangezero2tau(double rad) !!!
-	while (radians > 24.0) radians -= 24.0;
-	while (radians < 0.0) radians += 24.0;
-	return radians;
+template<typename T>
+bool tightvec<T>::empty() {
+    return m_Elements.empty();
 }
+template<typename T>
+void tightvec<T>::clear() {
+    m_Elements.clear();
+    m_freed.clear();
+    m_remap.clear();
+    m_xmap.clear();
+}
+template<typename T>
+size_t tightvec<T>::physFirst() {
+    return m_xmap[0];
+}
+template<typename T>
+T& tightvec<T>::operator[](size_t oid) {
+    //std::cout << "oid: " << oid << "\n";
+    return retrieve(oid);
+}
+template<typename T>
+void tightvec<T>::reserve(size_t reserve) {
+    m_Elements.reserve(reserve);
+}
+template<typename T>
+size_t tightvec<T>::store(T element, bool debug) {
+    if (debug) std::cout << "tightvec{" << this << "}::store() called\n"; // Can't print element, type is not known at compile time
+    if (debug) for (auto& o : m_remap) {
+        std::cout << "tightvec{" << this << "}::store(): m_remap " << o.first << ", " << o.second << "\n";
+    }
+    if (debug) for (auto& o : m_xmap) {
+        std::cout << "tightvec{" << this << "}::store(): m_xmap " << o.first << ", " << o.second << "\n";
+    }
+    if (debug) for (auto& o : m_freed) {
+        std::cout << "tightvec{" << this << "}::store(): m_freed " << o << "\n";
+    }
+    size_t oid, iid;
+    iid = m_Elements.size(); // vector is compact, so always add to end. No! Well, yes. Because remove() fills gaps.
+    m_Elements.emplace_back(element);
+    if (m_freed.size() > 0) { // Recycle freed outer indices
+        oid = m_freed.back();
+        m_freed.pop_back();
+    }
+    else oid = iid;
+    if (debug) std::cout << "Stored item in m_Elements[" << iid << "], using reference (oid): " << oid << "\n";
+    //std::cout << "aElem - Added to end entry: " << oid << "\n";
+    m_remap[oid] = iid;  // remaps oid to iid
+    m_xmap[iid] = oid;   // maps iid to oid, used to "ripple" remap
+    if (debug) for (auto& o : m_remap) {
+        std::cout << "tightvec{" << this << "}::store(): m_remap " << o.first << ", " << o.second << "\n";
+    }
+    if (debug) for (auto& o : m_xmap) {
+        std::cout << "tightvec{" << this << "}::store(): m_xmap " << o.first << ", " << o.second << "\n";
+    }
+    if (debug) for (auto& o : m_freed) {
+        std::cout << "tightvec{" << this << "}::store(): m_freed " << o << "\n";
+    }
+    return oid;
+}
+template<typename T>
+T& tightvec<T>::retrieve(size_t oid) {
+    if (m_remap.count(oid)) return m_Elements[m_remap[oid]];
+    else {
+        std::cout << "ERROR: tightvec::retrieve() or tightvec[] called with non-existing index: " << oid << "\n";
+        return m_Elements.back();
+    }
+}
+template<typename T>
+void tightvec<T>::update(size_t oid, T element) {
+    size_t iid = m_remap[oid];
+    m_Elements[iid] = element;
+}
+template<typename T>
+void tightvec<T>::remove(size_t oid, bool debug) {
+    if (debug) std::cout << "tightvec{" << this << "}::remove(" << oid << ") called\n";
+    if (m_Elements.size() == 0) {  // calling pop_back() on empty vector is undefined, so avoid it.
+        std::cout << "tightvec<T>:Remove(): Reached m_Elements of ZERO size, yet was asked to delete an entry!! Ignoring!\n\n";
+        return;
+    }
+    if (debug) for (auto& o : m_remap) {
+        std::cout << "tightvec{" << this << "}::remove(): m_remap " << o.first << ", " << o.second << "\n";
+    }
+    if (debug) for (auto& o : m_xmap) {
+        std::cout << "tightvec{" << this << "}::remove(): m_xmap " << o.first << ", " << o.second << "\n";
+    }
+    if (debug) for (auto& o : m_freed) {
+        std::cout << "tightvec{" << this << "}::remove(): m_freed " << o << "\n";
+    }
+    size_t iid = m_remap[oid];
+    if (debug) std::cout << "oid, iid: " << oid << ", " << iid << "\n";
+    size_t last = m_Elements.size() - 1;
+    //std::cout << "oid: " << oid << "\n";
+    //std::cout << "iid: " << iid << "\n";
+    //std::cout << "last: " << last << "\n";
+    if (iid != last) { // Removing element in middle of vector
+        m_Elements[iid] = m_Elements[last]; //.back();
+        //std::cout << "Replace element: " << iid << " with " << last << "\n";
+        size_t loid = m_xmap[last]; // If last was previously relocated, get oid of last. If not relocated, it still points last.
+        m_remap[loid] = iid;
+        if (debug) std::cout << "setting m_remap[" << loid << "] = " << iid << "\n";
+        m_xmap[iid] = loid;
+        if (debug) std::cout << "setting m_xmap[" << iid << "] = " << loid << "\n";
+        //m_freed.push_back(oid);
+    }
+    // moved here:
+    m_freed.push_back(oid);
+    m_Elements.pop_back();
+    m_remap.erase(oid);
+    m_xmap.erase(last);
+    if (debug) for (auto& o : m_remap) {
+        std::cout << "tightvec{" << this << "}::remove(): m_remap " << o.first << ", " << o.second << "\n";
+    }
+    if (debug) for (auto& o : m_xmap) {
+        std::cout << "tightvec{" << this << "}::remove(): m_xmap " << o.first << ", " << o.second << "\n";
+    }
+    if (debug) for (auto& o : m_freed) {
+        std::cout << "tightvec{" << this << "}::remove(): m_freed " << o << "\n";
+    }
+};

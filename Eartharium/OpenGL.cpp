@@ -1,6 +1,12 @@
-#include "OpenGL.h"
-#include "Primitives.h"
 
+#include <fstream>
+#include <iostream>
+#include <sstream>
+
+#include <glm/gtc/type_ptr.hpp>          // Additional glm types
+
+#include "OpenGL.h"
+//#include "Primitives.h"
 
 // ---------------
 //  Vertex Buffer
@@ -132,10 +138,8 @@ Texture::Texture(const std::string& filepath, unsigned int texslot)  // Pass in 
 	glGenTextures(1, &m_RenderID);
 	glBindTexture(GL_TEXTURE_2D, m_RenderID);
     //std::cout << "Texture::Texture(): TextureSlot: " << m_TextureSlot - GL_TEXTURE0 << ", RenderID: " << m_RenderID << ".\n";
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     if (glfwExtensionSupported("GL_ARB_texture_filter_anisotropic")) {
@@ -442,135 +446,3 @@ void saveImage(std::string& filepath, GLFWwindow* w, unsigned int framebuffer /*
 }
 
 
-// -----------
-//  ShadowBox
-// -----------
-ShadowBox::ShadowBox(Scene* scene, unsigned int w,unsigned int h) : m_scene(scene) {
-    width = w;
-    height = h;
-    shadowTransforms.reserve(6);
-    glActiveTexture(GL_TEXTURE1);
-    glGenTextures(1, &depthCubemap);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
-    for (unsigned int i = 0; i < 6; ++i)
-        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT,
-            width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glGenFramebuffers(1, &depthMapFBO);
-    glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthCubemap, 0);
-
-    glDrawBuffer(GL_NONE);
-    glReadBuffer(GL_NONE);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glActiveTexture(GL_TEXTURE0);
-}
-ShadowBox::~ShadowBox() { }
-void ShadowBox::Render(Camera* cam, glm::vec3 lightPos) {  // pass far plane?
-    // Render the shadow casting objects to depth map
-    glActiveTexture(GL_TEXTURE1);
-    glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
-    glViewport(0, 0, width, height);
-    glClear(GL_DEPTH_BUFFER_BIT);
-    
-    // ConfigureShaderAndMatrices();
-    float aspect = (float)width / (float)height;
-    glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), aspect, near, far);
-    shadowTransforms.clear();
-    shadowTransforms.push_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
-    shadowTransforms.push_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
-    shadowTransforms.push_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0)));
-    shadowTransforms.push_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, -1.0)));
-    shadowTransforms.push_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0)));
-    shadowTransforms.push_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, -1.0, 0.0)));
-    // Render objects that are allowed to cast shadows
-    //glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
-    // (so exclude SkyBox !!)
-    //world->GetSphereUVFactoryb()->Draw(SHADOW_BOX);
-    m_scene->getCylindersFactory()->draw(cam, SHADOW_BOX);
-    //world->GetViewConesFactory()->Draw(SHADOW_BOX);
-    //world->GetPlanesFactory()->Draw(SHADOW_BOX);
-    m_scene->getConesFactory()->draw(cam, SHADOW_BOX);
-    //world->GetDotsFactory()->Draw(SHADOW_BOX);
-
-
-    // Cleanup
-    //GLsync fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-    //glWaitSync(fence, 0, GL_TIMEOUT_IGNORED);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glViewport(0, 0, m_scene->m_app->w_width, m_scene->m_app->w_height);
-    //glActiveTexture(GL_TEXTURE0);
-
-}
-
-
-// -----------
-//  ShadowMap
-// -----------
-ShadowMap::ShadowMap(Scene* scene, unsigned int w, unsigned int h) : m_scene(scene) {
-    width = w;
-    height = h;
-
-    glActiveTexture(GL_TEXTURE1);
-    glGenFramebuffers(1, &m_depthmapFBO);
-    glGenTextures(1, &depthmap);
-    glBindTexture(GL_TEXTURE_2D, depthmap);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    float bordercolor[] = { 1.0,1.0,1.0,1.0 };
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, bordercolor);
-    glBindFramebuffer(GL_FRAMEBUFFER, m_depthmapFBO);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthmap, 0);
-    glDrawBuffer(GL_NONE);
-    glReadBuffer(GL_NONE);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    std::cout << "ShadowMap::ShadowMap(): Created TextureSlot " << 1 << ", RenderID " << depthmap << ".\n";
-
-    //glActiveTexture(GL_TEXTURE0);
-}
-ShadowMap::~ShadowMap() { }
-void ShadowMap::Bind() {
-    //glViewport(0, 0, width, height);
-    //glBindFramebuffer(GL_FRAMEBUFFER, m_depthmapFBO);
-    //glClear(GL_DEPTH_BUFFER_BIT);
-    // From here go on and render the scene from the light's perspective, call Unbind() when done.
-}
-void ShadowMap::Unbind() {
-    //glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    // NOTE: The following should be at the top of a normal Scene Render, but we don't have one yet:
-    //glViewport(0, 0, world->w_width, world->w_height);
-    //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-}
-void ShadowMap::Render(Camera* cam) {
-    glActiveTexture(GL_TEXTURE1);
-    glBindFramebuffer(GL_FRAMEBUFFER, m_depthmapFBO);
-    glViewport(0, 0, width, height);
-    glBindTexture(GL_TEXTURE_2D, depthmap);
-    glClear(GL_DEPTH_BUFFER_BIT);
-    float near_plane = 1.0f, far_plane = 7.5f;
-    glm::mat4 lightProjection = glm::ortho(-2.0f, 2.0f, -2.0f, 2.0f, near_plane, far_plane);
-    glm::vec3 lightPos = m_scene->w_camera->CamLightDir * 5.0f;  //lightdir is normalized in Camera
-    glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    lightSpaceMatrix = lightProjection * lightView;
-    // Render objects that are allowed to cast shadows
-    // (so exclude SkyBox !!)
-    //world->GetSphereUVOb()->Draw(SHADOW_MAP);
-    m_scene->getCylindersFactory()->draw(cam, SHADOW_MAP);
-    //world->GetViewConesOb()->Draw(SHADOW_MAP);
-    //world->GetPlanesOb()->Draw(SHADOW_MAP);
-    m_scene->getConesFactory()->draw(cam, SHADOW_MAP);
-    //world->GetDotsOb()->Draw(SHADOW_MAP);
-    // Ensure frame is completely rendered before returning to scene render
-    //GLsync fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-    //glWaitSync(fence, 0, GL_TIMEOUT_IGNORED);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glViewport(0, 0, m_scene->m_app->w_width, m_scene->m_app->w_height);
-}

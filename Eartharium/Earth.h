@@ -1,12 +1,11 @@
 #pragma once
+
 #include "Primitives.h"
 #include "Astronomy.h"
 
 // Protos - Allows classes to use pointers when they are defined above the class they want to point to.
 class Location;
 class SubStellarPoint;
-//class Earth2;
-class BodyGeometry;
 class SunGP;
 
 
@@ -84,25 +83,34 @@ private:
 // =====================================================================================================
 
 
+// Protos for new SceneObject derived features
+class Latitude;
+class Longitude;
+class Equator;
+class PrimeMeridian;
+class Grid;
+class SmallCircle;
+class BodyGeometry;
+
+
+// For Loc3D and Nml3D functions, which will be used from other SceneObjects
+typedef glm::vec3(BodyGeometry::* bglocPos)(const LLH, const bool);
+typedef glm::vec3(BodyGeometry::* bglocNml)(const LLH, const bool);
+
 enum MaterialID {  // Index into Material array
     DETAILED_EARTH = 0,
     DETAILED_MOON,
     DETAILED_SKY
 };
-
-
 // --------------
 //  BodyGeometry
 // --------------
-// For Earth Loc3D and Nml3D functions, which will be used from other SceneObjects
-typedef glm::vec3(BodyGeometry::* bglocPos)(const LLH, const bool);
-typedef glm::vec3(BodyGeometry::* bglocNml)(const LLH, const bool);
 class BodyGeometry : public SceneObject {
-// BodyGeometry TODO:
-// - add more geometries, perhaps also some humourous ones (cube, pear, egg)
-// - Factor out the Material class to a general material handler
-// - Alpha blending to show ellipsoid centric coordinate axes etc
-// - "Peal open" animations, over latitude and lngitude
+    // BodyGeometry TODO:
+    // - add more geometries, perhaps also some humourous ones (cube, pear, egg)
+    // - Factor out the Material class to a general material handler
+    // - Alpha blending to show ellipsoid centric coordinate axes etc
+    // - "Peal open" animations, over latitude and lngitude
 
     struct Material {
         unsigned int shader = 0;
@@ -116,11 +124,20 @@ class BodyGeometry : public SceneObject {
         { SKY_SHADER, SKY_FULL, NO_UINT, NO_UINT } // Will be DetailedSky, if that turns out to be a good path forward.
     } };
 public:
-    bool hasgui = false;
+    Equator* equator = nullptr;
+    PrimeMeridian* primem = nullptr;
+    Grid* grid = nullptr;
+    float radius = 1.0f;
+    float morph_param = 0.0f;   // Valid range is 0.0f to 1.0f
+    // Update flags - will probably be handled via update*() parameters
+    bool dirty_geometry = true;
+    //bool dirty_time = true;
+
     // Holds geometry information about a morphable body, e.g. Earth
     // Has methods to convert between spherical and cartesian surface coordinates
     // and supply surface normals.
     // Is always orientated NP up, EQ parallel to XY plane, X axis through prime meridian
+    // -> This now implements worldmatrix, so NP is not always UP etc.
     // For ellipsoid (and others?) shapes, body specific parameters are required !!!
     // If those are always supplied, then this can include distance functions etc.
     // But how do we get accurate distances on NSER at 0.3 morph for example?
@@ -129,8 +146,14 @@ public:
     // - Polar radius
     // - Eccentricity / flattening (or calculate based on above)
     // Question: when using linear morph, are normals always (approximately) correct throughout morph? Probably not!
-    BodyGeometry(Scene* scene, unsigned int material, std::string mode, unsigned int meshU, unsigned int meshV, float gpuRadius);
+    BodyGeometry(Scene* scene, SceneObject* parent, unsigned int material, std::string mode, unsigned int meshU, unsigned int meshV, float gpuRadius);
     ~BodyGeometry();
+    void addEquator();
+    void addPrimeMeridian();
+    //void addLatitude();  // Should all of these be in Grid? Maybe no. It can be handy to have custom Lat / Lon outside Grid.
+    //void addLongitude();
+    void addGrid(double spacing = 15.0);
+
     void draw(Camera* cam) override;
     bool virtual drawSpecific(Camera* cam, Shader* shdr);  // Can be overridden to add specific draw needs (setting up the camera, etc)
     void setMode(const std::string mode);
@@ -139,15 +162,7 @@ public:
     float getMorphParameter();
     // createShape() might get tri and vert vectors if rendering is done in SceneObject or elsewhere - decide in constructor
     void createShape();    // Creates the mesh geometry, should probably only be called once at creation
-    void updateShape();    // Updates the mesh geometry, called when tex offset, mode or morph param change
-    //glm::vec3 getLoc3D(const double rLat, const double rLon, const double height, const bool rad);
-    //glm::vec3 getNml3D(const double rLat, const double rLon, const bool rad);
-    //glm::vec3 getLoc3D_NS(const double rLat, const double rLon, const double height, const bool rad);
-    //glm::vec3 getNml3D_NS(const double rLat, const double rLon, const bool rad);
-    //glm::vec3 getLoc3D_AE(const double rLat, const double rLon, const double height, const bool rad);
-    //glm::vec3 getNml3D_AE(const double rLat, const double rLon, const bool rad);
-    //glm::vec3 getLoc3D_ER(const double rLat, const double rLon, const double height, const bool deg);
-    //glm::vec3 getNml3D_ER(const double rLat, const double rLon, const bool rad);
+    void updateShape();    // Updates the mesh geometry, called from users like DetailedMoon etc
     glm::vec3 getLoc3D(const LLH loc, const bool rad);
     glm::vec3 getNml3D(const LLH loc, const bool rad);
     glm::vec3 getLoc3D_NS(const LLH loc, const bool rad);
@@ -157,12 +172,8 @@ public:
     glm::vec3 getLoc3D_ER(const LLH loc, const bool deg);
     glm::vec3 getNml3D_ER(const LLH loc, const bool rad);
     // FIX !!! Add additional geometries here !!!
-    //void draw(Camera* cam); // draw() and update() should be supplied by SceneObject, they relate to the rendering.
-    //void update() override;
 private:
     // Body Geometry
-    double m_radius = 1.0;
-    float morph_param = 0.0f;   // Valid range is 0.0f to 1.0f
     std::string m_mode = "XXXX";
     bglocPos pos_mode1 = nullptr;
     bglocPos pos_mode2 = nullptr;
@@ -190,10 +201,6 @@ private:
     std::vector<vertex> vertices;
     std::vector<tri> tris;
 
-    // Update flags - will probably be handled via update*() parameters
-    //bool dirty_geometry = true;
-    //bool dirty_time = true;
-
     // OpenGL
     VertexBufferLayout* vbl = nullptr;
     VertexArray* va = nullptr;
@@ -204,8 +211,35 @@ private:
     Texture* m_texture2 = nullptr;   // Might add third for overlays such as temperature maps or eclipse paths
     Texture* m_texture3 = nullptr;   // Currently used for bump height mapping
     //unsigned int texture_overlay_mode = NONE;
-
 };
+
+
+// ------------
+//  Smart Path
+// ------------
+class SmartPath : public SceneObject {
+    // Flexibly allocates additional PolyCurve objects when addSplit() is called
+    // Since PolyCurves are obtained from Scene, they are drawn automatically
+    // - Add method to change color and width
+    // - Add a way to traverse paths backwards and forwards, see Earth.h:ParticleTracker
+public:
+    SmartPath(Scene* scene, SceneObject* parent, float width = NO_FLOAT, glm::vec4 color = NO_COLOR);
+    ~SmartPath();
+    void setColor(glm::vec4 color);
+    void setWidth(float width);
+    void addPoint(glm::vec3 point);
+    void addSplit(glm::vec3 point1, glm::vec3 point2);
+    void clearPoints();
+    void generate();
+    void draw(Camera* cam);
+    bool update() override { return false; } // Nothing to update, but making it explicit stops SceneObject from whining.
+private:
+    glm::vec4 m_color{ NO_COLOR };
+    float m_width{ NO_FLOAT };
+    std::vector<PolyCurveSO*> m_curves;
+    unsigned int m_curve = 0;
+};
+
 
 
 // ----------
@@ -213,18 +247,19 @@ private:
 // ----------
 class Longitude : public SceneObject {
 public:
-    Longitude(Scene* scene, BodyGeometry* geometry, double lon, float width = 0.005f, glm::vec4 color = LIGHT_GREY);
+    Longitude(Scene* scene, SceneObject* parent, BodyGeometry* geometry, double lon, float width = 0.003f, glm::vec4 color = LIGHT_GREY);
     ~Longitude();
     void setColor(glm::vec4 color);
     void setWidth(float width);
     void generate();
-    void update();
+    bool update() override;
     void draw(Camera* cam) override;
 private:
     bglocPos locpos = &BodyGeometry::getLoc3D;
     BodyGeometry* locref{ nullptr };
-    GenericPath* path{ nullptr };
+    SmartPath* path{ nullptr };
     double lon{ 0.0 };
+    BodyGeometry* m_geometry = nullptr;
 };
 
 // ----------
@@ -232,18 +267,19 @@ private:
 // ----------
 class Latitude : public SceneObject {
 public:
-    Latitude(Scene* scene, BodyGeometry* geometry, double lat, float width = 0.005f, glm::vec4 color = LIGHT_GREY);
+    Latitude(Scene* scene, SceneObject* parent, BodyGeometry* geometry, double lat, float width = 0.003f, glm::vec4 color = LIGHT_GREY);
     ~Latitude();
     void setColor(glm::vec4 color);
     void setWidth(float width);
     void generate();
-    void update();
+    bool update() override;
     void draw(Camera* cam) override;
 private:
     bglocPos locpos = &BodyGeometry::getLoc3D;
     BodyGeometry* locref{ nullptr };
-    GenericPath* path{ nullptr };
+    SmartPath* path{ nullptr };
     double lat{ 0.0 };
+    BodyGeometry* m_geometry = nullptr;
 };
 
 
@@ -252,7 +288,7 @@ private:
 // ----------------
 class PrimeMeridian : public Longitude {
 public:
-    PrimeMeridian(Scene* scene, BodyGeometry* geometry, float width = 0.007f, glm::vec4 color = LIGHT_RED);
+    PrimeMeridian(Scene* scene, SceneObject* parent, BodyGeometry* geometry, float width = 0.005f, glm::vec4 color = LIGHT_RED);
 };
 
 // ---------
@@ -260,7 +296,7 @@ public:
 // ---------
 class Equator : public Latitude {
 public:
-    Equator(Scene* scene, BodyGeometry* geometry, float width = 0.005f, glm::vec4 color = LIGHT_RED);
+    Equator(Scene* scene, SceneObject* parent, BodyGeometry* geometry, float width = 0.005f, glm::vec4 color = LIGHT_RED);
 };
 
 // ------
@@ -268,16 +304,49 @@ public:
 // ------
 class Grid : public SceneObject {
 public:
-    Grid(Scene* scene, BodyGeometry* geometry, double spacing = 15.0);
+    Grid(Scene* scene, SceneObject* parent, BodyGeometry* geometry, std::string objname = "NO_NAME");
     ~Grid();
-    void update();
+    void setName(std::string name);
+    void setColor(glm::vec4 color, bool skip_pm_eq = true);
+    void setWidth(float width, bool skip_pm_eq = true);
+    void setSpacing(double spacing, bool rad);
+    void setSpacing(unsigned int divisions);
+    Latitude* addLatitude(double latitude);     // Return object instead of index, so caller can modify properties
+    Longitude* addLongitude(double longitude);
+    void clear();
+    bool update();
     void draw(Camera* cam) override;
 private:
+    BodyGeometry* m_geometry = nullptr;
+    float width = 0.005f; // Might move to SceneObject, since so many objects have a width? Well, some do not.
     Equator* equator{ nullptr };
     PrimeMeridian* primemeridian{ nullptr };
-    std::vector<Latitude*> latitudes;
+    std::vector<Latitude*> latitudes;         // This might be awkward for SceneObject inheritance. No, these are only pointers.
     std::vector<Longitude*> longitudes;
 };
+
+
+// ---------------------
+//  Planetocentric Grid   - (not the same as planetographic)
+// ---------------------
+// NOTE: If the parent object is a morph and the axis is offset from the parent object, orientation parameters are
+//       not enough to handle transformations. I.e. orientations parameters do not take morphing into consideration.
+// Grid with (Lat Lon) spherical coordinates
+// - Axis aligned with body rotation
+// - Latitude measured positive towards North, from Equator (which is normal to rotation axis according to right hand rule)
+// - Longitude measured positive towards East, from defined origin (different for each object: Earth, Moon, Mars, etc)
+class PlanetocentricGrid : public Grid {
+
+private:
+    //float m_radius = 1.0f;                    // GPU scale of coordinate sphere, already present in Grid parent.
+    glm::vec3 north = { 0.0f, 0.0f, 1.0f };     // North direction unit vector, determines axial rotational orientation parameters.
+    glm::vec3 nullpoint = { 1.0f, 0.0f, 0.0f }; // Longitude zero point direction unit vector, determines the rest of rotational o.p.
+};
+
+// Planetographic Grid - Verify definitions before implementing
+// - Axis aligned with body rotation
+// - Latitude measured positive towards North. North defined by rotation axis of body, where up is as viewed from Earth?
+
 
 
 
@@ -292,10 +361,10 @@ private:
     BodyGeometry* locref{ nullptr };
     GenericPath* path{ nullptr };
 public:
-    SmallCircle(Scene* scene, BodyGeometry* geometry, LLH location, double radius, float width = 0.005f, glm::vec4 color = LIGHT_ORANGE);
+    SmallCircle(Scene* scene, SceneObject* parent, BodyGeometry* geometry, LLH location, double radius, float width = 0.005f, glm::vec4 color = LIGHT_ORANGE);
     ~SmallCircle();
     void generate();
-    void update();
+    bool update();
     void draw(Camera* cam) override;
 };
 
@@ -306,120 +375,6 @@ public:
 //};
 
 
-
-// ----------
-//  Ecliptic
-// ----------
-// Requires GreatCircle, so implement that first
-// Also, figure out which parameters are needed to orient the ecliptic correctly on Earth.
-// Perhaps a reasonable approximation is plotting the solar GP path in a 24 hour bracket around the timepoint.
-
-
-
-// ------------------------
-//  Small Celestial Object
-// ------------------------
-// This is meant for small representations of Sun, planets (incl Earth), Moon, everything roughly spherical
-// They only need low resolution textures, so they can share an atlas
-// Implement as spheres or ellipsoids, only a single geometry. So no need for transformations.
-// Some of the planets have rings, it would be nice to add those. Consider if you can do this with ring shadows
-// For solar system modeling, the following are objects we would like to associate:
-// - Orbit
-// - Orbital plane
-// - Rotation axis
-// - Distance vector (from any to any)
-// - Billboard with name
-// Rendering light/dark sides is important, and should be optional when used as GP markers for example
-// Positioning in a solar system and on a celestial object (mostly Earth) as GP are very different calculations,
-// So multiple calculating objects may end up using these.
-// See classes Planetoid, SubSolar, SubLunar, Dots in SolarSystem; these should all be redundant after this class is complete
-
-
-// -------------
-//  DetailedSky
-// -------------
-class DetailedSky : public BodyGeometry {
-    Scene* m_scene = nullptr;
-    float m_radius{ 5.0f };
-    //glm::vec3 SunLightDir = glm::vec3(0.0f, 1.0f, 0.0f);
-    //glm::vec3 camLightDir = { 1.0f, 0.0f, 0.0f };
-    //glm::vec4 sunDir = { 0.0f, 0.0f, 0.0f, 1.0f };
-    //bool w_sinsol = true;
-    //bool w_refract = true;
-    //bool w_twilight = true;
-    bool textured = false;
-    float m_alpha = 1.0f;
-    Dots* m_dotsFactory = nullptr;
-    size_t m_sundot = NO_UINT;
-    Equator* equatorOb = nullptr;
-    PrimeMeridian* primemOb = nullptr;
-public:
-    DetailedSky(Scene* scene, std::string mode, unsigned int meshU, unsigned int meshV, float radius = 1.0f);
-    ~DetailedSky();
-    void setTexture(bool tex);
-    void addEquator();
-    void addPrimeMeridian();
-    void update();
-    // Specific GPU parameters that are particular to Earth and thus not set up in BodyGeometry
-    bool drawSpecific(Camera* cam, Shader* shdr);
-    void myGUI();
-
-};
-
-// ----------------
-//  Detailed Earth
-// ----------------
-class DetailedEarth : public BodyGeometry {
-// DetailedEarth TODO:
-// - add twilight and refraction control
-// - perhaps refraction control can be improved, the current model in Earth is a bit ad hoc
-// - it would be nice to have twilight that is gradual from 100% to 0% sunlight instead of just the 3 bands
-// - add tropics and arctics, with a generic way to tint coordinate regions
-//   (note that Earth has GUI editing of the tint colors, very nice to have)
-//   (perhaps texture coordinates can be used to make this pixel based rather than triangle based, i.e. move it to the shader)
-// - add Moon direction so the fragment shader can also do lunar insolation areas
-// - add GenericPath object derived from SceneObject, so it can be used for the various paths (instead of the current mess in Earth)
-// - revisit the Earth modifications for adjustable eccentricity (see special shader)
-// - add Location and Location Groups, perhaps to BodyGeometry rather than DetailedEarth and DetailedMoon
-// - add GUI adjustable texture offsets and implement cropping
-// - Consider how to re-work the shadow casting options. Currently they are difficult to use, and deliver poor results
-// - Certainly move the astronomical tracking to Astronomy instead of local member variables
-// - Get everything working with recalculating every frame, before implementing a lot of caching options
-//   (that should help identify where caching is useful, and the best place/way to implement)
-// - SubLunar and SubSolar should be refactored into a general object that can be used for planets etc too
-//   (allow to integrate these with the SubPointSolver objects?) The Solvers also need refactoring!
-// - add shadow cones in a generic way if possible
-// - add DetailedSky as a celestial sphere?
-
-    Scene* m_scene = nullptr;
-    float m_radius{ 1.0f };
-    glm::vec3 SunLightDir = glm::vec3(0.0f, 1.0f, 0.0f);
-    glm::vec3 camLightDir = { 1.0f, 0.0f, 0.0f };
-    glm::vec4 sunDir = { 0.0f, 0.0f, 0.0f, 1.0f };
-    bool w_sinsol = true;
-    bool w_refract = true;
-    bool w_twilight = true;
-    float m_alpha = 1.0f;
-    //Dots* m_dotsFactory = nullptr;
-    //size_t m_sundot = NO_UINT;
-    LLH subsolar{ 0.0, 0.0, 0.0 };
-    Equator* equatorOb = nullptr;
-    PrimeMeridian* primemOb = nullptr;
-public:
-    SunGP* m_sungp = nullptr;
-    DetailedEarth(Scene* scene, std::string mode, unsigned int meshU, unsigned int meshV, float radius = 1.0f);
-    ~DetailedEarth();
-    void addEquator();
-    void addPrimeMeridian();
-    //void addGrid();
-    void addSunGP();
-    glm::vec3 getSunGPLocation();
-    void update();
-    // Specific GPU parameters that are particular to Earth and thus not set up in BodyGeometry
-    bool drawSpecific(Camera* cam, Shader* shdr);
-    void myGUI();
-};
-
 // -----------
 //  Planetoid
 // -----------
@@ -429,33 +384,33 @@ class Planetoid : public SceneObject {
         unsigned int shader = 0;
         unsigned int atlas = 0;
         unsigned int texture1 = 0; // Index in the texture atlas, assuming evenly 4x4 tiled for now
-        unsigned int texture2 = 0; 
+        unsigned int texture2 = 0;
         unsigned int texture3 = 0;
     };
     std::array<AtlasMaterial, 10> Materials = { {
-        // shader           texture file     day      ring     night
-        // 0 = Sun
-        { PLANETOID_SHADER, PLANETOID_ATLAS,       0, NO_UINT, NO_UINT },
-        // 1 = Mercury
-        { PLANETOID_SHADER, PLANETOID_ATLAS,       1, NO_UINT, NO_UINT },
-        // 2 = Venus
-        { PLANETOID_SHADER, PLANETOID_ATLAS,       2, NO_UINT, NO_UINT },
-        // 3 = Mars
-        { PLANETOID_SHADER, PLANETOID_ATLAS,       4, NO_UINT, NO_UINT },
-        // 4 = Jupiter
-        { PLANETOID_SHADER, PLANETOID_ATLAS,       5, NO_UINT, NO_UINT },
-        // 5 = Saturn
-        { PLANETOID_SHADER, PLANETOID_ATLAS,       6,      11, NO_UINT },
-        // 6 = Uranus
-        { PLANETOID_SHADER, PLANETOID_ATLAS,       7,      12, NO_UINT },
-        // 7 = Neptune
-        { PLANETOID_SHADER, PLANETOID_ATLAS,       8,      13, NO_UINT },
-        // 8 = Earth
-        { PLANETOID_SHADER, PLANETOID_ATLAS,       3, NO_UINT,      10 },
-        // 9 = Moon
-        { PLANETOID_SHADER, PLANETOID_ATLAS,       9, NO_UINT, NO_UINT }
-        // For last two atlas slots: asteroid and comet?, generic star and galaxy?, alternate Sun and Venus surface?
-    } };
+            // shader           texture file     day      ring     night
+            // 0 = Sun
+            { PLANETOID_SHADER, PLANETOID_ATLAS,       0, NO_UINT, NO_UINT },
+            // 1 = Mercury
+            { PLANETOID_SHADER, PLANETOID_ATLAS,       1, NO_UINT, NO_UINT },
+            // 2 = Venus
+            { PLANETOID_SHADER, PLANETOID_ATLAS,       2, NO_UINT, NO_UINT },
+            // 3 = Mars
+            { PLANETOID_SHADER, PLANETOID_ATLAS,       4, NO_UINT, NO_UINT },
+            // 4 = Jupiter
+            { PLANETOID_SHADER, PLANETOID_ATLAS,       5, NO_UINT, NO_UINT },
+            // 5 = Saturn
+            { PLANETOID_SHADER, PLANETOID_ATLAS,       6,      11, NO_UINT },
+            // 6 = Uranus
+            { PLANETOID_SHADER, PLANETOID_ATLAS,       7,      12, NO_UINT },
+            // 7 = Neptune
+            { PLANETOID_SHADER, PLANETOID_ATLAS,       8,      13, NO_UINT },
+            // 8 = Earth
+            { PLANETOID_SHADER, PLANETOID_ATLAS,       3, NO_UINT,      10 },
+            // 9 = Moon
+            { PLANETOID_SHADER, PLANETOID_ATLAS,       9, NO_UINT, NO_UINT }
+            // For last two atlas slots: asteroid and comet?, generic star and galaxy?, alternate Sun and Venus surface?
+        } };
 
     Shader* shdr = nullptr;
     Texture* tex = nullptr;
@@ -471,7 +426,7 @@ class Planetoid : public SceneObject {
     IndexBuffer* ibring = nullptr;
     std::vector<Vertex> m_vertsring;
     std::vector<Tri> m_trisring;
-    unsigned int material = NO_UINT;
+    size_t material = NO_UINT;
     unsigned int meshU = 0;
     unsigned int meshV = 0;
     float tex_rx = 4096.0f; // X resolution of atlas
@@ -486,11 +441,11 @@ class Planetoid : public SceneObject {
     float texring_ly = 0.0f;    // atlas y offset to tile
 public:
     //glm::vec3 position = glm::vec3(0.0f);
-    Planetoid(Scene* scene, unsigned int texturetile, unsigned int meshU, unsigned int meshV, float radius);
+    Planetoid(Scene* scene, SceneObject* parent, size_t texturetile, unsigned int meshU, unsigned int meshV, float radius);
     ~Planetoid();
     void setPosition(glm::vec3 pos);
     void setRadius(float radius);
-    void update() {}; // Nothing to update
+    bool update() { return false; }; // Nothing to update
     void draw(Camera* cam);
     glm::vec3 getLoc3D_NS(float rLat, float rLon, float height, float radius);
     //glm::vec3 getNml3D(float lat, float lon, float height = 0.0f);
@@ -502,28 +457,173 @@ private:
 };
 
 
-// ------------------
-//  Sun Ground Point
-// ------------------
-class SunGP : public Planetoid {
-// Build more GP objects and see what they have in common to refactor
-// This is for the Sun, on Earth. How to extend to the Sun on the Moon etc?
-// Well, this far, it seems like there is nothing Earth specific here.
+// ----------------------
+//  General Ground Point
+// ----------------------
+class PlanetoidGP : public Planetoid {
+    // Build more GP objects and see what they have in common to refactor
+    // This is for the Sun, on Earth. How to extend to the Sun on the Moon etc?
+    // Well, this far, it seems like there is nothing Earth specific here.
 public:
-    SunGP() = delete;
-    SunGP(Scene* scene, SceneObject* parent, glm::vec3 pos);
-    ~SunGP() = default;
+    PlanetoidGP() = delete;
+    PlanetoidGP(Scene* scene, SceneObject* parent, const size_t type, const std::string& name, const glm::vec3 pos);
+    ~PlanetoidGP() = default;  // Will also call ~Planetoid() implicitly
 private:
 };
 
-// --------------------
-//  Earth Ground Point (on other celestial bodies)
-// --------------------
-class EarthGP : public Planetoid {
+// ----------------------
+//  Stellar Ground Point
+// ----------------------
+// Since the General Ground Point (PlanetoidGP) is textured, and I don't want to texture thousands of stars,
+// this will use Dots instead of Planetoid. Might rename in future, if other types of untextured ground points
+// are needed. Or, since this will likely do lookup in the stellarobjects database, add a third GP type.
+
+
+// ----------
+//  Ecliptic
+// ----------
+// Requires GreatCircle, so implement that first
+// Also, figure out which parameters are needed to orient the ecliptic correctly on Earth.
+// Perhaps a reasonable approximation is plotting the solar GP path in a 24 hour bracket around the timepoint.
+// UPD: Current Sun, current equinox and center of Earth should define the ecliptic I think.
+//      Also, DetailedEarth etc could just call a GreatCircle and name it to cut down on inheritance.
+
+
+// NOTE: Also add EclipticSphere
+// -----------------
+//  CelestialSphere   - DecRA coordinate grid
+// -----------------
+class CelestialSphere : public SceneObject {
 public:
-    EarthGP() = delete;
-    EarthGP(Scene* scene, SceneObject* parent, glm::vec3 pos);
-    ~EarthGP() = default;
+    Grid* grid = nullptr;
+    CelestialSphere(Scene*, SceneObject*, float);
+    bool update();
+    void draw();
+private:
+    float radius = 1.0f;
+};
+
+// ---------------------
+//  Solar System Object
+// ---------------------
+// This is meant for small representations of Sun, planets (incl Earth), Moon, everything roughly spherical
+// They only need low resolution textures, so they can share an atlas
+// Implement as spheres or ellipsoids, only a single geometry. So no need for transformations.
+// Some of the planets have rings, it would be nice to add those. Consider if you can do this with ring shadows
+// For solar system modeling, the following are objects we would like to associate:
+// - Orbit
+// - Orbital plane
+// - Rotation axis
+// - Distance vector (from any to any)
+// - Billboard with name
+// - Planetoid with texture
+// Rendering light/dark sides is important
+// PlanetoidGP takes care of GPs, so this would just be for SolarSystem for now
+// See Dots in SolarSystem; these should all be redundant after this class is complete
+
+
+
+// -------------
+//  DetailedSky
+// -------------
+// Implementation list:
+// + Sidereal Time rotation
+// - Celestial coordinate grid (Dec, RA)
+// - Ecliptic coordinate grid
+// - Star population
+// - Star trails
+// - Asterism lines
+// - Constellation borders
+// - Precession path
+// - Sun and planets
+//   - Planetoid
+//   - Path
+// - Zodiac belt
+// - GUI for all of the above
+class DetailedSky : public BodyGeometry {
+    struct SkyDotDef {
+        size_t unique_id = 0;    // stellarobject database index
+        glm::vec4 color{0.0f};
+        LLH coordinates{ 0.0,0.0, 0.0 }; // Dec, RA, height(0.0);
+        float size = 0.0f;
+        size_t dot_index = 0;    // SkyDots index (GPU table)
+    };
+    bool textured = false;
+    float m_alpha = 1.0f;
+    size_t m_sundot = NO_UINT;
+    SkyDots* skydotsFactory = nullptr;
+    std::vector<SkyDotDef> skydotDefs;
+
+public:
+    DetailedSky(Scene* scene, SceneObject* parent, std::string mode, unsigned int meshU, unsigned int meshV, float radius = 1.0f);
+    ~DetailedSky();
+    void setTexture(bool tex);
+    void addStars(double magnitude = 6.0);
+    void addDotDecRA(size_t unique, double dec, double ra, glm::vec4 color, float size, bool rad = false);
+    glm::vec3 getDecRA2Pos3D(double dec, double ra);
+    float getMagnitude2Radius(double magnitude); // in float as it goes to GPU
+    bool update();
+    bool drawSpecific(Camera* cam, Shader* shdr);
+    void myGUI();
+};
+
+// ----------------
+//  Detailed Earth
+// ----------------
+class DetailedEarth : public BodyGeometry {
+// DetailedEarth TODO:
+// + add twilight and refraction control, done both in shader and GUI
+// + perhaps refraction control can be improved, the current model in Earth is a bit ad hoc
+// - it would be nice to have twilight that is gradual from 100% to 0% sunlight instead of just the 3 bands
+
+// + add tropics and arctics, with a generic way to tint coordinate regions
+// + (note that Earth has GUI editing of the tint colors, very nice to have)
+// + (perhaps texture coordinates can be used to make this pixel based rather than triangle based, i.e. move it to the shader)
+
+// - add Moon direction so the fragment shader can also do lunar insolation areas
+// + add GenericPath object derived from SceneObject, so it can be used for the various paths (instead of the current mess in Earth)
+//   UPD: SmartPath derives from SceneObject and works like GenericPath (using multiple PolyCurveSO)
+// - revisit the Earth modifications for adjustable eccentricity (see special shader)
+// - add Location and Location Groups, perhaps to BodyGeometry rather than DetailedEarth and DetailedMoon
+// - add GUI adjustable texture offsets and implement cropping - This should ideally be done in BodyGeometry
+// - Consider how to re-work the shadow casting options. Currently they are difficult to use, and deliver poor results
+// - Certainly move the astronomical tracking to Astronomy instead of local member variables
+// = Get everything working with recalculating every frame, before implementing a lot of caching options
+//   (that should help identify where caching is useful, and the best place/way to implement)
+// + SubLunar and SubSolar should be refactored into a general object that can be used for planets etc too
+//   UPD: See PlanetoidGP
+//   (allow to integrate these with the SubPointSolver objects?) The Solvers also need refactoring!
+// - add shadow cones in a generic way if possible
+// = add DetailedSky as a celestial sphere?
+
+    glm::vec3 SunLightDir = glm::vec3(0.0f, 1.0f, 0.0f);
+    glm::vec4 sunDir = { 0.0f, 0.0f, 0.0f, 1.0f };
+    bool insolation = true;
+    bool w_refract = true;
+    bool w_twilight = true;
+    float m_alpha = 1.0f;
+    LLH subsolar{ 0.0, 0.0, 0.0 };
+public:
+    Latitude* arcticcircle = nullptr;
+    Latitude* antarcticcircle = nullptr;
+    Latitude* tropicofcancer = nullptr;
+    Latitude* tropicofcapricorn = nullptr;
+    bool tintarctics = false;
+    bool tinttropics = false;
+    glm::vec4 arcticscolor = glm::vec4(0.0f, 0.198f, 0.198f, 1.0f);
+    glm::vec4 tropicscolor = glm::vec4(0.211f, 0.173f, 0.0f, 1.0f);
+    PlanetoidGP* sungp = nullptr;
+    Grid* celestialgrid = nullptr;
+    DetailedEarth(Scene* scene, SceneObject* parent, std::string mode, unsigned int meshU, unsigned int meshV, float radius = 1.0f);
+    ~DetailedEarth();
+    void addSunGP();
+    glm::vec3 getSunGPLocation();
+    void addArcticCircles();
+    void addTropicCircles();
+    bool update();
+    // Specific GPU parameters that are particular to Earth and thus not set up in BodyGeometry
+    bool drawSpecific(Camera* cam, Shader* shdr);
+    void myGUI();
 };
 
 
@@ -533,52 +633,45 @@ public:
 class DetailedMoon : public BodyGeometry {
 public:
     // For GUI
+    bool gui_libration = true;
+    bool gui_librationlongitude = true;
+    bool gui_librationlatitude = true;
+    bool gui_positionangle = true;
     bool gui_geocentric = true;     // true = geocentric mode, false = topocentric (i.e. topoLat,topoLon contains observer position)
     float gui_topoLat = 0.0f;
     float gui_topoLon = 0.0f;
     float sunBumpmapScale = 0.0005f;
     float lightBumpmapScale = 0.015f;
-    Equator* equatorOb = nullptr;
-    PrimeMeridian* primemOb = nullptr;
-    SunGP* sungp = nullptr;
-    EarthGP* earthgp = nullptr;
+    PlanetoidGP* sungp = nullptr;
+    PlanetoidGP* earthgp = nullptr;
     ParticleTrail* librationtrail = nullptr;
 private:
-    Scene* m_scene = nullptr;
-    float m_radius{ 1.0f };
     float m_camDist = 384400;       // km
-    glm::vec3 earthDir = { 0.0f, 0.0f, 0.0f };
-    glm::vec4 sunDir = { 0.0f, 0.0f, 0.0f, 1.0f };
-    glm::vec3 SunLightDir = glm::vec3(0.0f, 1.0f, 0.0f);
-    glm::vec3 camLightDir = { 1.0f, 0.0f, 0.0f };
-    glm::vec3 nullpos = glm::vec3(0.0f); // 3D position of null island, used for librationtrail
-    //bool geocentric = true;     // true = geocentric mode, false = topocentric (i.e. topoLat,topoLon contains observer position)
-    double topoLat = NO_DOUBLE;   // NO_DOUBLE when Geocentric rather than Topocentric (e.g. to match NASAs yearly Moon videos)
-    double topoLon = NO_DOUBLE; 
-    bool w_sinsol = true;
-    //Dots* m_dotsFactory = nullptr;
-    //size_t m_sundot = NO_UINT;
-    //size_t m_earthdot = NO_UINT;
-    // Can these somehow just be kept in our BodyGeometry.children ? They'd then need a place to pick up parameters, perhaps via their parent?
-    Grid* gridOb = nullptr;
-    float scaleBumpmap = 0.001f;
+    glm::vec3 earthDir{ 0.0f, 0.0f, 0.0f };
+    glm::vec4 sunDir{ 0.0f, 0.0f, 0.0f, 1.0f };
+    glm::vec3 SunLightDir{ 0.0f, 1.0f, 0.0f };
+    glm::vec3 nullpos{ 0.0f, 0.0f, 0.0f }; // 3D position of null island, used for librationtrail
+    double topoLat = NO_DOUBLE;            // NO_DOUBLE when Geocentric rather than Topocentric (e.g. to match NASAs yearly Moon videos)
+    double topoLon = NO_DOUBLE;            // These are kept as double radians, and the gui_* versions are presented in float degrees
+    bool insolation = true;                // Will darken the part of the Moon that is not lit by the Sun
 public:
-    DetailedMoon(Scene* scene, std::string mode, unsigned int meshU, unsigned int meshV, float radius = 1.0f);
+    DetailedMoon(Scene* scene, SceneObject* parent, std::string mode, unsigned int meshU, unsigned int meshV, float radius = 1.0f);
     ~DetailedMoon();
     void setTopocentric(const double lat = NO_DOUBLE, const double lon = NO_DOUBLE, const bool rad = false);
     void addSunGP();
-    void updateSunGP();
     void addEarthGP();
-    void updateEarthGP();
     void addLibrationTrail();
     void updateLibrationTrail();
-    void addEquator();
-    void addPrimeMeridian();
-    void addGrid(double spacing = 15.0);
-    void update();
+    bool update();
     bool drawSpecific(Camera* cam, Shader* shdr);
     void myGUI();
 };
+
+
+
+
+
+
 
 
 // -------
@@ -609,7 +702,7 @@ public:
     Scene* m_scene = nullptr;
     glm::vec3 SunLightDir = glm::vec3(0.0f, 1.0f, 0.0f);
     glm::vec3 MoonLightDir = glm::vec3(0.0f, 1.0f, 0.0f);
-    bool w_sinsol = true;   // Solar insolation
+    bool insolation = true;   // Solar insolation
     bool w_linsol = false;  // Lunar insolation
     bool w_twilight = true; // Solar twilight (civil, naval, astro)
     bool w_refract = true;  // Solar refraction. Do lunar refraction too ? !!!
@@ -1643,7 +1736,8 @@ class PathTracker {
     //   In that case skip one data point. This goes both for returning data points, AND for calculating the length in getLength() !!!
     //   Also, whether to skip the end of path2<->start of path1 should be decided based on the mode:
     //   HALT and BOUNCE should retain the value, LOOP should not !!!
-    //   When LERPing, this can be difficult to account for. Maybe a flag/test of mode that indicates seam issues, and a count of where the seam is (pathxyz.size()-1)
+    //   When LERPing, this can be difficult to account for. Maybe a flag/test of mode that indicates seam issues,
+    //   and a count of where the seam is (pathxyz.size()-1)
 
     // Could also support PolyLine objects.
     unsigned int m_mode = HALT;

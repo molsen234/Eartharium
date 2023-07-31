@@ -1,161 +1,21 @@
-//#include "config.h"
 
-#include "Primitives.h"  // includes mdoOpenGL.h which includes all other headers
-#include "Earth.h"
-//#include "Astronomy.h"
+//#include <glm/glm.hpp>                   // OpenGL friendly linear algebra library
+#include <glm/gtc/matrix_transform.hpp>  // OpenGL projection and view matrices
+#include <glm/gtx/rotate_vector.hpp>     // Rotation matrices for glm
+#include <glm/gtx/string_cast.hpp>       // For to_string()
 
-//#define _CRT_SECURE_NO_WARNINGS
+#include "ImGUI/imgui_impl_glfw.h"       // For Application
+#include "ImGUI/imgui_impl_opengl3.h"
+#include "ImGUI/implot.h"                // For RenderLayerPlot
+
+#include "Astronomy.h"                   // For timestring and GUI stuff
+#include "Earth.h"                       // For Scene
+#include "Primitives.h"
 
 // --------
 //  Lerper
 // --------
 // See Primitives.h = class templates like to live in *.h files rather than *.cpp
-
-
-
-// -------------
-//  SceneObject
-// -------------
-SceneObject::SceneObject(Scene* scene, bool isroot) : m_scene(scene) {
-    if (!isroot) m_scene->scenetree->addSceneObject(this, nullptr);
-    //std::cout << "SceneObject::SceneObject(" << this << ": " << m_scene->scenetree << "\n";
-}
-void SceneObject::addChild(SceneObject* object) {
-    children.push_back(object);
-}
-void SceneObject::removeChild(SceneObject* child) {
-    children.remove(child);
-}
-void SceneObject::setParent(SceneObject* parent) {
-    // !!! FIX: !!!
-    // setParent() is dangerous, it is possible to create loops in the family tree
-    // Is it enough to scan back up to the SceneTree root to prevent this?
-    if (parent == nullptr) return; // Allow unparenting objects??
-    m_parent = parent;
-    m_scene->scenetree->rootRemove(this);
-    m_parent->addChild(this);
-}
-void SceneObject::setID(unsigned int oid) {
-    id = oid;
-}
-unsigned int SceneObject::getID() {
-    return id;
-}
-void SceneObject::setWorldMat(glm::mat4 mat) {
-    // !!! FIX: Do we want to do this? Maybe only if unparented? It is hard to keep position, scale, orientation up to date
-    std::cout << "WARNING!!! Calling SceneObject::setWorldMat() directly makes it impossible to keep position, scale, oriention updated, so make sure to set those manually!\n";
-    worldmatrix = mat;
-    worldmatrix = glm::translate(worldmatrix, position);
-}
-glm::mat4 SceneObject::getWorldMat() {
-    return worldmatrix;
-}
-void SceneObject::inherit() {
-    // If parented, collect parent world matrix and apply pos,scale,rots
-    if (m_parent != nullptr) {
-        worldmatrix = m_parent->getWorldMat();
-        //std::cout << name << " inheriting from " << m_parent->name << "\n";
-        //rotate
-        //scale
-        //VPRINT(position);
-        worldmatrix = glm::translate(worldmatrix, position);
-        //std::cout << glm::to_string(worldmatrix) << '\n';
-    }
-    update();
-}
-
-
-// --------
-//  Camera
-// --------
-Camera::Camera(Scene* scene) : SceneObject(scene) {
-    m_scene = scene;
-    name = "camera";
-    update();
-}
-void Camera::setLatLonFovDist(float lat, float lon, float fov, float dst) {
-    camLat = lat;
-    camLon = lon;
-    camFoV = fov;
-    camDst = dst;
-    update();
-}
-void Camera::setCamLightPos(glm::vec3 lPos) {
-    CamLightDir = glm::normalize(lPos - m_target);
-}
-void Camera::setLatLon(float lat, float lon) {
-    if (lat != NO_FLOAT) camLat = lat;
-    if (lon != NO_FLOAT) camLon = lon;
-    update();
-}
-void Camera::update() {
-    setPosLLH({ camLat, camLon, camDst });
-    updateLight();
-}
-void Camera::updateLight() {
-    glm::vec3 lPos = getPosXYZ();
-    lPos += getRight() * -camlightsep;
-    lPos += getUp() * camlightsep;
-    setCamLightPos(lPos);
-}
-void Camera::setLookAt(glm::vec3 position, glm::vec3 target, glm::vec3 upwards) {
-    this->position = position;
-    m_target = target;
-    worldUp = upwards;
-    Recalc();
-}
-void Camera::setPosXYZ(glm::vec3 position) {
-    this->position = position;
-    Recalc();
-}
-void Camera::setPosLLH(LLH llh) {
-    while (camLon > 180.0) camLon -= 360.0;
-    while (camLon < -180.0) camLon += 360.0;
-    // How to normalize latitude properly? Not practical as 100 should go to 80 and longitude should change 180 whereas 360 should simply go to 0.
-    // More importantly, panning across a pole would end up with the camera upside down and ruin the up vector.
-    // Better to just snap to valid range.
-    if (camLat > 90.0) camLat = 90.0;
-    if (camLat < -90.0) camLat = -90.0;
-    float camW = (float)cos(deg2rad * llh.lat) * (float)llh.dst;
-    position.x = (float)cos(deg2rad * llh.lon) * camW;
-    position.y = (float)sin(deg2rad * llh.lon) * camW;
-    position.z = (float)sin(deg2rad * llh.lat) * (float)llh.dst;
-    Recalc();
-}
-glm::vec3 Camera::getPosXYZ() { return position; }
-void Camera::setTarget(glm::vec3 target) {
-    m_target = target;
-    ViewMat = glm::lookAt(position, m_target, cameraUp);
-    //Recalc();
-}
-void Camera::setFoV(float fov) { // !!! Is a public variable, so probably get rid of get/set methods and do one Recalc() every frame (after GUI etc)
-    camFoV = fov;
-    Recalc();
-    //ProjMat = glm::perspective(glm::radians(m_fov), (float)m_world->w_width / (float)m_world->w_height, 0.1f, 100.0f);
-}
-float Camera::getFoV() { return camFoV; }
-glm::mat4 Camera::getViewMat() { return ViewMat; }
-glm::mat4 Camera::getSkyViewMat() { return glm::lookAt(glm::vec3(0.0f), m_target - position, cameraUp); }
-glm::mat4 Camera::getProjMat() { return ProjMat; }
-glm::vec3 Camera::getRight() { return cameraRight; }
-glm::vec3 Camera::getUp() { return cameraUp; }
-glm::vec3 Camera::getPosition() { return position; }
-void Camera::dumpParameters(unsigned int frame) {
-    if (frame == 0) std::cout << "Camera dump at frame: none \n";
-    std::cout << "Camera dump at frame: " << frame << "\n";
-    std::cout << " - camFoV = " << camFoV << "f\n";  // TODO: Add .0f formatting
-    std::cout << " - camLat = " << camLat << "f\n";
-    std::cout << " - camLon = " << camLon << "f\n";
-    std::cout << " - camDst = " << camDst << "f\n";
-}
-void Camera::Recalc() {
-    m_direction = glm::normalize(position - m_target);
-    cameraRight = glm::normalize(glm::cross(worldUp, m_direction));
-    cameraUp = glm::cross(m_direction, cameraRight); // Part of worldUp that fits with cameraDirection
-    ViewMat = glm::lookAt(position, m_target, cameraUp);
-    ProjMat = glm::perspective(glm::radians(camFoV), m_scene->getAspect(), camNear, camFar);
-    updateLight();
-}
 
 
 // -------
@@ -207,10 +67,10 @@ void Scene::clearScene() {
         delete m_earthOb;
         m_earthOb = nullptr;
     }
-    if (m_dmoonOb != nullptr) {
-        delete m_dmoonOb;
-        m_dmoonOb = nullptr;
-    }
+    //if (m_dmoonOb != nullptr) {
+    //    delete m_dmoonOb;
+    //    m_dmoonOb = nullptr;
+    //}
     if (m_solsysOb != nullptr) {
         delete m_solsysOb;
         m_solsysOb = nullptr;
@@ -239,7 +99,7 @@ void Scene::render(Camera* cam) {
     scenetree->updateBreathFirst();  // Allow all SceneObjects to update their internals, e.g. position etc
     // Should take fbo render target !!!
     if (m_earthOb != nullptr) m_earthOb->Update(); // Make sure primitives are up to date before casting their shadows (Earth updates Locations)
-    if (m_dskyOb != nullptr) m_dskyOb->update();
+    //if (m_dskyOb != nullptr) m_dskyOb->update();
     if (m_solsysOb != nullptr) m_solsysOb->Update();
     if (m_skysphereOb != nullptr) m_skysphereOb->UpdateTime(0.0); // Default time
     // Do shadow pass here
@@ -385,36 +245,36 @@ Earth* Scene::getEarth() {
         return nullptr;
     }
 }
-DetailedSky* Scene::newDetailedSky(std::string mode, unsigned int mU, unsigned int mV, float radius) {
-    if (m_dskyOb == nullptr) m_dskyOb = new DetailedSky(this, mode, mU, mV, radius);
-    return m_dskyOb;
-}
-DetailedEarth* Scene::newDetailedEarth(std::string mode, unsigned int mU, unsigned int mV, float radius) {
-    if (m_dearthOb == nullptr) m_dearthOb = new DetailedEarth(this, mode, mU, mV, radius);
-    return m_dearthOb;
-}
-DetailedEarth* Scene::getDetailedEarth() {
-    // NOTE: Don't use this unless you know what you are doing. It is meant to be an internal function.
-    if (m_dearthOb != nullptr) return m_dearthOb;
-    else {
-        std::cout << "WARNING: Scene::getDetailedEarth(): was asked for DetailedEarth object, but none is available!\n";
-        std::cout << " (ideally Scene::getDetailedEarth() should never be called from anywhere, is there for shadows (using SubSolar) until PointLight is implemented)\n";
-        return nullptr;
-    }
-}
-DetailedMoon* Scene::newDetailedMoon(std::string mode, unsigned int mU, unsigned int mV, float radius) {
-    if (m_dmoonOb == nullptr) m_dmoonOb = new DetailedMoon(this, mode, mU, mV, radius);
-    return m_dmoonOb;
-}
-DetailedMoon* Scene::getDetailedMoon() {
-    // NOTE: Don't use this unless you know what you are doing. It is meant to be an internal function.
-    if (m_dmoonOb != nullptr) return m_dmoonOb;
-    else {
-        std::cout << "WARNING: Scene::getDetailedMoon(): was asked for DetailedMoon object, but none is available!\n";
-        std::cout << " (ideally Scene::getDetailedMoon() should never be called from anywhere, is there for shadows (using SubSolar) until PointLight is implemented)\n";
-        return nullptr;
-    }
-}
+//DetailedSky* Scene::newDetailedSky(std::string mode, unsigned int mU, unsigned int mV, float radius) {
+//    if (m_dskyOb == nullptr) m_dskyOb = new DetailedSky(this, mode, mU, mV, radius);
+//    return m_dskyOb;
+//}
+//DetailedEarth* Scene::newDetailedEarth(std::string mode, unsigned int mU, unsigned int mV, float radius) {
+//    if (m_dearthOb == nullptr) m_dearthOb = new DetailedEarth(this, mode, mU, mV, radius);
+//    return m_dearthOb;
+//}
+//DetailedEarth* Scene::getDetailedEarth() {
+//    // NOTE: Don't use this unless you know what you are doing. It is meant to be an internal function.
+//    if (m_dearthOb != nullptr) return m_dearthOb;
+//    else {
+//        std::cout << "WARNING: Scene::getDetailedEarth(): was asked for DetailedEarth object, but none is available!\n";
+//        std::cout << " (ideally Scene::getDetailedEarth() should never be called from anywhere, is there for shadows (using SubSolar) until PointLight is implemented)\n";
+//        return nullptr;
+//    }
+//}
+//DetailedMoon* Scene::newDetailedMoon(std::string mode, unsigned int mU, unsigned int mV, float radius) {
+//    if (m_dmoonOb == nullptr) m_dmoonOb = new DetailedMoon(this, mode, mU, mV, radius);
+//    return m_dmoonOb;
+//}
+//DetailedMoon* Scene::getDetailedMoon() {
+//    // NOTE: Don't use this unless you know what you are doing. It is meant to be an internal function.
+//    if (m_dmoonOb != nullptr) return m_dmoonOb;
+//    else {
+//        std::cout << "WARNING: Scene::getDetailedMoon(): was asked for DetailedMoon object, but none is available!\n";
+//        std::cout << " (ideally Scene::getDetailedMoon() should never be called from anywhere, is there for shadows (using SubSolar) until PointLight is implemented)\n";
+//        return nullptr;
+//    }
+//}
 Minifigs* Scene::newMinifigs() { // Only single observer at the moment, fix this (like PolyCurve for example) !!!
     if (m_minifigsOb == nullptr) m_minifigsOb = new Minifigs(this);
     return m_minifigsOb;
@@ -451,10 +311,72 @@ ThreePointSolver* Scene::newThreePointSolver(Earth* earth) {
 }
 
 
+// -------------
+//  SceneObject
+// -------------
+SceneObject::SceneObject(Scene* scene, SceneObject* parent) : scene(scene) {
+    if (parent == nullptr) {
+        m_parent = scene->scenetree->root;
+    }
+    else m_parent = parent;
+    m_parent->addChild(this);
+}
+void SceneObject::addChild(SceneObject* object) {
+    children.push_back(object);
+}
+void SceneObject::removeChild(SceneObject* child) {
+    children.remove(child);
+    // !!! FIX: What about child's children??? !!!
+}
+//void SceneObject::setParent(SceneObject* parent) {
+//    // !!! FIX: !!!
+//    // setParent() is dangerous, it is possible to create loops in the family tree
+//    // Is it enough to scan back up to the SceneTree root to prevent this?
+//    if (parent == nullptr) return; // Allow unparenting objects??
+//    m_parent = parent;
+//    m_scene->scenetree->rootRemove(this);
+//    m_parent->addChild(this);
+//}
+void SceneObject::setID(unsigned int oid) {
+    id = oid;
+}
+unsigned int SceneObject::getID() {
+    return id;
+}
+glm::mat4 SceneObject::getWorldMat() {
+    return worldmatrix;
+}
+void SceneObject::inherit() {
+    // allow object to update orientation parameters
+    bool worldmat_done = update();
+    if (worldmat_done) return;
+    // If parented, collect parent world matrix and apply scale,rots,pos
+    if (m_parent != nullptr) worldmatrix = m_parent->getWorldMat();
+    else worldmatrix = glm::mat4(1.0f);
+    //std::cout << glm::to_string(worldmatrix) << '\n';
+    //std::cout << name << " inheriting from " << m_parent->name << "\n";
+    //scale
+    worldmatrix = glm::scale(worldmatrix, scale);
+    //rotate
+    //VPRINT(rotations);
+    worldmatrix = glm::rotate(worldmatrix, rotations.x, glm::vec3(1.0f, 0.0f, 0.0f));
+    worldmatrix = glm::rotate(worldmatrix, rotations.y, glm::vec3(0.0f, 1.0f, 0.0f));
+    worldmatrix = glm::rotate(worldmatrix, rotations.z, glm::vec3(0.0f, 0.0f, 1.0f));
+    //translate
+    //VPRINT(position);
+    worldmatrix = glm::translate(worldmatrix, position);
+    //std::cout << glm::to_string(worldmatrix) << '\n';
+}
+SceneObject::SceneObject(Scene* scene, bool isroot) : scene(scene) {
+    if (!isroot) scene->scenetree->addSceneObject(this, nullptr);
+    //std::cout << "SceneObject::SceneObject(" << this << ": " << m_scene->scenetree << "\n";
+}
+
+
 // -----------
 //  SceneTree
 // -----------
-// Meant to facilitate measuring distances and angles between any two objects, as well as implementing parenting of transformations and GUI traversal
+// Meant to facilitate parenting of transformations and GUI traversal
 SceneTree::SceneTree(Scene* scene) : m_scene(scene) {
     root = new SceneTreeRoot(m_scene, true);
     root->name = "root";
@@ -482,7 +404,20 @@ void SceneTree::drawBreathFirst(Camera* cam) {
         breathfirst.push(c);
     }
     while (!breathfirst.empty()) {
-        breathfirst.front()->draw(cam); // Inherit world transformation of parent
+        if (!breathfirst.front()->hidden) breathfirst.front()->draw(cam); // Is hidden inheritable?
+        for (auto c : breathfirst.front()->children) {
+            breathfirst.push(c);
+        }
+        breathfirst.pop();
+    }
+}
+void SceneTree::guiBreathFirst() {
+    //std::cout << "SceneTree::updateBreathFirst()\n";
+    for (auto c : root->children) { // root is not a real scene object, so just add the children directly.
+        breathfirst.push(c);
+    }
+    while (!breathfirst.empty()) {
+        if (breathfirst.front()->hasgui) breathfirst.front()->myGUI(); // Is hidden inheritable?
         for (auto c : breathfirst.front()->children) {
             breathfirst.push(c);
         }
@@ -503,12 +438,114 @@ void SceneTree::rootRemove(SceneObject* object) {
     root->children.remove(object);
 }
 void SceneTree::printSceneTree() {
-    for (auto r : root->children) {
-        std::cout << r << ":" << r->name << "\n";
-        for (auto c : r->children) {
-            std::cout << " -> " << c << ":" << c->name << "\n";
-        }
+    std::cout << "\nSceneTree dump:\n" << root << ":" << root->name << '\n';
+    doPrintSceneTree(root->children, 0);
+    std::cout << '\n';
+}
+void SceneTree::doPrintSceneTree(std::list<SceneObject*> node, unsigned int level) {
+    // Recurse depth first
+    std::string indent;
+    for (auto n : node) { // bails gracefully if node is empty
+        indent = "";
+        for (unsigned int i = 0; i < level; i++) { indent += "   "; }
+        indent += "-> ";
+        std::cout << indent << n << ":" << n->name << '\n';
+        doPrintSceneTree(n->children, level + 1);
     }
+}
+
+
+// --------
+//  Camera
+// --------
+Camera::Camera(Scene* scene) : SceneObject(scene, nullptr) {
+    //m_scene = scene;
+    name = "camera";
+    update();
+}
+void Camera::setLatLonFovDist(float lat, float lon, float fov, float dst) {
+    camLat = lat;
+    camLon = lon;
+    camFoV = fov;
+    camDst = dst;
+    update();
+}
+void Camera::setCamLightPos(glm::vec3 lPos) {
+    CamLightDir = glm::normalize(lPos - m_target);
+}
+void Camera::setLatLon(float lat, float lon) {
+    if (lat != NO_FLOAT) camLat = lat;
+    if (lon != NO_FLOAT) camLon = lon;
+    update();
+}
+bool Camera::update() {
+    setPosLLH({ camLat, camLon, camDst });
+    updateLight();
+    return false;
+}
+void Camera::updateLight() {
+    glm::vec3 lPos = getPosXYZ();
+    lPos += getRight() * -camlightsep;
+    lPos += getUp() * camlightsep;
+    setCamLightPos(lPos);
+}
+void Camera::setLookAt(glm::vec3 position, glm::vec3 target, glm::vec3 upwards) {
+    this->position = position;
+    m_target = target;
+    worldUp = upwards;
+    Recalc();
+}
+void Camera::setPosXYZ(glm::vec3 position) {
+    this->position = position;
+    Recalc();
+}
+void Camera::setPosLLH(LLH llh) {
+    while (camLon > 180.0) camLon -= 360.0;
+    while (camLon < -180.0) camLon += 360.0;
+    // How to normalize latitude properly? Not practical as 100 should go to 80 and longitude should change 180 whereas 360 should simply go to 0.
+    // More importantly, panning across a pole would end up with the camera upside down and ruin the up vector.
+    // Better to just snap to valid range.
+    if (camLat > 90.0) camLat = 90.0;
+    if (camLat < -90.0) camLat = -90.0;
+    float camW = (float)cos(deg2rad * llh.lat) * (float)llh.dst;
+    position.x = (float)cos(deg2rad * llh.lon) * camW;
+    position.y = (float)sin(deg2rad * llh.lon) * camW;
+    position.z = (float)sin(deg2rad * llh.lat) * (float)llh.dst;
+    Recalc();
+}
+glm::vec3 Camera::getPosXYZ() { return position; }
+void Camera::setTarget(glm::vec3 target) {
+    m_target = target;
+    ViewMat = glm::lookAt(position, m_target, cameraUp);
+    //Recalc();
+}
+void Camera::setFoV(float fov) { // !!! Is a public variable, so probably get rid of get/set methods and do one Recalc() every frame (after GUI etc)
+    camFoV = fov;
+    Recalc();
+    //ProjMat = glm::perspective(glm::radians(m_fov), (float)m_world->w_width / (float)m_world->w_height, 0.1f, 100.0f);
+}
+float Camera::getFoV() { return camFoV; }
+glm::mat4 Camera::getViewMat() { return ViewMat; }
+glm::mat4 Camera::getSkyViewMat() { return glm::lookAt(glm::vec3(0.0f), m_target - position, cameraUp); }
+glm::mat4 Camera::getProjMat() { return ProjMat; }
+glm::vec3 Camera::getRight() { return cameraRight; }
+glm::vec3 Camera::getUp() { return cameraUp; }
+glm::vec3 Camera::getPosition() { return position; }
+void Camera::dumpParameters(unsigned int frame) {
+    if (frame == 0) std::cout << "Camera dump at frame: none \n";
+    std::cout << "Camera dump at frame: " << frame << "\n";
+    std::cout << " - camFoV = " << camFoV << "f\n";  // TODO: Add .0f formatting
+    std::cout << " - camLat = " << camLat << "f\n";
+    std::cout << " - camLon = " << camLon << "f\n";
+    std::cout << " - camDst = " << camDst << "f\n";
+}
+void Camera::Recalc() {
+    m_direction = glm::normalize(position - m_target);
+    cameraRight = glm::normalize(glm::cross(worldUp, m_direction));
+    cameraUp = glm::cross(m_direction, cameraRight); // Part of worldUp that fits with cameraDirection
+    ViewMat = glm::lookAt(position, m_target, cameraUp);
+    ProjMat = glm::perspective(glm::radians(camFoV), scene->getAspect(), camNear, camFar);
+    updateLight();
 }
 
 
@@ -777,12 +814,14 @@ void RenderLayerGUI::render() {
                         }
                         //ImGui::SliderFloat("year", &slideyear, 0.0f, 365.0f);
                     }
+                    // Loop through SceneTree and add GUI elements as needed
+                    l.layer->m_scene->scenetree->guiBreathFirst();
                     // DetailedEarth
-                    if (l.layer->m_scene->m_dearthOb) l.layer->m_scene->m_dearthOb->myGUI();
+                    //if (l.layer->m_scene->m_dearthOb) l.layer->m_scene->m_dearthOb->myGUI();
                     // DetailedMoon
-                    if (l.layer->m_scene->m_dmoonOb) l.layer->m_scene->m_dmoonOb->myGUI();
+                    //if (l.layer->m_scene->m_dmoonOb) l.layer->m_scene->m_dmoonOb->myGUI();
                     // DetailedSky
-                    if (l.layer->m_scene->m_dskyOb) l.layer->m_scene->m_dskyOb->myGUI();
+                    //if (l.layer->m_scene->m_dskyOb) l.layer->m_scene->m_dskyOb->myGUI();
                     // Solar System object
                     if (l.layer->m_scene->m_solsysOb != nullptr) {
                         if (ImGui::CollapsingHeader("Solar System")) {
@@ -824,7 +863,7 @@ void RenderLayerGUI::render() {
                             ImGui::Checkbox("Lunar insolation", &l.layer->m_scene->m_app->currentEarth->w_linsol);
                         }
                         if (ImGui::CollapsingHeader("Sun")) {
-                            ImGui::Checkbox("Solar Insolation", &l.layer->m_scene->m_app->currentEarth->w_sinsol);
+                            ImGui::Checkbox("Solar Insolation", &l.layer->m_scene->m_app->currentEarth->insolation);
                             ImGui::Checkbox("Solar Twilight", &l.layer->m_scene->m_app->currentEarth->w_twilight);
                             ImGui::Checkbox("Solar Refraction", &l.layer->m_scene->m_app->currentEarth->w_refract);
                             ImGui::SliderFloat("Sun Height", &l.layer->m_scene->m_app->currentEarth->flatsunheight, 0.0f, 100000.0f);
@@ -1317,6 +1356,141 @@ void Application::setupFileRender(unsigned int width, unsigned int height, unsig
     output_fbo = createFrameBuffer(output_width, output_height, output_type);
     // Figure out consistent glViewport settings working well with the View settings of the Layers.
 }
+
+
+// -----------
+//  ShadowBox
+// -----------
+ShadowBox::ShadowBox(Scene* scene, unsigned int w, unsigned int h) : m_scene(scene) {
+    width = w;
+    height = h;
+    shadowTransforms.reserve(6);
+    glActiveTexture(GL_TEXTURE1);
+    glGenTextures(1, &depthCubemap);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
+    for (unsigned int i = 0; i < 6; ++i)
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT,
+            width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glGenFramebuffers(1, &depthMapFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthCubemap, 0);
+
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glActiveTexture(GL_TEXTURE0);
+}
+ShadowBox::~ShadowBox() { }
+void ShadowBox::Render(Camera* cam, glm::vec3 lightPos) {  // pass far plane?
+    // Render the shadow casting objects to depth map
+    glActiveTexture(GL_TEXTURE1);
+    glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
+    glViewport(0, 0, width, height);
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    // ConfigureShaderAndMatrices();
+    float aspect = (float)width / (float)height;
+    glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), aspect, near, far);
+    shadowTransforms.clear();
+    shadowTransforms.push_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
+    shadowTransforms.push_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
+    shadowTransforms.push_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0)));
+    shadowTransforms.push_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, -1.0)));
+    shadowTransforms.push_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0)));
+    shadowTransforms.push_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, -1.0, 0.0)));
+    // Render objects that are allowed to cast shadows
+    //glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
+    // (so exclude SkyBox !!)
+    //world->GetSphereUVFactoryb()->Draw(SHADOW_BOX);
+    m_scene->getCylindersFactory()->draw(cam, SHADOW_BOX);
+    //world->GetViewConesFactory()->Draw(SHADOW_BOX);
+    //world->GetPlanesFactory()->Draw(SHADOW_BOX);
+    m_scene->getConesFactory()->draw(cam, SHADOW_BOX);
+    //world->GetDotsFactory()->Draw(SHADOW_BOX);
+
+
+    // Cleanup
+    //GLsync fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+    //glWaitSync(fence, 0, GL_TIMEOUT_IGNORED);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, m_scene->m_app->w_width, m_scene->m_app->w_height);
+    //glActiveTexture(GL_TEXTURE0);
+
+}
+
+
+// -----------
+//  ShadowMap
+// -----------
+ShadowMap::ShadowMap(Scene* scene, unsigned int w, unsigned int h) : m_scene(scene) {
+    width = w;
+    height = h;
+
+    glActiveTexture(GL_TEXTURE1);
+    glGenFramebuffers(1, &m_depthmapFBO);
+    glGenTextures(1, &depthmap);
+    glBindTexture(GL_TEXTURE_2D, depthmap);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    float bordercolor[] = { 1.0,1.0,1.0,1.0 };
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, bordercolor);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_depthmapFBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthmap, 0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    std::cout << "ShadowMap::ShadowMap(): Created TextureSlot " << 1 << ", RenderID " << depthmap << ".\n";
+
+    //glActiveTexture(GL_TEXTURE0);
+}
+ShadowMap::~ShadowMap() { }
+void ShadowMap::Bind() {
+    //glViewport(0, 0, width, height);
+    //glBindFramebuffer(GL_FRAMEBUFFER, m_depthmapFBO);
+    //glClear(GL_DEPTH_BUFFER_BIT);
+    // From here go on and render the scene from the light's perspective, call Unbind() when done.
+}
+void ShadowMap::Unbind() {
+    //glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    // NOTE: The following should be at the top of a normal Scene Render, but we don't have one yet:
+    //glViewport(0, 0, world->w_width, world->w_height);
+    //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+void ShadowMap::Render(Camera* cam) {
+    glActiveTexture(GL_TEXTURE1);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_depthmapFBO);
+    glViewport(0, 0, width, height);
+    glBindTexture(GL_TEXTURE_2D, depthmap);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    float near_plane = 1.0f, far_plane = 7.5f;
+    glm::mat4 lightProjection = glm::ortho(-2.0f, 2.0f, -2.0f, 2.0f, near_plane, far_plane);
+    glm::vec3 lightPos = m_scene->w_camera->CamLightDir * 5.0f;  //lightdir is normalized in Camera
+    glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    lightSpaceMatrix = lightProjection * lightView;
+    // Render objects that are allowed to cast shadows
+    // (so exclude SkyBox !!)
+    //world->GetSphereUVOb()->Draw(SHADOW_MAP);
+    m_scene->getCylindersFactory()->draw(cam, SHADOW_MAP);
+    //world->GetViewConesOb()->Draw(SHADOW_MAP);
+    //world->GetPlanesOb()->Draw(SHADOW_MAP);
+    m_scene->getConesFactory()->draw(cam, SHADOW_MAP);
+    //world->GetDotsOb()->Draw(SHADOW_MAP);
+    // Ensure frame is completely rendered before returning to scene render
+    //GLsync fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+    //glWaitSync(fence, 0, GL_TIMEOUT_IGNORED);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, m_scene->m_app->w_width, m_scene->m_app->w_height);
+}
+
 
 
 // --------------
@@ -1882,7 +2056,7 @@ void ParticleTrail::push(glm::vec3 pos) {
         return;
     }
     if (m_queue.size() > 0 && m_queue.begin()->position == pos) return; // Don't add duplicates. This also prevents the trail from fading while paused.
-    float size = m_size;
+    float size = m_size; // Size of Dot
     if (m_taper) {
         // Reduce size and opacity of trail
         //glm::mat3 id = glm::mat3(1.0f);
@@ -2071,10 +2245,169 @@ void PolyLine::draw() {
 }
 
 
+
+
+// -----------
+//  PolyCurve  SceneObject aware
+// -----------
+PolyCurveSO::PolyCurveSO(Scene* scene, SceneObject* parent, glm::vec4 color, float width, size_t reserve)
+    : SceneObject(scene, parent) {
+    name = "PolyCurve";
+    if (reserve == NO_UINT) reserve = polycurvereserve;
+    m_color = color;
+    m_width = width;
+    m_points.reserve(reserve + 2);   // Add a little headroom
+    m_segments.reserve(reserve + 2); // When sizing it is easy to think of the number of points, and forget an extra one is used for closing the curve.
+    facets = 16;
+    m_verts.reserve(((size_t)facets + 1) * 2);
+    m_tris.reserve((size_t)facets * 2);
+    genGeom();
+    shdr = scene->m_app->getShaderLib()->getShader(PRIMITIVESO_SHADER);
+    vbl1 = new VertexBufferLayout;  // Vertices list
+    vbl1->Push<float>(3);           // Vertex coord (pos)
+    vbl1->Push<float>(3);           // vNormal coord
+    vbl1->Push<float>(2);           // Texture coord
+    vbl2 = new VertexBufferLayout;  // Primitives list
+    vbl2->Push<float>(4);           // Instance color
+    vbl2->Push<float>(3);           // Instance pos
+    vbl2->Push<float>(3);           // Instance dir
+    vbl2->Push<float>(3);           // Instance scale
+    vbl2->Push<float>(1);           // Rotation about dir
+    va = new VertexArray;
+    vb1 = new VertexBuffer(&m_verts[0], (unsigned int)m_verts.size() * sizeof(Vertex));
+    vb2 = nullptr; // Will be built dynamically during each Draw() call
+    va->AddBuffer(*vb1, *vbl1, true);
+    ib = new IndexBuffer((unsigned int*)&m_tris[0], (unsigned int)m_tris.size() * 3);  // IB uses COUNT, not BYTES!!!
+}
+PolyCurveSO::~PolyCurveSO() {
+    delete vbl2;
+    delete vbl1;
+    delete ib;
+    delete vb1;
+    // delete vb2;  // Is deleted on every Draw() call completion
+    delete va;
+}
+void PolyCurveSO::setColor(glm::vec4 color) {
+    m_color = color;
+    // Should set a dirty flag and postpone generate() until update() is called.
+    //generate();
+    dirty = true;
+}
+void PolyCurveSO::setWidth(float width) {
+    m_width = width;
+    // Should set a dirty flag and postpone generate() until update() is called.
+    //generate();
+    dirty = true;
+}
+void PolyCurveSO::changePolyCurve(glm::vec4 color, float width) {
+    if (color != NO_COLOR) m_color = color;
+    if (width != NO_FLOAT) m_width = width;
+    // Should set a dirty flag and postpone generate() until update() is called.
+    //generate();
+    dirty = true;
+}
+void PolyCurveSO::addPoint(glm::vec3 point) {
+    //if (limit) std::cout << "WARNING PolyPolyCurve (" << this << ") adding beyond capacity, resizing!\n"; // only triggers if coming back after setting limit flag
+    m_points.push_back(point);
+    // Should set a dirty flag and let update() call generate() instead of hoping user will
+    dirty = true;
+    if (m_points.size() == m_points.capacity()) {
+        std::cout << "WARNING: PolyCurve (" << this << ") capacity: " << m_points.capacity() << " reached. It will be SLOW to add new points now!\n";
+        //    limit = true;
+    }
+}
+void PolyCurveSO::clearPoints() {
+    //std::cout << "Points: " << m_points.size() << ", Segments: " << m_segments.size() << "\n";
+    m_points.clear();
+    // Should set a dirty flag and let update() call generate() instead of hoping user will
+    //m_segments.clear(); // Just in case someone would clear the points and not call generate() to update segments.
+    dirty = true;
+    //limit = false;
+}
+void PolyCurveSO::generate() {
+    //std::cout << "PolyCurveSO::generate(): " << m_points.size() << " points." << "\n";
+    bool debug = false; // Set to true to get green start and red end markers
+    // Simply figure out the position, orientation and scale of each cylinder segment
+    // and build instance table. Cylinders are actually instantiated on GPU
+    m_segments.clear();
+    if (m_points.size() == 0) return;
+    for (size_t i = 1; i < m_points.size(); i++) {
+        glm::vec3 pos = m_points[i - 1];
+        glm::vec3 dir = m_points[i] - m_points[i - 1];
+        glm::vec3 scale = glm::vec3(m_width, glm::length(dir), m_width);
+        // color(4), pos(3), dir(3), scale(3), rot(1)
+        if (debug) {
+            if (i == 1) m_segments.push_back({ GREEN, pos, dir, scale, 0.0 });
+            else if (i == m_points.size() - 1) m_segments.push_back({ RED, pos, dir, scale, 0.0 });
+            else m_segments.push_back({ m_color, pos, dir, scale, 0.0 });
+        }
+        else m_segments.push_back({ m_color, pos, dir, scale, 0.0 });
+    }
+}
+bool PolyCurveSO::update() {
+    if (!dirty) return false;
+    generate();
+    dirty = false;
+    return false;
+}
+void PolyCurveSO::draw(Camera* cam) {
+    //std::cout << "PolyCurveSO::draw()\n";
+    if (m_segments.size() == 0) return;
+    shdr->Bind();
+    glm::mat4 pv = cam->getProjMat() * cam->getViewMat();
+    shdr->SetUniformMatrix4f("projview", pv);
+    shdr->SetUniformMatrix4f("world", worldmatrix);
+    //std::cout << glm::to_string(worldmatrix) << '\n';
+    shdr->SetUniform3f("lightDir", cam->CamLightDir.x, cam->CamLightDir.y, cam->CamLightDir.z);
+    vb1->Bind();
+    va->Bind();
+    ib->Bind();
+    va->AddBuffer(*vb1, *vbl1, true);
+    vb2 = new VertexBuffer(&m_segments[0], (unsigned int)m_segments.size() * sizeof(Primitive3D));
+    va->AddBuffer(*vb2, *vbl2, false);
+    // Primitives list (0,1,2 are in vertex list)
+    glVertexAttribDivisor(3, 1);    // Color4
+    glVertexAttribDivisor(4, 1);    // Pos3
+    glVertexAttribDivisor(5, 1);    // Dir3
+    glVertexAttribDivisor(6, 1);    // Scale3
+    glVertexAttribDivisor(7, 1);    // Rot1
+    glDrawElementsInstanced(GL_TRIANGLES, ib->GetCount(), GL_UNSIGNED_INT, 0, (GLsizei)m_segments.size());
+    delete vb2;
+}
+void PolyCurveSO::genGeom() { // Single segment
+    // NOT using the Cylinders primitive here, as we can make do with less facets
+    float width = 1.0f;  // actually radius
+    float height = 1.0f; // length of cylinder
+    double lon;
+    float clon;
+    float clonw;
+    float slon;
+    float slonw;
+    for (unsigned int u = 0; u <= facets; u++) { // Adds one extra vertex column to close the shape
+        lon = tau * u / facets;                  //  This is simpler than indexing tris across seam
+        clon = (float)cos(lon);
+        clonw = clon * width;
+        slon = (float)sin(lon);
+        slonw = slon * width;
+        // position(3), normal(3), uv(2)
+        m_verts.emplace_back(glm::vec3(clonw, 1.0f, slonw), glm::vec3(clon, 0.0f, slon), glm::vec2(0.0f, 0.0f));
+        m_verts.emplace_back(glm::vec3(clonw, 0.0f, slonw), glm::vec3(clon, 0.0f, slon), glm::vec2(0.0f, 0.0f));
+        if (u < facets) {
+            // indexA(1), indexB(1), indexC(1) CCW
+            m_tris.emplace_back(u * 2, u * 2 + 1, u * 2 + 3);
+            m_tris.emplace_back(u * 2, u * 2 + 3, u * 2 + 2);
+        }
+    }
+}
+
+
+
+
+
 // -----------
 //  PolyCurve
 // -----------
-// ToDo: !!! Make a PolyCurve factory that can render all the PolyCurves in one draw call, it will massively improve performance !!!
+// ToDo: !!! Make a PolyCurve factory that can render all the PolyCurves in one draw call, it should massively improve performance !!!
 PolyCurve::PolyCurve(Scene* scene, glm::vec4 color, float width, size_t reserve) : m_scene(scene) {
     // NOTE: It is preferred to instantiate these via the Scene object!
     if (reserve == NO_UINT) reserve = polycurvereserve; 
@@ -2368,6 +2701,7 @@ void Primitives::init() {
     vbl2->Push<float>(3);     // Instance scale
     vbl2->Push<float>(1);     // Rotation about dir
     va = new VertexArray;
+
     vb1 = new VertexBuffer(&m_verts[0], (unsigned int)m_verts.size() * sizeof(Vertex));
     vb2 = nullptr; // Will be built dynamically during each Draw() call
     va->AddBuffer(*vb1, *vbl1, true);
@@ -2386,6 +2720,7 @@ void Primitives::clear() {
     m_Primitives.clear();
 }
 void Primitives::draw(Camera* cam, unsigned int shadow) {
+    //std::cout << "Prmitives::draw() " << m_Primitives.size() << " elements.\n";
     if (m_Primitives.size() == 0) return;
     // Create an instance array and render using one allocated Primitive
     // - color4
@@ -2425,7 +2760,11 @@ void Primitives::draw(Camera* cam, unsigned int shadow) {
     // NOTE: Or keep flag to track if primitives were added?
     //       Even if none were added, they may well have been modified.
     va->AddBuffer(*vb1, *vbl1, true);
-    vb2 = new VertexBuffer(&m_Primitives[0], (unsigned int)m_Primitives.size() * sizeof(Primitive3D));
+    // !!! ERROR: m_Primitives[0] is NOT the first entry in the underlying m_Elements vector of tightvec !!!
+    //vb2 = new VertexBuffer(&m_Primitives[0], (unsigned int)m_Primitives.size() * sizeof(Primitive3D));
+    // Either of these will work:
+    //vb2 = new VertexBuffer(&m_Primitives[m_Primitives.physFirst()], (unsigned int)m_Primitives.size() * sizeof(Primitive3D));
+    vb2 = new VertexBuffer(&m_Primitives.m_Elements[0], (unsigned int)m_Primitives.size() * sizeof(Primitive3D));
     vb2->Bind();
     va->AddBuffer(*vb2, *vbl2, false);
     // Primitives list (0,1,2 are in vertex list)

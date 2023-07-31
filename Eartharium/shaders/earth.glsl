@@ -51,6 +51,9 @@ uniform sampler2D texture2; // Used as nightside texture
 uniform sampler2D texture3; // Used for height map
 uniform float sunBumpScale;
 uniform float lightBumpScale;
+uniform vec4 tintarctics;
+uniform vec4 tinttropics;
+uniform float obliquity; // Obliquity of Ecliptic, i.e. Earth's axial tilt, used to calculate arctics and tropics
 
 vec2 dHdxy_fwd(vec2 vUv, float bumpScale) {
 	vec2 dSTdx = dFdx( vUv );
@@ -76,7 +79,7 @@ vec3 perturbNormalArb( vec3 surf_pos, vec3 surf_norm, vec2 dHdxy ) {
 void main()
 {   
     vec2 s_dHdxy = dHdxy_fwd(TexCoord, sunBumpScale);
-    vec3 my_sNormal = perturbNormalArb(FragCoord.xyz, sNormal, s_dHdxy);
+    vec3 my_sNormal = perturbNormalArb(sNormal, sNormal, s_dHdxy);
 
     //float dotsun = dot(sunDir, sNormal);
     float dotsun = dot(sunDir, my_sNormal);
@@ -90,7 +93,7 @@ void main()
     // But it can show defective insolation if needed, and works well on ellipsoids.
     // With a bit of work, this can also show feathered insolation which may be more pleasing.
     //float refraction = 1.0f;                      // 0.0f is off, 1.0f is bands, 2.0f could be smooth - can be passed in from CPU
-    float refcos = refraction * -0.014543897652f;   // cosine of 90 degres plus 50 arc minutes refraction
+    float refcos = refraction * -0.014543897652f;   // cosine of 90 degrees plus 50 arc minutes refraction
     // Simplest case, if no twilight bands should be rendered, and the location is outside the insolation
     if (dotsun < refcos && twilight == 0.0f) FragColor = nCol +0.05;
     // If twilight bands are enabled, full darkness is 18 degrees (so use cos(72)) from terminator
@@ -128,7 +131,21 @@ void main()
     float lfactor = clamp(dot(lightDir, my_lNormal),0.0,1.0)+0.2;
     FragColor = vec4((FragColor.rgb * lfactor),1.0);
 
+
+    // Calculate tinting of (ant)arctic and tropic regions
+    if (obliquity != 0.0) {
+        vec4 geographictint = vec4(0.0);
+        if (TexCoord.y > 1.0 - obliquity) geographictint = tintarctics; 
+        if (TexCoord.y < obliquity) geographictint = tintarctics;
+        if (TexCoord.y < 0.5 + obliquity && TexCoord.y > 0.5 - obliquity) geographictint = tinttropics;
+        vec4 base = FragColor;
+        FragColor.r = (1.0 - ((1.0 - base.r) * (1.0 - geographictint.r)));
+        FragColor.g = (1.0 - ((1.0 - base.g) * (1.0 - geographictint.g)));
+        FragColor.b = (1.0 - ((1.0 - base.b) * (1.0 - geographictint.b)));
+    }
+
     // -= Calculate tinting if tint color is speficied (from vertex shader, interpolated per fragment based on vertex colors)
+    //vec4 bTint = vec4(0.211, 0.173, 0.0, 1.0); // Override vertex color for testing (using tropics color)
     vec4 base = FragColor;
     vec4 blend = bTint;
     // Blend mode Overlay commonly used in photo editing software

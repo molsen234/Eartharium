@@ -1,6 +1,13 @@
 #pragma once
 
-#include "Primitives.h"
+#include <array>
+#include <vector>
+
+#include "config.h"
+
+
+// Protos
+class Astronomy;
 
 
 // -----------
@@ -171,6 +178,14 @@ private:
 	double m_trueobliquity = 0.0;
 	double m_nutationinlongitude = 0.0;
 
+	// -= Time calc cache =-
+	// Precession parameters for epoch of J2000 - applied to all stars from catalogue
+	double prec_j2000_sigma = 0.0;
+	double prec_j2000_zeta = 0.0;
+	double prec_j2000_phi = 0.0;
+	double prec_j2000_phi_s = 0.0; // sin
+	double prec_j2000_phi_c = 0.0; // cos
+
 	tightvec<CelestialPath*> cacheCP;
 	// Planet current time cached parameters (Tip: planet 0 is the Sun)
 	// This could be done using a vector<CelestialDetail> instead, if refcnt is added to CelestialDetail. Check where changes are needed !!!
@@ -201,9 +216,7 @@ public:
 	bool isLeapYear(double year);
 	void dumpCurrentTime(unsigned int frame = NO_UINT);
 
-	double calculateGsid(const double jd_utc);
-	double calcGsid(const double jd_utc);
-	double getGsid(const double jd_utc = NO_DOUBLE);
+	double ApparentGreenwichSiderealTime(double jd_utc = NO_DOUBLE, bool rad = false) noexcept;
 	double MeanGreenwichSiderealTime(double jd_utc, bool rad = false) noexcept;
 	double getEoT(double jd_tt = NO_DOUBLE);
 	// Coordinate transformations
@@ -214,14 +227,15 @@ public:
 	LLH getDecRA(size_t planet, double jd_tt = NO_DOUBLE);
 	LLH getDecGHA(size_t planet, double jd_tt = NO_DOUBLE, bool rad = true);
 	// General astronomical adjustments
-	CAA2DCoordinate EclipticAberration(double Beta, double Lambda, double jd_tt, bool rad = false);
-	CAA2DCoordinate EquatorialAberration(double dec, double ra, double jd_tt, bool rad = false);
-	CAA2DCoordinate FK5Correction(double Latitude, double Longitude, double jd_tt, bool rad = false);
+	LLH EclipticAberration(double Beta, double Lambda, double jd_tt, bool rad = false);
+	LLH EquatorialAberration(double dec, double ra, double jd_tt, bool rad = false);
+	LLH FK5Correction(double Latitude, double Longitude, double jd_tt, bool rad = false);
 	LLH PrecessDecRA(const LLH decra, const double jd_tt = NO_DOUBLE, const double JD0 = JD2000); // If no Epoch, assume J2000
-	double MeanObliquityOfEcliptic(double jd_tt, bool rad = false);
-	double TrueObliquityOfEcliptic(double jd_tt, bool rad = false);
-	double NutationInObliquity(double jd_tt, bool rad = false);
-	double NutationInLongitude(double jd_tt, bool rad = false);
+	LLH PrecessJ2000DecRA(const LLH decra, const double jd_tt = NO_DOUBLE); // Optimized for J2000.0 epoch
+	double MeanObliquityOfEcliptic(double jd_tt = NO_DOUBLE, bool rad = false);
+	double TrueObliquityOfEcliptic(double jd_tt = NO_DOUBLE, bool rad = false);
+	double NutationInObliquity(double jd_tt = NO_DOUBLE, bool rad = false);
+	double NutationInLongitude(double jd_tt = NO_DOUBLE, bool rad = false);
 	double NutationInDeclination(double ra, double obliq, double nut_lon, double nut_obl, bool rad = false);
 	double NutationInRightAscension(double dec, double ra, double obliq, double nut_lon, double nut_obl, bool rad = false);
 	// Stellar Earth Centered Equatorial
@@ -268,11 +282,11 @@ public:
 	double getJD2UnixTime(double jd_utc = NO_DOUBLE);
 	double getUnixTime2JD(double ut);
 	int calcUnixTimeYearDay(double year, double month, double day);
-	double secs2deg(double seconds);
-	double rangezero2tau(double rad);
-	double rangepi2pi(double rad);
-	double rangezero2threesixty(double deg);
-	double rangezero2twentyfour(double hrs);
+	static double secs2deg(double seconds);
+	static double rangezero2tau(double rad);
+	static double rangepi2pi(double rad);
+	static double rangezero2threesixty(double deg);
+	static double rangezero2twentyfour(double hrs);
 	static std::string angle2DMSstring(double angle, bool rad = false);
 	static std::string angle2uDMSstring(double angle, bool rad = false);
 	static std::string angle2uHMSstring(double angle, bool rad = false);
@@ -284,6 +298,7 @@ public:
 private:
 	void updateGeocentric(size_t planet);
 	void updateGsid();
+	void updatePrecession();
 	void update();
 };
 

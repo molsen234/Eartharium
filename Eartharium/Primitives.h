@@ -1,16 +1,17 @@
 #pragma once
 
 #include <iterator>
+#include <vector>
+#include <list>
 #include <queue>
+#include <map>
+
+#include "ImGUI/imgui.h"         // For ImFont
+
 
 #include "OpenGL.h"
 #include "Utilities.h"
-
-struct LLH {
-    double lat{ 0.0 };
-    double lon{ 0.0 };
-    double dst{ 0.0 };
-};
+#include "config.h"
 
 struct Primitive3D {
     glm::vec4 color = glm::vec4(1.0f, 1.0f, 1.0f, 0.0f);
@@ -34,123 +35,49 @@ struct Tri {
     Tri(unsigned int va, unsigned int vb, unsigned int vc) : a(va), b(vb), c(vc) {}
 };
 
-enum itemtype {
-    SUN = CAAElliptical::Object::SUN, // Don't move these celestial objects, they need to match with AA+ enums
-    MERCURY,
-    VENUS,
-    MARS,
-    JUPITER,
-    SATURN,
-    URANUS,
-    NEPTUNE,
-    EARTH,
-    MOON,
-    LOC,    // From here onwards, you can rearrange as you please.
-    ZENITH,
-    NORTH,
-    EAST,
-    NORMAL,  // Calculated differently than Zenith
-    FLATSKY_SP,
-    FLATSKY_GP, // GP mode for placing celestial bodies over Earth
-    FLATSKY_LC_DOME, // LC places everything at the correct AziEle for one particular location. If used on more than one location, objects are duplicated.
-    FLATSKY_LC_PLANE,// DOME projects to a hemisphere, PLANE to a flat ceiling.
-    FLATSKY_HD, // HALFDOME - Not a local setting
-    LOCSKY,
-    TRUESUN3D,
-    TRUEANALEMMA3D,
-    FLATSUN3D,
-    FLATANALEMMA3D,
-    SUNSECTOR,  // Corey Kell's 45 degree Sectors
-    TRUEMOON3D,
-    TRUELUNALEMMA3D,
-    TRUEPLANET3D,
-    SIDPLANET3D,
-    AZIELE3D,
-    RADEC3D,
-    ARROWEXTENT,
-    TANGENT,
-    MERIDIAN,
-    PARALLEL,
-    GRIDLAT,    // Used to identify which were added by addGrid();
-    GRIDLON,
-    EQUATOR,
-    PRIME_MERIDIAN,
-    ARCTIC,
-    TROPIC,
-    LATITUDE,
-    LONGITUDE,
-    HORIZON,
-    CIRCUMPOLAR,
-    DOT,
-    CURVE,
-    GREATARC,
-    LERPARC,
-    FLATARC,    // Aka Derp Arc - shortest distance on AE map
-    SUNTERMINATOR,
-    MOONTERMINATOR,
-    TISSOT,
-    SEMITERMINATOR,
-    FB_PLAIN,
-    FB_CUBEMAP,
-    SHADOW_MAP,
-    SHADOW_BOX,
-    EC,
-    ECGEO,
-    LAYER3D,
-    LAYERTEXT,
-    LAYERGUI,
-    LAYERPLOT,
-    HALT,        // These three are PathTracker modes
-    LOOP,
-    BOUNCE,
-    REFR_BENNETT, // J.Meeus
-    REFR_ALMANAC, // https://www.madinstro.net/sundry/navsext.html
-    ALL,
-    NONE = maxuint,
-};
 
 
 // Protos
-class Camera;
-class Dots;
-class SkyDots;
-class Planes;
-class Glyphs;
-class Cones;
-class Primitives;
-class ViewCones;
-class Cylinders;
 class Arrows;
-class Minifigs;
-class SkyBox;
-class SkySphere;
-class Earth;
-//class Earth2;
-class BodyGeometry;
-class DetailedMoon;
-class DetailedEarth;
-class DetailedSky;
-class Location;
-class SphereUV;
-class SolarSystem;
-class StarTrail;
-class Astronomy;
 class Application;
-class Scene;
+class AngleArcs;
+class Astronomy;
+class BodyGeometry;
+class Camera;
+class Cones;
+class CountryBorders;
+class Cylinders;
+class DetailedEarth;
+class DetailedMoon;
+class DetailedSky;
+class Dots;
+class Earth;
+class Font;
+class Glyphs;
+class Location;
+class Minifigs;
+class Planes;
+class Planetoid;
 class PolyCurve;
 class PolyLine;
-class AngleArcs;
-class CountryBorders;
-class TimeZones;
-class Font;
-class TextString;
-class TextFactory;
+class Primitives;
 class Scene;
 class SceneObject;
 class SceneTree;
+class ShadowBox;
+class ShadowMap;
 //class ShapeFile;
+class SkyBox;
+class SkyDots;
+class SkySphere;
+class SolarSystem;
+class SphereUV;
+class StarTrail;
+class TextFactory;
+class TextString;
 class ThreePointSolver;
-class Planetoid;
+class TimeZones;
+class ViewCones;
 
 
 // --------
@@ -206,152 +133,6 @@ T Lerper<T>::getNextSmooth() {
 }
 
 
-// ----------
-//  TightVec
-// ----------
-template<typename T>
-class tightvec {
-public:
-    std::vector<T> m_Elements;
-    std::map<size_t, size_t> m_remap;
-    std::map<size_t, size_t> m_xmap;
-    std::vector<size_t> m_freed;
-    //tightvec<T>();
-    //~tightvec<T>();
-    size_t size();
-    size_t capacity();
-    void clear();
-    bool empty();
-    T& operator[](size_t oid);
-    void reserve(size_t reserve);
-    size_t store(T element, bool debug = false);
-    T& retrieve(size_t oid);
-    void update(size_t oid, T element);
-    void remove(size_t oid, bool debug = false);
-};
-template<typename T>
-size_t tightvec<T>::size() {
-    return m_Elements.size();
-}
-template<typename T>
-size_t tightvec<T>::capacity() {
-    return m_Elements.capacity();
-}
-template<typename T>
-bool tightvec<T>::empty() {
-    return m_Elements.empty();
-}
-template<typename T>
-void tightvec<T>::clear() {
-    m_Elements.clear();
-    m_freed.clear();
-    m_remap.clear();
-    m_xmap.clear();
-}
-template<typename T>
-T& tightvec<T>::operator[](size_t oid) {
-    //std::cout << "oid: " << oid << "\n";
-    return retrieve(oid);
-}
-template<typename T>
-void tightvec<T>::reserve(size_t reserve) {
-    m_Elements.reserve(reserve);
-}
-template<typename T>
-size_t tightvec<T>::store(T element, bool debug) {
-    if (debug) std::cout << "tightvec{" << this << "}::store() called\n"; // Can't print element, type is not known at compile time
-    if (debug) for (auto& o : m_remap) {
-        std::cout << "tightvec{" << this << "}::store(): m_remap " << o.first << ", " << o.second << "\n";
-    }
-    if (debug) for (auto& o : m_xmap) {
-        std::cout << "tightvec{" << this << "}::store(): m_xmap " << o.first << ", " << o.second << "\n";
-    }
-    if (debug) for (auto& o : m_freed) {
-        std::cout << "tightvec{" << this << "}::store(): m_freed " << o << "\n";
-    }
-    size_t oid, iid;
-    iid = m_Elements.size(); // vector is compact, so always add to end.
-    m_Elements.emplace_back(element);
-    if (m_freed.size() > 0) { // Recycle freed outer indices
-        oid = m_freed.back();
-        m_freed.pop_back();
-    }
-    else oid = iid;
-    if (debug) std::cout << "Stored item in m_Elements[" << iid << "], using reference (oid): " << oid << "\n";
-    //std::cout << "aElem - Added to end entry: " << oid << "\n";
-    m_remap[oid] = iid;  // remaps oid to iid
-    m_xmap[iid] = oid;   // maps iid to oid, used to "ripple" remap
-    if (debug) for (auto& o : m_remap) {
-        std::cout << "tightvec{" << this << "}::store(): m_remap " << o.first << ", " << o.second << "\n";
-    }
-    if (debug) for (auto& o : m_xmap) {
-        std::cout << "tightvec{" << this << "}::store(): m_xmap " << o.first << ", " << o.second << "\n";
-    }
-    if (debug) for (auto& o : m_freed) {
-        std::cout << "tightvec{" << this << "}::store(): m_freed " << o << "\n";
-    }
-    return oid;
-}
-template<typename T>
-T& tightvec<T>::retrieve(size_t oid) {
-    if (m_remap.count(oid)) return m_Elements[m_remap[oid]];
-    else {
-        std::cout << "ERROR: tightvec::retrieve() or tightvec[] called with non-existing index: " << oid << "\n";
-        return m_Elements.back();
-    }
-}
-template<typename T>
-void tightvec<T>::update(size_t oid, T element) {
-    size_t iid = m_remap[oid];
-    m_Elements[iid] = element;
-}
-template<typename T>
-void tightvec<T>::remove(size_t oid, bool debug) {
-    if (debug) std::cout << "tightvec{" << this << "}::remove(" << oid << ") called\n";
-    if (m_Elements.size() == 0) {  // calling pop_back() on empty vector is undefined, so avoid it.
-        std::cout << "tightvec<T>:Remove(): Reached m_Elements of ZERO size, yet was asked to delete an entry!! Ignoring!\n\n";
-        return;
-    }
-    if (debug) for (auto& o : m_remap) {
-        std::cout << "tightvec{" << this << "}::remove(): m_remap " << o.first << ", " << o.second << "\n";
-    }
-    if (debug) for (auto& o : m_xmap) {
-        std::cout << "tightvec{" << this << "}::remove(): m_xmap " << o.first << ", " << o.second << "\n";
-    }
-    if (debug) for (auto& o : m_freed) {
-        std::cout << "tightvec{" << this << "}::remove(): m_freed " << o << "\n";
-    }
-    size_t iid = m_remap[oid];
-    if (debug) std::cout << "oid, iid: " << oid << ", " << iid << "\n";
-    size_t last = m_Elements.size() - 1;
-    //std::cout << "oid: " << oid << "\n";
-    //std::cout << "iid: " << iid << "\n";
-    //std::cout << "last: " << last << "\n";
-    if (iid != last) { // Removing element in middle of vector
-        m_Elements[iid] = m_Elements[last]; //.back();
-        //std::cout << "Replace element: " << iid << " with " << last << "\n";
-        size_t loid = m_xmap[last]; // If last was previously relocated, get oid of last. If not relocated, it still points last.
-        m_remap[loid] = iid;
-        if (debug) std::cout << "setting m_remap[" << loid << "] = " << iid << "\n";
-        m_xmap[iid] = loid;
-        //m_freed.push_back(oid);
-    }
-    // moved here:
-    m_freed.push_back(oid);
-    m_Elements.pop_back();
-    m_remap.erase(oid);
-    m_xmap.erase(last);
-    if (debug) for (auto& o : m_remap) {
-        std::cout << "tightvec{" << this << "}::remove(): m_remap " << o.first << ", " << o.second << "\n";
-    }
-    if (debug) for (auto& o : m_xmap) {
-        std::cout << "tightvec{" << this << "}::remove(): m_xmap " << o.first << ", " << o.second << "\n";
-    }
-    if (debug) for (auto& o : m_freed) {
-        std::cout << "tightvec{" << this << "}::remove(): m_freed " << o << "\n";
-    }
-};
-
 
 //struct Animation {
 //    // Should be templated so it can work with different objects: floats, doubles, vec3, vec4, LLH, etc.
@@ -404,6 +185,96 @@ void tightvec<T>::remove(size_t oid, bool debug) {
 //};
 
 
+
+// Protos
+struct Viewport { // Currently unused, but intended for the RenderLayers
+    GLint vp_x = 0;
+    GLint vp_y = 0;
+    GLint vp_w = 0;
+    GLint vp_h = 0;
+};
+
+
+// -------
+//  Scene
+// -------
+class Scene {
+    // A Scene holds all the 3D Primitives, Objects, and Camera(s) - basically everything that has spatial or temporal relationships
+public:
+    SceneTree* scenetree = nullptr;
+    Application* m_app = nullptr;
+    Astronomy* astro = nullptr; // Why is this here? Oh, so Earth can look it up. Probably should have a RenderLayer3D pointer instead.
+    Camera* w_camera = nullptr;
+    unsigned int shadows = NONE;  // Create a way to update this from GUI or keyboard or python etc.
+    SolarSystem* m_solsysOb = nullptr;
+    Earth* m_earthOb = nullptr;
+    SkySphere* m_skysphereOb = nullptr;
+private:
+    std::vector<Camera*> m_cameras;
+    std::vector<PolyCurve*> m_polycurves;
+    std::vector<PolyLine*> m_polylines;
+    std::vector<ThreePointSolver*> m_threepointsolvers;
+    float m_aspect = 1.0f;
+    Minifigs* m_minifigsOb = nullptr;
+    Dots* m_dotsOb = nullptr;
+    SkyDots* m_skydotsOb = nullptr;
+    Cylinders* m_cylindersOb = nullptr;
+    Cones* m_conesOb = nullptr;
+    ViewCones* m_viewconesOb = nullptr;
+    Planes* m_planesOb = nullptr;
+    Glyphs* m_glyphsOb = nullptr;
+    SphereUV* m_sphereuvOb = nullptr;
+    Arrows* m_arrowsOb = nullptr;
+    AngleArcs* m_anglearcsOb = nullptr;
+    SkyBox* m_skyboxOb = nullptr;
+    CountryBorders* m_countrybordersOb = nullptr;
+    TimeZones* m_timezonesOb = nullptr;
+    ShadowMap* m_shadowmap = nullptr;
+    ShadowBox* m_shadowbox = nullptr;
+    TextFactory* m_textFactory = nullptr;
+public:
+    Scene(Application* app);
+    ~Scene();
+    Camera* newCamera(const std::string name = "Camera");
+    void setAspect(float aspect);
+    float getAspect();
+    void clearScene();  // ToDo !!!
+    void render(Camera* cam = nullptr);
+    // Primitive Factories
+    // - Some of these may be redundant as SceneObject implementation grows.
+    Dots* getDotsFactory();
+    SkyDots* getSkyDotsFactory();
+    Cylinders* getCylindersFactory();
+    Cones* getConesFactory();
+    ViewCones* getViewConesFactory();
+    Planes* getPlanesFactory();
+    TextFactory* getTextFactory();
+    SphereUV* getSphereUVFactory();
+    Arrows* getArrowsFactory();
+    AngleArcs* getAngleArcsFactory();
+    CountryBorders* getCountryBordersFactory();
+    TimeZones* getTimeZonesFactory();
+    // Full objects - revise names !!!
+    // - These should probably all be SceneObject derived. Then they will be drawn by SceneTree.
+    //   SceneTree will then have to be aware of rendering shadows. The shadow system needs rebuilding anyway.
+    SkySphere* newSkysphere(unsigned int mU, unsigned int mV, bool texture);
+    SkySphere* getSkysphere();
+    SkyBox* getSkyboxOb();
+    SolarSystem* getSolsysOb();
+    ShadowBox* getShadowboxOb();
+    ShadowMap* getShadowmapOb();
+    Earth* newEarth(std::string mode, unsigned int mU, unsigned int mV);
+    Earth* getEarth(); // May return nullptr, so user must check!
+    Minifigs* newMinifigs();
+    // Use GenericPath or SmartPath instead of using PolyCurve directly?
+    PolyCurve* newPolyCurve(glm::vec4 color, float width, size_t reserve = NO_UINT);
+    void deletePolyCurve(PolyCurve* curve);
+    PolyLine* newPolyLine(glm::vec4 color, float width, size_t reserve = NO_UINT);
+    void deletePolyLine(PolyLine* curve);
+    ThreePointSolver* newThreePointSolver(Earth* earth);
+};
+
+
 // -------------
 //  SceneObject
 // -------------
@@ -414,32 +285,68 @@ protected:
     //Material* material = nullptr;
     unsigned int id = 0;
 public:
-    std::string name = "Object";
-    // !!! TODO: position, scale, orientation are relative to parent when parented to another SceneObject !!!
-    glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
-    glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f);
-    // Orientation might be replaced with Euler angles or quaternion    
-    glm::vec4 orientation = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f); // Up vec3 + rotation about up, from which angle?
-    glm::mat4 worldmatrix = glm::mat4(1.0f); // Collects parent worldmatrix and applies position, scale, orientation
-    glm::vec4 color = WHITE;
     bool hidden = false;  // Hide object by bailing early from draw();
-    Scene* m_scene = nullptr;
+    bool hasgui = false;  // Are there GUI components to render?
+    std::string name = "Object";
+    glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f);
+    glm::vec3 rotations{0.0f, 0.0f, 0.0f};
+    glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
+    glm::mat4 worldmatrix = glm::mat4(1.0f); // Collects parent worldmatrix and applies scale, rotation, position.
+    glm::vec4 color = WHITE; // default color, not used by some derived objects
+    Scene* scene = nullptr;
     SceneObject* m_parent = nullptr;
     std::list<SceneObject*> children;
-    SceneObject(Scene* scene, bool isroot = false);
+    SceneObject(Scene* scene, SceneObject* parent);
     void addChild(SceneObject* object);
     void removeChild(SceneObject* child);
-    void setParent(SceneObject* parent);
+    // Safer to pass a parent when constructing. If there is ever a need to change parent, destroy the object and create a new one.
+    // - Simply setting a parent after construction can lead to loops in the scene tree.
+    //void setParent(SceneObject* parent);
     SceneObject* getParent();
     void setID(unsigned int oid);
     unsigned int getID();
-    void setWorldMat(glm::mat4 mat);
+    // setWorldMat() removed, as inherit() will overwrite due to being called in the render phase, after setWorldMat() can be called.
+    //void setWorldMat(glm::mat4 mat);
+    // worldmatrix is only up to date during inherit() calls, so should only be used in derived object's update() function, and nowhere else.
     glm::mat4 getWorldMat();
     void inherit();
-    virtual void update() {
-        std::cout << "SceneObject[" << name << "]::update() : derived object \"" << name << "\" has not overridden the update() function, and will not be updated.\n";
+    virtual bool update() {  // Return flag indicates if worldmatrix was built by update() true = yes, false = no
+        // Override this to supply orientation parameters (i.e. placement relative to parent)
+        std::cout << "SceneObject[" << this << "]::update() : derived object \"" << name << "\" has not overridden the update() function, and will not be updated.\n";
+        return false;
     }
     void virtual draw(Camera* cam) = 0;
+    void virtual myGUI() {};
+private:
+    SceneObject(Scene* scene, bool isroot = false); // Only used to construct the root in SceneTree.
+    friend class SceneTreeRoot;
+};
+
+
+class SceneTreeRoot : public SceneObject {
+// Just to have a place to stach the root (unparented) objects.
+public:
+    SceneTreeRoot(Scene* scene, bool isroot) : SceneObject(scene, isroot) {}
+    void draw(Camera* cam) override {}
+};
+
+// -----------
+//  SceneTree
+// -----------
+class SceneTree {
+    Scene* m_scene = nullptr;
+    std::queue<SceneObject*> breathfirst;
+public:
+    SceneObject* root = nullptr;
+    SceneTree(Scene* scene);
+    ~SceneTree();
+    void updateBreathFirst();
+    void drawBreathFirst(Camera* cam); // Honor hidden flag (skip render), and maybe support defer (render last) for semi-transparent objects.
+    void guiBreathFirst();
+    void addSceneObject(SceneObject* object, SceneObject* parent);
+    void rootRemove(SceneObject* object);
+    void printSceneTree();
+    void doPrintSceneTree(std::list<SceneObject*> node, unsigned int level);
 };
 
 
@@ -473,7 +380,7 @@ public:
     void setLatLonFovDist(float lat, float lon, float fov, float dst);
     void setCamLightPos(glm::vec3 lPos);
     void setLatLon(float lat, float lon);
-    void update(); // Override SceneObject::update()
+    bool update(); // Override SceneObject::update()
     void updateLight();
     void setLookAt(glm::vec3 position, glm::vec3 target, glm::vec3 upwards);
     void setPosXYZ(glm::vec3 pos);
@@ -493,126 +400,6 @@ public:
 private:
     void Recalc();
     //Application* m_app = nullptr;
-};
-
-
-// Protos
-struct Viewport { // Currently unused, but intended for the RenderLayers
-    GLint vp_x = 0;
-    GLint vp_y = 0;
-    GLint vp_w = 0;
-    GLint vp_h = 0;
-};
-
-
-// -------
-//  Scene
-// -------
-class Scene {
-    // A Scene holds all the 3D Primitives, Objects, and Camera(s) - basically everything that has spatial or temporal relationships
-public:
-    SceneTree* scenetree = nullptr;
-    Application* m_app = nullptr;
-    Astronomy* astro = nullptr; // Why is this here? Oh, so Earth can look it up. Probably should have a RenderLayer3D pointer instead.
-    Camera* w_camera = nullptr;
-    unsigned int shadows = NONE;  // Create a way to update this from GUI or keyboard or python etc.
-    SolarSystem* m_solsysOb = nullptr;
-    Earth* m_earthOb = nullptr;
-    DetailedMoon* m_dmoonOb = nullptr;
-    DetailedEarth* m_dearthOb = nullptr;
-    DetailedSky* m_dskyOb = nullptr;
-    SkySphere* m_skysphereOb = nullptr;
-private:
-    std::vector<Camera*> m_cameras;
-    std::vector<PolyCurve*> m_polycurves;
-    std::vector<PolyLine*> m_polylines;
-    std::vector<ThreePointSolver*> m_threepointsolvers;
-    float m_aspect = 1.0f;
-    Minifigs* m_minifigsOb = nullptr;
-    Dots* m_dotsOb = nullptr;
-    SkyDots* m_skydotsOb = nullptr;
-    Cylinders* m_cylindersOb = nullptr;
-    Cones* m_conesOb = nullptr;
-    ViewCones* m_viewconesOb = nullptr;
-    Planes* m_planesOb = nullptr;
-    Glyphs* m_glyphsOb = nullptr;
-    SphereUV* m_sphereuvOb = nullptr;
-    Arrows* m_arrowsOb = nullptr;
-    AngleArcs* m_anglearcsOb = nullptr;
-    SkyBox* m_skyboxOb = nullptr;
-    CountryBorders* m_countrybordersOb = nullptr;
-    TimeZones* m_timezonesOb = nullptr;
-    ShadowMap* m_shadowmap = nullptr;
-    ShadowBox* m_shadowbox = nullptr;
-    TextFactory* m_textFactory = nullptr;
-    //Earth2* earth = nullptr;
-public:
-    Scene(Application* app);
-    ~Scene();
-    Camera* newCamera(const std::string name = "Camera");
-    void setAspect(float aspect);
-    float getAspect();
-    void clearScene();  // ToDo !!!
-    void render(Camera* cam = nullptr);
-    // Primitive Factories
-    Dots* getDotsFactory();
-    SkyDots* getSkyDotsFactory();
-    Cylinders* getCylindersFactory();
-    Cones* getConesFactory();
-    ViewCones* getViewConesFactory();
-    Planes* getPlanesFactory();
-    TextFactory* getTextFactory();
-    SphereUV* getSphereUVFactory();
-    Arrows* getArrowsFactory();
-    AngleArcs* getAngleArcsFactory();
-    CountryBorders* getCountryBordersFactory();
-    TimeZones* getTimeZonesFactory();
-    // Full objects - revise names !!!
-    SkySphere* newSkysphere(unsigned int mU, unsigned int mV, bool texture);
-    SkySphere* getSkysphere();
-    SkyBox* getSkyboxOb();
-    SolarSystem* getSolsysOb();
-    ShadowBox* getShadowboxOb();
-    ShadowMap* getShadowmapOb();
-    Earth* newEarth(std::string mode, unsigned int mU, unsigned int mV);
-    Earth* getEarth(); // May return nullptr, so user must check!
-    DetailedSky* newDetailedSky(std::string mode, unsigned int mU, unsigned int mV, float radius = 1.0f);
-    DetailedEarth* newDetailedEarth(std::string mode, unsigned int mU, unsigned int mV, float radius = 1.0f);
-    DetailedEarth* getDetailedEarth(); // May return nullptr, so user must check!
-    DetailedMoon* newDetailedMoon(std::string mode, unsigned int mU, unsigned int mV, float radius = 1.0f);
-    DetailedMoon* getDetailedMoon(); // May return nullptr, so user must check!
-    Minifigs* newMinifigs();
-    PolyCurve* newPolyCurve(glm::vec4 color, float width, size_t reserve = NO_UINT);
-    void deletePolyCurve(PolyCurve* curve);
-    PolyLine* newPolyLine(glm::vec4 color, float width, size_t reserve = NO_UINT);
-    void deletePolyLine(PolyLine* curve);
-    ThreePointSolver* newThreePointSolver(Earth* earth);
-    //Earth2* newEarth2(std::string mode, const unsigned int mU, const unsigned int mV, SceneObject* parent = nullptr);
-};
-
-
-class SceneTreeRoot : public SceneObject {
-// Just to have a place to stach the root (unparented) objects.
-public:
-    SceneTreeRoot(Scene* scene, bool isroot) : SceneObject(scene, isroot) {}
-    void draw(Camera* cam) override {}
-};
-
-// -----------
-//  SceneTree
-// -----------
-class SceneTree {
-    Scene* m_scene = nullptr;
-    SceneObject* root = nullptr;
-    std::queue<SceneObject*> breathfirst;
-public:
-    SceneTree(Scene* scene);
-    ~SceneTree();
-    void updateBreathFirst();
-    void drawBreathFirst(Camera* cam); // Honor hidden flag (skip render), and maybe support defer (render last) for semi-transparent objects.
-    void addSceneObject(SceneObject* object, SceneObject* parent);
-    void rootRemove(SceneObject* object);
-    void printSceneTree();
 };
 
 
@@ -928,6 +715,48 @@ public:
     unsigned int createFrameBuffer(unsigned int width, unsigned int height, unsigned int type);
     void setupFileRender(unsigned int width, unsigned int height, unsigned int type);
 };
+
+
+// ------------
+//  ShadowBox
+// ------------
+class ShadowBox {
+private:
+    Scene* m_scene;
+    unsigned int depthMapFBO = NO_UINT;
+    unsigned int width = 1024;
+    unsigned int height = 1024;
+public:
+    unsigned int depthCubemap = NO_UINT;
+    std::vector<glm::mat4> shadowTransforms;
+    float near = 0.01f;
+    float far = 20.0f;
+    ShadowBox(Scene* scene, unsigned int w, unsigned int h);
+    ~ShadowBox();
+    void Render(Camera* cam, glm::vec3 lightPos);
+};
+
+
+// -----------
+//  ShadowMap
+// -----------
+class ShadowMap {
+private:
+    Scene* m_scene = nullptr;
+    unsigned int m_depthmapFBO;
+    unsigned int width;
+    unsigned int height;
+public:
+    Shader* shdr = nullptr;
+    unsigned int depthmap;
+    glm::mat4 lightSpaceMatrix = glm::mat4(1.0f);
+    ShadowMap(Scene* scene, unsigned int w, unsigned int h);
+    ~ShadowMap();
+    void Bind();
+    void Unbind();
+    void Render(Camera* cam);
+};
+
 
 
 // --------------
@@ -1315,6 +1144,43 @@ public:
     void clearPoints();
     void generate();
     void draw();
+};
+
+
+// -----------
+//  PolyCurve SceneObject aware
+// -----------
+class PolyCurveSO : public SceneObject {
+private:
+    //Scene* m_scene = nullptr;
+    glm::vec4 m_color = NO_COLOR;
+    float m_width = 0.0f;
+    unsigned int facets = 8;
+    std::vector<Vertex> m_verts;
+    std::vector<Tri> m_tris;
+    std::vector<Primitive3D> m_segments;
+    Shader* shdr = nullptr;
+    VertexArray* va = nullptr;
+    VertexBuffer* vb1 = nullptr;
+    VertexBuffer* vb2 = nullptr;
+    VertexBufferLayout* vbl1 = nullptr;
+    VertexBufferLayout* vbl2 = nullptr;
+    IndexBuffer* ib = nullptr;
+    bool dirty = false;  // If changes have been made which require regenerating m_segments since last update() call
+    //bool limit = false; // For debugging reserve() issues 
+public:
+    std::vector<glm::vec3> m_points; // Public so we can use it as track for objects (PathTracker in Earth.h)
+    PolyCurveSO(Scene* scene, SceneObject* parent, glm::vec4 color, float width, size_t reserve = NO_UINT);
+    ~PolyCurveSO();
+    void setColor(glm::vec4 color);
+    void setWidth(float width);
+    void changePolyCurve(glm::vec4 color = NO_COLOR, float width = NO_FLOAT);
+    void addPoint(glm::vec3 point);
+    void clearPoints();
+    void generate();
+    bool update() override;
+    void draw(Camera* cam);
+    void genGeom();
 };
 
 
