@@ -5,102 +5,34 @@
 
 #include "config.h"
 
+#include "astronomy/datetime.h"
 
 // Protos
 class Astronomy;
 
 
-// -----------
-//  EDateTime
-// -----------
-class EDateTime {
-	// TODO: !!! Integrate with the TimeZones class, to accept setTime() with a timezone and convert automatically !!!
-public:
-	// Constructors
-	// - Default constructor sets current system time in UTC
-	EDateTime();
-	// - From date and time in UTC
-	EDateTime(long year, long month, double day, double hour, double minute, double second);
-	// - From Julian Date
-	EDateTime(double jd_utc);
-	// - From a Unix Time Stamp
-	EDateTime(long unixtime);
-	// Getters
-	long year();
-	long month();
-	double day();
-	double hour();
-	double minute();
-	double second();
-	double jd_tt();
-	double jd_utc();
-	bool isLeap();
-	long weekday();
-	// !!! ADD: dayofyear() 
-	std::string string();
-	long unixTime();
-	// Setters
-	// - Set with date and time in UTC
-	void setTime(long year, long month, double day, double hour, double minute, double second);
-	// - Set to current system time in UTC
-	void setTimeNow();
-	// - Set to specific astronomical Julian Date given in UTC
-	void setJD_UTC(double jd_utc);
-	// - Set to specific astronomical Julian Date given in TT (Dynamical Time)
-	void setJD_TT(double jd_tt);
-	// - Set from Unix timestamp (seconds since 1970-01-01 00:00:00)
-	void setUnixTime(long unixtime);
-	void addTime(long year, long month, double day, double hour, double minute, double second);
-	void normalize();
-	void calcJDs();
-
-	// Static utility functions - can be used without instantiating
-	static void normalizeDateTime(long& yr, long& mo, double& da, double& hr, double& mi, double& se);
-	static int myDivQuotient(const int a, const int b);
-	static int myDivRemainder(const int a, const int b);
-	static double getDateTime2JD_UTC(const long year, const long month, const double day, const double hour, const double minute, const double second);
-	static double getDateTime2JD_TT(const long year, const long month, const double day, const double hour, const double minute, const double second);
-	static double getUnixTime2JD_UTC(const long unixtime);
-	static double getUnixTime2JD_TT(const long unixtime);
-	// !!! ADD: getJD_UTC2xxx() and getJD_TT2xxx() functions for symmetry and ease of use.
-	//          With get JD_x2DateTime() above setters can be refactored a bit. !!!
-	static long getDateTime2UnixTime(const long year, const long month, const double day, const double hour, const double minute, const double second);
-	static double getJD2MJD(const double jd);
-	static double getMJD2JD(const double mjd);
-	static double getJDUTC2TT(const double jd);
-	static double getJDTT2UTC(const double jd);
-	static long calcUnixTimeYearDay(const long year, const long month, const double day);
-	static bool isLeapYear(const long year);
-private:
-	// Dynamical Time
-	double m_JD_TT = 0;     // astronomical jd in tt
-	// UT (Civil Time)
-	double m_JD_UTC = 0; // astronomical jd in utc
-	long m_year = 0;
-	long m_month = 0;
-	double m_day = 0.0;
-	double m_hour = 0.0;
-	double m_minute = 0.0;
-	double m_second = 0.0;
-	//std::string timezone;  // TODO
-};
-
-
 // ------------------
 //  Celestial Detail
 // ------------------
+//struct CelestialDetail {  // Used for CelestialPath entries
+//// keeps a planetary position in Ecliptic and optionally Equatorial coordinates
+//	double jd = 0.0;      // JD in Terrestrial Time when the position was calculated
+//	// FIX: !!! Should probably use LLH to store these !!!
+//	double heclat = 0.0;  // Heliocentric Ecliptic coordinates
+//	double heclon = 0.0;
+//	double hecdst = 0.0;  // Solar distance in AU
+//	double geora = 0.0;   // Geocentric Horizontal coordinates
+//	double geodec = 0.0;
+//	double geogha = 0.0;
+//	double geodst = 0.0;  // Earth distance in AU
+//};
 struct CelestialDetail {  // Used for CelestialPath entries
-// keeps a planetary position in Ecliptic and optionally Celestial coordinates
-	double jd = 0.0;
-	// FIX: !!! Should probably use LLH to store these !!!
-	double heclat = 0.0;  // Heliocentric Ecliptic coordinates
-	double heclon = 0.0;
-	double hecdst = 0.0;  // Solar distance in AU
-	double geora = 0.0;  // Geocentric Horizontal coordinates
-	double geodec = 0.0;
-	double geogha = 0.0;
-	double geodst = 0.0; // Earth distance in AU
-};
+	// keeps a planetary position in Heliocentric Ecliptic and optionally Geocentric Equatorial coordinates
+	double jd_tt = 0.0;   // JD in Terrestrial Time when the position was calculated
+	LLH hec = { 0.0, 0.0, 0.0 };  // Heliocentric ECliptic coordinates
+	LLH geq = { 0.0, 0.0, 0.0 };  // Geocentric EQuatorial coordinates
+	double geogha = 0.0;          // Greenwich Hour Angle
+}; // Not sure if I prefer this to the above or not.
 
 
 // ---------------
@@ -142,6 +74,7 @@ class Astronomy {
 public:
 	// For ImGUI
 	std::string timestr;
+	// == Stellar Objects ==
 	// Stellar Object Database Entry - Source: SIMBAD
 	struct stellarobject {
 		double ra = 0.0;
@@ -168,23 +101,64 @@ public:
 	static stellarobject& getSObyName(const std::string starname);
 	static LLH getDecRAbyName(const std::string starname, bool rad = false);
 	static LLH getDecRAwithPMbyName(const std::string starname, double jd, bool rad = false);
+	LLH applyProperMotionJ2000(double jd_tt, LLH decra, LLH propermotion);
 	static glm::vec4 getColorbyName(const std::string starname);
+
+	// == Constellation Boundaries ==
+	// Source: https://pbarbier.com/constellations/boundaries.html bound_in_20.txt and centers_20.txt
+	//         (precessed from original Delponte B1875.0 boundaries to J2000.0, sorted consistent (CCW) orientation and interpolated to 1 degree.
+	// NOTE: Search should capitalize abbreviations so user can ask for CMa or And and still get CMA or AND matches
+	
+	//struct constellationpart {
+	//	// A Constellation Boundary is made up of one or more constellation parts, see below.
+	//	// This is due to Serpens (SER) which inconveniently is cut into two separate outlines by Ophiucus (OPH)
+	//	std::string abbr = "XYZ1";            // IAU TLA (all caps) plus running number, to accomodate Serpens
+	//	std::string name = "Full Latin Name"; // Full Latin name of constellation part, e.g. SER1 = Serpens Caput, SER2 = Serpens Cauda
+	//	// bounding box?
+	//	std::vector<LLH> outline;             // Outline coordinates CCW when viewed from Earth's surface, in Dec/RA of J2000.0
+	//};
+	//struct ConstellationBoundary1 {
+	//	// Collects 1 or more constellationpart structs, to accomodate Serpens being split in two by Ophiucus
+	//	// While inconvenient, this also allows to create groups of constellations such as Zodiac (ZOD) and NH/SH for hemispheres
+	//	// 3 typpes of zodiac: tropical, sidereal, constellational
+	//	std::string abbr = "XYZ";             // Official TLA, but in all capitals, note Serpens (SER) is in two parts SER1 & SER2
+	//	std::string name = "Full Latin Name"; // Full Latin name of constellation
+	//	double area = 0.0;                    // Constellation area in deg^2
+	//	size_t rank = 0;                      // Rank on sorted list of areas (1 = biggest, 88 = smallest)
+	//	LLH center = { 0.0, 0.0, 0.0 };       // Barycenter of constellation polygon, useful for placing labels etc
+	//	std::vector<constellationpart> boundary;
+	//};
+
+	struct ConstellationBoundary {
+		bool collection = false;                 // Is this a collection of outlines or an actual outline
+		std::string abbr = "XYZ1";
+		std::string name = "Full Latin Name";
+		double area = 0.0;
+		size_t rank = 0;
+		LLH center = { 0.0, 0.0, 0.0 };
+		std::vector<LLH> outline;
+		std::vector<size_t> parts;               // Stores indices of parts. There might be a better way.
+	};
+	static bool constellations_loaded;
+	static std::vector<ConstellationBoundary> constellations;
+	static void loadConstellations();
 private:
 	EDateTime m_datetime;    // Default constructor initializes to current system time in UTC
-	double m_gsidtime = 0.0; // Greenwich sidereal time in radians
 	double eot = 0.0;
-	double m_meangsid = 0.0;
-	double m_meanobliquity = 0.0;
-	double m_trueobliquity = 0.0;
-	double m_nutationinlongitude = 0.0;
 
-	// -= Time calc cache =-
-	// Precession parameters for epoch of J2000 - applied to all stars from catalogue
+	// -= Time dependent calc cache =-
+	double m_gsidtime = 0.0; // Apparent Greenwich Sidereal time in radians
+	double m_meangsid = 0.0; // Mean Greenwich Sidereal time in radians
+	// Precession parameters from epoch J2000.0 to current time - applied to all stars from catalogue
 	double prec_j2000_sigma = 0.0;
 	double prec_j2000_zeta = 0.0;
 	double prec_j2000_phi = 0.0;
 	double prec_j2000_phi_s = 0.0; // sin
 	double prec_j2000_phi_c = 0.0; // cos
+    // Nutations
+	double m_meanobliquity = 0.0;
+	double m_trueobliquity = 0.0;
+	double m_nutationinlongitude = 0.0;
 
 	tightvec<CelestialPath*> cacheCP;
 	// Planet current time cached parameters (Tip: planet 0 is the Sun)
@@ -220,17 +194,19 @@ public:
 	double MeanGreenwichSiderealTime(double jd_utc, bool rad = false) noexcept;
 	double getEoT(double jd_tt = NO_DOUBLE);
 	// Coordinate transformations
-	LLH calcEc2Geo(double Lambda, double Beta, double Epsilon);
+	LLH calcEc2Geo(double Lambda, double Beta, double Epsilon, bool rad = false) noexcept;
+	LLH calcGeo2Ec(double Delta, double Alpha, double Epsilon, bool rad = false) noexcept;
 	LLH calcGeo2Topo(LLH pos, LLH loc);
 	LLH calcDecHA2GP(LLH decra, bool rad = false);
 	LLH calcDecRA2GP(LLH decra, double jd_utc, bool rad = false);
-	LLH getDecRA(size_t planet, double jd_tt = NO_DOUBLE);
+	LLH getDecRA(size_t planet, double jd_tt = NO_DOUBLE, bool rad = true);
 	LLH getDecGHA(size_t planet, double jd_tt = NO_DOUBLE, bool rad = true);
 	// General astronomical adjustments
+	double Distance2LightTime(double distance) { return distance * 0.0057755183; };
 	LLH EclipticAberration(double Beta, double Lambda, double jd_tt, bool rad = false);
 	LLH EquatorialAberration(double dec, double ra, double jd_tt, bool rad = false);
 	LLH FK5Correction(double Latitude, double Longitude, double jd_tt, bool rad = false);
-	LLH PrecessDecRA(const LLH decra, const double jd_tt = NO_DOUBLE, const double JD0 = JD2000); // If no Epoch, assume J2000
+	LLH PrecessDecRA(const LLH decra, const double jd_tt = NO_DOUBLE, const double JD0 = JD_2000); // If no Epoch, assume J2000
 	LLH PrecessJ2000DecRA(const LLH decra, const double jd_tt = NO_DOUBLE); // Optimized for J2000.0 epoch
 	double MeanObliquityOfEcliptic(double jd_tt = NO_DOUBLE, bool rad = false);
 	double TrueObliquityOfEcliptic(double jd_tt = NO_DOUBLE, bool rad = false);
@@ -240,7 +216,7 @@ public:
 	double NutationInRightAscension(double dec, double ra, double obliq, double nut_lon, double nut_obl, bool rad = false);
 	// Stellar Earth Centered Equatorial
 	LLH getTrueDecRAbyName(const std::string starname, double jd_tt = NO_DOUBLE, bool rad = false);
-	//LLH calcTrueDecRa(const LLH decra, const double jd_tt = NO_DOUBLE, const double JD0 = JD2000); // If no Epoch, assume J2000
+	//LLH calcTrueDecRa(const LLH decra, const double jd_tt = NO_DOUBLE, const double JD0 = JD_2000); // If no Epoch, assume J2000
 	// Planetary calculations
 	unsigned int enablePlanet(size_t planet);
 	unsigned int disablePlanet(size_t planet);
@@ -284,8 +260,9 @@ public:
 	int calcUnixTimeYearDay(double year, double month, double day);
 	static double secs2deg(double seconds);
 	static double rangezero2tau(double rad);
-	static double rangepi2pi(double rad);
+	static double rangemhalfpi2halfpi(double rad);
 	static double rangezero2threesixty(double deg);
+	static double rangemoneeighty2oneeighty(double deg);
 	static double rangezero2twentyfour(double hrs);
 	static std::string angle2DMSstring(double angle, bool rad = false);
 	static std::string angle2uDMSstring(double angle, bool rad = false);

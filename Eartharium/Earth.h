@@ -163,6 +163,10 @@ public:
     // createShape() might get tri and vert vectors if rendering is done in SceneObject or elsewhere - decide in constructor
     void createShape();    // Creates the mesh geometry, should probably only be called once at creation
     void updateShape();    // Updates the mesh geometry, called from users like DetailedMoon etc
+    // BodyGeometry uses same coordinate system as Earth lat.lon.
+    // Derived body might use something else, the following two should be overridden convert, or confirm the format
+    LLH virtual toLocalCoords(LLH loc, const bool rad);      // From interface coordinates (e.g. DecRA) to local
+    LLH virtual fromLocalCoords(LLH loc, const bool rad);    // From local to interface coordinates (future use)
     glm::vec3 getLoc3D(const LLH loc, const bool rad);
     glm::vec3 getNml3D(const LLH loc, const bool rad);
     glm::vec3 getLoc3D_NS(const LLH loc, const bool rad);
@@ -217,11 +221,9 @@ private:
 // ------------
 //  Smart Path
 // ------------
+// Can this be made to support both PolyCurveSO and PolyLine ?
 class SmartPath : public SceneObject {
-    // Flexibly allocates additional PolyCurve objects when addSplit() is called
-    // Since PolyCurves are obtained from Scene, they are drawn automatically
-    // - Add method to change color and width
-    // - Add a way to traverse paths backwards and forwards, see Earth.h:ParticleTracker
+    // Flexibly allocates additional PolyCurveSO objects when addSplit() is called
 public:
     SmartPath(Scene* scene, SceneObject* parent, float width = NO_FLOAT, glm::vec4 color = NO_COLOR);
     ~SmartPath();
@@ -378,6 +380,7 @@ public:
 // -----------
 //  Planetoid
 // -----------
+// See: https://www2.mps.mpg.de/homes/fraenz/systems/systems3art/node18.html for possible orientation parameters
 class Planetoid : public SceneObject {
 
     struct AtlasMaterial {
@@ -482,17 +485,51 @@ private:
 // ----------
 //  Ecliptic
 // ----------
-// Requires GreatCircle, so implement that first
-// Also, figure out which parameters are needed to orient the ecliptic correctly on Earth.
-// Perhaps a reasonable approximation is plotting the solar GP path in a 24 hour bracket around the timepoint.
-// UPD: Current Sun, current equinox and center of Earth should define the ecliptic I think.
-//      Also, DetailedEarth etc could just call a GreatCircle and name it to cut down on inheritance.
+// Plot Ecliptic on Detailed... based on GSID and Obliquity
+class Ecliptic : public SceneObject {
+public:
+    Ecliptic(Scene* scene, SceneObject* parent, BodyGeometry* geometry, float width = 0.003f, glm::vec4 color = LIGHT_GREY);
+    ~Ecliptic();
+    void setColor(glm::vec4 color);
+    void setWidth(float width);
+    void generate();
+    bool update() override;
+    void draw(Camera* cam) override;
+private:
+    bglocPos locpos = &BodyGeometry::getLoc3D;
+    BodyGeometry* locref{ nullptr };
+    SmartPath* path{ nullptr };
+    BodyGeometry* m_geometry = nullptr;
+};
 
+// -----------------
+//  Precession Path
+// -----------------
+// Path of Earth's north pole on celestial sphere due to precession
+// - Might optionally have nutation
+// - 
+class PrecessionPath : public SceneObject {
+public:
+    PrecessionPath(Scene* scene, SceneObject* parent, BodyGeometry* geometry, float width = 0.003f, glm::vec4 color = GREEN);
+    ~PrecessionPath();
+    void setColor(glm::vec4 color);
+    void setWidth(float width);
+    void generate();
+    bool update() override;
+    void draw(Camera* cam) override;
+private:
+    bglocPos locpos = &BodyGeometry::getLoc3D;
+    BodyGeometry* locref{ nullptr };
+    SmartPath* path{ nullptr };
+    BodyGeometry* m_geometry = nullptr;
+
+};
 
 // NOTE: Also add EclipticSphere
 // -----------------
 //  CelestialSphere   - DecRA coordinate grid
 // -----------------
+// not currently used. Prefer DetailedSky when possible, and implement this only if DetailedSky can't work.
 class CelestialSphere : public SceneObject {
 public:
     Grid* grid = nullptr;
@@ -545,6 +582,7 @@ class DetailedSky : public BodyGeometry {
         size_t unique_id = 0;    // stellarobject database index
         glm::vec4 color{0.0f};
         LLH coordinates{ 0.0,0.0, 0.0 }; // Dec, RA, height(0.0);
+        LLH propermotion{ 0.0,0.0, 0.0 };
         float size = 0.0f;
         size_t dot_index = 0;    // SkyDots index (GPU table)
     };
@@ -555,14 +593,28 @@ class DetailedSky : public BodyGeometry {
     std::vector<SkyDotDef> skydotDefs;
 
 public:
+    bool siderealtime = true;
+    bool propermotion = true;
+    bool precession = true;
+    Grid* equatorialgrid = nullptr;
+    Grid* eclipticgrid = nullptr;
+    Ecliptic* ecliptic = nullptr;
+    PrecessionPath* precessionpath = nullptr;
     DetailedSky(Scene* scene, SceneObject* parent, std::string mode, unsigned int meshU, unsigned int meshV, float radius = 1.0f);
     ~DetailedSky();
     void setTexture(bool tex);
+    void addGridEquatorial();
+    void addGridEcliptic();
+    void addEcliptic();
+    void addPrecessionPath();
     void addStars(double magnitude = 6.0);
+    void addStar(size_t unique, Astronomy::stellarobject& star);
     void addDotDecRA(size_t unique, double dec, double ra, glm::vec4 color, float size, bool rad = false);
-    glm::vec3 getDecRA2Pos3D(double dec, double ra);
+    glm::vec3 getDecRA2Pos3D(LLH decra);
     float getMagnitude2Radius(double magnitude); // in float as it goes to GPU
     bool update();
+    LLH toLocalCoords(LLH loc, const bool rad) override;
+    LLH fromLocalCoords(LLH loc, const bool rad) override;
     bool drawSpecific(Camera* cam, Shader* shdr);
     void myGUI();
 };
@@ -598,12 +650,14 @@ class DetailedEarth : public BodyGeometry {
 
     glm::vec3 SunLightDir = glm::vec3(0.0f, 1.0f, 0.0f);
     glm::vec4 sunDir = { 0.0f, 0.0f, 0.0f, 1.0f };
+    // Would like the following options for insolation: day, hard, twilight, soft, night
     bool insolation = true;
     bool w_refract = true;
     bool w_twilight = true;
     float m_alpha = 1.0f;
     LLH subsolar{ 0.0, 0.0, 0.0 };
 public:
+    PlanetoidGP* sungp = nullptr;
     Latitude* arcticcircle = nullptr;
     Latitude* antarcticcircle = nullptr;
     Latitude* tropicofcancer = nullptr;
@@ -612,15 +666,20 @@ public:
     bool tinttropics = false;
     glm::vec4 arcticscolor = glm::vec4(0.0f, 0.198f, 0.198f, 1.0f);
     glm::vec4 tropicscolor = glm::vec4(0.211f, 0.173f, 0.0f, 1.0f);
-    PlanetoidGP* sungp = nullptr;
+    Ecliptic* ecliptic = nullptr;
     Grid* celestialgrid = nullptr;
     DetailedEarth(Scene* scene, SceneObject* parent, std::string mode, unsigned int meshU, unsigned int meshV, float radius = 1.0f);
     ~DetailedEarth();
     void addSunGP();
     glm::vec3 getSunGPLocation();
     void addArcticCircles();
+    void removeArcticCircles();
     void addTropicCircles();
+    void addEcliptic();
+    glm::vec3 getLocEcliptic(LLH pos, bool rad = false);
     bool update();
+    LLH toLocalCoords(LLH loc, const bool rad) override;
+    LLH fromLocalCoords(LLH loc, const bool rad) override;
     // Specific GPU parameters that are particular to Earth and thus not set up in BodyGeometry
     bool drawSpecific(Camera* cam, Shader* shdr);
     void myGUI();
@@ -663,6 +722,8 @@ public:
     void addLibrationTrail();
     void updateLibrationTrail();
     bool update();
+    LLH toLocalCoords(LLH loc, const bool rad) override;
+    LLH fromLocalCoords(LLH loc, const bool rad) override;
     bool drawSpecific(Camera* cam, Shader* shdr);
     void myGUI();
 };
@@ -791,6 +852,7 @@ private:
     //LLH sublunar = { 0.0, 0.0, 0.0 };     // Sublunar point in Geocentric coordinates
     glm::vec3 solarGP = glm::vec3(0.0f);  // Subsolar point in Cartesian coordinates
     glm::vec3 flatSun = glm::vec3(0.0f);  // Flat Sun in Cartesian coordinates (solarGP at m_flatsunheight / earthradius from GUI)
+    Planetoid* m_subsolar = nullptr;
     SubSolar* m_sunob = nullptr;
     size_t m_sundot = NO_UINT;
     size_t m_sunpole = NO_UINT;

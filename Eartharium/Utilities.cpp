@@ -3,7 +3,7 @@
 
 #include "Utilities.h"
 
-#include "AAplus/AADate.h"
+#include "AAplus/AADate.h"  // Merge DateTime with EDateTime in Astronomy
 
 
 
@@ -839,7 +839,7 @@ void tzFile::dumpTimeZoneDetails(tzFile::iana_tz& timezonedb, const std::string&
 //  Shape File
 // ------------
 void ShapeFile::printRecord(const std::vector<ShapeRecord*>& records, const unsigned int rindex) {
-    // rindex--; // IMPORTANT! Record numbers start at 1, the vector starts at 0. Since we are const, we cannot decrement rindex.
+    //rindex--; // IMPORTANT! Record numbers start at 1, the vector starts at 0. Since we are const, we cannot decrement rindex.
     std::cout << "Record number: " << records[(size_t)rindex - 1]->recordnum << '\n';
     std::cout << " Type: " << records[(size_t)rindex - 1]->type << '\n';
     std::cout << " Number of parts: " << records[(size_t)rindex - 1]->numparts << '\n';
@@ -851,10 +851,11 @@ void ShapeFile::printRecord(const std::vector<ShapeRecord*>& records, const unsi
     }
     std::cout << " Number of points: " << records[(size_t)rindex - 1]->points.size() << '\n';
     for (unsigned int i = 0; i < records[(size_t)rindex - 1]->points.size(); i++) {
-        std::cout << "  Point number " << i << " (" << records[(size_t)rindex]->points[i].latitude << "," << records[(size_t)rindex]->points[(size_t)i].longitude << ")\n";
+        std::cout << "  Point number " << i << " (" << records[(size_t)rindex-1]->points[i].latitude << "," << records[(size_t)rindex-1]->points[(size_t)i].longitude << ")\n";
     }
 }
 int ShapeFile::parseFile(std::vector<ShapeRecord*>& records, const std::string& shapefile) {
+    bool MY_DEBUG = false; // enable/disable lots of output while parsing the file
     // Generalize a bit, and re-use for TimeZones !!!
     uint32_t bytecnt = 0;
     std::ifstream infile(shapefile, std::ifstream::in | std::ifstream::binary);
@@ -866,7 +867,7 @@ int ShapeFile::parseFile(std::vector<ShapeRecord*>& records, const std::string& 
     double valdbl = 0.0;
     unsigned int record = 1;
     valint = BinaryFile::readIntBig(infile, bytecnt); // magic number, is always 0x0000270A
-    //std::cout << "Magic number: " << valint << '\n';
+    if (MY_DEBUG) std::cout << "Magic number: " << valint << '\n';
     if (valint != 9994) {
         std::cout << "Was expecting Magic number 9994 (0x0000270A), got: " << valint << " !Not sure how to proceed, so bailing.\n";
         infile.close();
@@ -878,11 +879,11 @@ int ShapeFile::parseFile(std::vector<ShapeRecord*>& records, const std::string& 
     valint = BinaryFile::readIntBig(infile, bytecnt);
     valint = BinaryFile::readIntBig(infile, bytecnt);
     uint32_t filesize = 2 * BinaryFile::readIntBig(infile, bytecnt); // File length in 16 bit words, including header, int32 big endian
-    //std::cout << "File Size: " << valint << '\n';
+    if (MY_DEBUG) std::cout << "File Size: " << valint << '\n';
     unsigned int fileversion = BinaryFile::readIntLittle(infile, bytecnt); // Version, int32 little endian
-    //std::cout << "Version: " << fileversion << '\n';
+    if (MY_DEBUG) std::cout << "Version: " << fileversion << '\n';
     valint = BinaryFile::readIntLittle(infile, bytecnt); // Shape Type, int32 little endian
-    //std::cout << "Shape Type: " << valint << '\n';
+    if (MY_DEBUG) std::cout << "Shape Type: " << valint << '\n';
     if (valint != 5) {
         std::cout << "Was expecting Shape Type 5! Not sure how to proceed, so bailing.\n";
         infile.close();
@@ -896,11 +897,11 @@ int ShapeFile::parseFile(std::vector<ShapeRecord*>& records, const std::string& 
     double maxZ = BinaryFile::readDoubleLittle(infile, bytecnt);
     double minM = BinaryFile::readDoubleLittle(infile, bytecnt);
     double maxM = BinaryFile::readDoubleLittle(infile, bytecnt);
-    //std::cout << "MBB - Minimum Bounding Box:\n";
-    //std::cout << " minX: " << minX << ", minY: " << minY << '\n';
-    //std::cout << " maxX: " << maxX << ", maxY: " << maxY << '\n';
-    //std::cout << "Z range: " << minZ << ", " << maxZ << '\n';
-    //std::cout << "M range: " << minM << ", " << maxM << '\n';
+    if (MY_DEBUG) std::cout << "MBB - Minimum Bounding Box:\n";
+    if (MY_DEBUG) std::cout << " minX: " << minX << ", minY: " << minY << '\n';
+    if (MY_DEBUG) std::cout << " maxX: " << maxX << ", maxY: " << maxY << '\n';
+    if (MY_DEBUG) std::cout << "Z range: " << minZ << ", " << maxZ << '\n';
+    if (MY_DEBUG) std::cout << "M range: " << minM << ", " << maxM << '\n';
     uint32_t rnum = 0;
     uint32_t temp = 0;
     uint32_t recordlen = 0;
@@ -908,13 +909,13 @@ int ShapeFile::parseFile(std::vector<ShapeRecord*>& records, const std::string& 
     while (bytecnt < filesize) { // Run until the anticipated end of file
         records.push_back(new ShapeRecord());
         records.back()->recordnum = BinaryFile::readIntBig(infile, bytecnt);
-        //std::cout << " Record Number: " << records.back()->recordnum << '\n';
+        if (MY_DEBUG) std::cout << " Record Number: " << records.back()->recordnum << '\n';
         recordlen = 2 * BinaryFile::readIntBig(infile, bytecnt);
-        //std::cout << " Record Length: " << recordlen << '\n'; // length is counted in 16 bit words for some reason
+        if (MY_DEBUG) std::cout << " Record Length: " << recordlen << '\n'; // length is counted in 16 bit words for some reason
         unsigned int recordend = bytecnt + recordlen;
 
         records.back()->type = BinaryFile::readIntLittle(infile, bytecnt);
-        //std::cout << "Shape Type: " << valint << '\n';
+        if (MY_DEBUG) std::cout << "Shape Type: " << valint << '\n';
         if (records.back()->type != 5) {
             std::cout << "Was expecting Shape Type 5! Not sure how to proceed, so bailing.\n";
             infile.close();
@@ -924,13 +925,13 @@ int ShapeFile::parseFile(std::vector<ShapeRecord*>& records, const std::string& 
         double minY = BinaryFile::readDoubleLittle(infile, bytecnt);
         double maxX = BinaryFile::readDoubleLittle(infile, bytecnt);
         double maxY = BinaryFile::readDoubleLittle(infile, bytecnt);
-        //std::cout << "  MBR - Minimum Bounding Box:\n";
-        //std::cout << "   minX: " << minX << ", minY: " << minY << '\n';
-        //std::cout << "   maxX: " << maxX << ", maxY: " << maxY << '\n';
+        if (MY_DEBUG) std::cout << "  MBR - Minimum Bounding Box:\n";
+        if (MY_DEBUG) std::cout << "   minX: " << minX << ", minY: " << minY << '\n';
+        if (MY_DEBUG) std::cout << "   maxX: " << maxX << ", maxY: " << maxY << '\n';
         records.back()->numparts = BinaryFile::readIntLittle(infile, bytecnt);
         uint32_t numpoints = BinaryFile::readIntLittle(infile, bytecnt); // Needed later when capping last part index
-        //std::cout << "  Number of parts: " << numparts << '\n';
-        //std::cout << "  Number of points: " << numpoints << '\n';
+        if (MY_DEBUG) std::cout << "  Number of parts: " << records.back()->numparts << '\n';
+        if (MY_DEBUG) std::cout << "  Number of points: " << numpoints << '\n';
         unsigned int index;
         for (unsigned int i = 1; i <= records.back()->numparts; i++) {
             // Get parts array indices
@@ -939,7 +940,7 @@ int ShapeFile::parseFile(std::vector<ShapeRecord*>& records, const std::string& 
             records.back()->parts.push_back(ShapePart()); // start new part
             records.back()->parts.back().startindex = index;
             records.back()->parts.back().partnum = i;
-            //std::cout << "  Part " << i << " point data array index: " << records.back()->parts.back().arrayindex << '\n';
+            if (MY_DEBUG) std::cout << "  Part " << i << " point data start index: " << records.back()->parts.back().startindex << '\n';
         }
         records.back()->parts.back().length = numpoints - records.back()->parts.back().startindex;
         pcnt = 0;
@@ -948,12 +949,12 @@ int ShapeFile::parseFile(std::vector<ShapeRecord*>& records, const std::string& 
             records.back()->points.emplace_back(LatLon());
             records.back()->points.back().longitude = BinaryFile::readDoubleLittle(infile, bytecnt);
             records.back()->points.back().latitude = BinaryFile::readDoubleLittle(infile, bytecnt);
-            //std::cout << "    Point: (" << records.back()->points.back().latitude << ", " << records.back()->points.back().longitude << ")\n";
+            if (MY_DEBUG) std::cout << "    Point " << pcnt << ": (" << records.back()->points.back().latitude << ", " << records.back()->points.back().longitude << ")\n";
             pcnt++;
         }
         // Now save the count of points for this part
         records.back()->parts.back().length = pcnt - records.back()->parts.back().startindex;
-        //std::cout << "Last part length: " << records.back()->parts.back().length << '\n';
+        if (MY_DEBUG) std::cout << "Last part length: " << records.back()->parts.back().length << '\n';
         //temp++;
         //if (temp > 4) break; // It goes on and on without this...
         // This successfully parses the whole current file, including multiple parts in records. Now consider how to organize the data in memory!

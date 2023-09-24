@@ -13,9 +13,11 @@ layout(location = 7) in float aRot;
 //uniform mat4 model;
 uniform mat4 projview;
 uniform mat4 world;
+uniform vec3 lightDir;
 
 out vec4 bColor;
 out vec3 bNormal;
+out vec3 lDir;
 
 void main()
 {   
@@ -49,25 +51,31 @@ void main()
     bNormal.x = sx * cos(azi) - y * sin(azi); // Rot Z
     bNormal.y = sx * sin(azi) + y * cos(azi);
 
+    lDir = lightDir;
+    //lDir = transpose(inverse(mat3(world))) * lightDir;
+
     // Translate and project vertex
     gl_Position = projview * world * vec4(a + aOffset, 1.0);
+    bNormal = transpose(inverse(mat3(world))) * bNormal;
 
     // Color passthrough
     bColor = aColor;
+    //bColor = vec4(bNormal, 1.0); //aColor;
 };
 
 #shader fragment
 #version 460 core
 in vec4 bColor;
 in vec3 bNormal;
+in vec3 lDir;
 out vec4 FragColor;
-uniform vec3 lightDir;
+//uniform vec3 lightDir;
 void main()
 {
     if (bColor.a == 0.0) discard; // Alpha 0 still renders the fragment and may overlap non-invisible objects - so discard them
     //float pwr = 50; // 1 = simple directional light, 50 = specular highlight
     //float factor = pow(clamp(dot(lightDir, bNormal), 0, 1), pwr);
-    float factor = clamp(dot(lightDir, bNormal), 0, 1)+0.1;// +0.25;
+    float factor = clamp(dot(lDir, bNormal), 0, 1); //+0.1; 
     FragColor = vec4(factor * bColor.r, factor * bColor.g, factor * bColor.b, bColor.a);
     //FragColor = bColor;
 };

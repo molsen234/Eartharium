@@ -4,12 +4,11 @@
 
 #include <glm/gtx/rotate_vector.hpp>     // Rotation matrices for glm
 
-#include "AAplus/AADiameters.h"
-#include "AAplus/AARefraction.h"
+//#include "AAplus/AADiameters.h"          // Only used in Earth::calcSunSemiDiameter()
+//#include "AAplus/AARefraction.h"         // Only used in Earth::calcRefractionBennett()
 #include "AAplus/AANutation.h"
 #include "AAplus/AAMoon.h"
 #include "AAplus/AAPhysicalMoon.h"
-#include "AAplus/AASidereal.h"
 
 #include "Earth.h"
 
@@ -181,7 +180,7 @@ void SubSolar::Update(glm::vec3 pos) {
 void SubSolar::draw(Camera* cam) {
     shdr->Bind();
     shdr->SetUniformMatrix4f("view", cam->getViewMat());
-    shdr->SetUniformMatrix4f("projection", cam->getProjMat());
+    shdr->SetUniformMatrix4f("projview", cam->getProjMat());
     shdr->SetUniform3f("position", position.x, position.y, position.z);
     shdr->SetUniform3f("lightDir", cam->CamLightDir.x, cam->CamLightDir.y, cam->CamLightDir.z);
     //shdr->SetUniform1i("tex", tex->GetRenderID());  // Wrong! Texture units and textures are not the same.
@@ -429,6 +428,14 @@ void BodyGeometry::setMorphParameter(float parameter) {
 float BodyGeometry::getMorphParameter() {
     return morph_param;
 }
+LLH BodyGeometry::toLocalCoords(LLH loc, const bool rad) {
+    // Local coords are the same as BodyGeometry native
+    return loc;
+}
+LLH BodyGeometry::fromLocalCoords(LLH loc, const bool rad) {
+    // Local coords are the same as BodyGeometry native
+    return loc;
+}
 glm::vec3 BodyGeometry::getLoc3D(const LLH loc, const bool rad) {
     /// <summary>
     /// Takes latitude and longitude in radians to glm::vec3 Cartesian coordinate in world/object space
@@ -438,12 +445,14 @@ glm::vec3 BodyGeometry::getLoc3D(const LLH loc, const bool rad) {
     /// <param name="height">Optional height above geoid surface in km, defaults to 0.0</param>
     /// <param name="rad">Optional flag to indicate if angles are in radians, defaults to false</param>
     /// <returns>Cartesian coordinates glm::vec3 in world space units for currently active geoid geometry</returns>
-    if (pos_mode2 == nullptr) return (this->*pos_mode1)(loc, rad);
-    return morph_param * (this->*pos_mode2)(loc, rad) + (1.0f - morph_param) * (this->*pos_mode1)(loc, rad);
+    LLH myloc = toLocalCoords(loc, rad);
+    if (pos_mode2 == nullptr) return (this->*pos_mode1)(myloc, rad);
+    return morph_param * (this->*pos_mode2)(myloc, rad) + (1.0f - morph_param) * (this->*pos_mode1)(myloc, rad);
 }
 glm::vec3 BodyGeometry::getNml3D(const LLH loc, const bool rad) {
-    if (nml_mode2 == nullptr) return (this->*nml_mode1)(loc, rad);
-    return glm::normalize(morph_param * (this->*nml_mode2)(loc, rad) + (1.0f - morph_param) * (this->*nml_mode1)(loc, rad));
+    LLH myloc = toLocalCoords(loc, rad);
+    if (nml_mode2 == nullptr) return (this->*nml_mode1)(myloc, rad);
+    return glm::normalize(morph_param * (this->*nml_mode2)(myloc, rad) + (1.0f - morph_param) * (this->*nml_mode1)(myloc, rad));
 }
 glm::vec3 BodyGeometry::getLoc3D_NS(const LLH loc, const bool rad) {
     double lat = loc.lat, lon = loc.lon;
@@ -494,9 +503,9 @@ glm::vec3 BodyGeometry::getLoc3D_ER(const LLH loc, const bool rad) {
         lon *= deg2rad;
     }
     // Is a bounds check needed here?
-    if (lat > pi2 + tiny || lat < -pi2 - tiny) std::cout << "WARNING: Earth2::getLoc3D_ER(): lat is out of range: " << lat << "\n";
+    if (lat > pi2 + tiny || lat < -pi2 - tiny) //std::cout << "WARNING: Earth2::getLoc3D_ER(): lat is out of range: " << lat << "\n";
     if (lon > pi + tiny || lon < -pi - tiny) {
-        std::cout << "WARNING: Earth2::getLoc3D_ER(): lon is out of range: " << lon << "\n";
+        //std::cout << "WARNING: Earth2::getLoc3D_ER(): lon is out of range: " << lon << "\n";
     }
     // The simple scale used *does* preserve the north pole to equator distance from a sphere, since on a unit sphere that distance is pi/2.
     return glm::vec3(loc.dst, lon * radius, lat * radius);
@@ -563,6 +572,8 @@ void BodyGeometry::draw(Camera* cam) {
     //          When fixing, add support for single channel and float value textures
     if (hidden) return; // Don't draw anything if this object is marked as hidden
     shdr->Bind();
+    // Maybe add a matching cleanup if user allocates and binds special GPU resources?
+    bool drawn = drawSpecific(cam, shdr);  // Note DetailedSky calls SkyDots::draw() which uses a different shader. So call out before setting uniforms.
     glm::mat4 pv = cam->getProjMat() * cam->getViewMat();
     shdr->SetUniformMatrix4f("projview", pv);
     shdr->SetUniformMatrix4f("world", worldmatrix);
@@ -571,9 +582,7 @@ void BodyGeometry::draw(Camera* cam) {
     if (m_texture3 != nullptr) shdr->SetUniform1i("texture3", m_texture3->GetTextureSlot());
     va->Bind();
     ib->Bind();
-    // Maybe add a matching cleanup if user allocates and binds special GPU resources?
-    bool drawn = drawSpecific(cam, shdr);
-    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); //Note: For GL_FRONT_AND_BACK, also do glDisable(GL_CULL_FACE)
+    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // Note: For GL_FRONT_AND_BACK, also do glDisable(GL_CULL_FACE)
     //glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Default mode is GL_FRONT_AND_BACK, GL_FILL
     //glFrontFace(GL_CCW);
     glDisable(GL_CULL_FACE); // It is irritating that Earth disappears when seen from back-/in-side
@@ -600,13 +609,9 @@ SmartPath::SmartPath(Scene* scene, SceneObject* parent, float width, glm::vec4 c
     m_color = color;
     m_width = width;
     m_curves.emplace_back(new PolyCurveSO(scene, this, m_color, m_width, NO_UINT));
-    //m_curves.back()->setParent(this);
     m_curve = 0;
 }
 SmartPath::~SmartPath() {
-    //for (auto& c : m_curves) {
-    //    m_scene->deletePolyCurve(c);
-    //}
     m_curves.clear();
 }
 void SmartPath::setColor(glm::vec4 color) {
@@ -629,7 +634,6 @@ void SmartPath::addSplit(glm::vec3 point1, glm::vec3 point2) {
     m_curves[m_curve]->addPoint(point1);
     if (m_curves.size() - 1 <= m_curve) {
         m_curves.emplace_back(new PolyCurveSO(scene, this, m_color, m_width, NO_UINT));
-        //m_curves.back()->setParent(this);
     }
     m_curve++;
     m_curves[m_curve]->addPoint(point2);
@@ -648,7 +652,7 @@ void SmartPath::generate() {
 }
 void SmartPath::draw(Camera* cam) {
     //std::cout << "SmartPath::draw()\n";
-} // SceneObject children need a draw() but here the PolyCurve takes care of drawing independently
+} // SceneObject children need a draw() but here the PolyCurveSO takes care of drawing independently
 
 
 // ----------
@@ -1151,6 +1155,102 @@ PlanetoidGP::PlanetoidGP(Scene* scene, SceneObject* parent, const size_t type, c
     setPosition(pos);  // In Planetoid
 }
 
+
+// ----------
+//  Ecliptic
+// ----------
+Ecliptic::Ecliptic(Scene* scene, SceneObject* parent, BodyGeometry* geometry, float width, glm::vec4 color)
+    : SceneObject(scene, parent) {
+    name = "Ecliptic";
+    locref = geometry;              // Redundant! Use m_geometry OR locref, not both.
+    m_geometry = geometry;
+    path = new SmartPath{ scene, this, width, color };
+    generate();
+}
+Ecliptic::~Ecliptic() {
+    // !!! FIX: Also remove own children, or figure out how to deal with them !!! (No children at the moment)
+    m_parent->removeChild(this);
+    delete path;
+}
+void Ecliptic::setColor(glm::vec4 color) {
+    path->setColor(color);
+}
+void Ecliptic::setWidth(float width) {
+    path->setWidth(width);
+}
+void Ecliptic::generate() {
+    path->clearPoints();
+    LLH gpos, tpos;
+    glm::vec3 pos{ 0.0f };
+    // According to https://www.aa.quae.nl/en/reken/transformatie.html
+    // tan(alpha) = tan(lambda) * cos(epsilon), where alpha is right ascension, lambda is Ecliptic longitude, epsilon is true obliquity
+    // So, tan(lambda) = tan(alpha) / cos(epsilon), thus lambda = atan2( tan(aplha), cos(epsilon) )
+    const double epsilon = scene->astro->TrueObliquityOfEcliptic(NO_DOUBLE, true);
+    const double start_celes_lon = -pi + verytiny + scene->astro->ApparentGreenwichSiderealTime(NO_DOUBLE, true);
+    double start_eclip_lon = atan2(tan(start_celes_lon), cos(epsilon));
+    if (start_celes_lon <= -pi2 || start_celes_lon > pi2) start_eclip_lon += pi;
+    if (start_eclip_lon < 0.0) start_eclip_lon += tau;
+    //std::cout << start_eclip_lon << '\n';
+    for (double lon = start_eclip_lon; lon <= tau; lon += deg2rad) {
+        gpos = scene->astro->calcEc2Geo(0.0, lon, epsilon, true);
+        tpos = scene->astro->calcDecRA2GP(gpos, NO_DOUBLE, true);
+        pos = (locref->*locpos)(tpos, true);
+        path->addPoint(pos);
+    }
+    for (double lon = 0.0; lon <= start_eclip_lon; lon += deg2rad) {
+        gpos = scene->astro->calcEc2Geo(0.0, lon, epsilon, true);
+        tpos = scene->astro->calcDecRA2GP(gpos, NO_DOUBLE, true);
+        pos = (locref->*locpos)(tpos, true);
+        path->addPoint(pos);
+    }
+    gpos = scene->astro->calcEc2Geo(0.0, start_eclip_lon-tiny, epsilon, true);
+    tpos = scene->astro->calcDecRA2GP(gpos, NO_DOUBLE, true);
+    pos = (locref->*locpos)(tpos, true);
+    path->addPoint(pos);
+}
+bool Ecliptic::update() { return false; }
+void Ecliptic::draw(Camera* cam) {}
+
+// -----------------
+//  Precession Path
+// -----------------
+PrecessionPath::PrecessionPath(Scene* scene, SceneObject* parent, BodyGeometry* geometry, float width, glm::vec4 color)
+    : SceneObject(scene, parent) {
+    name = "Precession Path";
+    locref = geometry;              // Redundant! Use m_geometry OR locref, not both.
+    m_geometry = geometry;
+    path = new SmartPath{ scene, this, width, color };
+    generate();
+}
+PrecessionPath::~PrecessionPath() {
+    // !!! FIX: Also remove own children, or figure out how to deal with them !!! (No children at the moment)
+    m_parent->removeChild(this);
+    delete path;
+}
+void PrecessionPath::setColor(glm::vec4 color) {
+    path->setColor(color);
+}
+void PrecessionPath::setWidth(float width) {
+    path->setWidth(width);
+}
+void PrecessionPath::generate() {
+    path->clearPoints();
+    EDateTime* time = new EDateTime();
+    time->setTime(-2000, 1, 1.0, 0.0, 0.0, 0.0);
+    LLH decra{ 0.0, 0.0, 0.0 };
+    glm::vec3 pos{ 0.0f, 0.0f, 0.0f };
+    for (int year = -26000; year < 26000; year += 50) {
+        time->setTime(year, 1, 1.0, 0.0, 0.0, 0.0);
+        decra = scene->astro->PrecessJ2000DecRA({ pi2, 0.0, 0.0 }, time->jd_tt());
+        pos = (locref->*locpos)(decra, true);
+        path->addPoint(pos);
+    }
+}
+bool PrecessionPath::update() { return false; }
+void PrecessionPath::draw(Camera* cam) {}
+
+
+
 // ------------------
 //  Celestial Sphere
 // ------------------
@@ -1167,10 +1267,12 @@ void CelestialSphere::draw() {}
 // --------------
 //  Detailed Sky
 // --------------
+// !!! FIX: Precession is not applied to the texture, so it is slightly off from SkyDot stars (unless JD_TT is J2000.0) !!!
+
 DetailedSky::DetailedSky(Scene* scene, SceneObject* parent, std::string mode, unsigned int meshU, unsigned int meshV, float radius)
     : BodyGeometry(scene, parent, DETAILED_SKY, mode, meshU, meshV, radius) {
     name = "Detailed Sky";
-    //m_scene = scene;
+    hasgui = true;
     // Should all the thousands of stars be children ?? If so, don't use Dots directly.
     skydotsFactory = new SkyDots(scene);
     //addEquator();
@@ -1182,62 +1284,144 @@ void DetailedSky::setTexture(bool tex) {  // rename to useTexture(), or just let
     // true = render the texture, false = do not render the texture
     textured = tex;
 }
+void DetailedSky::addGridEquatorial() {
+    // This is the native grid for DetailedSky, so simply let Grid inherit the orientation parameters via worldmatrix
+    // UPD: Now getLoc3D() includes siderealtime, so grid should not inherit.
+    equatorialgrid = new Grid(scene, this, this, "EquatorialGrid");
+    equatorialgrid->setSpacing(15.0, false);
+    equatorialgrid->setWidth(0.005f);
+    equatorialgrid->setColor(PURPLE);
+}
+void DetailedSky::addGridEcliptic() {
+    // This is the native grid for DetailedSky, so simply let Grid inherit the orientation parameters via worldmatrix
+    eclipticgrid = new Grid(scene, this, this, "EclipticGrid");
+    eclipticgrid->setSpacing(15.0, false);
+    eclipticgrid->setWidth(0.005f);
+    eclipticgrid->setColor(GREEN);
+    eclipticgrid->rotations.x = deg2radf * 23.4f;
+}
+void DetailedSky::addEcliptic() {
+    ecliptic = new Ecliptic(scene, this, this, NO_FLOAT, GREEN);
+}
+void DetailedSky::addPrecessionPath() {
+    precessionpath = new PrecessionPath(scene, this, this, NO_FLOAT, NO_COLOR);
+}
 void DetailedSky::addStars(double magnitude) {
-    size_t i = 0;
+    size_t i = skydotDefs.size();
     for (auto& s : Astronomy::stellarobjects) {
-        if (s.vmag < magnitude) {
-            //std::cout << "SkySphere::addStars(): size = " << size << " at Vmag = " << s.vmag << "\n";
-            addDotDecRA(++i, s.dec, s.ra, glm::vec4((float)s.red, (float)s.green, (float)s.blue, 1.0f), getMagnitude2Radius(s.vmag), /*radians*/ false);
-        }
+        if (s.vmag < magnitude) addStar(++i, s);
     }
     std::cout << "Stars added: " << i << " of magnitude less than " << magnitude << '\n';
-    //curr_unique = i; // Is really just skydotDefs.size();
-
+}
+void DetailedSky::addStar(size_t unique, Astronomy::stellarobject& star) {
+    //std::cout << star.dec << "," << star.ra << " | " << star.pm_dec << "," << star.pm_ra << '\n';
+    star.dec *= deg2rad;
+    star.ra *= deg2rad;
+    star.pm_dec *= deg2rad;
+    star.pm_ra *= deg2rad;
+    float size = getMagnitude2Radius(star.vmag);
+    LLH starpos = scene->astro->applyProperMotionJ2000(NO_DOUBLE, { star.dec,star.ra,0.0 }, { star.pm_dec, star.pm_ra, 0.0 });
+    starpos = scene->astro->PrecessJ2000DecRA(starpos);
+    glm::vec4 color{ (float)star.red, (float)star.green, (float)star.blue, 1.0f};
+    size_t index = skydotsFactory->addXYZ(getDecRA2Pos3D(starpos), color, size); // Split out for readability
+    //size_t index = skydotsFactory->addXYZ(getLoc3D(starpos, true), color, size); // Split out for readability
+    skydotDefs.push_back({ unique, color, { star.dec, star.ra, 0.0 }, {star.pm_dec,star.pm_ra, 0.0}, size, index });
+    return; // skydotDefs.size() - 1;
 }
 void DetailedSky::addDotDecRA(size_t unique, double dec, double ra, glm::vec4 color, float size, bool rad) {
     if (!rad) {
         dec *= deg2rad;
         ra *= deg2rad;
     }
-    size_t index = skydotsFactory->addXYZ(getDecRA2Pos3D(dec, ra), color, size); // Split out for readability
-    skydotDefs.push_back({ unique, color, { dec, ra, 0.0 }, size, index });
-    return; // skydotDefs.size() - 1;
+    size_t index = skydotsFactory->addXYZ(getDecRA2Pos3D({ dec, ra, 0.0 }), color, size); // Split out for readability
+    //size_t index = skydotsFactory->addXYZ(getLoc3D({ dec, ra, 0.0 }, true), color, size); // Split out for readability
+    skydotDefs.push_back({ unique, color, { dec, ra, 0.0 }, {0.0,0.0, 0.0}, size, index });
+    return;
 }
-glm::vec3 DetailedSky::getDecRA2Pos3D(double dec, double ra) {
-    return getLoc3D_NS({ dec, ra - scene->astro->ApparentGreenwichSiderealTime(NO_DOUBLE, true), 0.0}, true);
+glm::vec3 DetailedSky::getDecRA2Pos3D(LLH decra) { // Input MUST be radians !!!
+
+    if (siderealtime) {
+        decra.lon -= scene->astro->ApparentGreenwichSiderealTime(NO_DOUBLE, true);
+        //decra.lon = clampmPitoPi(decra.lon);
     }
+    return getLoc3D(decra, true);
+}
 float DetailedSky::getMagnitude2Radius(double magnitude) {
-    // This hack seems to match the ESO full sky diameters pretty closely for some reason.
+    // This hack seems to match the ESO full sky diameters pretty closely for some reason
+    // (apparently depending on Camera settings, not sure which were used when I made the above comment)
     // The scale is really non-linear so should probably involve a logarithm
     //return (float)((4.0 - (magnitude + 1.5) / 2.0) / (200.0 / radius));
     return (float)((4.0 - (magnitude + 1.5) / 2.0) / (200.0 / radius));
 }
 bool DetailedSky::drawSpecific(Camera* cam, Shader* shdr) { 
-    shdr->SetUniform3f("lDir", glm::normalize(cam->getPosition()));             // lDir
-    //glDisable(GL_CULL_FACE); // Allow sky texture to be seen from both inside and outside
-
+    // NOTE: This uses a different shader, so will obliterate any uniforms etc already set in BodyGeometry::draw() or here
     skydotsFactory->draw(cam);
+    
+    shdr->Bind();
+    shdr->SetUniform3f("lDir", glm::normalize(cam->getPosition()));
+    //shdr->SetUniform3f("lDir", cam->CamLightDir);
 
-    return !textured;
+    return !textured;  // if not textured, skip BodyGeometry draw
 }
 bool DetailedSky::update() {
-    rotations.z = -(float)scene->astro->ApparentGreenwichSiderealTime(NO_DOUBLE, true);
+    // Rotates texture and SceneObject children, but not individual star dots (they are not in SceneTree)
+    // (Dec RA Grid is no longer child, as it uses getLoc3D() and would get double GSID applied)
+    if (siderealtime) rotations.z = -(float)scene->astro->ApparentGreenwichSiderealTime(NO_DOUBLE, true);
+
+    if (eclipticgrid) eclipticgrid->rotations.x = (float)scene->astro->TrueObliquityOfEcliptic(NO_DOUBLE, true);
+
+
+    if (siderealtime && ecliptic) ecliptic->rotations.z = (float)scene->astro->ApparentGreenwichSiderealTime(NO_DOUBLE, true);
+    if (ecliptic)  ecliptic->generate();
+
+    if (precessionpath) precessionpath->generate();
 
     // Run through skydotDefs and update SkyDots
     // !!! FIX:
-    // Should recalculate proper motion and precession if time since last update is more than some threshold
-    // Should apply nutation
-    // and abberation ?
+    // + Should recalculate proper motion and precession if time since last update is more than some threshold
+    // - Should apply nutation
+    // - and abberation ?
     // !!!
     for (auto& s : skydotDefs) {
-        LLH prec_coord = scene->astro->PrecessJ2000DecRA(s.coordinates);
-        skydotsFactory->changeXYZ(s.dot_index, getDecRA2Pos3D(prec_coord.lat, prec_coord.lon), NO_COLOR, NO_FLOAT);
+        LLH starpos = s.coordinates;
+        if (propermotion) starpos = scene->astro->applyProperMotionJ2000(NO_DOUBLE, starpos, s.propermotion);
+        if (precession) starpos = scene->astro->PrecessJ2000DecRA(starpos);
+        skydotsFactory->changeXYZ(s.dot_index, getDecRA2Pos3D(starpos), NO_COLOR, NO_FLOAT);
+        //skydotsFactory->changeXYZ(s.dot_index, getLoc3D(starpos), NO_COLOR, NO_FLOAT);
     }
+    updateShape();  // Update actual geometry provided by BodyGeometry
     return false; // Did not replace worldmatrix already
+}
+LLH DetailedSky::toLocalCoords(LLH loc, const bool rad) {
+    // Convert from Dec/RA (in equinox of date) to planetocentric format
+    LLH myloc = loc;
+    if (!rad) {
+        myloc.lat *= deg2rad;
+        myloc.lon *= deg2rad;
+    }
+    //if (siderealtime) myloc.lon -= scene->astro->ApparentGreenwichSiderealTime(NO_DOUBLE, true);
+    myloc.lon = scene->astro->rangezero2tau(myloc.lon);
+    if (myloc.lon > pi) myloc.lon = myloc.lon - tau;
+    return myloc;
+}
+LLH DetailedSky::fromLocalCoords(LLH loc, const bool rad) {
+    // Convert from planetocentric (native to BodyGeometry) to Dec/RA (native to DetailedSky)
+    LLH myloc = loc;
+    if (!rad) {
+        myloc.lat *= deg2rad;
+        myloc.lon *= deg2rad;
+    }
+    // !!! FIX: Include Sidereal Time, using siderealtime boolean flag !!!
+    myloc.lon = clampmPitoPi(myloc.lon);
+    if (myloc.lon < 0.0) myloc.lon = myloc.lon + tau;
+    return myloc;
 }
 void DetailedSky::myGUI() {
     if (ImGui::CollapsingHeader(name.c_str())) {
         ImGui::Checkbox("Use Texture", &textured);
+        ImGui::Checkbox("Proper Motion", &propermotion);
+        ImGui::Checkbox("Precession", &precession);
+        ImGui::Checkbox("Sidereal Time", &siderealtime);
     }
 }
 
@@ -1273,19 +1457,37 @@ void DetailedEarth::addArcticCircles() {
     double obliquity = scene->astro->TrueObliquityOfEcliptic(NO_DOUBLE, true);
     std::cout << obliquity << '\n';
     arcticcircle = new Latitude(scene, this, this, pi2 - obliquity, NO_FLOAT, AQUA);
+    arcticcircle->name = "ArcticCircle";
     antarcticcircle = new Latitude(scene, this, this, obliquity - pi2, NO_FLOAT, AQUA);
+    antarcticcircle->name = "AntarcticCircle";
 }
+void DetailedEarth::removeArcticCircles() {
+    delete arcticcircle;
+    arcticcircle = nullptr;
+    delete antarcticcircle;
+    antarcticcircle = nullptr;
+}
+// Could do subtropic regions but there are multiple contradictory definitions
 void DetailedEarth::addTropicCircles() {
     double obliquity = scene->astro->TrueObliquityOfEcliptic(NO_DOUBLE, true);
-    std::cout << obliquity << '\n';
-    tropicofcancer = new Latitude(scene, this, this, obliquity, NO_FLOAT, YELLOW);
-    tropicofcapricorn = new Latitude(scene, this, this, -obliquity, NO_FLOAT, YELLOW);
+    //std::cout << obliquity << '\n';
+    tropicofcancer = new Latitude(scene, this, this, obliquity, NO_FLOAT, LIGHT_ORANGE);
+    tropicofcancer->name = "TropicCancer";
+    tropicofcapricorn = new Latitude(scene, this, this, -obliquity, NO_FLOAT, LIGHT_ORANGE);
+    tropicofcapricorn->name = "TropicCapricorn";
+}
+void DetailedEarth::addEcliptic() {
+    ecliptic = new Ecliptic(scene, this, this, NO_FLOAT, GREEN);
+    //ecliptic->rotationorder = ZYX;
 }
 bool DetailedEarth::update() {
     if (dirty_geometry && arcticcircle) arcticcircle->generate();
     if (dirty_geometry && antarcticcircle) antarcticcircle->generate();
     if (dirty_geometry && tropicofcancer) tropicofcancer->generate();
     if (dirty_geometry && tropicofcapricorn) tropicofcapricorn->generate();
+
+    if (ecliptic)  ecliptic->generate();
+
     updateShape();  // Update actual geometry provided by BodyGeometry
 
     subsolar = scene->astro->calcDecHA2GP(scene->astro->getDecGHA(SUN), true);
@@ -1295,6 +1497,14 @@ bool DetailedEarth::update() {
     if (sungp != nullptr) sungp->setPosition(getSunGPLocation()); // Uses subsolar calculated above
     if (celestialgrid != nullptr) celestialgrid->rotations.y = (float)scene->astro->TrueObliquityOfEcliptic(NO_DOUBLE, true);
     return false;
+}
+LLH DetailedEarth::toLocalCoords(LLH loc, const bool rad) {
+    // Local coords are the same as BodyGeometry native
+    return loc;
+}
+LLH DetailedEarth::fromLocalCoords(LLH loc, const bool rad) {
+    // Local coords are the same as BodyGeometry native
+    return loc;
 }
 bool DetailedEarth::drawSpecific(Camera* cam, Shader* shdr) {
     // Object specific shader uniforms etc
@@ -1539,6 +1749,14 @@ bool DetailedMoon::update() {
     }
     return false;
 }
+LLH DetailedMoon::toLocalCoords(LLH loc, const bool rad) {
+    // Local coords same as BodyGeometry native
+    return loc;
+}
+LLH DetailedMoon::fromLocalCoords(LLH loc, const bool rad) {
+    // Local coords same as BodyGeometry native
+    return loc;
+}
 bool DetailedMoon::drawSpecific(Camera* cam, Shader* shdr) {
     // Object specific shader uniforms etc
     
@@ -1752,6 +1970,8 @@ void Earth::Update() {
     }
     if (timedirty || paramdirty || flatsundirty) {
         updateSun();
+        if (m_subsolar) m_subsolar->setPosition(flatSun);
+
         if (m_sunob != nullptr) updateSubsolarPoint();
         if (m_moonob != nullptr) updateSublunarPoint();
         for (unsigned int i = 0; i < m_dotcache.size(); i++) {
@@ -1943,11 +2163,11 @@ glm::vec3 Earth::getEast3D(double rLat, double rLon, double height) {
 }
 glm::vec3 Earth::getLoc3D_XX(std::string mode, double rLat, double rLon, double height) {
     // "CG" is used by Location::FlatSun to signify Current Geometry, whichever that happens to be. So don't use that here.
-    if (mode == "NS") return getLoc3D_NS(rLat, rLon, height);
-    if (mode == "AE") return getLoc3D_AE(rLat, rLon, height);
-    if (mode == "LB") return getLoc3D_LB(rLat, rLon, height);
-    if (mode == "LA") return getLoc3D_LA(rLat, rLon, height);
-    if (mode == "MW") return getLoc3D_MW(rLat, rLon, height);
+    if (mode == "NS") return getLoc3D_NS(rLat, rLon, height); // Normal Sphere
+    if (mode == "AE") return getLoc3D_AE(rLat, rLon, height); // Azimuthal Equidistant
+    if (mode == "LB") return getLoc3D_LB(rLat, rLon, height); // Lambertian Azimuthal Equal Area
+    if (mode == "LA") return getLoc3D_LA(rLat, rLon, height); // Lambertian ditto
+    if (mode == "MW") return getLoc3D_MW(rLat, rLon, height); // Mollweide
     if (mode == "ER") return getLoc3D_ER(rLat, rLon, height);
     if (mode == "RC") return getLoc3D_RC(rLat, rLon, height);
     if (mode == "E8") return getLoc3D_E8(rLat, rLon, height);
@@ -2291,17 +2511,21 @@ double Earth::calcHorizonDip(double height) {
 double Earth::calcSunSemiDiameter(double jd_tt) {
     // Sun semidiameter in arc minutes as apparent from Earth - should it support radians too? Add when required.
     if (jd_tt == NO_DOUBLE) jd_tt = m_scene->astro->getJD_TT();
-    return CAADiameters::SunSemidiameterA(m_scene->astro->EcDstEarth(jd_tt)) / 60.0;
+    // 955.63 from CAADiameters::SunSemidiameterA()
+    return (959.63 / m_scene->astro->EcDstEarth(jd_tt)) / 60.0;
 }
 double Earth::calcRefractionAlmanac(double elevation, double temperature, double pressure) {
     // returns refraction correction in arcminutes. Takes elevation in degrees, temperature in Celcius (centigrade), pressure in hPa (mbar)
     // Source: https://www.madinstro.net/sundry/navsext.html
     return (0.267 * pressure / (temperature + 273.15)) / tan(deg2rad * (elevation + 0.04848 / (tan(deg2rad * elevation) + 0.028)));
 }
-double Earth::calcRefractionBennett(double elevation, double temperature, double pressure) {
+double Earth::calcRefractionBennett(double elevation, double temperature = 10, double pressure = 1010) {
     // returns refraction correction in arcminutes. Takes elevation in degrees, temperature in Celcius (centigrade), pressure in hPa (mbar)
-    // Source: AA+ from J.Meeus
-    return CAARefraction::RefractionFromApparent(elevation, pressure, temperature);
+    // Source: J.Meeus AA1998
+    // AA+: CAARefraction::RefractionFromApparent()
+    if (elevation <= -1.6962987799993996)
+        elevation = -1.6962987799993996;
+    return (1 / (tan(deg2rad * (elevation + (7.31 / (elevation + 4.4))))) + 0.0013515) * (pressure / 1010 * 283 / (273 + temperature)) / 60;
 }
 double Earth::calcBrianLeakeDistance(const double elevation, bool rad) {
     double ea = elevation;
@@ -2523,20 +2747,24 @@ glm::vec3 Earth::getSubsolarXYZ(double jd_utc) {
 }
 void Earth::addSubsolarPoint(float size) {
     //std::cout << "Subsolar point : " << m_sunDec << ", " << m_sunHour << "\n";
-    if (m_sunob != nullptr) return;
-    m_sunob = new SubSolar(m_scene, 16, 32, size);
-    m_sunob->Update(flatSun);
+    //if (m_sunob != nullptr) return;
+    //m_sunob = new SubSolar(m_scene, 16, 32, size);
+    //m_sunob->Update(flatSun);
+    if (m_subsolar) return;
+    m_subsolar = new Planetoid(m_scene, nullptr, SUN, 16, 32, size);
 }
 void Earth::deleteSubsolarPoint() {
-    if (m_sunob != nullptr) delete m_sunob;
-    m_sunob = nullptr;
+    //if (m_sunob != nullptr) delete m_sunob;
+    //m_sunob = nullptr;
+    if (m_subsolar) delete m_subsolar;
+    m_subsolar = nullptr;
 }
 void Earth::updateSubsolarPoint() {
-    if (m_sunob == nullptr) {
-        std::cout << "Earth::updateSubsolarPoint() was called, but there is no sundot to update.\n";
-        return;
-    }
-    m_sunob->Update(flatSun);
+    //if (m_sunob == nullptr) {
+    //    std::cout << "Earth::updateSubsolarPoint() was called, but there is no sundot to update.\n";
+    //    return;
+    //}
+    //m_sunob->Update(flatSun);
 }
 void Earth::addSubsolarDot() {
     if (m_sundot != NO_UINT) return;
@@ -2551,7 +2779,7 @@ void Earth::updateSubsolarDot() {
         std::cout << "Earth::updateSubsolarDot() was called, but there is no sundot to update.\n";
         return;
     }
-    m_dots->changeXYZ(m_sundot, solarGP, LIGHT_RED, 0.01f);
+    m_dots->changeXYZ(m_sundot, solarGP, LIGHT_ORANGE, 0.05f);
 }
 void Earth::addSubsolarPole(float width) {
     if (m_sunpole != maxuint) return; // There is a SubSolarPole already
@@ -3083,7 +3311,7 @@ void Earth::updateSubsolarPath() {
     // FIXME !!! Does not cut path at seam !!! (see morph ER -> RC)
     suncurve->clearPoints();
     for (auto& sp : sunpath->entries) {
-        suncurve->addPoint(getLoc3D(sp.geodec, -sp.geogha));
+        suncurve->addPoint(getLoc3D(sp.geq.lat, -sp.geogha));   // Dec, GHA
     }
     suncurve->generate();
 }
@@ -3333,11 +3561,7 @@ size_t Earth::addArc(LLH llh1, LLH llh2, glm::vec4 color, float width, bool rad,
         llh1.lon *= deg2rad; // 
         llh2.lon *= deg2rad; // 
     }
-    //PolyCurve* curve1 = m_scene->newPolyCurve(color, width);
-    //PolyCurve* curve2 = m_scene->newPolyCurve(color, width);
     GenericPath* path = new GenericPath(m_scene, width, color);
-    //PolyCurve* curve1 = m_scene->newPolyCurve(LIGHT_GREEN, width); // To troubleshoot path splitting
-    //PolyCurve* curve2 = m_scene->newPolyCurve(LIGHT_RED, width);
     m_polycache.push_back({ nullptr, nullptr, path, width, type, color, llh1, llh2, /* refraction */ 0.0, /* fend */ 1.0, ca, /* closed */ false });
     updateCompositePath2(m_polycache.back());
     return m_polycache.size() - 1;
@@ -5403,7 +5627,7 @@ void Location::addPlanetaryPath(size_t planet, double startoffset, double endoff
 void Location::updatePlanetaryPath(polycache& pa) {
     pa.path->clearPoints();
     for (auto const& pt : pa.planetCP->entries) {
-        LLH topo = m_scene->astro->calcGeo2Topo({ pt.geodec, pt.geogha, 0.0 }, { m_lat, m_lon, 0.0 });
+        LLH topo = m_scene->astro->calcGeo2Topo({ pt.geq.lat, pt.geogha, 0.0 }, { m_lat, m_lon, 0.0 });
         glm::vec3 dir = calcEleAzi2Dir(topo, true);
         pa.path->addPoint(m_pos + dir * m_radius);
     }
@@ -5627,8 +5851,8 @@ void SolarSystem::PlanetOrbit(size_t planet) {
     }
     m_PlanetPath[planet - SUN]->clearPoints(); // Even if it was just created, clearing an empty vector should be cheap
     for (auto const& pt : m_PlanetOrbit[planet - SUN]->entries) {
-        if (planet == SUN) m_PlanetPath[planet - SUN]->addPoint(Ecliptic2Cartesian(pt.heclat, pt.heclon, pt.hecdst));
-        else  m_PlanetPath[planet - SUN]->addPoint(Ecliptic2Cartesian(pt.heclat, pt.heclon, pt.hecdst) + m_sunpos);
+        if (planet == SUN) m_PlanetPath[planet - SUN]->addPoint(Ecliptic2Cartesian(pt.hec.lat, pt.hec.lon, pt.hec.dst)); // Heliocentric
+        else  m_PlanetPath[planet - SUN]->addPoint(Ecliptic2Cartesian(pt.hec.lat, pt.hec.lon, pt.hec.dst) + m_sunpos);
     }
     m_PlanetPath[planet]->generate();
  }

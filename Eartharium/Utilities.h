@@ -7,7 +7,9 @@
 #include <string>
 #include <vector>
 
-//#include "Primitives.h"
+
+//#include "Earth.h"      // So KML File parser knows SmartPath
+#include "Astronomy.h"  // For EDateTime
 
 // Protos
 struct ShapePart;
@@ -17,9 +19,10 @@ class tzFile;
 class ShapeFile;
 class BinaryFile;
 struct DateTime;
+//class EDateTime;
+class SmartPath;
+
 std::ostream& operator<<(std::ostream& os, const DateTime& dt);
-
-
 // -----------
 //  Date Time
 // -----------
@@ -117,7 +120,7 @@ public:
 //  Shape File
 // ------------
 class ShapeFile {
-    // Handles ESRI ShapeFiles
+    // Handles ESRI ShapeFiles https://www.esri.com/content/dam/esrisites/sitecore-archive/Files/Pdfs/library/whitepapers/pdfs/shapefile.pdf
     // Currently only knows how to load POLYGON outlines, as that is all that is needed (can be tested properly)
 public:
     struct ShapePart {
@@ -138,6 +141,71 @@ public:
     };
     static void printRecord(const std::vector<ShapeRecord*>& records, const unsigned int rindex);
     static int parseFile(std::vector<ShapeRecord*>& records, const std::string& shapefile);
+};
+
+
+// ----------
+//  KML File
+// ----------
+class KMLFile {
+// Tested with KML files from FlightAware. The parser is VERY simplistic, so it may not parse KML files from other sources
+public:
+    struct kmlentry {
+        EDateTime timestamp;         // <when>2016-08-07T21:14:39Z</when>
+        LLH location{ 0.0,0.0,0.0 }; // <gx:coord>8.52743 47.48766 610</gx:coord>
+    };
+    static int parseFile(SmartPath& path, const std::string& kmlfile) {
+        // !!! FIX: Make a TimePath to use instead of SmartPath !!!
+        std::ifstream infile(kmlfile, std::ifstream::in); // | std::ifstream::binary)
+        if (!infile.is_open()) return -1;
+        std::vector<kmlentry> kmlbuffer;
+        std::string line;
+        long yr, mo;
+        double da, hr, mi, se;
+        double lat, lon, dst;
+        std::string token;
+        size_t index{ 0 };
+        while (getline(infile, line)) {
+            trim(line);                               // trim() is in config.h
+            if (line.length() < 9) continue;
+            if (line.substr(1, 4) == "when") {
+                //std::cout << line << "\n";
+                yr = stol(line.substr(8, 4));
+                mo = stol(line.substr(11, 2));
+                da = stod(line.substr(14, 2));
+                hr = stod(line.substr(17, 2));
+                mi = stod(line.substr(20, 2));
+                se = stod(line.substr(23, 2));
+                //std::cout << yr << ";" << mo << ";" << da << ";" << hr << ";" << mi << ";" << se << "\n";
+                kmlbuffer.emplace_back(kmlentry{ EDateTime{yr,mo,da,hr,mi,se}, LLH{0.0,0.0,0.0} });
+            }
+            if (line.substr(1, 8) == "gx:coord") {
+                //std::cout << line << "\n";
+                line.erase(0, line.find_first_of('>')+1);
+                line.erase(line.find_first_of('<'));
+                std::stringstream ss(line);
+                //std::cout << "Index: " << index << " : " << line << "\n";
+                ss >> token;
+                lat = stod(token);
+                ss >> token;
+                lon = stod(token);
+                ss >> token;
+                dst = stod(token);
+                kmlbuffer[index].location = { lat, lon, dst };
+                //std::cout << "Index: " << index << " : ";
+                //kmlbuffer[index].location.print();
+                index++;
+            }
+        }
+        std::cout << "KMLFile::parseFile(): " << index << " points loaded:\n";
+        index = 0;
+        for (auto& p : kmlbuffer) {
+            std::cout << index << " : " << p.timestamp.string() << " = ";
+            p.location.print();
+            index++;
+        }
+        return 0;
+    }
 };
 
 

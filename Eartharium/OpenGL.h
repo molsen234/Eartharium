@@ -173,6 +173,7 @@ class TextureLibrary {
 		{ SHADOWS, NO_UINT, GL_TEXTURE1, nullptr, 0, "" },       // Not loaded from file
 		{ SKYBOX, NO_UINT, GL_TEXTURE2, nullptr, 0, "" },        // Not loaded from file
 		{ EARTH_DAY, NO_UINT, GL_TEXTURE3, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\large map 8192x4096.png" },
+		//{ EARTH_DAY, NO_UINT, GL_TEXTURE3, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\land_shallow_topo_8192_mdo.png" },
 		{ EARTH_NIGHT, NO_UINT, GL_TEXTURE4, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\BlackMarble_2012_8192x4096_ice.png" },
 		{ SUNDOT, NO_UINT, GL_TEXTURE5, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\2k_sun.png" },
 		{ MOONDOT, NO_UINT, GL_TEXTURE6, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\2k_moon.png" },

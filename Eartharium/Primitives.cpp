@@ -245,36 +245,6 @@ Earth* Scene::getEarth() {
         return nullptr;
     }
 }
-//DetailedSky* Scene::newDetailedSky(std::string mode, unsigned int mU, unsigned int mV, float radius) {
-//    if (m_dskyOb == nullptr) m_dskyOb = new DetailedSky(this, mode, mU, mV, radius);
-//    return m_dskyOb;
-//}
-//DetailedEarth* Scene::newDetailedEarth(std::string mode, unsigned int mU, unsigned int mV, float radius) {
-//    if (m_dearthOb == nullptr) m_dearthOb = new DetailedEarth(this, mode, mU, mV, radius);
-//    return m_dearthOb;
-//}
-//DetailedEarth* Scene::getDetailedEarth() {
-//    // NOTE: Don't use this unless you know what you are doing. It is meant to be an internal function.
-//    if (m_dearthOb != nullptr) return m_dearthOb;
-//    else {
-//        std::cout << "WARNING: Scene::getDetailedEarth(): was asked for DetailedEarth object, but none is available!\n";
-//        std::cout << " (ideally Scene::getDetailedEarth() should never be called from anywhere, is there for shadows (using SubSolar) until PointLight is implemented)\n";
-//        return nullptr;
-//    }
-//}
-//DetailedMoon* Scene::newDetailedMoon(std::string mode, unsigned int mU, unsigned int mV, float radius) {
-//    if (m_dmoonOb == nullptr) m_dmoonOb = new DetailedMoon(this, mode, mU, mV, radius);
-//    return m_dmoonOb;
-//}
-//DetailedMoon* Scene::getDetailedMoon() {
-//    // NOTE: Don't use this unless you know what you are doing. It is meant to be an internal function.
-//    if (m_dmoonOb != nullptr) return m_dmoonOb;
-//    else {
-//        std::cout << "WARNING: Scene::getDetailedMoon(): was asked for DetailedMoon object, but none is available!\n";
-//        std::cout << " (ideally Scene::getDetailedMoon() should never be called from anywhere, is there for shadows (using SubSolar) until PointLight is implemented)\n";
-//        return nullptr;
-//    }
-//}
 Minifigs* Scene::newMinifigs() { // Only single observer at the moment, fix this (like PolyCurve for example) !!!
     if (m_minifigsOb == nullptr) m_minifigsOb = new Minifigs(this);
     return m_minifigsOb;
@@ -321,6 +291,9 @@ SceneObject::SceneObject(Scene* scene, SceneObject* parent) : scene(scene) {
     else m_parent = parent;
     m_parent->addChild(this);
 }
+SceneObject::~SceneObject() {
+    if (m_parent) m_parent->removeChild(this);
+}
 void SceneObject::addChild(SceneObject* object) {
     children.push_back(object);
 }
@@ -359,9 +332,16 @@ void SceneObject::inherit() {
     worldmatrix = glm::scale(worldmatrix, scale);
     //rotate
     //VPRINT(rotations);
-    worldmatrix = glm::rotate(worldmatrix, rotations.x, glm::vec3(1.0f, 0.0f, 0.0f));
-    worldmatrix = glm::rotate(worldmatrix, rotations.y, glm::vec3(0.0f, 1.0f, 0.0f));
-    worldmatrix = glm::rotate(worldmatrix, rotations.z, glm::vec3(0.0f, 0.0f, 1.0f));
+    if (rotationorder == XYZ) {
+        worldmatrix = glm::rotate(worldmatrix, rotations.x, glm::vec3(1.0f, 0.0f, 0.0f));
+        worldmatrix = glm::rotate(worldmatrix, rotations.y, glm::vec3(0.0f, 1.0f, 0.0f));
+        worldmatrix = glm::rotate(worldmatrix, rotations.z, glm::vec3(0.0f, 0.0f, 1.0f));
+    }
+    if (rotationorder == ZYX) {
+        worldmatrix = glm::rotate(worldmatrix, rotations.z, glm::vec3(0.0f, 0.0f, 1.0f));
+        worldmatrix = glm::rotate(worldmatrix, rotations.y, glm::vec3(0.0f, 1.0f, 0.0f));
+        worldmatrix = glm::rotate(worldmatrix, rotations.x, glm::vec3(1.0f, 0.0f, 0.0f));
+    }
     //translate
     //VPRINT(position);
     worldmatrix = glm::translate(worldmatrix, position);
@@ -1886,7 +1866,6 @@ CountryBorders::CountryBorders(Scene* scene, const std::string& filebase) : m_sc
     // Could make a summary CSV file, or build a full .dbl parser. Would it be an interesting challenge, or perhaps even useful?
     // o For now, make a CSV file, the source data is not updated very often.
     // Note: There are libraries available for these sort of things too.
-    //parseFile(filebase + ".shp");
     ShapeFile::parseFile(records, filebase + ".shp");
     // If a generic shapefile loader is made, pass std::vector<ShapeRecord*> records by reference.
     parseNames(filebase + ".csv");
@@ -1965,6 +1944,104 @@ int CountryBorders::parseNames(const std::string& namefile) {
         parse.str(line);
         std::getline(parse, countrynames.back().searchname, ',');
         std::getline(parse, countrynames.back().displayname, ',');
+    }
+    return 0;
+}
+
+
+// ----------------
+//  Constellations
+// ----------------
+// For implementation notes, see CountryBorders
+Constellations2::Constellations2(Scene* scene, const std::string& filebase) : m_scene(scene) {
+    // Data source: http://www.naturalearthdata.com/downloads/
+    // ESRI .shp file format:
+    // https://en.wikipedia.org/wiki/Shapefile (basic explanation, enough to get started)
+    // https://www.esri.com/content/dam/esrisites/sitecore-archive/Files/Pdfs/library/whitepapers/pdfs/shapefile.pdf (full spec)
+    // dBASE XBase .dbf format:
+    // https://www.clicketyclick.dk/databases/xbase/format/index.html
+    // (for now, just using Excel to open and read the row number (subtract 1 for header before using).
+    // Could make a summary CSV file, or build a full .dbl parser. Would it be an interesting challenge, or perhaps even useful?
+    // o For now, make a CSV file, the source data is not updated very often.
+    // Note: There are libraries available for these sort of things too.
+    ShapeFile::parseFile(records, filebase + ".shp");
+    // If a generic shapefile loader is made, pass std::vector<ShapeRecord*> records by reference.
+    parseNames(filebase + ".csv");
+
+}
+void Constellations2::addBorder(BodyGeometry& geom, const std::string constellationname) {
+    // Check CSV file for spelling of countries, this does NOT have fuzzy search.
+    // Alternatively look up the index manually and pass that instead (as unsigned int)
+    size_t index = 0;
+    for (auto& cn : constellationnames) { // Should probably use a std::find, this is the 21st century.
+        if (constellationname == cn.searchname) index = cn.index; // If there are duplicates, this returns the last
+    }
+    if (index == 0) {
+        std::cout << "WARNING: Constellations::addBorder(): No match found for constellation name: " << constellationname << ", defaulting to country_id = 1\n";
+        index = 1;
+    }
+    addBorder(geom, index);
+}
+void Constellations2::addBorder(BodyGeometry& geom, size_t rindex) {
+    // This could take Earth (for getLoc3D()) and an array where to drop the points.
+    // Ideally I want to be able to draw a border on a globe, then unlink it from the geometry,
+    //  have it float up while Earth morphs, and settle down to compare to the new size.
+    //  (Of course this requires two borders, one that remains linked and one that floats)
+    // But start by simply getting a border onto Earth, then make it morph. I can add a duplicate
+    //  function to whatever object ends up holding a border. Begin by using a PolyCurve, change to GL_LINE later.
+    // UPD: Now using PolyLine, which is always flat and has width in screen space rather than world space.
+    // Make an update function for morphing.
+
+    // Should scan borderparts vector to see if the requested border exists already !!!
+    //  o That may conflict with creating floating duplicate as pondered above.
+    rindex--;  // Array indices assume array starts at 1
+    for (auto& part : records[rindex]->parts) {
+        //std::cout << "CountryBorder::addBorder(): part: " << part.partnum << " start: " << part.startindex << " length: " << part.length << "\n";
+        constellationparts.push_back(new bordeconstellationpartcache());
+        constellationparts.back()->country_id = rindex + 1;
+        constellationparts.back()->part = &part;
+        constellationparts.back()->polyline = m_scene->newPolyLine(LIGHT_RED, 0.001f, part.length);
+        constellationparts.back()->geom = &geom;
+        for (size_t i = part.startindex; i < (part.startindex + part.length); i++) {
+            constellationparts.back()->polyline->addPoint(geom.getLoc3D({ deg2rad * records[rindex]->points[i].latitude, deg2rad * records[rindex]->points[i].longitude, surface_offset }, true));
+        }
+        constellationparts.back()->polyline->generate();
+    }
+}
+void Constellations2::update() { // Updates all of the country border parts at once
+    // This is even prepared to update "countries" on other planets, if they have a getLoc3D() function (or separate instances of Earth)
+    // NOTE: Since this is plotted at 0.0f terrain height, it will intersect Earth tris !!!
+    for (auto& pcache : constellationparts) {
+        //std::cout << "CountryBorder::update(): country_id = " << pcache->country_id << ", polyline = " << pcache->polyline << ", earth = " << pcache->earth << '\n';
+        pcache->polyline->clearPoints();
+        //std::cout << "CountryBorder::update(): part: " << part.partnum << " start: " << part.startindex << " length: " << part.length << "\n";
+        for (size_t i = pcache->part->startindex; i < (pcache->part->startindex + pcache->part->length); i++) {
+            pcache->polyline->addPoint(pcache->geom->getLoc3D({ deg2rad * records[pcache->country_id - 1]->points[i].latitude,
+                deg2rad * records[pcache->country_id - 1]->points[i].longitude, surface_offset }, true));
+        }
+        pcache->polyline->generate();
+    }
+}
+void Constellations2::draw() {
+    std::cout << "Constellations::draw(): no need to call draw(), PolyLines were allocated via Scene, so will be drawn there.\n";
+    //for (auto& pcache : borderparts) {
+    //    pcache->polyline->draw();
+    //}
+}
+int Constellations2::parseNames(const std::string& namefile) {
+    std::istringstream parse;
+    std::string line;
+    std::ifstream stream(namefile);
+    getline(stream, line); // Skip headers
+    unsigned int i = 0;
+    while (getline(stream, line)) {
+        i++;
+        constellationnames.emplace_back(ConstellationName());
+        constellationnames.back().index = i;
+        parse.clear();
+        parse.str(line);
+        std::getline(parse, constellationnames.back().searchname, ',');
+        std::getline(parse, constellationnames.back().displayname, ',');
     }
     return 0;
 }
@@ -2184,7 +2261,6 @@ void AngleArcs::update(size_t index, glm::vec3 position, glm::vec3 start, glm::v
     }
     m_arcs[index].polycurve->generate();
 }
-
 void AngleArcs::draw() {
     for (auto& a : m_arcs) {
         a.polycurve->draw(m_scene->w_camera); // Move to be rendered in Scene, default Camera is not always right !!!
@@ -2214,7 +2290,7 @@ void PolyLine::change(glm::vec4 color, float width) {
     if (width != NO_FLOAT) m_width = width;
 }
 void PolyLine::addPoint(glm::vec3 point) {
-    //if (limit) std::cout << "WARNING PolyPolyCurve (" << this << ") adding beyond capacity, resizing!\n"; // only triggers if coming back after setting limit flag
+    //if (limit) std::cout << "WARNING PolyLine (" << this << ") adding beyond capacity, resizing!\n"; // only triggers if coming back after setting limit flag
     m_points.push_back(point);
     if (m_points.size() == m_points.capacity()) {
         std::cout << "WARNING: PolyLine (" << this << ") capacity: " << m_points.capacity() << " reached. It will be SLOW to add new points now!\n";
@@ -2241,7 +2317,6 @@ void PolyLine::draw() {
     //glDisable(GL_DEPTH_TEST);
     glDrawArrays(GL_LINE_LOOP, 0, (GLsizei)m_points.size());  // ESRI Polygons are closed, so use GL_LINE_LOOP
     //glEnable(GL_DEPTH_TEST);
-    //glDrawElementsInstanced(GL_LINES, ib->GetCount(), GL_UNSIGNED_INT, 0, (GLsizei)m_segments.size());
 }
 
 
@@ -2284,7 +2359,7 @@ PolyCurveSO::~PolyCurveSO() {
     delete vbl1;
     delete ib;
     delete vb1;
-    // delete vb2;  // Is deleted on every Draw() call completion
+    // delete vb2;  // Is deleted on every draw() call completion
     delete va;
 }
 void PolyCurveSO::setColor(glm::vec4 color) {
@@ -2358,7 +2433,7 @@ void PolyCurveSO::draw(Camera* cam) {
     shdr->SetUniformMatrix4f("projview", pv);
     shdr->SetUniformMatrix4f("world", worldmatrix);
     //std::cout << glm::to_string(worldmatrix) << '\n';
-    shdr->SetUniform3f("lightDir", cam->CamLightDir.x, cam->CamLightDir.y, cam->CamLightDir.z);
+    shdr->SetUniform3f("lightDir", cam->CamLightDir);
     vb1->Bind();
     va->Bind();
     ib->Bind();
@@ -2399,9 +2474,6 @@ void PolyCurveSO::genGeom() { // Single segment
         }
     }
 }
-
-
-
 
 
 // -----------
@@ -3276,19 +3348,13 @@ void SkyDots::removeDot(size_t index) { remove(index); }
 void SkyDots::draw(Camera* cam) {
     if (!visible) return;
     if (m_Primitives.size() == 0) return;
-    // Create an instance array and render using one allocated Primitive
-    // - color4
-    // - position3
-    // - orientation3
-    // - scale3
-    // - rotation1
 
     shdr->Bind();
     // NOTE: Consider passing in 1 multiplied matrix instead of these:
     //shdr->SetUniformMatrix4f("view", cam->getSkyViewMat());
     shdr->SetUniformMatrix4f("view", cam->getViewMat());
     shdr->SetUniformMatrix4f("projection", cam->getProjMat());
-    shdr->SetUniform3f("lightDir", cam->CamLightDir.x, cam->CamLightDir.y, cam->CamLightDir.z);
+    shdr->SetUniform3f("lightDir", cam->CamLightDir);
 
     // Set up and draw
     vb1->Bind();

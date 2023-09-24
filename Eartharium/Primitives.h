@@ -8,7 +8,6 @@
 
 #include "ImGUI/imgui.h"         // For ImFont
 
-
 #include "OpenGL.h"
 #include "Utilities.h"
 #include "config.h"
@@ -46,6 +45,7 @@ class BodyGeometry;
 class Camera;
 class Cones;
 class CountryBorders;
+class Constellations;
 class Cylinders;
 class DetailedEarth;
 class DetailedMoon;
@@ -290,6 +290,7 @@ public:
     std::string name = "Object";
     glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f);
     glm::vec3 rotations{0.0f, 0.0f, 0.0f};
+    unsigned int rotationorder = XYZ;
     glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
     glm::mat4 worldmatrix = glm::mat4(1.0f); // Collects parent worldmatrix and applies scale, rotation, position.
     glm::vec4 color = WHITE; // default color, not used by some derived objects
@@ -297,6 +298,7 @@ public:
     SceneObject* m_parent = nullptr;
     std::list<SceneObject*> children;
     SceneObject(Scene* scene, SceneObject* parent);
+    ~SceneObject();
     void addChild(SceneObject* object);
     void removeChild(SceneObject* child);
     // Safer to pass a parent when constructing. If there is ever a need to change parent, destroy the object and create a new one.
@@ -743,12 +745,12 @@ public:
 class ShadowMap {
 private:
     Scene* m_scene = nullptr;
-    unsigned int m_depthmapFBO;
-    unsigned int width;
-    unsigned int height;
+    unsigned int m_depthmapFBO{ 0 };
+    unsigned int width{ 0 };
+    unsigned int height{ 0 };
 public:
     Shader* shdr = nullptr;
-    unsigned int depthmap;
+    unsigned int depthmap{ 0 };
     glm::mat4 lightSpaceMatrix = glm::mat4(1.0f);
     ShadowMap(Scene* scene, unsigned int w, unsigned int h);
     ~ShadowMap();
@@ -966,6 +968,54 @@ public:
 };
 
 
+// -----------------
+//  Constellations2 (ShapeFile based, but the shapefile I use has antimeridian issues)
+// -----------------
+// !!! FIX: This does not have facilities for removing objects once added !!!
+struct ConstellationName {
+    size_t index = 0;
+    std::string searchname;  // 3 letter abbreviation
+    std::string displayname; // Canonical Latin name
+};
+struct bordeconstellationpartcache {
+    size_t country_id = 0;
+    ShapeFile::ShapePart* part = nullptr;
+    PolyLine* polyline = nullptr;
+    BodyGeometry* geom = nullptr;
+};
+class Constellations2 {
+// A Constellation is a region of the celestial sphere containing the asterism it is named after.
+// it works pretty much like country borders on Earth, hence I have simply copied the implementation.
+public:
+    unsigned int fileversion = 0;
+    // For the ESRI data
+    std::vector<ShapeFile::ShapeRecord*> records;
+private:
+    Scene* m_scene = nullptr;
+    uint32_t bytecnt = 0;
+    // For constellation names and index
+    std::vector<ConstellationName> constellationnames;
+    // For drawn borders
+    std::vector<bordeconstellationpartcache*> constellationparts;
+public:
+    Constellations2(Scene* scene, const std::string& shapefile = "C:\\Coding\\Eartharium\\constellations\\constell");
+    void addBorder(BodyGeometry& geom, const std::string constellationname);
+    void addBorder(BodyGeometry& geom, size_t rindex);
+    void update();
+    void draw();
+    int parseNames(const std::string& namefile);
+};
+
+
+// ----------------
+//  Constellations   - based on better datafiles than above
+// ----------------
+class Constellations {
+
+};
+
+
+
 // --------
 //  Skybox
 // --------
@@ -1113,7 +1163,43 @@ public:
     void remove(size_t index);
     void update(size_t index, glm::vec3 position, glm::vec3 start, glm::vec3 stop, float length, glm::vec4 color = LIGHT_GREY, float width = 0.001f, bool wide = false, glm::vec3 pole = glm::vec3(0.0f));
     void draw();
+};
 
+
+// -----------
+//  PolyLine SceneObject aware
+// -----------
+class PolyLineSO : public SceneObject {
+private:
+    //Scene* m_scene = nullptr;
+    glm::vec4 m_color = NO_COLOR;
+    float m_width = 0.0f;
+    unsigned int facets = 8;
+    std::vector<Vertex> m_verts;
+    std::vector<Tri> m_tris;
+    std::vector<Primitive3D> m_segments;
+    Shader* shdr = nullptr;
+    VertexArray* va = nullptr;
+    VertexBuffer* vb1 = nullptr;
+    VertexBuffer* vb2 = nullptr;
+    VertexBufferLayout* vbl1 = nullptr;
+    VertexBufferLayout* vbl2 = nullptr;
+    IndexBuffer* ib = nullptr;
+    bool dirty = false;  // If changes have been made which require regenerating m_segments since last update() call
+    //bool limit = false; // For debugging reserve() issues 
+public:
+    std::vector<glm::vec3> m_points; // Public so we can use it as track for objects (PathTracker in Earth.h)
+    PolyLineSO(Scene* scene, SceneObject* parent, glm::vec4 color, float width, size_t reserve = NO_UINT);
+    ~PolyLineSO();
+    void setColor(glm::vec4 color);
+    void setWidth(float width);
+    void changePolyCurve(glm::vec4 color = NO_COLOR, float width = NO_FLOAT);
+    void addPoint(glm::vec3 point);
+    void clearPoints();
+    void generate();
+    bool update() override;
+    void draw(Camera* cam);
+    void genGeom();
 };
 
 
@@ -1133,8 +1219,8 @@ private:
     VertexBufferLayout* vbl1 = nullptr;
     VertexBufferLayout* vbl2 = nullptr;
     IndexBuffer* ib = nullptr;
-    unsigned int VAO;
-    unsigned int VBO;
+    unsigned int VAO = NO_UINT;
+    unsigned int VBO = NO_UINT;
     //bool limit = false; // For debugging reserve() issues 
 public:
     PolyLine(Scene* scene, glm::vec4 color, float width, size_t reserve = NO_UINT);
@@ -1240,7 +1326,7 @@ private:
     glm::vec4 m_color{ NO_COLOR };
     float m_width{ NO_FLOAT };
     std::vector<PolyCurve*> m_curves;
-    unsigned int m_curve = 0;
+    unsigned int m_curve{ 0 };
 };
 
 
@@ -1263,13 +1349,13 @@ private:
 class Arrows {
 private:
     struct Arrow {
-        size_t cylinder;
-        size_t cone;
-        glm::vec4 color;
-        glm::vec3 position;
-        glm::vec3 direction;
-        float length;
-        float width;
+        size_t cylinder{ 0 };
+        size_t cone{ 0 };
+        glm::vec4 color{ 0.0f };
+        glm::vec3 position{ 0.0f };
+        glm::vec3 direction{ 0.0f };
+        float length{ 0.0f };
+        float width{ 0.0f };
     };
     Scene* m_scene = nullptr;
     Cylinders* m_cylinders = nullptr;

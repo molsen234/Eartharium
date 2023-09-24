@@ -1,0 +1,44 @@
+
+Celestial Coordinates in Shapefiles
+
+
+The celestial coordinate system is similar to the geographic system of latitude 
+and longitude, but it has several key differences:
+
+  1)  Right ascension (longitude) is measured in hours, where one hour is 15 
+      degrees, while declination (latitude) is measured directly in degrees.
+      Geographic latitude and longitude are both measured in degrees.
+
+  2)  Right ascension does not use negative numbers.  It measures from 0 to 
+      24 hours (0 to 360 degrees).  Geographic longitude measures from -180 
+      to 180 degrees.
+
+  3)  Both longitude and right ascension increase toward the east.  But unlike 
+      the Earth, the celestial sphere is viewed from the inside.  So when 
+      mapped, right ascension values increase from right to left, opposite the
+      X-axis.  Geographic longitude increases from left to right.
+
+In shapefiles, right ascension must fit into the scheme of geographic longitude 
+so that astronomical data are displayed and projected properly.  To do this, 
+the following algorithms are used:
+
+  Right ascension hours to longitude degrees, when storing data in a shapefile
+
+      lon = -RA * 15    if lon < -180 then lon = lon + 360
+
+  Longitude degrees to right ascension hours, when displaying coordinate values
+
+      RA = -lon / 15    if RA < 0 then RA = RA + 360
+
+These algorithms produce the following mapping of right ascension to longitude:
+
+     RA      RA       Lon
+    hours  degrees  degrees
+    -----  -------  -------
+      0        0        0
+      6       90      -90
+     12      180     -180
+     18      270       90
+     24      360        0
+
+

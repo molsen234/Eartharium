@@ -5,17 +5,18 @@
 #include <map>
 #include <string>
 #include <iostream>
+#include <algorithm>
 
 // GLM
 #include <glm/glm.hpp>
 
 // AA+
-#include "AAplus/AAElliptical.h" // For the Enums
+//#include "AAplus/AAElliptical.h" // For the Enums - UPD: still using same enums, but not using AA+ anymore.
 
 
 const unsigned int maxuint = 4294967295;     // pow(2,32)-1 used to represent 'none' for various indices
 enum itemtype {
-    SUN = CAAElliptical::Object::SUN, // Don't move these celestial objects, they need to match with AA+ enums
+    SUN = 0, // CAAElliptical::Object::SUN, // Don't move these celestial objects, they need to match with AA+ enums - UPD: moved AA+ to Astronomy
     MERCURY,
     VENUS,
     MARS,
@@ -85,6 +86,8 @@ enum itemtype {
     BOUNCE,
     REFR_BENNETT, // J.Meeus
     REFR_ALMANAC, // https://www.madinstro.net/sundry/navsext.html
+    XYZ,          // Rotation orders, used in SceneObject::inherit()
+    ZYX,
     ALL,
     NONE = maxuint,
 };
@@ -93,6 +96,9 @@ struct LLH {
     double lat{ 0.0 };
     double lon{ 0.0 };
     double dst{ 0.0 };
+    void print() {
+        std::cout << lat << "," << lon << ", " << dst << '\n';
+    }
 };
 
 // Camera movement via keyboard - These limits are used in Eartharium.cpp:keyboard_callback() for GLFW
@@ -188,20 +194,20 @@ const float surface_offset = 0.0001f;
 
 // Mathematical constants
 const double pi = 3.14159265358979323846;
+const float pif = 3.14159265358979323846f;
 const double tau = 2.0 * pi;
+const float tauf = 2.0f * pif;
 const double pi2 = pi / 2.0;
+const float pi2f = pif / 2.0f;
 const double pi4 = pi / 4.0;
+const float pi4f = pif / 4.0f;
 const double twopi = 2 / pi;
 const double deg2rad = tau / 360.0;
-const double rad2deg = 360.0 / tau;
-const float pif = 3.14159265358979323846f;
-const float tauf = 2.0f * pif;
-const float pi2f = pif / 2.0f;
-const float pi4f = pif / 4.0f;
 const float deg2radf = tauf / 360.0f;
+const double rad2deg = 360.0 / tau;
 const float rad2degf = 360.0f / tauf;
-const double hrs2dec = 15.0;
-const double dec2hrs = 1.0 / 15.0;
+const double hrs2deg = 15.0;
+const double deg2hrs = 1.0 / 15.0;
 const double rad2hrs = 24.0 / tau;
 const double hrs2rad = tau / 24.0;
 const double ninety = deg2rad * 89.99999;    // Used to avoid singularity at poles
@@ -211,10 +217,12 @@ const float maxfloat = FLT_MAX;
 const double maxdouble = DBL_MAX;
 
 // Astronomical constants
-const double JD2000 = 2451545.0;             // Standard Epoch J2000 in Julian Day
+const double JD_2000 = 2451545.0;             // Standard Epoch J2000 in Julian Day
+const double JD_UNIX = 2440587.5;             // Unix epoch 1970-01-01 00:00:00
 const double FIRST_LEAP_SECOND_JD = 2437300.5; // 1961 Jan 1, first entry in Leap Second Table
 const double LAST_LEAP_SECOND_JD = 2457754.5;  // 2017, currently last entry in Leap Second Table
-const double earthradius = 6371.0;           // Earth average radius in kilometers
+const double earthradius = 6371.008;           // Earth average radius in kilometers
+const double earthradiusm = 6371008;           // Earth average radius in meters
 //const double earthaxialtilt = 23.439281;     // degrees (2007 wikipedia). Value changes over time, as Earth axis wobbles
 //const double earthtropics = 23.4365;         // degrees (DMS: 23°26'11.4"). Value fixed by convention - No !!! Is defined as obliquity of ecliptic
 //const double eartharctics = 66.5635;         // NOTE: Actually changes over time, but set here to align with tropics
@@ -268,6 +276,10 @@ static std::string& trim(std::string& s, const char* t = whitespace) {
 	// trim from both ends of string (right then left)
 	return ltrim(rtrim(s, t), t);
 }
+static void  to_upper(std::string& str)
+{
+    std::transform(str.begin(), str.end(), str.begin(), ::toupper);
+}
 // Math helper functions
 static glm::vec3 projectVector2Plane(glm::vec3 vector, glm::vec3 normal) {
 	// Projects vector onto the plane defined by the normal
@@ -278,24 +290,6 @@ static double clampmPitoPi(double radians) {
 	while (radians > pi) radians -= tau;
 	return radians;
 }
-//static double clamp0to360(double degrees) {
-//// Is VERY slow in sidereal time calculations, when in year -2000, use Astronomy::rangezero2threesixty() instead.
-//	while (degrees > 360.0) degrees -= 360.0;
-//	while (degrees < 0.0) degrees += 360.0;
-//	return degrees;
-//}
-//static double clamp0toTau(double radians) {
-//	// See Astronomy::rangezero2tau(double rad) !!!
-//	while (radians > tau) radians -= tau;
-//	while (radians < 0.0) radians += tau;
-//	return radians;
-//}
-//static double clamp0to24(double radians) {
-//	// See Astronomy::rangezero2tau(double rad) !!!
-//	while (radians > 24.0) radians -= 24.0;
-//	while (radians < 0.0) radians += 24.0;
-//	return radians;
-//}
 
 
 // ----------

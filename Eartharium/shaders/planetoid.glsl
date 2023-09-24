@@ -15,7 +15,7 @@ void main()
     TexCoord = aTexCoord;
     lNormal = normalize(worldnormal * rNormal);
 
-    // Must also take sun direction and apply shade accordin
+    // Must also take sun direction and apply shade accordingly
 };
 
 #shader fragment

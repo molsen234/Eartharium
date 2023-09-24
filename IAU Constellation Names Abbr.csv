@@ -56,7 +56,7 @@ Mon,Monoceros
 Mus,Musca
 Nor,Norma
 Oct,Octans
-Oph,Ophiucus
+Oph,Ophiuchus
 Ori,Orion
 Pav,Pavo
 Peg,Pegasus
@@ -74,6 +74,8 @@ Sco,Scorpius
 Scl,Sculptor
 Sct,Scutum
 Ser,Serpens
+SER1,Serpens Caput
+SER2,Serpens Cauda
 Sex,Sextans
 Tau,Taurus
 Tel,Telescopium

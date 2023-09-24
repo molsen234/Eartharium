@@ -2,13 +2,16 @@
 #include <glm/gtx/string_cast.hpp>
 
 // These are used by various scenarios, because stuff is missing from Astronomy
-#include "AAplus/AAEquationOfTime.h"
-#include "AAplus/AARefraction.h"
-#include "AAplus/AAPrecession.h"
-#include "AAplus/AANutation.h"
 #include "AAplus/AAAberration.h"
+#include "AAplus/AAEquationOfTime.h"
 #include "AAplus/AAMoon.h"
+#include "AAplus/AANutation.h"
 #include "AAplus/AAPhysicalMoon.h"
+#include "AAplus/AAPrecession.h"   // !!! FIX: Solver evaluations use this, convert those to use Astronomy !!!
+#include "AAplus/AARefraction.h"   // refraction is calculated in a dynamic function in Earth, refactor that
+
+#include "AAplus/AARiseTransitSet2.h"
+
 
 // For the Python interface. Split into separate file if possible.
 #include <python310/Python.h>
@@ -24,7 +27,7 @@ void GLPrintError();
 #include "Primitives.h"
 #include "Earth.h"
 #include "Astronomy.h"
-
+//#include "Utilities.h"
 
 // -----------
 //  Locations
@@ -2700,8 +2703,8 @@ void AxialPrecession(Application& app) {
     //app.anim = true;
     //app.renderoutput = true;
 
-    astro->setJD_TT(JD2000 - (2500.0 * 365.25));
-    std::cout << "Set JD: " << JD2000 - (10000.0*365.25) << ", Got JD: " << astro->getJD_TT() << '\n';
+    astro->setJD_TT(JD_2000 - (2500.0 * 365.25));
+    std::cout << "Set JD: " << JD_2000 - (10000.0*365.25) << ", Got JD: " << astro->getJD_TT() << '\n';
 
     while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
     {
@@ -3086,7 +3089,7 @@ void McToonChallengeV1(Application& app) {
     LLH reg_pm = astro->getDecRAwithPMbyName("Arcturus", astro->getJD_TT());
     std::cout << " - Arcturus w/Prop Motion RA/Dec: " << astro->formatDecRA(reg_pm.lon, reg_pm.lat) << '\n';
     // With Precession
-    CAA2DCoordinate reg_prec = CAAPrecession::PrecessEquatorial(reg_pm.lon / 15.0, reg_pm.lat, EDateTime::getJDUTC2TT(JD2000), astro->getJD_TT());
+    CAA2DCoordinate reg_prec = CAAPrecession::PrecessEquatorial(reg_pm.lon / 15.0, reg_pm.lat, EDateTime::getJDUTC2TT(JD_2000), astro->getJD_TT());
     std::cout << " - Arcturus w/Precession  RA/Dec: " << astro->formatDecRA(reg_prec.X * 15.0, reg_prec.Y) << '\n';
     // With Nutation
     double obliq = CAANutation::MeanObliquityOfEcliptic(astro->getJD_TT());
@@ -3219,11 +3222,11 @@ void NullIslandTest(Application& app) {
     LLH reg_pm = astro->getDecRAwithPMbyName("Arcturus", astro->getJD_TT());
     std::cout << " - Arcturus w/Prop Motion RA/Dec: " << astro->formatDecRA(reg_pm.lon, reg_pm.lat) << '\n';
     // With Precession
-    //CAA2DCoordinate reg_prec = CAAPrecession::PrecessEquatorial(reg_pm.lon / 15.0, reg_pm.lat, EDateTime::getJDUTC2TT(JD2000), astro->getJD_TT());
+    //CAA2DCoordinate reg_prec = CAAPrecession::PrecessEquatorial(reg_pm.lon / 15.0, reg_pm.lat, EDateTime::getJDUTC2TT(JD_2000), astro->getJD_TT());
 
     double Alpha = reg_pm.lon / 15.0;
     double Delta = reg_pm.lat;
-    double JD0 = EDateTime::getJDUTC2TT(JD2000);
+    double JD0 = EDateTime::getJDUTC2TT(JD_2000);
     double JD = astro->getJD_TT();
 
     const double T{ (JD0 - 2451545) / 36525 };
@@ -3401,7 +3404,7 @@ void McToonChallengeV2(Application& app) {
     LLH reg_pm = astro->getDecRAwithPMbyName("Regulus",astro->getJD_TT());
     std::cout << " - Regulus w/Prop Motion RA/Dec: " << astro->formatDecRA(reg_pm.lat, reg_pm.lon) << '\n';
     // With Precession
-    CAA2DCoordinate reg_prec = CAAPrecession::PrecessEquatorial(reg_pm.lon / 15.0, reg_pm.lat, EDateTime::getJDUTC2TT(JD2000), astro->getJD_TT());
+    CAA2DCoordinate reg_prec = CAAPrecession::PrecessEquatorial(reg_pm.lon / 15.0, reg_pm.lat, EDateTime::getJDUTC2TT(JD_2000), astro->getJD_TT());
     std::cout << " - Regulus w/Precession  RA/Dec: " << astro->formatDecRA(reg_prec.Y, reg_prec.X * 15.0) << '\n';
     // With Nutation
     double obliq = CAANutation::MeanObliquityOfEcliptic(astro->getJD_TT());
@@ -3432,7 +3435,7 @@ void McToonChallengeV2(Application& app) {
     LLH tpe_pm = astro->getDecRAwithPMbyName("* tet Per", astro->getJD_TT());
     std::cout << " - Theta Persei w/Prop Motion RA/Dec: " << astro->formatDecRA(tpe_pm.lat, tpe_pm.lon) << '\n';
     // With Precession
-    CAA2DCoordinate tpe_prec = CAAPrecession::PrecessEquatorial(tpe_pm.lon / 15.0, tpe_pm.lat, EDateTime::getJDUTC2TT(JD2000), astro->getJD_TT());
+    CAA2DCoordinate tpe_prec = CAAPrecession::PrecessEquatorial(tpe_pm.lon / 15.0, tpe_pm.lat, EDateTime::getJDUTC2TT(JD_2000), astro->getJD_TT());
     std::cout << " - Theta Persei w/Precession  RA/Dec: " << astro->formatDecRA(tpe_prec.Y, tpe_prec.X * 15.0) << '\n';
     // With Nutation
     double tpe_obliq = CAANutation::MeanObliquityOfEcliptic(astro->getJD_TT()); // Degrees
@@ -3706,8 +3709,8 @@ void StarMovement(Application& app) {
 void LunarData(Application& app) {
     Astronomy* astro = app.newAstronomy();
 
-    astro->setJD_UTC(JD2000);
-    std::cout << JD2000 << " " << astro->getJD_TT() << "\n";
+    astro->setJD_UTC(JD_2000);
+    std::cout << JD_2000 << " " << astro->getJD_TT() << "\n";
 
     // Trying to match J.Meus 1992 Astronomical Algorithms SE, example 47.a (page 342)
     astro->setTime(1992, 4, 12.0, 0.0, 0.0, 0.0);  // Meus example 47.a
@@ -3721,7 +3724,7 @@ void LunarData(Application& app) {
     double moonRA = hrs2rad * equa.X;
     double moonDec = deg2rad * equa.Y;
     // precessing the epoch is needed below when matching NASAs 2023 lunar table (see below), not with Meus' example.
-    // CAA2DCoordinate j2k = CAAPrecession::PrecessEquatorial(equa.X, equa.Y, astro->getJD_UTC(), JD2000);
+    // CAA2DCoordinate j2k = CAAPrecession::PrecessEquatorial(equa.X, equa.Y, astro->getJD_UTC(), JD_2000);
 
     //std::cout << astro->getTimeString() << " " << astro->radecFormat(astro->rangezero2tau(moonRA), astro->rangepi2pi(moonDec), true) << "\n";
     std::cout << astro->getTimeString() << " " << equa.X << " / " << equa.Y << "\n";
@@ -3828,8 +3831,9 @@ void TestNewSunGP(Application& app) {
     Astronomy* astro = app.newAstronomy();
 
     //astro->setTimeNow();
-    astro->setTime(-2023, 7, 8.0, 11.0, 15.0, 0.0); // 99% of people seeing sunlight at this moment (and 2023-06-04 11:08 by symmetry)
-    //astro->setTime(2023, 1, 1.0, 0.0, 0.0, 0.0);
+    //astro->setTime(2023, 7, 8.0, 11.0, 15.0, 0.0); // 99% of people seeing sunlight at this moment (and 2023-06-04 11:08 by symmetry)
+    //astro->setTime(2000, 1, 1.0, 0.0, 0.0, 0.0);
+    astro->setTime(2023, 12, 22.0, 0.0, 0.0, 0.0);
     Scene* scene = app.newScene();
     Camera* cam = scene->w_camera; // Pick up default camera
     app.currentCam = cam;          // Bind camera to keyboard updates
@@ -3845,12 +3849,13 @@ void TestNewSunGP(Application& app) {
     //app.currentEarth = erf;
 
     // Here is the new DetailedEarth
-    DetailedEarth* erf = new DetailedEarth(scene, nullptr, "NSER", 180, 90, 1.0f);
+    DetailedEarth* erf = new DetailedEarth(scene, nullptr, "NSAE", 180, 90, 1.0f);
     app.currentEarth2 = erf;
     erf->addEquator();
     erf->addPrimeMeridian();
     //erf->addArcticCircles();
-    //erf->addTropics();
+    //erf->removeArcticCircles();
+    erf->addTropicCircles();
     erf->addSunGP();
     //erf->m_sungp->setRadius(0.1f);
     //erf->position = { 0.0f, 0.5f, 0.0f };
@@ -3858,21 +3863,238 @@ void TestNewSunGP(Application& app) {
     //erf->addCelestialSphere();
     //erf->celestialgrid->setSpacing(24);
     //erf->gridOb->setColor(LIGHT_GREY);
-    DetailedSky* sky = new DetailedSky(scene, nullptr, "NSAE", 180, 90, 3.0f);
-    sky->setTexture(false);
-    sky->addStars(4.0);
-    scene->scenetree->printSceneTree();
+    erf->addEcliptic();
+
+    //DetailedSky* sky = new DetailedSky(scene, nullptr, "NSER", 180, 90, 3.0f);
+    //sky->addEcliptic();
+    //sky->addPrecessionPath();
+    //sky->precessionpath->setColor(LIGHT_BLUE);
+    //sky->setTexture(false);
+    //sky->siderealtime = false;
+    //sky->precession = false;
+    //sky->propermotion = false;
+    //sky->addStars(6.0);
+    //sky->addGridEquatorial();
+    //sky->addGridEcliptic();
+    //app.currentEarth2 = sky;
+    //scene->scenetree->printSceneTree();
+
+    // Quick test of constellation shape file
+    //Constellations* constel = new Constellations(scene);
+    //for (auto& r : constel->records) {
+    //    if (r->numparts > 1) {
+    //        std::cout << r->recordnum << '\n';
+    //    }
+    //}
+    // These work, but do not follow morph and SceneObject transforms.
+    // Due to missing SO transforms, they don't have Sidereal hour angle applied.
+    //constel->addBorder(*sky, "ARI");
+    //constel->addBorder(*sky, "TAU");
+    //constel->addBorder(*sky, "GEM");
+    //constel->addBorder(*sky, "CNC");
+    //constel->addBorder(*sky, "LEO");
+    //constel->addBorder(*sky, "VIR");
+    //constel->addBorder(*sky, "LIB");
+    //constel->addBorder(*sky, "SCO");
+    //constel->addBorder(*sky, "SGR");
+    //constel->addBorder(*sky, "CAP");
+    //constel->addBorder(*sky, "AQR");
+    //constel->addBorder(*sky, "PSC");
+
+    //constel->addBorder(*sky, "UMA");
+    //ShapeFile::printRecord(constel->records, 84);
+
+    //constel->addBorder(*sky, "CVN");
+    //ShapeFile::printRecord(constel->records, 30);
+
+    //Astronomy::loadConstellations();
+
+    //cam->setLatLonFovDist(0.0f, 180.0f, 6.0f, 20.0f);
+
+    // Testing KML File loader/parser
+    // SmartPath path{ scene,nullptr };
+    // std::string file = "C:\\Users\\micha\\Desktop\\FlightAware_SWR92_LSZH_SBGR_20160807.kml";
+    // KMLFile::parseFile(path, file);
 
     while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
     {
         if (app.anim) {
             //astro->setTimeNow();
-            astro->addTime(0.0, 0.0, 5.0, 0.0);
-        }
-        app.render();
+            astro->addTime(0.0, 0.0, 4.0, 0.0);
+            //astro->addTime(0.0, 0.0, 0.0, 31558149.504); // Sidereal year in seconds
+       }
 
+        //app.anim = false; // Nice for single step action. <space> will set app.anim in app.render, and we get back here one frame later.
+        app.render();
     }
 }
+
+
+void printHorizonEvents(const CAARiseTransitSet2::Object object, const LLH obspos, const double tzoffset, const EDateTime& start, const EDateTime& end, const double stepsize, double temperature = 10.0, double pressure = 1010) {
+    double step = stepsize / 86400.0;  // stepsize in seconds, but fraction of day is required
+    double h0 = 0.0;
+    switch (object) {
+    case CAARiseTransitSet2::Object::SUN: {
+        h0 = -0.8333;
+        break;
+    }
+    case CAARiseTransitSet2::Object::MOON: {
+        h0 = -0.825;
+        break;
+    }
+    case CAARiseTransitSet2::Object::MERCURY:  // could use default target here
+    case CAARiseTransitSet2::Object::VENUS:
+    case CAARiseTransitSet2::Object::MARS:
+    case CAARiseTransitSet2::Object::JUPITER:
+    case CAARiseTransitSet2::Object::SATURN:
+    case CAARiseTransitSet2::Object::URANUS:
+    case CAARiseTransitSet2::Object::NEPTUNE: {
+        h0 = -0.5667;
+        break;
+    }
+    default: break;  // STAR must be handled by CAARiseTransitSet2::CalculateStationary so check for it and log
+    }
+
+    // Bennett refraction - turns out this is not used in rise/set calculations
+    //if (h0 <= -1.9006387000003735)  // Above values are never so far below the horizon
+    //    h0 = -1.9006387000003735;
+    //double refraction = ( 1.02 / (tan(deg2rad * (h0 + (10.3 / (h0 + 5.11))))) + 0.0019279 ) * (pressure / 1010 * 283 / (273 + temperature)) / 60;
+    //std::cout << "Refraction: " << refraction << '\n';
+    //h0 -= refraction;
+    // Observer height adjustment
+    h0 -= rad2deg * acos(earthradiusm / (earthradiusm + obspos.dst));
+
+    EDateTime dt{};
+    // Sydney is UTC + 10:00
+    std::vector<CAARiseTransitSetDetails2> res = CAARiseTransitSet2::Calculate(start.jd_tt(), end.jd_tt(), object, -obspos.lon, obspos.lat, h0, step, true);
+    for (auto& r : res) {
+        dt.setJD_TT(r.JD);
+        dt.addTime(0, 0, 0.0, tzoffset, 0.0, 0.0);
+        //std::cout << dstring << '\n';
+        char buff[100];
+        snprintf(buff, sizeof(buff), "%s%s%02.2f", dt.string().c_str(), (tzoffset >= 0) ? "+" : "", tzoffset);
+        std::string timestring = buff;
+        switch (r.type) {
+        case CAARiseTransitSetDetails2::Type::AstronomicalDawn: {
+            std::cout << "Astronomical Dawn: " << timestring << '\n';
+            std::cout << "  Bearing:         " << Astronomy::rangezero2threesixty(r.Bearing + 180.0) << '\n';
+            break;
+        }
+        case CAARiseTransitSetDetails2::Type::NauticalDawn: {
+            std::cout << "Nautical Dawn:     " << timestring << '\n';
+            std::cout << "  Bearing:         " << Astronomy::rangezero2threesixty(r.Bearing + 180.0) << '\n';
+            break;
+        }
+        case CAARiseTransitSetDetails2::Type::CivilDawn: {
+            std::cout << "Civil Dawn:        " << timestring << '\n';
+            std::cout << "  Bearing:         " << Astronomy::rangezero2threesixty(r.Bearing + 180.0) << '\n';
+            break;
+        }
+        case CAARiseTransitSetDetails2::Type::Rise: {
+            std::cout << "Sunrise:           " << timestring << '\n';
+            std::cout << "  Bearing:         " << Astronomy::rangezero2threesixty(r.Bearing + 180.0) << '\n';
+            break;
+        }
+        case CAARiseTransitSetDetails2::Type::SouthernTransit: {
+            std::cout << "Southern Transit:  " << timestring << '\n';
+            //std::cout << "  Bearing:         " << Astronomy::rangezero2threesixty(r.Bearing + 180.0) << '\n';    // Bearing not valid for transits
+            std::cout << "  Geom. Altitude:  " << r.GeometricAltitude << '\n';
+            std::cout << "  Above Horizon:   " << (r.bAboveHorizon ? "Yes" : "No") << '\n';
+            break;
+        }
+        case CAARiseTransitSetDetails2::Type::NorthernTransit: {
+            std::cout << "Northern Transit:  " << timestring << '\n';
+            //std::cout << "  Bearing:         " << Astronomy::rangezero2threesixty(r.Bearing + 180.0) << '\n';    // Bearing not valid for transits
+            std::cout << "  Geom. Altitude:  " << r.GeometricAltitude << '\n';
+            std::cout << "  Above Horizon:   " << (r.bAboveHorizon ? "Yes" : "No") << '\n';
+            break;
+        }
+        case CAARiseTransitSetDetails2::Type::Set: {
+            std::cout << "Sunset:            " << timestring << '\n';
+            std::cout << "  Bearing:         " << Astronomy::rangezero2threesixty(r.Bearing + 180.0) << '\n';
+            break;
+        }
+        case CAARiseTransitSetDetails2::Type::CivilDusk: {
+            std::cout << "Civil Dusk:        " << timestring << '\n';
+            std::cout << "  Bearing:         " << Astronomy::rangezero2threesixty(r.Bearing + 180.0) << '\n';
+            break;
+        }
+        case CAARiseTransitSetDetails2::Type::NauticalDusk: {
+            std::cout << "Nautical Dusk:     " << timestring << '\n';
+            std::cout << "  Bearing:         " << Astronomy::rangezero2threesixty(r.Bearing + 180.0) << '\n';
+            break;
+        }
+        case CAARiseTransitSetDetails2::Type::AstronomicalDusk: {
+            std::cout << "Astronomical Dusk: " << timestring << '\n';
+            std::cout << "  Bearing:         " << Astronomy::rangezero2threesixty(r.Bearing + 180.0) << '\n';
+            break;
+        }
+        default: break; // There are no other options than the ones handled above
+        }
+    }
+}
+
+
+
+
+
+
+void BertsTwilight(Application& app) {
+    Astronomy* astro = app.newAstronomy();
+
+    //astro->setTimeNow();
+    astro->setTime(2023, 9, 23.0, 0.0, 0.0, 0.0);
+    Scene* scene = app.newScene();
+    Camera* cam = scene->w_camera; // Pick up default camera
+    app.currentCam = cam;          // Bind camera to keyboard updates
+    RenderLayer3D* layer = app.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, nullptr);
+    text->setFont(app.m_font2);
+    text->setAstronomy(astro);
+    RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    gui->addLayer3D(layer, "EarthView");
+
+    // WARNING: This is using the OLD Earh class for comparison
+    Earth* erf = scene->newEarth("NSAE", 180, 90);
+    app.currentEarth = erf;
+
+    //erf->addGrid();
+    //erf->addArcticCirles();
+    //erf->addTropics(0.002f, LIGHT_ORANGE);
+    //erf->flatsunheight = 0.0f;
+    //erf->addSubsolarPoint();
+    //erf->addSubsolarPath();
+    //erf->addEcliptic();
+
+    //scene->scenetree->printSceneTree();
+
+    // Test Rise Set and Transit calculations
+    //LLH sydney{ -33.8688, 151.2093, 66.0 };
+    //EDateTime start{ 2023, 9, 23.0, -10.0, 0.0, 0.0 };
+    //EDateTime stop{ 2023, 9, 24.0, -10.0, 0.0, 0.0 };
+    //printHorizonEvents(CAARiseTransitSet2::Object::SUN, sydney, 10.0, start, stop, 10);  // add refraction
+
+
+    while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
+    {
+        if (app.anim) {
+            //astro->setTimeNow();
+            astro->addTime(0.0, 0.0, 4.0, 0.0);
+            //astro->addTime(0.0, 0.0, 0.0, 31558149.504); // Sidereal year in seconds
+        }
+
+        //app.anim = false; // Nice for single step action. <space> will set app.anim in app.render, and we get back here one frame later.
+        app.render();
+    }
+
+    }
+
+
+
+
+
+
+
 
 
 
@@ -3948,9 +4170,6 @@ PYBIND11_EMBEDDED_MODULE(eartharium, m) {
     py::class_<ImFont>(m, "Font") // "Stolen" from https://toscode.gitee.com/lilingTG/bimpy/blob/master/bimpy.cpp it has lots of ImGui .def's
         .def(py::init())
         ;
-    // -----------------
-    //  EDateTime class   - Complete, except for static void normalizeDateTime()
-    // -----------------
     py::class_<EDateTime>(m, "EDateTime")
         .def(py::init<>())
         .def(py::init<double>())
@@ -4271,10 +4490,10 @@ int main(int argc, char** argv) {
 
     //StarMovement(app);
     //LunarData(app);
-    TestNewSunGP(app);
+    //TestNewSunGP(app);
+    BertsTwilight(app);
 
-
-    // Cleanup
+    // Cleanup - Move this to cleanup function in Application.
     glfwTerminate();
 
     return 0;  // Poor Windows will deal with cleaning up the heap

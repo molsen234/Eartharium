@@ -76,11 +76,15 @@ vec3 perturbNormalArb( vec3 surf_pos, vec3 surf_norm, vec2 dHdxy ) {
 }
 
 
-void main()
-{   
-    vec2 s_dHdxy = dHdxy_fwd(TexCoord, sunBumpScale);
-    vec3 my_sNormal = perturbNormalArb(sNormal, sNormal, s_dHdxy);
-
+void main() {
+    float y_band = 2.0 / 180.0; // Triangles at edge are degenerate, so dFdx & dFdy give odd values
+    vec3 my_sNormal;
+    if (TexCoord.y < 1.0 - y_band && TexCoord.y > y_band) {
+        vec2 s_dHdxy = dHdxy_fwd(TexCoord, sunBumpScale);
+        my_sNormal = perturbNormalArb(sNormal, sNormal, s_dHdxy);
+    } else {
+        my_sNormal = normalize(sNormal);
+    }
     //float dotsun = dot(sunDir, sNormal);
     float dotsun = dot(sunDir, my_sNormal);
     float dotmoon = dot(moonDir, sNormal);

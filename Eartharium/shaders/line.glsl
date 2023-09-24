@@ -19,7 +19,7 @@ void main()
 
 #shader fragment
 #version 460 core
-in vec4 bColor;
+//in vec4 bColor;
 out vec4 FragColor;
 void main()
 {
