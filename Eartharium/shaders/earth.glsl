@@ -87,7 +87,7 @@ void main() {
     }
     //float dotsun = dot(sunDir, sNormal);
     float dotsun = dot(sunDir, my_sNormal);
-    float dotmoon = dot(moonDir, sNormal);
+    float dotmoon = dot(moonDir, sNormal); // Non-perturbed Moon "shadow", since it is actually just a visibility area.
     vec4 nCol = texture(texture2, TexCoord); // Night
     vec4 dCol = texture(texture1, TexCoord); // Day
     // -= Calculate insolation and inlunation =-
@@ -97,7 +97,9 @@ void main() {
     // But it can show defective insolation if needed, and works well on ellipsoids.
     // With a bit of work, this can also show feathered insolation which may be more pleasing.
     //float refraction = 1.0f;                      // 0.0f is off, 1.0f is bands, 2.0f could be smooth - can be passed in from CPU
-    float refcos = refraction * -0.014543897652f;   // cosine of 90 degrees plus 50 arc minutes refraction
+    // cosine of 90 degrees plus 50 arc minutes refraction
+    // -0.012 is an ad hoc value that makes the unrefracted terminator align better with calculated set times
+    float refcos = refraction * -0.014543897652f - 0.0145f;
     // Simplest case, if no twilight bands should be rendered, and the location is outside the insolation
     if (dotsun < refcos && twilight == 0.0f) FragColor = nCol +0.05;
     // If twilight bands are enabled, full darkness is 18 degrees (so use cos(72)) from terminator

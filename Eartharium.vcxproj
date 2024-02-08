@@ -176,6 +176,7 @@
     <ClCompile Include="Eartharium\AAplus\AAMars.cpp" />
     <ClCompile Include="Eartharium\AAplus\AAMercury.cpp" />
     <ClCompile Include="Eartharium\AAplus\AAMoon.cpp" />
+    <ClCompile Include="Eartharium\AAplus\AAMoonPhases2.cpp" />
     <ClCompile Include="Eartharium\AAplus\AANeptune.cpp" />
     <ClCompile Include="Eartharium\AAplus\AANutation.cpp" />
     <ClCompile Include="Eartharium\AAplus\AAParallax.cpp" />
@@ -201,9 +202,11 @@
     <ClCompile Include="Eartharium\AAplus\AAVSOP87D_VEN.cpp" />
     <ClCompile Include="Eartharium\AAplus\stdafx.cpp" />
     <ClCompile Include="Eartharium\Astronomy.cpp" />
+    <ClCompile Include="Eartharium\astronomy\acoordinates.cpp" />
+    <ClCompile Include="Eartharium\astronomy\anutation.cpp" />
     <ClCompile Include="Eartharium\astronomy\datetime.cpp" />
     <ClCompile Include="Eartharium\astronomy\aearth.cpp" />
-    <ClCompile Include="Eartharium\astronomy\sun.cpp" />
+    <ClCompile Include="Eartharium\astronomy\asun.cpp" />
     <ClCompile Include="Eartharium\Earth.cpp" />
     <ClCompile Include="Eartharium\AAplus\AAEquationOfTime.cpp" />
     <ClCompile Include="Eartharium\Eartharium.cpp" />
@@ -221,6 +224,7 @@
     <ClCompile Include="Eartharium\OpenGL.cpp" />
     <ClCompile Include="Eartharium\Primitives.cpp" />
     <ClCompile Include="Eartharium\Utilities.cpp" />
+    <ClCompile Include="Eartharium\FigureGeometry.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Eartharium\AAplus\AA2DCoordinate.h" />
@@ -241,6 +245,7 @@
     <ClInclude Include="Eartharium\AAplus\AAMars.h" />
     <ClInclude Include="Eartharium\AAplus\AAMercury.h" />
     <ClInclude Include="Eartharium\AAplus\AAMoon.h" />
+    <ClInclude Include="Eartharium\AAplus\AAMoonPhases2.h" />
     <ClInclude Include="Eartharium\AAplus\AANeptune.h" />
     <ClInclude Include="Eartharium\AAplus\AANutation.h" />
     <ClInclude Include="Eartharium\AAplus\AAParallax.h" />
@@ -266,9 +271,11 @@
     <ClInclude Include="Eartharium\AAplus\AAVSOP87D_VEN.h" />
     <ClInclude Include="Eartharium\AAplus\stdafx.h" />
     <ClInclude Include="Eartharium\Astronomy.h" />
+    <ClInclude Include="Eartharium\astronomy\acoordinates.h" />
+    <ClInclude Include="Eartharium\astronomy\anutation.h" />
     <ClInclude Include="Eartharium\astronomy\datetime.h" />
     <ClInclude Include="Eartharium\astronomy\aearth.h" />
-    <ClInclude Include="Eartharium\astronomy\sun.h" />
+    <ClInclude Include="Eartharium\astronomy\asun.h" />
     <ClInclude Include="Eartharium\Earth.h" />
     <ClInclude Include="Eartharium\AAplus\AAEquationOfTime.h" />
     <ClInclude Include="Eartharium\geometry.h" />
@@ -287,6 +294,7 @@
     <ClInclude Include="Eartharium\config.h" />
     <ClInclude Include="Eartharium\shaders\line.glsl" />
     <ClInclude Include="Eartharium\Utilities.h" />
+    <ClInclude Include="Eartharium\FigureGeometry.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />

@@ -195,10 +195,22 @@
     <ClCompile Include="Eartharium\AAplus\AAVSOP87D_VEN.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Eartharium\astronomy\sun.cpp">
+    <ClCompile Include="Eartharium\astronomy\asun.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Eartharium\astronomy\aearth.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\astronomy\acoordinates.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\astronomy\anutation.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\FigureGeometry.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\AAplus\AAMoonPhases2.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -389,10 +401,22 @@
     <ClInclude Include="Eartharium\AAplus\AAVSOP87D_VEN.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Eartharium\astronomy\sun.h">
+    <ClInclude Include="Eartharium\astronomy\asun.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Eartharium\astronomy\aearth.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\acoordinates.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\anutation.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\FigureGeometry.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\AAplus\AAMoonPhases2.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

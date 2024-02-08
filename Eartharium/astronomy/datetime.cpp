@@ -65,7 +65,16 @@ double EDateTime::jd_tt() /* Astronomical Julian date */ const { return m_JD_TT;
 double EDateTime::jd_utc() /* Astronomical Julian date */ { return m_JD_UTC; }
 bool EDateTime::isLeap() /* returns true if leap year, false otherwise */ { return isLeapYear(m_year); }
 long EDateTime::weekday() /* Sun=0 Mon=1 Tue=2 Wed=3 Thu=4 Fri=5 Sat=6 */ { return ((int)(m_JD_TT + 0.5) + 1) % 7; }
-// !!! ADD: dayofyear() 
+long EDateTime::dayofyear() {
+    static long months[] = { 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+    long days = 0;
+    for(long m=1; m<m_month; m++) { // Don't count current month
+        days += months[m];
+    }
+    if ((m_month > 2) && isLeap()) days++; // Add leap day if it has actually occurred since the start of the year.
+    days += (long)m_day;
+    return days;
+}
 std::string EDateTime::string() /* Neatly formatted date time string */ {
     //std::cout << dstring << '\n';
     char buff[100];

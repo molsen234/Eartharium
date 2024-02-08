@@ -93,7 +93,7 @@ public:
 		std::string identifier;
 	};
 	static bool stellarobjects_loaded;
-	static double stellarobjects_epoch;
+	static double stellarobjects_epoch; // Not used anywhere in Astronomy object, just here so users can query it.
 	static std::vector<stellarobject> stellarobjects; // Common for all Astronomy instances
 	static std::vector<stellarobject_xref> stellarobject_xrefs; // ditto
 	static void loadStellarObjects();
@@ -189,18 +189,17 @@ public:
 	void updateTimeString();
 	bool isLeapYear(double year);
 	void dumpCurrentTime(unsigned int frame = NO_UINT);
-
 	double ApparentGreenwichSiderealTime(double jd_utc = NO_DOUBLE, bool rad = false) noexcept;
 	double MeanGreenwichSiderealTime(double jd_utc, bool rad = false) noexcept;
 	double getEoT(double jd_tt = NO_DOUBLE);
 	// Coordinate transformations
-	LLH calcEc2Geo(double Lambda, double Beta, double Epsilon, bool rad = false) noexcept;
+	LLH calcEc2Geo(double Beta, double Lambda, double Epsilon, bool rad = false) noexcept;
 	LLH calcGeo2Ec(double Delta, double Alpha, double Epsilon, bool rad = false) noexcept;
 	LLH calcGeo2Topo(LLH pos, LLH loc);
 	LLH calcDecHA2GP(LLH decra, bool rad = false);
 	LLH calcDecRA2GP(LLH decra, double jd_utc, bool rad = false);
-	LLH getDecRA(size_t planet, double jd_tt = NO_DOUBLE, bool rad = true);
-	LLH getDecGHA(size_t planet, double jd_tt = NO_DOUBLE, bool rad = true);
+	LLH getDecRA(size_t planet, double jd_tt = NO_DOUBLE, bool rad = false);
+	LLH getDecGHA(size_t planet, double jd_tt = NO_DOUBLE, bool rad = false);
 	// General astronomical adjustments
 	double Distance2LightTime(double distance) { return distance * 0.0057755183; };
 	LLH EclipticAberration(double Beta, double Lambda, double jd_tt, bool rad = false);
@@ -220,7 +219,9 @@ public:
 	// Planetary calculations
 	unsigned int enablePlanet(size_t planet);
 	unsigned int disablePlanet(size_t planet);
+	CelestialDetail getDetails2(double jd_tt, size_t planet, unsigned int type, bool hi);
 	CelestialDetail getDetails(double jd_tt, size_t planet, unsigned int type);
+	CelestialDetail getDetailsNew(double jd_tt, size_t planet, unsigned int type);
 	CelestialPath* getCelestialPath(size_t planet, double startoffset, double endoffset, unsigned int steps, unsigned int type, bool fixed = false);
 	void updateCelestialPaths();
 	void removeCelestialPath(CelestialPath* path);
@@ -258,12 +259,7 @@ public:
 	double getJD2UnixTime(double jd_utc = NO_DOUBLE);
 	double getUnixTime2JD(double ut);
 	int calcUnixTimeYearDay(double year, double month, double day);
-	static double secs2deg(double seconds);
-	static double rangezero2tau(double rad);
-	static double rangemhalfpi2halfpi(double rad);
-	static double rangezero2threesixty(double deg);
-	static double rangemoneeighty2oneeighty(double deg);
-	static double rangezero2twentyfour(double hrs);
+
 	static std::string angle2DMSstring(double angle, bool rad = false);
 	static std::string angle2uDMSstring(double angle, bool rad = false);
 	static std::string angle2uHMSstring(double angle, bool rad = false);
@@ -271,10 +267,11 @@ public:
 	//static std::string angle2uDMstring(double angle, bool rad = false);
 	static std::string formatLatLon(double lat, double lon, bool rad = false);
 	static std::string formatDecRA(double dec, double ra, bool rad = false);
-	static std::string formatEleAz(double az, double ele, bool rad = false);
+	static std::string formatEleAz(double ele, double az, bool rad = false);
 private:
 	void updateGeocentric(size_t planet);
-	void updateGsid();
+	void updateAGsid();
+	double updateMGsid(double jd_utc);
 	void updatePrecession();
 	void update();
 };
@@ -365,7 +362,7 @@ constexpr std::array<NutationCoefficient, 63> g_NutationCoefficients
 
 
 // -------------------------------------------------
-//  VSOP87 Reduced coefficients as per J.Meeus 1992
+//  VSOP87 Reduced coefficients as per J.Meeus 1998
 // -------------------------------------------------
 struct VSOP87Coefficient
 {

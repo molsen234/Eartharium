@@ -29,7 +29,7 @@ public:
 	double jd_utc();
 	bool isLeap();
 	long weekday();
-	// !!! ADD: dayofyear() 
+	long dayofyear();
 	std::string string();
 	long unixTime();
 	// Setters

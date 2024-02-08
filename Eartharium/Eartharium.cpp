@@ -1,4 +1,6 @@
 
+#include <chrono>  // For comparing execution times of different functions.
+
 #include <glm/gtx/string_cast.hpp>
 
 // These are used by various scenarios, because stuff is missing from Astronomy
@@ -11,7 +13,7 @@
 #include "AAplus/AARefraction.h"   // refraction is calculated in a dynamic function in Earth, refactor that
 
 #include "AAplus/AARiseTransitSet2.h"
-
+#include "AAplus/AAMoonPhases2.h"
 
 // For the Python interface. Split into separate file if possible.
 #include <python310/Python.h>
@@ -28,6 +30,9 @@ void GLPrintError();
 #include "Earth.h"
 #include "Astronomy.h"
 //#include "Utilities.h"
+#include "astronomy/acoordinates.h"
+
+#include "FigureGeometry.h"
 
 // -----------
 //  Locations
@@ -44,6 +49,7 @@ LLH l_clm = { 6.9271, 79.8612, 0.0 };          // Colombo, Sri Lanka 6.9271° N, 
 LLH l_rig = { -53.822025, -67.651686, 0.0 };   // Rio Grande, Argentina - 53.822025, -67.651686
 LLH l_ams = { 52.3676, 4.9041, 0.0 };          // Amsterdam, The Netherlands 52.3676° N, 4.9041° E
 LLH l_perth = { -31.942045, 115.963123, 0.0 }; // Perth airport(PER) Australia
+LLH l_sydney{ -33.8688, 151.2093, 66.0 };      // Sydney Australia according to google maps (incl elevation)
 LLH l_cptwn = { -33.974195, 18.602728, 0.0 };  // Cape Town airport South Africa
 LLH l_puare = { -53.002324, -70.854556, 0.0 }; // Punta Arenas airport(PUQ) Chile
 LLH l_stiag = { -33.3898, -70.7944, 0.0 };     // Santiago airport(SCL) Chile
@@ -2192,7 +2198,7 @@ void CoreyKellDetailed(Application& myapp) {
 
         //astro->setTime((long)year, (long)month, day, hour, minute - 1.0, 0.0);
         astro->setUnixTime(utime);
-        LLH sunRD = astro->getDecGHA(SUN);
+        LLH sunRD = astro->getDecGHA(SUN, NO_DOUBLE, true);
         LLH sunAE = astro->calcGeo2Topo(sunRD, { lat * deg2rad, lon * deg2rad, tri + ter });
         mypred.push_back({ (double)utime, sunAE.lat * rad2deg });
         //std::cout << "Prediction: " << sunAE.lat * rad2deg << "\n";
@@ -2209,7 +2215,7 @@ void CoreyKellDetailed(Application& myapp) {
         //astro->getTimeString(timestr);
         timestr = astro->getTimeString();
         //astro->addTime(0.0, -utcoffset, 0.0, 0.0); // Causes duplicate call to Astronomy::update(), which is slightly slower
-        LLH sunRD = astro->getDecGHA(SUN);
+        LLH sunRD = astro->getDecGHA(SUN, NO_DOUBLE, true);
         LLH sunAE = astro->calcGeo2Topo(sunRD, { lat * deg2rad, lon * deg2rad, tri + ter });
         //std::cout << timestr << " : " << astro->angle2DMSstring(sunAE.lat * rad2deg, false) << "\n";
         mypred.push_back({ ut, sunAE.lat * rad2deg });
@@ -2264,7 +2270,7 @@ void CoreyKellDetailed(Application& myapp) {
     loc->truesun->enablePath24();
     loc->truesun->enableElevationAngle();
     loc->truesun->enableEleAngText(font);
-    LLH sunpos = astro->calcGeo2Topo(astro->getDecGHA(SUN, 0.0), { loc->getLat(), loc->getLon(), 1817.522 + 0.5 });
+    LLH sunpos = astro->calcGeo2Topo(astro->getDecGHA(SUN, NO_DOUBLE, true), { loc->getLat(), loc->getLon(), 1817.522 + 0.5 });
 
     //Location* loc2 = new Location(earth, l_cph.lat, l_cph.lon, false);
     //loc2->addObserver(270.0f);
@@ -2322,7 +2328,7 @@ void CoreyKellDetailed(Application& myapp) {
         if (myapp.anim) astro->addTime(0.0, 0.0, 1.0, 0.0);
         scene->w_camera->update();
 
-        sunpos = astro->calcGeo2Topo(astro->getDecGHA(SUN, 0.0), { loc->getLat(),loc->getLon(), 10000.0 });
+        sunpos = astro->calcGeo2Topo(astro->getDecGHA(SUN, NO_DOUBLE, true), { loc->getLat(),loc->getLon(), 10000.0 });
         sprintf_s(pstring, "Predicted Elevation: %02.3f\n", (float)(sunpos.lat * rad2deg));
         ele_pred_text = pstring;
 
@@ -2842,7 +2848,7 @@ void SimpleTest(Application& app) {
     float locskyradius = 0.2f;
     Location* loc = new Location(earth, 45.0, 0.0, false, locskyradius);
     loc->addLocDot();
-    loc->addAziEleGrid(15.0, false, 0.002f, LIGHT_RED);
+    loc->addEleAziGrid(15.0, false, 0.002f, LIGHT_RED);
     loc->addTruePlanetDot(MERCURY, 0.007f, MERCURYCOLOR, false);
     loc->addTruePlanetDot(MARS, 0.007f, MARSCOLOR, false);
     loc->addTruePlanetDot(JUPITER, 0.007f, JUPITERCOLOR, false);
@@ -3611,7 +3617,7 @@ void StarMovement(Application& app) {
     glm::vec4 trackcolor = astro->getColorbyName(trackstarname);
 
     loc->addLocDot(0.005f, LIGHT_RED);
-    loc->addAziEleGrid(15.0, false, 0.0005f, glm::vec4(0.6f, 0.3f, 0.6f, 1.0f));
+    loc->addEleAziGrid(15.0, false, 0.0005f, glm::vec4(0.6f, 0.3f, 0.6f, 1.0f));
     //loc->addUpCoord(1.0f);
     //loc->truesun->enableDot3D();
     //loc->addArrow3DRADec(9999, trackstar.lon, trackstar.lat, trackcolor, 0.005f, 1.0f);
@@ -3758,7 +3764,7 @@ void LunarData(Application& app) {
 
         std::cout << "J2000: " << astro->getTimeString() << " " << moonDist << " " << j2k.X << " " << j2k.Y;
         std::cout << " " << selsun.l0 << " " << selsun.b0 << "\n";
-        std::cout << "       " << libration.l << " " << libration.b << " " << Astronomy::rangezero2threesixty(libration.P) << "\n";
+        std::cout << "       " << libration.l << " " << libration.b << " " << ACoord::rangezero2threesixty(libration.P) << "\n";
     }
 
 
@@ -3847,17 +3853,16 @@ void TestNewSunGP(Application& app) {
     // WARNING: This is using the OLD Earh class for comparison
     //Earth* erf = scene->newEarth("NSER", 180, 80);
     //app.currentEarth = erf;
-
     // Here is the new DetailedEarth
     DetailedEarth* erf = new DetailedEarth(scene, nullptr, "NSAE", 180, 90, 1.0f);
     app.currentEarth2 = erf;
     erf->addEquator();
     erf->addPrimeMeridian();
-    //erf->addArcticCircles();
+    erf->addArcticCircles();
     //erf->removeArcticCircles();
     erf->addTropicCircles();
     erf->addSunGP();
-    //erf->m_sungp->setRadius(0.1f);
+    erf->sungp->setRadius(0.1f);
     //erf->position = { 0.0f, 0.5f, 0.0f };
     erf->addGrid(15.0);
     //erf->addCelestialSphere();
@@ -3977,56 +3982,56 @@ void printHorizonEvents(const CAARiseTransitSet2::Object object, const LLH obspo
         switch (r.type) {
         case CAARiseTransitSetDetails2::Type::AstronomicalDawn: {
             std::cout << "Astronomical Dawn: " << timestring << '\n';
-            std::cout << "  Bearing:         " << Astronomy::rangezero2threesixty(r.Bearing + 180.0) << '\n';
+            std::cout << "  Bearing:         " << ACoord::rangezero2threesixty(r.Bearing + 180.0) << '\n';
             break;
         }
         case CAARiseTransitSetDetails2::Type::NauticalDawn: {
             std::cout << "Nautical Dawn:     " << timestring << '\n';
-            std::cout << "  Bearing:         " << Astronomy::rangezero2threesixty(r.Bearing + 180.0) << '\n';
+            std::cout << "  Bearing:         " << ACoord::rangezero2threesixty(r.Bearing + 180.0) << '\n';
             break;
         }
         case CAARiseTransitSetDetails2::Type::CivilDawn: {
             std::cout << "Civil Dawn:        " << timestring << '\n';
-            std::cout << "  Bearing:         " << Astronomy::rangezero2threesixty(r.Bearing + 180.0) << '\n';
+            std::cout << "  Bearing:         " << ACoord::rangezero2threesixty(r.Bearing + 180.0) << '\n';
             break;
         }
         case CAARiseTransitSetDetails2::Type::Rise: {
             std::cout << "Sunrise:           " << timestring << '\n';
-            std::cout << "  Bearing:         " << Astronomy::rangezero2threesixty(r.Bearing + 180.0) << '\n';
+            std::cout << "  Bearing:         " << ACoord::rangezero2threesixty(r.Bearing + 180.0) << '\n';
             break;
         }
         case CAARiseTransitSetDetails2::Type::SouthernTransit: {
             std::cout << "Southern Transit:  " << timestring << '\n';
-            //std::cout << "  Bearing:         " << Astronomy::rangezero2threesixty(r.Bearing + 180.0) << '\n';    // Bearing not valid for transits
+            //std::cout << "  Bearing:         " << rangezero2threesixty(r.Bearing + 180.0) << '\n';    // Bearing not valid for transits
             std::cout << "  Geom. Altitude:  " << r.GeometricAltitude << '\n';
             std::cout << "  Above Horizon:   " << (r.bAboveHorizon ? "Yes" : "No") << '\n';
             break;
         }
         case CAARiseTransitSetDetails2::Type::NorthernTransit: {
             std::cout << "Northern Transit:  " << timestring << '\n';
-            //std::cout << "  Bearing:         " << Astronomy::rangezero2threesixty(r.Bearing + 180.0) << '\n';    // Bearing not valid for transits
+            //std::cout << "  Bearing:         " << rangezero2threesixty(r.Bearing + 180.0) << '\n';    // Bearing not valid for transits
             std::cout << "  Geom. Altitude:  " << r.GeometricAltitude << '\n';
             std::cout << "  Above Horizon:   " << (r.bAboveHorizon ? "Yes" : "No") << '\n';
             break;
         }
         case CAARiseTransitSetDetails2::Type::Set: {
             std::cout << "Sunset:            " << timestring << '\n';
-            std::cout << "  Bearing:         " << Astronomy::rangezero2threesixty(r.Bearing + 180.0) << '\n';
+            std::cout << "  Bearing:         " << ACoord::rangezero2threesixty(r.Bearing + 180.0) << '\n';
             break;
         }
         case CAARiseTransitSetDetails2::Type::CivilDusk: {
             std::cout << "Civil Dusk:        " << timestring << '\n';
-            std::cout << "  Bearing:         " << Astronomy::rangezero2threesixty(r.Bearing + 180.0) << '\n';
+            std::cout << "  Bearing:         " << ACoord::rangezero2threesixty(r.Bearing + 180.0) << '\n';
             break;
         }
         case CAARiseTransitSetDetails2::Type::NauticalDusk: {
             std::cout << "Nautical Dusk:     " << timestring << '\n';
-            std::cout << "  Bearing:         " << Astronomy::rangezero2threesixty(r.Bearing + 180.0) << '\n';
+            std::cout << "  Bearing:         " << ACoord::rangezero2threesixty(r.Bearing + 180.0) << '\n';
             break;
         }
         case CAARiseTransitSetDetails2::Type::AstronomicalDusk: {
             std::cout << "Astronomical Dusk: " << timestring << '\n';
-            std::cout << "  Bearing:         " << Astronomy::rangezero2threesixty(r.Bearing + 180.0) << '\n';
+            std::cout << "  Bearing:         " << ACoord::rangezero2threesixty(r.Bearing + 180.0) << '\n';
             break;
         }
         default: break; // There are no other options than the ones handled above
@@ -4035,6 +4040,180 @@ void printHorizonEvents(const CAARiseTransitSet2::Object object, const LLH obspo
 }
 
 
+std::vector< CAARiseTransitSetDetails2> findHorizonEvents(const CAARiseTransitSet2::Object object, const LLH obspos, const double tzoffset, const EDateTime& start, const EDateTime& end, const double stepsize, double temperature = 10.0, double pressure = 1010) {
+    double step = stepsize / 86400.0;  // stepsize in seconds, but fraction of day is required
+    double h0 = 0.0;
+    switch (object) {
+    case CAARiseTransitSet2::Object::SUN: {
+        h0 = -0.8333;
+        break;
+    }
+    case CAARiseTransitSet2::Object::MOON: {
+        h0 = -0.825;
+        break;
+    }
+    case CAARiseTransitSet2::Object::MERCURY:  // could use default target here
+    case CAARiseTransitSet2::Object::VENUS:
+    case CAARiseTransitSet2::Object::MARS:
+    case CAARiseTransitSet2::Object::JUPITER:
+    case CAARiseTransitSet2::Object::SATURN:
+    case CAARiseTransitSet2::Object::URANUS:
+    case CAARiseTransitSet2::Object::NEPTUNE: {
+        h0 = -0.5667;
+        break;
+    }
+    default: break;  // STAR must be handled by CAARiseTransitSet2::CalculateStationary so check for it and log
+    }
+
+    // Bennett refraction - turns out this is not used in rise/set calculations
+    //if (h0 <= -1.9006387000003735)  // Above values are never so far below the horizon
+    //    h0 = -1.9006387000003735;
+    //double refraction = ( 1.02 / (tan(deg2rad * (h0 + (10.3 / (h0 + 5.11))))) + 0.0019279 ) * (pressure / 1010 * 283 / (273 + temperature)) / 60;
+    //std::cout << "Refraction: " << refraction << '\n';
+    //h0 -= refraction;
+    // Observer height adjustment
+    h0 -= rad2deg * acos(earthradiusm / (earthradiusm + obspos.dst));
+
+    //EDateTime dt{};
+    // Sydney is UTC + 10:00
+    std::vector<CAARiseTransitSetDetails2> res = CAARiseTransitSet2::Calculate(start.jd_tt(), end.jd_tt(), object, -obspos.lon, obspos.lat, h0, step, true);
+    for (auto& r : res) {
+        r.Bearing = ACoord::rangezero2threesixty(r.Bearing + 180.0);
+        //dt.setJD_TT(r.JD);
+        //dt.addTime(0, 0, 0.0, tzoffset, 0.0, 0.0);
+        //std::cout << dstring << '\n';
+        //char buff[100];
+        //snprintf(buff, sizeof(buff), "%s%s%02.2f", dt.string().c_str(), (tzoffset >= 0) ? "+" : "", tzoffset);
+        //std::string timestring = buff;
+        //switch (r.type) {
+        //case CAARiseTransitSetDetails2::Type::AstronomicalDawn: {
+        //    std::cout << "Astronomical Dawn: " << timestring << '\n';
+        //    std::cout << "  Bearing:         " << ACoord::rangezero2threesixty(r.Bearing + 180.0) << '\n';
+        //    break;
+        //}
+        //case CAARiseTransitSetDetails2::Type::NauticalDawn: {
+        //    std::cout << "Nautical Dawn:     " << timestring << '\n';
+        //    std::cout << "  Bearing:         " << ACoord::rangezero2threesixty(r.Bearing + 180.0) << '\n';
+        //    break;
+        //}
+        //case CAARiseTransitSetDetails2::Type::CivilDawn: {
+        //    std::cout << "Civil Dawn:        " << timestring << '\n';
+        //    std::cout << "  Bearing:         " << ACoord::rangezero2threesixty(r.Bearing + 180.0) << '\n';
+        //    break;
+        //}
+        //case CAARiseTransitSetDetails2::Type::Rise: {
+        //    std::cout << "Sunrise:           " << timestring << '\n';
+        //    std::cout << "  Bearing:         " << ACoord::rangezero2threesixty(r.Bearing + 180.0) << '\n';
+        //    break;
+        //}
+        //case CAARiseTransitSetDetails2::Type::SouthernTransit: {
+        //    std::cout << "Southern Transit:  " << timestring << '\n';
+        //    //std::cout << "  Bearing:         " << rangezero2threesixty(r.Bearing + 180.0) << '\n';    // Bearing not valid for transits
+        //    std::cout << "  Geom. Altitude:  " << r.GeometricAltitude << '\n';
+        //    std::cout << "  Above Horizon:   " << (r.bAboveHorizon ? "Yes" : "No") << '\n';
+        //    break;
+        //}
+        //case CAARiseTransitSetDetails2::Type::NorthernTransit: {
+        //    std::cout << "Northern Transit:  " << timestring << '\n';
+        //    //std::cout << "  Bearing:         " << rangezero2threesixty(r.Bearing + 180.0) << '\n';    // Bearing not valid for transits
+        //    std::cout << "  Geom. Altitude:  " << r.GeometricAltitude << '\n';
+        //    std::cout << "  Above Horizon:   " << (r.bAboveHorizon ? "Yes" : "No") << '\n';
+        //    break;
+        //}
+        //case CAARiseTransitSetDetails2::Type::Set: {
+        //    std::cout << "Sunset:            " << timestring << '\n';
+        //    std::cout << "  Bearing:         " << ACoord::rangezero2threesixty(r.Bearing + 180.0) << '\n';
+        //    break;
+        //}
+        //case CAARiseTransitSetDetails2::Type::CivilDusk: {
+        //    std::cout << "Civil Dusk:        " << timestring << '\n';
+        //    std::cout << "  Bearing:         " << ACoord::rangezero2threesixty(r.Bearing + 180.0) << '\n';
+        //    break;
+        //}
+        //case CAARiseTransitSetDetails2::Type::NauticalDusk: {
+        //    std::cout << "Nautical Dusk:     " << timestring << '\n';
+        //    std::cout << "  Bearing:         " << ACoord::rangezero2threesixty(r.Bearing + 180.0) << '\n';
+        //    break;
+        //}
+        //case CAARiseTransitSetDetails2::Type::AstronomicalDusk: {
+        //    std::cout << "Astronomical Dusk: " << timestring << '\n';
+        //    std::cout << "  Bearing:         " << ACoord::rangezero2threesixty(r.Bearing + 180.0) << '\n';
+        //    break;
+        //}
+        //default: break; // There are no other options than the ones handled above
+        //}
+    }
+    return res;
+}
+
+
+void outputHorizonEvents(std::vector<CAARiseTransitSetDetails2> res, double tzoffset) {
+    EDateTime dt{};
+    for (auto& r : res) {
+        dt.setJD_TT(r.JD);
+        dt.addTime(0, 0, 0.0, tzoffset, 0.0, 0.0);
+        char buff[100];
+        snprintf(buff, sizeof(buff), "%s%s%02.2f", dt.string().c_str(), (tzoffset >= 0) ? "+" : "", tzoffset);
+        std::string timestring = buff;
+        switch (r.type) {
+        case CAARiseTransitSetDetails2::Type::AstronomicalDawn: {
+            std::cout << "Astronomical Dawn: " << timestring << '\n';
+            std::cout << "  Bearing:         " << ACoord::rangezero2threesixty(r.Bearing) << '\n';
+            break;
+        }
+        case CAARiseTransitSetDetails2::Type::NauticalDawn: {
+            std::cout << "Nautical Dawn:     " << timestring << '\n';
+            std::cout << "  Bearing:         " << ACoord::rangezero2threesixty(r.Bearing) << '\n';
+            break;
+        }
+        case CAARiseTransitSetDetails2::Type::CivilDawn: {
+            std::cout << "Civil Dawn:        " << timestring << '\n';
+            std::cout << "  Bearing:         " << ACoord::rangezero2threesixty(r.Bearing) << '\n';
+            break;
+        }
+        case CAARiseTransitSetDetails2::Type::Rise: {
+            std::cout << "Sunrise:           " << timestring << '\n';
+            std::cout << "  Bearing:         " << ACoord::rangezero2threesixty(r.Bearing) << '\n';
+            break;
+        }
+        case CAARiseTransitSetDetails2::Type::SouthernTransit: {
+            std::cout << "Southern Transit:  " << timestring << '\n';
+            //std::cout << "  Bearing:         " << rangezero2threesixty(r.Bearing + 180.0) << '\n';    // Bearing not valid for transits
+            std::cout << "  Geom. Altitude:  " << r.GeometricAltitude << '\n';
+            std::cout << "  Above Horizon:   " << (r.bAboveHorizon ? "Yes" : "No") << '\n';
+            break;
+        }
+        case CAARiseTransitSetDetails2::Type::NorthernTransit: {
+            std::cout << "Northern Transit:  " << timestring << '\n';
+            //std::cout << "  Bearing:         " << rangezero2threesixty(r.Bearing + 180.0) << '\n';    // Bearing not valid for transits
+            std::cout << "  Geom. Altitude:  " << r.GeometricAltitude << '\n';
+            std::cout << "  Above Horizon:   " << (r.bAboveHorizon ? "Yes" : "No") << '\n';
+            break;
+        }
+        case CAARiseTransitSetDetails2::Type::Set: {
+            std::cout << "Sunset:            " << timestring << '\n';
+            std::cout << "  Bearing:         " << ACoord::rangezero2threesixty(r.Bearing) << '\n';
+            break;
+        }
+        case CAARiseTransitSetDetails2::Type::CivilDusk: {
+            std::cout << "Civil Dusk:        " << timestring << '\n';
+            std::cout << "  Bearing:         " << ACoord::rangezero2threesixty(r.Bearing) << '\n';
+            break;
+        }
+        case CAARiseTransitSetDetails2::Type::NauticalDusk: {
+            std::cout << "Nautical Dusk:     " << timestring << '\n';
+            std::cout << "  Bearing:         " << ACoord::rangezero2threesixty(r.Bearing) << '\n';
+            break;
+        }
+        case CAARiseTransitSetDetails2::Type::AstronomicalDusk: {
+            std::cout << "Astronomical Dusk: " << timestring << '\n';
+            std::cout << "  Bearing:         " << ACoord::rangezero2threesixty(r.Bearing) << '\n';
+            break;
+        }
+        default: break; // There are no other options than the ones handled above
+        }
+    }
+}
 
 
 
@@ -4057,16 +4236,138 @@ void BertsTwilight(Application& app) {
     // WARNING: This is using the OLD Earh class for comparison
     Earth* erf = scene->newEarth("NSAE", 180, 90);
     app.currentEarth = erf;
-
-    //erf->addGrid();
-    //erf->addArcticCirles();
-    //erf->addTropics(0.002f, LIGHT_ORANGE);
-    //erf->flatsunheight = 0.0f;
-    //erf->addSubsolarPoint();
-    //erf->addSubsolarPath();
-    //erf->addEcliptic();
-
+    erf->addGrid();
+    erf->addArcticCirles();
+    erf->addTropics(0.002f, LIGHT_ORANGE);
+    erf->flatsunheight = 0.0f;
+    erf->addSubsolarPoint(0.07f);
+    erf->addSubsolarPath();
+    erf->addEcliptic();
     //scene->scenetree->printSceneTree();
+
+    // Test Rise Set and Transit calculations
+    //LLH sydney{ -33.8688, 151.2093, 66.0 };
+    EDateTime start{ 2023, 9, 23.0, -10.0, 0.0, 0.0 };
+    EDateTime stop{ 2023, 9, 24.0, -10.0, 0.0, 0.0 };
+    printHorizonEvents(CAARiseTransitSet2::Object::SUN, l_sydney, 10.0, start, stop, 10);  // add refraction
+
+
+    while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
+    {
+        if (app.anim) {
+            //astro->setTimeNow();
+            astro->addTime(0.0, 0.0, 4.0, 0.0);
+            //astro->addTime(0.0, 0.0, 0.0, 31558149.504); // Sidereal year in seconds
+        }
+
+        //app.anim = false; // Nice for single step action. <space> will set app.anim in app.render, and we get back here one frame later.
+        app.render();
+    }
+
+    }
+
+
+
+void TestAA_MDO(Application& app) {
+    Astronomy* astro = app.newAstronomy();
+    astro->setTime(-200, 9, 23.0, 0.0, 0.0, 0.0);
+    //astro->setTimeNow();
+    
+    auto start = std::chrono::high_resolution_clock::now();
+    auto stop = std::chrono::high_resolution_clock::now();
+    CelestialDetail old;
+    CelestialDetail cur;
+    CelestialDetail cur2;
+    double count = 100000;
+    double i = 0;
+    start = std::chrono::high_resolution_clock::now();
+    for (i = 0; i < count; i++) {
+        old = astro->getDetails(astro->getJD_TT(), EARTH, EC);
+    }
+    old.hec.lat *= rad2deg;
+    old.hec.lat *= -1.0;
+    old.hec.lon *= rad2deg;
+    old.hec.lon -= 180.0;
+    old.hec.lon = ACoord::rangezero2threesixty(old.hec.lon);
+    
+    stop = std::chrono::high_resolution_clock::now();
+    std::cout << " Time in us (reduced):  " << std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count() << '\n';
+    for(i=0; i < count; i++) {
+        cur = astro->getDetails2(astro->getJD_TT(), SUN, EC, false);
+    }
+    stop = std::chrono::high_resolution_clock::now();
+    std::cout << " Time in us (reduced):  " << std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count() << '\n';
+    start = std::chrono::high_resolution_clock::now();
+    for (i = 0; i < count; i++) {
+        cur2 = astro->getDetails2(astro->getJD_TT(), SUN, EC, true);
+    }
+    stop = std::chrono::high_resolution_clock::now();
+    std::cout << " Time in us (complete): " << std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count() << '\n';
+
+    std::cout << old.hec.lon << ",\t" << old.hec.lat << "\n";
+    std::cout << cur.hec.lon << ",\t" << cur.hec.lat << "\n";
+    std::cout << cur2.hec.lon << ",\t" << cur2.hec.lat << "\n";
+
+}
+
+
+void TestFigureGeometry(Application& app) {
+    // 
+}
+
+
+void TestCircleArc(Application& app) {
+    Astronomy* astro = app.newAstronomy();
+
+    //astro->setTimeNow();
+    Scene* scene = app.newScene();
+    Camera* cam = scene->w_camera; // Pick up default camera
+    app.currentCam = cam;          // Bind camera to keyboard updates
+    RenderLayer3D* layer = app.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, nullptr);
+    text->setFont(app.m_font2);
+    text->setAstronomy(astro);
+    RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    gui->addLayer3D(layer, "EarthView");
+
+    DetailedEarth* erf = new DetailedEarth(scene, nullptr, "NSAE", 180, 90);
+    erf->addGrid();
+    erf->addEquator();
+    erf->addPrimeMeridian();
+    erf->addArcticCircles();
+    erf->addTropicCircles();
+    erf->addSunGP();
+    erf->sungp->setRadius(0.01f);
+    erf->w_refract = false;
+    //GreatCircleArc arc{ scene, erf, erf, l_ams, l_perth, 100.0, 0.005f, LIGHT_RED };
+    //GreatCircleArc arc2{ scene, erf, erf, {-90.0+tiny, 10.0, 0.0}, {90.0-tiny, 10.0, 0.0}, 180.0, 0.005f, LIGHT_RED};
+    LLH loc = l_ams;
+    double tz_diff = +2.0;
+    astro->setTime(2023, 9, 23.0, 12.0 - tz_diff, 0.0, 0.0);
+    scene->getDotsFactory()->addXYZ(erf->getLoc3D({ loc.lat,loc.lon,0.0 }, false), LIGHT_RED, 0.001f); // loc.dst = 0 to get dot at surface
+    //scene->scenetree->printSceneTree();
+
+    // Pick a location, calculate sunrise, wind time to the right moment, and plot twilight arc
+    // +/- 12h span around current time
+    EDateTime beg{ astro->getJD_TT() - 0.5 };
+    EDateTime end{ astro->getJD_TT() + 0.5 };
+    // events in interval
+    //printHorizonEvents(CAARiseTransitSet2::Object::SUN, loc, tz_diff, beg, end, 10.0);
+    //std::cout << "\n\n";
+    std::vector<CAARiseTransitSetDetails2> events = findHorizonEvents(CAARiseTransitSet2::Object::SUN, loc, tz_diff, beg, end, 10.0);
+    outputHorizonEvents(events, tz_diff);
+
+    double myJD = NO_DOUBLE;
+    for (auto &event : events) {
+        if (event.type == CAARiseTransitSetDetails2::Type::SouthernTransit) {
+            myJD = event.JD;
+            break;
+        }
+    }
+    if (myJD != NO_DOUBLE) { // Found a rise
+        astro->setJD_TT(myJD);
+        //astro->setJD_UTC(myJD);
+    }
 
     // Test Rise Set and Transit calculations
     //LLH sydney{ -33.8688, 151.2093, 66.0 };
@@ -4087,12 +4388,91 @@ void BertsTwilight(Application& app) {
         app.render();
     }
 
+    //scene->scenetree->printSceneTree();
+    std::cout << "Subsolar longitude: " << rad2deg * erf->subsolar.lon << " Location longitude: " << loc.lon << "\n";
+
+}
+
+void TestDayOfYear(Application& app) {
+    EDateTime* mydate = new EDateTime(); // now
+    std::cout << mydate->string() << " day of year: " << mydate->dayofyear() << "\n";
+
+    mydate = new EDateTime(2000, 5, 14, 1, 0, 0); // now
+    std::cout << mydate->string() << " day of year: " << mydate->dayofyear() << "\n";
+
+    return;
+}
+
+
+void BertLunarPhases(Application& app) {
+    // Find Moon phase events in date interval
+    EDateTime moonstart = EDateTime{ 2024, 1, 1.0, 0.0, 0.0, 0.0 };
+    EDateTime moonend = EDateTime{ 2024, 2, 1.0, 0.0, 0.0, 0.0 };
+    EDateTime moontemp = EDateTime{};
+    std::vector<CAAMoonPhasesDetails2> phases = CAAMoonPhases2::Calculate(moonstart.jd_tt(), moonend.jd_tt(), 0.007, CAAMoonPhases2::Algorithm::ELP2000);
+    for (auto p : phases) {
+        moontemp.setJD_TT(p.JD);
+        std::cout << moontemp.string() << " = ";
+        if (p.type == CAAMoonPhasesDetails2::Type::NewMoon) std::cout << p.JD << " : New Moon\n";
+        if (p.type == CAAMoonPhasesDetails2::Type::FirstQuarter) std::cout << p.JD << " : First Quarter\n";
+        if (p.type == CAAMoonPhasesDetails2::Type::FullMoon) std::cout << p.JD << " : Full Moon\n";
+        if (p.type == CAAMoonPhasesDetails2::Type::LastQuarter) std::cout << p.JD << " : Last Quarter\n";
+        if (p.type == CAAMoonPhasesDetails2::Type::NotDefined) std::cout << p.JD << " : Undefined Event\n";
     }
 
+    Astronomy* astro = app.newAstronomy();
+    //astro->setTimeNow();
+    astro->setTime(2024, 1, 25.0, 17.0, 54.0, 0.0);
+    Scene* scene = app.newScene();
+    Camera* cam = scene->w_camera; // Pick up default camera
+    app.currentCam = cam;          // Bind camera to keyboard updates
+    RenderLayer3D* layer = app.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, nullptr);
+    text->setFont(app.m_font2);
+    text->setAstronomy(astro);
+    RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    gui->addLayer3D(layer, "EarthView");
+
+    DetailedEarth* erf = new DetailedEarth(scene, nullptr, "AENS", 180, 90);
+    erf->addSunGP();
+    erf->addMoonGP();
+ 
+    app.anim = false;
+    while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
+    {
+        if (app.anim) {
+            //astro->setTimeNow();
+            astro->addTime(0.0, 0.0, 4.0, 0.0);
+            //astro->addTime(0.0, 0.0, 0.0, 31558149.504); // Sidereal year in seconds
+        }
+
+        //app.anim = false; // Nice for single step action. <space> will set app.anim in app.render, and we get back here one frame later.
+        app.render();
+    }
+
+}
 
 
+void TimeGetDetails(Application& app) {
+    Astronomy* astro = app.newAstronomy();
+    astro->setTime(-200, 9, 23.0, 0.0, 0.0, 0.0);
+    //astro->setTimeNow();
 
-
+    auto start = std::chrono::high_resolution_clock::now();
+    auto stop = std::chrono::high_resolution_clock::now();
+    CelestialDetail old;
+    double count = 100000;
+    double i = 0;
+    start = std::chrono::high_resolution_clock::now();
+    old = astro->getDetailsNew(astro->getJD_TT(), MARS, ECGEO);
+    //return;
+    for (i = 0; i < count; i++) {
+        old = astro->getDetailsNew(astro->getJD_TT(), MARS, ECGEO);
+    }
+    stop = std::chrono::high_resolution_clock::now();
+    std::cout << " Time in us:  " << std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count() << '\n';
+    std::cout << "RA/Dec: " << rad2hrs * old.geq.lon << ", " << rad2deg * old.geq.lat << "\n";
+}
 
 
 
@@ -4129,6 +4509,9 @@ void IdleArea(Application& myapp) {
     }
 
 }
+
+
+
 
 // -------------------------------------
 //  Python scripting module definitions
@@ -4491,8 +4874,13 @@ int main(int argc, char** argv) {
     //StarMovement(app);
     //LunarData(app);
     //TestNewSunGP(app);
-    BertsTwilight(app);
-
+    //BertsTwilight(app);
+    //TestAA_MDO(app);
+    //TestFigureGeometry(app);
+    //TestCircleArc(app);
+    //TestDayOfYear(app);
+    //BertLunarPhases(app);
+    TimeGetDetails(app);
     // Cleanup - Move this to cleanup function in Application.
     glfwTerminate();
 

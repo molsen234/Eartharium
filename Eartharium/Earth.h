@@ -31,27 +31,27 @@ public:
 };
 
 
-class SubSolar {
-    Scene* m_scene = nullptr;
-    Shader* shdr = nullptr;
-    Texture* tex = nullptr;
-    VertexArray* va;
-    VertexBuffer* vb;
-    VertexBufferLayout* vbl;
-    IndexBuffer* ib;
-    std::vector<Vertex> m_verts;
-    std::vector<Tri> m_tris;
-    glm::vec3 position = glm::vec3(0.0f);
-public:
-    SubSolar(Scene* scene, unsigned int meshU, unsigned int meshV, float radius);
-    ~SubSolar();
-    void Update(glm::vec3 pos);
-    void draw(Camera* cam);
-    glm::vec3 getLoc3D_NS(float rLat, float rLon, float height, float radius);
-    //glm::vec3 getNml3D(float rLat, float rLon, float height = 0.0f);
-private:
-    void genGeom(float radius);
-};
+//class SubSolar {
+//    Scene* m_scene = nullptr;
+//    Shader* shdr = nullptr;
+//    Texture* tex = nullptr;
+//    VertexArray* va;
+//    VertexBuffer* vb;
+//    VertexBufferLayout* vbl;
+//    IndexBuffer* ib;
+//    std::vector<Vertex> m_verts;
+//    std::vector<Tri> m_tris;
+//    glm::vec3 position = glm::vec3(0.0f);
+//public:
+//    SubSolar(Scene* scene, unsigned int meshU, unsigned int meshV, float radius);
+//    ~SubSolar();
+//    void Update(glm::vec3 pos);
+//    void draw(Camera* cam);
+//    glm::vec3 getLoc3D_NS(float rLat, float rLon, float height, float radius);
+//    //glm::vec3 getNml3D(float rLat, float rLon, float height = 0.0f);
+//private:
+//    void genGeom(float radius);
+//};
 
 
 class SubLunar {
@@ -173,7 +173,7 @@ public:
     glm::vec3 getNml3D_NS(const LLH loc, const bool rad);
     glm::vec3 getLoc3D_AE(const LLH loc, const bool rad);
     glm::vec3 getNml3D_AE(const LLH loc, const bool rad);
-    glm::vec3 getLoc3D_ER(const LLH loc, const bool deg);
+    glm::vec3 getLoc3D_ER(const LLH loc, const bool rad);
     glm::vec3 getNml3D_ER(const LLH loc, const bool rad);
     // FIX !!! Add additional geometries here !!!
 private:
@@ -243,7 +243,6 @@ private:
 };
 
 
-
 // ----------
 //  Meridian   (half Great Circle of Longitude)
 // ----------
@@ -261,8 +260,8 @@ private:
     BodyGeometry* locref{ nullptr };
     SmartPath* path{ nullptr };
     double lon{ 0.0 };
-    BodyGeometry* m_geometry = nullptr;
 };
+
 
 // ----------
 //  Parallel   (Circle of Latitude)
@@ -281,7 +280,6 @@ private:
     BodyGeometry* locref{ nullptr };
     SmartPath* path{ nullptr };
     double lat{ 0.0 };
-    BodyGeometry* m_geometry = nullptr;
 };
 
 
@@ -365,6 +363,30 @@ private:
 public:
     SmallCircle(Scene* scene, SceneObject* parent, BodyGeometry* geometry, LLH location, double radius, float width = 0.005f, glm::vec4 color = LIGHT_ORANGE);
     ~SmallCircle();
+    void generate();
+    bool update();
+    void draw(Camera* cam) override;
+};
+
+
+// ------------------
+//  Great Circle Arc
+// ------------------
+class GreatCircleArc : public SceneObject {
+private:
+    LLH start_point{ 0.0, 0.0, 0.0 };
+    LLH end_point{ 0.0, 0.0, 0.0 };
+    double steps{ 0.0 };
+    GenericPath* path{ nullptr };
+    bglocPos locpos = &BodyGeometry::getLoc3D;
+    BodyGeometry* locref{ nullptr };
+public:
+    GreatCircleArc(Scene* scene, SceneObject* parent, BodyGeometry* geometry, LLH start, LLH end, double steps, float width, glm::vec4 color);
+    ~GreatCircleArc();
+    void setStart(LLH start);
+    void setEnd(LLH end);
+    void setStartEnd(LLH start, LLH end);
+    LLH calcGreatArc(LLH llh1, LLH llh2, double f, bool rad);
     void generate();
     bool update();
     void draw(Camera* cam) override;
@@ -649,15 +671,19 @@ class DetailedEarth : public BodyGeometry {
 // = add DetailedSky as a celestial sphere?
 
     glm::vec3 SunLightDir = glm::vec3(0.0f, 1.0f, 0.0f);
+    glm::vec3 MoonLightDir = glm::vec3(0.0f, 1.0f, 0.0f);
     glm::vec4 sunDir = { 0.0f, 0.0f, 0.0f, 1.0f };
     // Would like the following options for insolation: day, hard, twilight, soft, night
+    float m_alpha = 1.0f;
+public:
+    LLH subsolar{ 0.0, 0.0, 0.0 };
+    LLH sublunar{ 0.0, 0.0, 0.0 };
     bool insolation = true;
     bool w_refract = true;
     bool w_twilight = true;
-    float m_alpha = 1.0f;
-    LLH subsolar{ 0.0, 0.0, 0.0 };
-public:
+    bool inlunation = true; // Add lunar refraction? Account for lunar distance?
     PlanetoidGP* sungp = nullptr;
+    PlanetoidGP* moongp = nullptr;
     Latitude* arcticcircle = nullptr;
     Latitude* antarcticcircle = nullptr;
     Latitude* tropicofcancer = nullptr;
@@ -672,6 +698,9 @@ public:
     ~DetailedEarth();
     void addSunGP();
     glm::vec3 getSunGPLocation();
+    void addMoonGP();
+    glm::vec3 getMoonGPLocation();
+    LLH calcMoon();
     void addArcticCircles();
     void removeArcticCircles();
     void addTropicCircles();
@@ -853,7 +882,7 @@ private:
     glm::vec3 solarGP = glm::vec3(0.0f);  // Subsolar point in Cartesian coordinates
     glm::vec3 flatSun = glm::vec3(0.0f);  // Flat Sun in Cartesian coordinates (solarGP at m_flatsunheight / earthradius from GUI)
     Planetoid* m_subsolar = nullptr;
-    SubSolar* m_sunob = nullptr;
+    //SubSolar* m_sunob = nullptr;
     size_t m_sundot = NO_UINT;
     size_t m_sunpole = NO_UINT;
     size_t m_suncone = NO_UINT;
@@ -863,18 +892,22 @@ private:
     PolyCurve* suncurve = nullptr;
     float m_flatsunheight = 3000.0f;
     bool flatsundirty = false;
+    Planetoid* m_sublunar = nullptr;
+    glm::vec3 lunarGP = glm::vec3(0.0f);
+    glm::vec3 flatMoon = glm::vec3(0.0f);
+    SubLunar* m_moonob = nullptr;
     double m_moonJD = 0.0; // JD in TT when Moon was last calculated
     double m_moonDec = 0.0;
     double m_moonRA = 0.0;
     double m_moonHour = 0.0;
     double m_moonDist = 0.0;
     Cones* m_lunumbcone = nullptr;
-    SubLunar* m_moonob = nullptr;
     Shader* shdr;
     Shader* smshdr;
     Shader* sbshdr;
     Texture* daytex;
     Texture* nighttex;
+    Texture* bumptex;
     VertexArray* va;
     VertexBuffer* vb;
     VertexBufferLayout* vbl;
@@ -1299,8 +1332,8 @@ public:
         size_t m_eleangle = maxuint;
         TextString* m_eleangtext = nullptr;
         TextString* m_aziangtext = nullptr;
-        LLH sun = { 0.0, 0.0, 0.0 };       // geocentric Sun GHA, Dec, Distance
-        LLH localsun = { 0.0, 0.0, 0.0 };  // topocentric Sun Azi, Ele, Distance
+        LLH sun = { 0.0, 0.0, 0.0 };       // geocentric Sun Dec, GHA, Distance
+        LLH localsun = { 0.0, 0.0, 0.0 };  // topocentric Sun xEle, GHA, Distance
         glm::vec3 sundir = NO_VEC3;        // Cartesian Sun direction in world coordinates
         void update(bool time, bool geometry);
         void draw();
@@ -1365,12 +1398,12 @@ public:
         void draw();
         friend class Location;
     };
-    class AziEleGrid {
+    class EleAziGrid {
     public:
-        AziEleGrid(Location* location, double stepsize, float width, glm::vec4 color = LIGHT_PURPLE);
+        EleAziGrid(Location* location, double stepsize, float width, glm::vec4 color = LIGHT_PURPLE);
         void update(bool time, bool morph);
-        void addAzimuthCircle(double azi, float width, glm::vec4 color);
         void addElevationCircle(double ele, float width, glm::vec4 color);
+        void addAzimuthCircle(double azi, float width, glm::vec4 color);
     private:
         double m_stepsize{ 15.0 * deg2rad };
         Location* m_location{ nullptr };
@@ -1381,7 +1414,7 @@ public:
 
     Location::TrueSun* truesun = nullptr;
     Location::FlatSun* flatsun = nullptr;
-    Location::AziEleGrid* azielegrid = nullptr;
+    Location::EleAziGrid* azielegrid = nullptr;
 private:
     struct arrowcache {
         glm::vec3 position;
@@ -1531,7 +1564,7 @@ public:
     void addNormal(float length = 0.2f, float width = loccoordarrowwidth);
     void updateNormalCoord(arrowcache& ar);
 
-    void addAziEleGrid(double degrees = 15.0, bool radians = false, float width = 0.003f, glm::vec4 color = LIGHT_PURPLE);
+    void addEleAziGrid(double degrees = 15.0, bool radians = false, float width = 0.003f, glm::vec4 color = LIGHT_PURPLE);
     void addObserver(float bearing, glm::vec4 color = LIGHT_GREY, float height = 0.0f);
     void changeObserver(float bearing, glm::vec4 color = NO_COLOR, float height = 0.0f);
     void addArrow3DEleAzi(unsigned int unique, double ele, double azi, float length = 0.2f, float width = locazielewidth, glm::vec4 color = GREEN);
@@ -1540,8 +1573,8 @@ public:
     void changeArrow3DEleAziColor(unsigned int unique, glm::vec4 color = GREEN);
     void updateArrow3DEleAzi(arrowcache& ar);
 
-    void addArrow3DRADec(unsigned int unique, double ra, double dec, glm::vec4 color, float width, float length);
-    void updateArrow3DRADec(arrowcache& ar);
+    void addArrow3DDecRA(unsigned int unique, double dec, double ra, glm::vec4 color, float width, float length);
+    void updateArrow3DDecRA(arrowcache& ar);
 
     // Dots
     void addLocDot(float size = locdotsize, glm::vec4 color = DEFAULT_LOCDOT_COLOR);
@@ -1590,9 +1623,9 @@ public:
     void updateTrueLunalemma(polycache p);
     void doTrueLunalemma(PolyCurve* path);
 
-    void addPath3DRADec(unsigned int unique, double ra, double dec, glm::vec4 color, float width);
+    void addPath3DDecRA(unsigned int unique, double dec, double ra, glm::vec4 color, float width);
     void updatePath3DRADec(polycache& pa);
-    void doPath3DRADec(double ra, double dec, PolyCurve* path);
+    void doPath3DDecRA(double dec, double ra, PolyCurve* path);
 };
 
 

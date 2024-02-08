@@ -32,7 +32,6 @@ to maintain a single distribution point for the source code.
 #include "AADate.h"
 #include <cmath>
 
-
 //////////////////// Implementation ///////////////////////////////////////////
 
 double CAASidereal::MeanGreenwichSiderealTime(double JD) noexcept
@@ -44,7 +43,6 @@ double CAASidereal::MeanGreenwichSiderealTime(double JD) noexcept
   long Hour{0};
   long Minute{0};
   double Second{0};
-
   CAADate date;
   date.Set(JD, CAADate::AfterPapalReform(JD));
   date.Get(Year, Month, Day, Hour, Minute, Second);
