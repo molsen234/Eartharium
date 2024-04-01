@@ -1,0 +1,1415 @@
+
+#include <cstddef>
+#include "acoordinates.h"
+#include "amoon.h"
+#include "amoon_eph_short.h"
+#include "amoon_eph_elp2000.h"
+#include "amoon_eph_elpmpp02.h"
+#include "aearth.h"
+
+
+// IMPORTANT NOTE:
+// ===============
+// When converting NutationInLongitude and NutationInObliquity from AA+ to aearth.cpp, be aware that
+// CAANutation delivered the result in arc seconds, whereas AEarth delivers them in radians
+// The two are used in some CAAPhysicalMoon and CAAMoon functions, so care must be take when converting those!!
+// UPD: Care was taken with CAAMoon below
+
+
+double AMoon::MeanLongitude(double jd_tt) noexcept {
+    const double T{ (jd_tt - JD_2000) / JD_CENTURY };
+    const double Tsquared{ T * T };
+    const double Tcubed{ Tsquared * T };
+    const double T4{ Tcubed * T };
+    return ACoord::rangezero2tau(deg2rad * (218.3164477 + (481267.88123421 * T) - (0.0015786 * Tsquared) + (Tcubed / 538841) - (T4 / 65194000)));
+}
+double AMoon::MeanElongation(double jd_tt) noexcept {
+    const double T{ (jd_tt - JD_2000) / JD_CENTURY };
+    const double Tsquared{ T * T };
+    const double Tcubed{ Tsquared * T };
+    const double T4{ Tcubed * T };
+    return ACoord::rangezero2tau(deg2rad * (297.8501921 + (445267.1114034 * T) - (0.0018819 * Tsquared) + (Tcubed / 545868) - (T4 / 113065000)));
+}
+double AMoon::MeanAnomaly(double jd_tt) noexcept {
+    const double T{ (jd_tt - JD_2000) / JD_CENTURY };
+    const double Tsquared{ T * T };
+    const double Tcubed{ Tsquared * T };
+    const double T4{ Tcubed * T };
+    return ACoord::rangezero2tau(deg2rad * (134.9633964 + (477198.8675055 * T) + (0.0087414 * Tsquared) + (Tcubed / 69699) - (T4 / 14712000)));
+}
+double AMoon::ArgumentOfLatitude(double jd_tt) noexcept {
+    const double T{ (jd_tt - JD_2000) / JD_CENTURY };
+    const double Tsquared{ T * T };
+    const double Tcubed{ Tsquared * T };
+    const double T4{ Tcubed * T };
+    return ACoord::rangezero2tau(deg2rad * (93.2720950 + (483202.0175233 * T) - (0.0036539 * Tsquared) - (Tcubed / 3526000) + (T4 / 863310000)));
+}
+double AMoon::EclipticLongitude(double jd_tt) noexcept
+{
+    double Ldash{ MeanLongitude(jd_tt) };  // radians
+    double D{ MeanElongation(jd_tt) };  // radians
+    double M{ AEarth::SunMeanAnomaly(jd_tt) };  // radians
+    double Mdash{ MeanAnomaly(jd_tt) };
+    double F{ ArgumentOfLatitude(jd_tt) };
+
+    const double E{ AEarth::Eccentricity(jd_tt) };
+    const double Esquared{ E * E };
+    const double T{ (jd_tt - 2451545) / 36525 };
+
+    double A1{ ACoord::rangezero2tau(deg2rad * (119.75 + (131.849 * T))) };
+    double A2{ ACoord::rangezero2tau(deg2rad * (53.09 + (479264.290 * T))) };
+
+    constexpr size_t nLCoefficients{ g_MoonCoefficients1.size() };
+    assert(nLCoefficients == g_MoonCoefficients2.size());
+
+    double SigmaL{ 0 };
+    for (size_t i{ 0 }; i < nLCoefficients; i++) {
+        double ThisSigma{ g_MoonCoefficients2[i].A * sin((g_MoonCoefficients1[i].D * D) + (g_MoonCoefficients1[i].M * M) +
+                                                      (g_MoonCoefficients1[i].Mdash * Mdash) + (g_MoonCoefficients1[i].F * F)) };
+
+        if ((g_MoonCoefficients1[i].M == 1) || (g_MoonCoefficients1[i].M == -1)) ThisSigma *= E;
+        else if ((g_MoonCoefficients1[i].M == 2) || (g_MoonCoefficients1[i].M == -2)) ThisSigma *= Esquared;
+        SigmaL += ThisSigma;
+    }
+
+    //Finally the additive terms
+    SigmaL += 3958 * sin(A1);
+    SigmaL += 1962 * sin(Ldash - F);
+    SigmaL += 318 * sin(A2);
+    SigmaL *= deg2rad;
+    //And finally apply the nutation in longitude
+    const double NutationInLong{ AEarth::NutationInLongitude(jd_tt) }; // radians
+
+    return ACoord::rangezero2tau(Ldash + (SigmaL / 1'000'000) + (NutationInLong));
+}
+double AMoon::RadiusVector(double jd_tt) noexcept
+{
+    double D{ MeanElongation(jd_tt) };
+    double M{ AEarth::SunMeanAnomaly(jd_tt) };
+    double Mdash{ MeanAnomaly(jd_tt) };
+    double F{ ArgumentOfLatitude(jd_tt) };
+    const double E{ AEarth::Eccentricity(jd_tt) };
+    const double Esquared{ E * E };
+
+    constexpr size_t nRCoefficients{ g_MoonCoefficients1.size() };
+    assert(nRCoefficients == g_MoonCoefficients2.size());
+    double SigmaR{ 0 };
+    for (size_t i{ 0 }; i < nRCoefficients; i++) {
+        double ThisSigma{ g_MoonCoefficients2[i].B * cos((g_MoonCoefficients1[i].D * D) + (g_MoonCoefficients1[i].M * M) +
+                                                      (g_MoonCoefficients1[i].Mdash * Mdash) + (g_MoonCoefficients1[i].F * F)) };
+
+        if ((g_MoonCoefficients1[i].M == 1) || (g_MoonCoefficients1[i].M == -1)) ThisSigma *= E;
+        else if ((g_MoonCoefficients1[i].M == 2) || (g_MoonCoefficients1[i].M == -2)) ThisSigma *= Esquared;
+        SigmaR += ThisSigma;
+    }
+
+    return 385000.56 + (SigmaR / 1000);  // in km
+}
+double AMoon::EclipticLatitude(double jd_tt) noexcept {
+    double Ldash{ MeanLongitude(jd_tt) };
+    double D{ MeanElongation(jd_tt) };
+    double M{ AEarth::SunMeanAnomaly(jd_tt) };
+    double Mdash{ MeanAnomaly(jd_tt) };
+    double F{ ArgumentOfLatitude(jd_tt) };
+
+    const double E{ AEarth::Eccentricity(jd_tt) };
+    const double Esquared{ E * E };
+    const double T{ (jd_tt - JD_2000) / JD_CENTURY };
+
+    double A1{ ACoord::rangezero2tau(deg2rad * (119.75 + (131.849 * T))) };
+    double A3{ ACoord::rangezero2tau(deg2rad * (313.45 + (481266.484 * T))) };
+
+    constexpr size_t nBCoefficients{ g_MoonCoefficients3.size() };
+    assert(nBCoefficients == g_MoonCoefficients4.size());
+    double SigmaB{ 0 };
+    for (size_t i{ 0 }; i < nBCoefficients; i++) {
+        double ThisSigma{ g_MoonCoefficients4[i] * sin((g_MoonCoefficients3[i].D * D) + (g_MoonCoefficients3[i].M * M) +
+                                                    (g_MoonCoefficients3[i].Mdash * Mdash) + (g_MoonCoefficients3[i].F * F)) };
+
+        if ((g_MoonCoefficients3[i].M == 1) || (g_MoonCoefficients3[i].M == -1)) ThisSigma *= E;
+        else if ((g_MoonCoefficients3[i].M == 2) || (g_MoonCoefficients3[i].M == -2)) ThisSigma *= Esquared;
+        SigmaB += ThisSigma;
+    }
+
+    //Finally the additive terms
+    SigmaB -= 2235 * sin(Ldash);
+    SigmaB += 382 * sin(A3);
+    SigmaB += 175 * sin(A1 - F);
+    SigmaB += 175 * sin(A1 + F);
+    SigmaB += 127 * sin(Ldash - Mdash);
+    SigmaB -= 115 * sin(Ldash + Mdash);
+
+    return deg2rad * SigmaB / 1'000'000;  // radians
+}
+double AMoon::RadiusVectorToHorizontalParallax(double RadiusVector) noexcept {
+    return asin(6378.14 / RadiusVector);  // parallax in radians
+}
+double AMoon::HorizontalParallaxToRadiusVector(double Parallax) noexcept {
+    return 6378.14 / sin(Parallax);  // distance in km
+}
+double AMoon::MeanLongitudeAscendingNode(double jd_tt) noexcept {
+    const double T{ (jd_tt - JD_2000) / JD_CENTURY };
+    const double Tsquared{ T * T };
+    const double Tcubed{ Tsquared * T };
+    const double T4{ Tcubed * T };
+    return ACoord::rangezero2tau(deg2rad * (125.0445479 - (1934.1362891 * T) + (0.0020754 * Tsquared) + (Tcubed / 467441) - (T4 / 60616000)));
+}
+double AMoon::MeanLongitudePerigee(double jd_tt) noexcept {
+    const double T{ (jd_tt - JD_2000) / JD_CENTURY };
+    const double Tsquared{ T * T };
+    const double Tcubed{ Tsquared * T };
+    const double T4{ Tcubed * T };
+    return ACoord::rangezero2tau(deg2rad * (83.3532465 + (4069.0137287 * T) - (0.0103200 * Tsquared) - (Tcubed / 80053) + (T4 / 18999000)));
+}
+double AMoon::TrueLongitudeAscendingNode(double jd_tt) noexcept {
+    double TrueAscendingNode{ MeanLongitudeAscendingNode(jd_tt) };
+
+    double D{ MeanElongation(jd_tt) };
+    double M{ AEarth::SunMeanAnomaly(jd_tt) };
+    double Mdash{ MeanAnomaly(jd_tt) };
+    double F{ ArgumentOfLatitude(jd_tt) };
+
+    //Add the principal additive terms
+    TrueAscendingNode -= 1.4979 * sin(2 * (D - F));
+    TrueAscendingNode -= 0.1500 * sin(M);
+    TrueAscendingNode -= 0.1226 * sin(2 * D);
+    TrueAscendingNode += 0.1176 * sin(2 * F);
+    TrueAscendingNode -= 0.0801 * sin(2 * (Mdash - F));
+
+    return ACoord::rangezero2tau(deg2rad * TrueAscendingNode);
+}
+
+// ELP2000
+
+// Return values in the few public facing functions have been converted to return angles in radians
+// Distances and rectangular coordinates are in kilometers (km)
+// All other internally used functions receive and return whichever units are convenient for them
+
+// Public / documented (in AA+) functions, let them return radians for angles, km for distances
+double AELP2000::EclipticLongitude(double JD) noexcept {
+    //Calculate Julian centuries
+    std::array<double, 5> t{ 0.0 };
+    t[0] = 1;
+    t[1] = (JD - JD_2000) / JD_CENTURY;
+    t[2] = t[1] * t[1];
+    t[3] = t[2] * t[1];
+    t[4] = t[3] * t[1];
+    return ACoord::rangezero2tau(deg2rad * EclipticLongitude(t.data(), 5));  // radians
+}
+double AELP2000::EclipticLatitude(double jd_tt) noexcept {
+    //Calculate Julian centuries
+    std::array<double, 5> t{ 0.0 };
+    t[0] = 1;
+    t[1] = (jd_tt - JD_2000) / JD_CENTURY;
+    t[2] = t[1] * t[1];
+    t[3] = t[2] * t[1];
+    t[4] = t[3] * t[1];
+    return ACoord::rangemhalfpi2halfpi(deg2rad * EclipticLatitude(t.data(), 5));  // radians
+}
+double AELP2000::RadiusVector(double jd_tt) noexcept {
+    //Calculate Julian centuries
+    std::array<double, 5> t{ 0.0 };
+    t[0] = 1;
+    t[1] = (jd_tt - JD_2000) / JD_CENTURY;
+    t[2] = t[1] * t[1];
+    t[3] = t[2] * t[1];
+    t[4] = t[3] * t[1];
+    return RadiusVector(t.data(), 5);  // kilometers (km)
+}
+glm::dvec3 AELP2000::EclipticRectangularCoordinates(double jd_tt) noexcept {
+    double fLongitude{ EclipticLongitude(jd_tt) };
+    double fLatitude{ EclipticLatitude(jd_tt) };
+    const double fR{ RadiusVector(jd_tt) };
+    glm::dvec3 value{ 0.0 };
+    fLongitude *= deg2rad;
+    fLatitude *= deg2rad;
+    const double fCosLat{ cos(fLatitude) };
+    value.x = fR * cos(fLongitude) * fCosLat;
+    value.y = fR * sin(fLongitude) * fCosLat;
+    value.z = fR * sin(fLatitude);
+    return value;  // kilometers (km)
+}
+glm::dvec3 AELP2000::EclipticRectangularCoordinatesJ2000(double jd_tt) noexcept {
+    std::array<double, 5> t{};
+    t[0] = 1;
+    t[1] = (jd_tt - JD_2000) / JD_CENTURY;
+    t[2] = t[1] * t[1];
+    t[3] = t[2] * t[1];
+    t[4] = t[3] * t[1];
+    const double P{ (1.0180391e-5 + (4.7020439e-7 * t[1]) + (-5.417367e-10 * t[2]) + (-2.507948e-12 * t[3]) + (4.63486e-15 * t[4])) * t[1] };
+    const double Q{ (-1.13469002e-4 + (1.2372674e-7 * t[1]) + (1.265417e-9 * t[2]) + (-1.371808e-12 * t[3]) + (-3.20334e-15 * t[4])) * t[1] };
+    const double TwoP{ 2 * P };
+    const double P2{ P * P };
+    const double Q2{ Q * Q };
+    const double OneMinus2P2{ 1 - (2 * P2) };
+    const double TwoPQ{ TwoP * Q };
+    const double Twosqrt1MinusPart{ 2 * sqrt(1 - P2 - Q2) };
+    const glm::dvec3 Ecliptic{ EclipticRectangularCoordinates(jd_tt) };
+    glm::dvec3 J2000{ 0.0 };
+    J2000.x = (OneMinus2P2 * Ecliptic.x) + (TwoPQ * Ecliptic.y) + (P * Twosqrt1MinusPart * Ecliptic.z);
+    J2000.y = (TwoPQ * Ecliptic.x) + ((1 - 2 * Q2) * Ecliptic.y) - (Q * Twosqrt1MinusPart * Ecliptic.z);
+    J2000.z = (-P * Twosqrt1MinusPart * Ecliptic.x) + (Q * Twosqrt1MinusPart * Ecliptic.y) + ((1 - 2 * P2 - 2 * Q2) * Ecliptic.z);
+    return J2000;  // kilometers (km)
+}
+glm::dvec3 AELP2000::EquatorialRectangularCoordinatesFK5(double jd_tt) noexcept {
+    const glm::dvec3 J2000{ EclipticRectangularCoordinatesJ2000(jd_tt) };
+    glm::dvec3 FK5{ 0.0 };
+    FK5.x = J2000.x + (0.000000437913 * J2000.y) - (0.000000189859 * J2000.z);
+    FK5.y = (-0.000000477299 * J2000.x) + (0.917482137607 * J2000.y) - (0.397776981701 * J2000.z);
+    FK5.z = (0.397776981701 * J2000.y) + (0.917482137607 * J2000.z);
+    return FK5;  // kilometers (km)
+}
+
+// The below appear to be internal functions. Let them pass/return whichever units are convenient
+double AELP2000::MoonMeanMeanLongitude(const double* pT, int nTSize) noexcept //Aka W1
+{
+    //Validate our parameters
+    assert(pT);
+    assert((nTSize == 5) || (nTSize == 2));
+#ifdef __analysis_assume
+#pragma warning(suppress: 26477)
+    __analysis_assume(pT);
+#endif
+    double fValue{ g_W[0] + (g_W[3] * pT[1]) };
+    if (nTSize == 5)
+        fValue += ((g_W[6] * pT[2]) + (g_W[9] * pT[3]) + (g_W[12] * pT[4]));
+    return fValue;
+}
+double AELP2000::MoonMeanMeanLongitude(double JD) noexcept //Aka W1
+{
+    //Calculate Julian centuries
+    std::array<double, 5> t{ 0.0 };
+    t[0] = 1;
+    t[1] = (JD - 2451545) / 36525;
+    t[2] = t[1] * t[1];
+    t[3] = t[2] * t[1];
+    t[4] = t[3] * t[1];
+    return MoonMeanMeanLongitude(t.data(), 5);
+}
+double AELP2000::MeanLongitudeLunarPerigee(const double* pT, int nTSize) noexcept //Aka W2
+{
+    //Validate our parameters
+    assert(pT);
+    assert((nTSize == 5) || (nTSize == 2));
+#ifdef __analysis_assume
+#pragma warning(suppress: 26477)
+    __analysis_assume(pT);
+#endif
+    double fValue{ g_W[1] + (g_W[4] * pT[1]) };
+    if (nTSize == 5)
+        fValue += ((g_W[7] * pT[2]) + (g_W[10] * pT[3]) + (g_W[13] * pT[4]));
+    return fValue;
+}
+double AELP2000::MeanLongitudeLunarPerigee(double JD) noexcept //Aka W2
+{
+    //Calculate Julian centuries
+    std::array<double, 5> t{ 0.0 };
+    t[0] = 1;
+    t[1] = (JD - 2451545) / 36525;
+    t[2] = t[1] * t[1];
+    t[3] = t[2] * t[1];
+    t[4] = t[3] * t[1];
+    return MeanLongitudeLunarPerigee(t.data(), 5);
+}
+double AELP2000::MeanLongitudeLunarAscendingNode(const double* pT, int nTSize) noexcept //Aka W3
+{
+    //Validate our parameters
+    assert(pT);
+    assert((nTSize == 5) || (nTSize == 2));
+#ifdef __analysis_assume
+#pragma warning(suppress: 26477)
+    __analysis_assume(pT);
+#endif
+    double fValue{ g_W[2] + (g_W[5] * pT[1]) };
+    if (nTSize == 5)
+        fValue += ((g_W[8] * pT[2]) + (g_W[11] * pT[3]) + (g_W[14] * pT[4]));
+    return fValue;
+}
+double AELP2000::MeanLongitudeLunarAscendingNode(double JD) noexcept //Aka W3
+{
+    //Calculate Julian centuries
+    std::array<double, 5> t{ 0.0 };
+    t[0] = 1;
+    t[1] = (JD - 2451545) / 36525;
+    t[2] = t[1] * t[1];
+    t[3] = t[2] * t[1];
+    t[4] = t[3] * t[1];
+    return MeanLongitudeLunarAscendingNode(t.data(), 5);
+}
+double AELP2000::MeanHeliocentricMeanLongitudeEarthMoonBarycentre(const double* pT, int nTSize) noexcept //Aka T
+{
+    //Validate our parameters
+    assert(pT);
+    assert((nTSize == 5) || (nTSize == 2));
+#ifdef __analysis_assume
+#pragma warning(suppress: 26477)
+    __analysis_assume(pT);
+#endif
+    double fValue{ g_EARTH[0] + (g_EARTH[1] * pT[1]) };
+    if (nTSize == 5)
+        fValue += ((g_EARTH[2] * pT[2]) + (g_EARTH[3] * pT[3]) + (g_EARTH[4] * pT[4]));
+    return fValue;
+}
+double AELP2000::MeanHeliocentricMeanLongitudeEarthMoonBarycentre(double JD) noexcept //Aka T
+{
+    //Calculate Julian centuries
+    std::array<double, 5> t{ 0.0 };
+    t[0] = 1;
+    t[1] = (JD - 2451545) / 36525;
+    t[2] = t[1] * t[1];
+    t[3] = t[2] * t[1];
+    t[4] = t[3] * t[1];
+    return MeanHeliocentricMeanLongitudeEarthMoonBarycentre(t.data(), 5);
+}
+double AELP2000::MeanLongitudeOfPerilhelionOfEarthMoonBarycentre(const double* pT, int nTSize) noexcept //Aka Omega'
+{
+    //Validate our parameters
+    assert(pT);
+    assert((nTSize == 5) || (nTSize == 2));
+#ifdef __analysis_assume
+#pragma warning(suppress: 26477)
+    __analysis_assume(pT);
+#endif
+    double fValue{ g_PERI[0] + (g_PERI[1] * pT[1]) };
+    if (nTSize == 5)
+        fValue += ((g_PERI[2] * pT[2]) + (g_PERI[3] * pT[3]));
+    return fValue;
+}
+double AELP2000::MeanLongitudeOfPerilhelionOfEarthMoonBarycentre(double JD) noexcept //Aka Omega'
+{
+    //Calculate Julian centuries
+    std::array<double, 5> t{ 0.0 };
+    t[0] = 1;
+    t[1] = (JD - 2451545) / 36525;
+    t[2] = t[1] * t[1];
+    t[3] = t[2] * t[1];
+    t[4] = t[3] * t[1];
+    return MeanLongitudeOfPerilhelionOfEarthMoonBarycentre(t.data(), 5);
+}
+double AELP2000::MoonMeanSolarElongation(const double* pT, int nTSize) noexcept //Aka D
+{
+    //Implement D in terms of W1 and T
+    return MoonMeanMeanLongitude(pT, nTSize) - MeanHeliocentricMeanLongitudeEarthMoonBarycentre(pT, nTSize) + pi;
+}
+double AELP2000::MoonMeanSolarElongation(double JD) noexcept //Aka D
+{
+    //Calculate Julian centuries
+    std::array<double, 5> t{ 0.0 };
+    t[0] = 1;
+    t[1] = (JD - 2451545) / 36525;
+    t[2] = t[1] * t[1];
+    t[3] = t[2] * t[1];
+    t[4] = t[3] * t[1];
+    return MoonMeanSolarElongation(t.data(), 5);
+}
+double AELP2000::SunMeanAnomaly(const double* pT, int nTSize) noexcept //Aka l'
+{
+    //Implement l' in terms of T and Omega'
+    return MeanHeliocentricMeanLongitudeEarthMoonBarycentre(pT, nTSize) - MeanLongitudeOfPerilhelionOfEarthMoonBarycentre(pT, nTSize);
+}
+double AELP2000::SunMeanAnomaly(double JD) noexcept //Aka l'
+{
+    //Calculate Julian centuries
+    std::array<double, 5> t{ 0.0 };
+    t[0] = 1;
+    t[1] = (JD - 2451545) / 36525;
+    t[2] = t[1] * t[1];
+    t[3] = t[2] * t[1];
+    t[4] = t[3] * t[1];
+
+    return SunMeanAnomaly(t.data(), 5);
+}
+double AELP2000::MoonMeanAnomaly(const double* pT, int nTSize) noexcept //Aka l
+{
+    //Implement L in terms of W1 and W2
+    return MoonMeanMeanLongitude(pT, nTSize) - MeanLongitudeLunarPerigee(pT, nTSize);
+}
+double AELP2000::MoonMeanAnomaly(double JD) noexcept //Aka l
+{
+    //Calculate Julian centuries
+    std::array<double, 5> t{ 0.0 };
+    t[0] = 1;
+    t[1] = (JD - 2451545) / 36525;
+    t[2] = t[1] * t[1];
+    t[3] = t[2] * t[1];
+    t[4] = t[3] * t[1];
+
+    return MoonMeanAnomaly(t.data(), 5);
+}
+double AELP2000::MoonMeanArgumentOfLatitude(const double* pT, int nTSize) noexcept //Aka F
+{
+    //Implement F in terms of W1 and W3
+    return MoonMeanMeanLongitude(pT, nTSize) - MeanLongitudeLunarAscendingNode(pT, nTSize);
+}
+double AELP2000::MoonMeanArgumentOfLatitude(double JD) noexcept //Aka F
+{
+    //Calculate Julian centuries
+    std::array<double, 5> t{ 0.0 };
+    t[0] = 1;
+    t[1] = (JD - 2451545) / 36525;
+    t[2] = t[1] * t[1];
+    t[3] = t[2] * t[1];
+    t[4] = t[3] * t[1];
+
+    return MoonMeanArgumentOfLatitude(t.data(), 5);
+}
+double AELP2000::MercuryMeanLongitude(double T) noexcept {
+    return g_Pelp2k[0][0] + (g_Pelp2k[0][1] * T);
+}
+double AELP2000::VenusMeanLongitude(double T) noexcept {
+    return g_Pelp2k[1][0] + (g_Pelp2k[1][1] * T);
+}
+double AELP2000::MarsMeanLongitude(double T) noexcept {
+    return g_Pelp2k[3][0] + (g_Pelp2k[3][1] * T);
+}
+double AELP2000::JupiterMeanLongitude(double T) noexcept {
+    return g_Pelp2k[4][0] + (g_Pelp2k[4][1] * T);
+}
+double AELP2000::SaturnMeanLongitude(double T) noexcept {
+    return g_Pelp2k[5][0] + (g_Pelp2k[5][1] * T);
+}
+double AELP2000::UranusMeanLongitude(double T) noexcept {
+    return g_Pelp2k[6][0] + (g_Pelp2k[6][1] * T);
+}
+double AELP2000::NeptuneMeanLongitude(double T) noexcept {
+    return g_Pelp2k[7][0] + (g_Pelp2k[7][1] * T);
+}
+
+//Handle the main problem calculation (Longitude & Latitude)
+double AELP2000::Accumulate(const ELP2000MainProblemCoefficient* pCoefficients, size_t nCoefficients, double fD, double fldash, double fl, double fF) noexcept
+{
+    //Validate our parameters
+    assert(pCoefficients);
+    assert(nCoefficients);
+#ifdef __analysis_assume
+#pragma warning(suppress: 26477)
+    __analysis_assume(pCoefficients);
+#endif
+    //What will be the return value from this function
+    double fResult{ 0 };
+    //Accumulate the result
+    for (size_t j{ 0 }; j < nCoefficients; j++)
+    {
+        const double tgv{ pCoefficients[j].m_B[0] + (g_DTASM * pCoefficients[j].m_B[4]) };
+        const double x{ pCoefficients[j].m_A + (tgv * (g_DELNP - (g_AM * g_DELNU))) + (pCoefficients[j].m_B[1] * g_DELG) + (pCoefficients[j].m_B[2] * g_DELE) + (pCoefficients[j].m_B[3] * g_DELEP) };
+        const double y{ (fD * pCoefficients[j].m_I[0]) + (fldash * pCoefficients[j].m_I[1]) + (fl * pCoefficients[j].m_I[2]) + (fF * pCoefficients[j].m_I[3]) };
+        fResult += (x * sin(y));
+    }
+    return fResult;
+}
+double AELP2000::Accumulate_2(const ELP2000MainProblemCoefficient* pCoefficients, size_t nCoefficients, double fD, double fldash, double fl, double fF) noexcept
+{
+    //Validate our parameters
+    assert(pCoefficients);
+    assert(nCoefficients);
+#ifdef __analysis_assume
+#pragma warning(suppress: 26477)
+    __analysis_assume(pCoefficients);
+#endif
+    //What will be the return value from this function
+    double fResult{ 0 };
+    //Accumulate the result
+    for (size_t j{ 0 }; j < nCoefficients; j++)
+    {
+        const double tgv{ pCoefficients[j].m_B[0] + (g_DTASM * pCoefficients[j].m_B[4]) };
+        double A{ pCoefficients[j].m_A };
+        A -= (A * 2.0 * g_DELNU / 3.0);
+        const double x{ A + (tgv * (g_DELNP - (g_AM * g_DELNU))) + (pCoefficients[j].m_B[1] * g_DELG) + (pCoefficients[j].m_B[2] * g_DELE) + (pCoefficients[j].m_B[3] * g_DELEP) };
+        const double y{ (fD * pCoefficients[j].m_I[0]) + (fldash * pCoefficients[j].m_I[1]) + (fl * pCoefficients[j].m_I[2]) + (fF * pCoefficients[j].m_I[3]) };
+        fResult += (x * cos(y));
+    }
+    return fResult;
+}
+//Handle the Earth figure perturbations, Tidal Effects, Moon figure & Relativistic perturbations calculation
+double AELP2000::Accumulate(const double* pT, int nTSize, const ELP2000EarthTidalMoonRelativisticSolarEccentricityCoefficient* pCoefficients, size_t nCoefficients, double fD, double fldash, double fl, double fF, bool bI1isZero) noexcept
+{
+    //What will be the return value from this function
+    double fResult{ 0 };
+    //Accumulate the result
+    for (size_t j{ 0 }; j < nCoefficients; j++)
+    {
+        if (bI1isZero)
+            assert(pCoefficients[j].m_IZ == 0);
+
+        double y{ (fD * pCoefficients[j].m_I[0]) + (fldash * pCoefficients[j].m_I[1]) +
+                 (fl * pCoefficients[j].m_I[2]) + (fF * pCoefficients[j].m_I[3]) +
+                 (deg2rad * pCoefficients[j].m_O) };
+        if (!bI1isZero)
+            y += (pCoefficients[j].m_IZ * g_ZETA[0] * pT[0]) + (pCoefficients[j].m_IZ * g_ZETA[1] * pT[1]);
+        fResult += (pCoefficients[j].m_A * sin(y));
+    }
+    return fResult;
+}
+//Handle the Earth figure perturbations & Tidal Effects /t calculation
+double AELP2000::Accumulate_2(const double* pT, int nTSize, const ELP2000EarthTidalMoonRelativisticSolarEccentricityCoefficient* pCoefficients, size_t nCoefficients, double fD, double fldash, double fl, double fF, bool bI1isZero) noexcept
+{
+    //What will be the return value from this function
+    double fResult{ 0 };
+    //Accumulate the result
+    for (size_t j{ 0 }; j < nCoefficients; j++)
+    {
+        if (bI1isZero)
+            assert(pCoefficients[j].m_IZ == 0);
+
+        double y{ (fD * pCoefficients[j].m_I[0]) + (fldash * pCoefficients[j].m_I[1]) +
+                 (fl * pCoefficients[j].m_I[2]) + (fF * pCoefficients[j].m_I[3]) +
+                 (deg2rad * pCoefficients[j].m_O) };
+        if (!bI1isZero)
+            y += (pCoefficients[j].m_IZ * g_ZETA[0] * pT[0]) + (pCoefficients[j].m_IZ * g_ZETA[1] * pT[1]);
+        fResult += (pCoefficients[j].m_A * pT[1] * sin(y));
+    }
+    return fResult;
+}
+//Handle the Planetary perturbations Table 1 calculation
+double AELP2000::AccumulateTable1(const ELP2000PlanetPertCoefficient* pCoefficients, size_t nCoefficients, double fD, double fl, double fF, double fMe, double fV, double fT, double fMa, double fJ, double fS, double fU, double fN) noexcept
+{
+    //Validate our parameters
+    assert(pCoefficients);
+    assert(nCoefficients);
+#ifdef __analysis_assume
+#pragma warning(suppress: 26477)
+    __analysis_assume(pCoefficients);
+#endif
+    //What will be the return value from this function
+    double fResult{ 0 };
+    //Accumulate the result
+    for (size_t j{ 0 }; j < nCoefficients; j++)
+    {
+        const double y{ (fMe * pCoefficients[j].m_ip[0]) +
+                       (fV * pCoefficients[j].m_ip[1]) +
+                       (fT * pCoefficients[j].m_ip[2]) +
+                       (fMa * pCoefficients[j].m_ip[3]) +
+                       (fJ * pCoefficients[j].m_ip[4]) +
+                       (fS * pCoefficients[j].m_ip[5]) +
+                       (fU * pCoefficients[j].m_ip[6]) +
+                       (fN * pCoefficients[j].m_ip[7]) +
+                       (fD * pCoefficients[j].m_ip[8]) +
+                       (fl * pCoefficients[j].m_ip[9]) +
+                       (fF * pCoefficients[j].m_ip[10]) +
+                       (deg2rad * pCoefficients[j].m_theta) };
+        fResult += (pCoefficients[j].m_O * sin(y));
+    }
+    return fResult;
+}
+//Handle the Planetary perturbations Table 1 /t calculation
+double AELP2000::AccumulateTable1_2(const double* pT, int nTSize, const ELP2000PlanetPertCoefficient* pCoefficients, size_t nCoefficients, double fD, double fl, double fF, double fMe, double fV, double fT, double fMa, double fJ, double fS, double fU, double fN) noexcept
+{
+    //What will be the return value from this function
+    double fResult{ 0 };
+    //Accumulate the result
+    for (size_t j{ 0 }; j < nCoefficients; j++)
+    {
+        const double y{ (fMe * pCoefficients[j].m_ip[0]) +
+                       (fV * pCoefficients[j].m_ip[1]) +
+                       (fT * pCoefficients[j].m_ip[2]) +
+                       (fMa * pCoefficients[j].m_ip[3]) +
+                       (fJ * pCoefficients[j].m_ip[4]) +
+                       (fS * pCoefficients[j].m_ip[5]) +
+                       (fU * pCoefficients[j].m_ip[6]) +
+                       (fN * pCoefficients[j].m_ip[7]) +
+                       (fD * pCoefficients[j].m_ip[8]) +
+                       (fl * pCoefficients[j].m_ip[9]) +
+                       (fF * pCoefficients[j].m_ip[10]) +
+                       (deg2rad * pCoefficients[j].m_theta) };
+        fResult += (pCoefficients[j].m_O * pT[1] * sin(y));
+    }
+    return fResult;
+}
+//Handle the Planetary perturbations Table 2 calculation
+double AELP2000::AccumulateTable2(const ELP2000PlanetPertCoefficient* pCoefficients, size_t nCoefficients, double fD, double fldash, double fl, double fF, double fMe, double fV, double fT, double fMa, double fJ, double fS, double fU) noexcept
+{
+    //Validate our parameters
+    assert(pCoefficients);
+    assert(nCoefficients);
+#ifdef __analysis_assume
+#pragma warning(suppress: 26477)
+    __analysis_assume(pCoefficients);
+#endif
+
+    //What will be the return value from this function
+    double fResult{ 0 };
+    //Accumulate the result
+    for (size_t j{ 0 }; j < nCoefficients; j++)
+    {
+        const double y{ (fMe * pCoefficients[j].m_ip[0]) +
+                       (fV * pCoefficients[j].m_ip[1]) +
+                       (fT * pCoefficients[j].m_ip[2]) +
+                       (fMa * pCoefficients[j].m_ip[3]) +
+                       (fJ * pCoefficients[j].m_ip[4]) +
+                       (fS * pCoefficients[j].m_ip[5]) +
+                       (fU * pCoefficients[j].m_ip[6]) +
+                       (fD * pCoefficients[j].m_ip[7]) +
+                       (fldash * pCoefficients[j].m_ip[8]) +
+                       (fl * pCoefficients[j].m_ip[9]) +
+                       (fF * pCoefficients[j].m_ip[10]) +
+                       (deg2rad * pCoefficients[j].m_theta) };
+        fResult += (pCoefficients[j].m_O * sin(y));
+    }
+    return fResult;
+}
+//Handle the Planetary perturbations Table 2 /t calculation
+double AELP2000::AccumulateTable2_2(const double* pT, int nTSize, const ELP2000PlanetPertCoefficient* pCoefficients, size_t nCoefficients, double fD, double fldash, double fl, double fF, double fMe, double fV, double fT, double fMa, double fJ, double fS, double fU) noexcept
+{
+    //What will be the return value from this function
+    double fResult{ 0 };
+    //Accumulate the result
+    for (size_t j{ 0 }; j < nCoefficients; j++)
+    {
+        const double y{ (fMe * pCoefficients[j].m_ip[0]) +
+                       (fV * pCoefficients[j].m_ip[1]) +
+                       (fT * pCoefficients[j].m_ip[2]) +
+                       (fMa * pCoefficients[j].m_ip[3]) +
+                       (fJ * pCoefficients[j].m_ip[4]) +
+                       (fS * pCoefficients[j].m_ip[5]) +
+                       (fU * pCoefficients[j].m_ip[6]) +
+                       (fD * pCoefficients[j].m_ip[7]) +
+                       (fldash * pCoefficients[j].m_ip[8]) +
+                       (fl * pCoefficients[j].m_ip[9]) +
+                       (fF * pCoefficients[j].m_ip[10]) +
+                       (deg2rad * pCoefficients[j].m_theta) };
+        fResult += (pCoefficients[j].m_O * pT[1] * sin(y));
+    }
+    return fResult;
+}
+//Handle the Planetary perturbations (solar eccentricity) /t squared calculation
+double AELP2000::Accumulate_3(const double* pT, int nTSize, const ELP2000EarthTidalMoonRelativisticSolarEccentricityCoefficient* pCoefficients, size_t nCoefficients, double fD, double fldash, double fl, double fF) noexcept
+{
+    //What will be the return value from this function
+    double fResult{ 0 };
+    for (size_t j{ 0 }; j < nCoefficients; j++)
+    {
+        assert(pCoefficients[j].m_IZ == 0);
+        const double y{ (fD * pCoefficients[j].m_I[0]) +
+                       (fldash * pCoefficients[j].m_I[1]) +
+                       (fl * pCoefficients[j].m_I[2]) +
+                       (fF * pCoefficients[j].m_I[3]) +
+                       (deg2rad * pCoefficients[j].m_O) };
+        fResult += (pCoefficients[j].m_A * pT[2] * sin(y));
+    }
+    return fResult;
+}
+#ifdef _MSC_VER
+#pragma warning(suppress : 26429)
+#endif //#ifdef _MSC_VER
+double AELP2000::EclipticLongitude(const double* pT, int nTSize) noexcept
+{
+    //Validate our parameters
+    assert(pT);
+    assert(nTSize >= 2);
+    //Compute the delaney arguments for the specified time
+    const double fD{ MoonMeanSolarElongation(pT, nTSize) };
+    const double fldash{ SunMeanAnomaly(pT, nTSize) };
+    const double fl{ MoonMeanAnomaly(pT, nTSize) };
+    const double fF{ MoonMeanArgumentOfLatitude(pT, nTSize) };
+    const double fD2{ MoonMeanSolarElongation(pT, 2) };
+    const double fldash2{ SunMeanAnomaly(pT, 2) };
+    const double fl2{ MoonMeanAnomaly(pT, 2) };
+    const double fF2{ MoonMeanArgumentOfLatitude(pT, 2) };
+    //Compute the planet mean longitudes for the specified time
+    const double fMe{ MercuryMeanLongitude(pT[1]) };
+    const double fV{ VenusMeanLongitude(pT[1]) };
+    const double fT{ MeanHeliocentricMeanLongitudeEarthMoonBarycentre(pT, 2) };
+    const double fMa{ MarsMeanLongitude(pT[1]) };
+    const double fJ{ JupiterMeanLongitude(pT[1]) };
+    const double fS{ SaturnMeanLongitude(pT[1]) };
+    const double fU{ UranusMeanLongitude(pT[1]) };
+    const double fN{ NeptuneMeanLongitude(pT[1]) };
+    //Calculate the Longitude
+    const double A{ Accumulate(g_ELP1.data(), g_ELP1.size(), fD, fldash, fl, fF) +
+                   Accumulate(pT, nTSize, g_ELP4.data(), g_ELP4.size(), fD2, fldash2, fl2, fF2, false) +
+                   Accumulate_2(pT, nTSize, g_ELP7.data(), g_ELP7.size(), fD2, fldash2, fl2, fF2, false) +
+                   AccumulateTable1(g_ELP10.data(), g_ELP10.size(), fD2, fl2, fF2, fMe, fV, fT, fMa, fJ, fS, fU, fN) +
+                   AccumulateTable1_2(pT, nTSize, g_ELP13.data(), g_ELP13.size(), fD2, fl2, fF2, fMe, fV, fT, fMa, fJ, fS, fU, fN) +
+                   AccumulateTable2(g_ELP16.data(), g_ELP16.size(), fD2, fldash2, fl2, fF2, fMe, fV, fT, fMa, fJ, fS, fU) +
+                   AccumulateTable2_2(pT, nTSize, g_ELP19.data(), g_ELP19.size(), fD2, fldash2, fl2, fF2, fMe, fV, fT, fMa, fJ, fS, fU) +
+                   Accumulate(pT, nTSize, g_ELP22.data(), g_ELP22.size(), fD2, fldash2, fl2, fF2, true) +
+                   Accumulate_2(pT, nTSize, g_ELP25.data(), g_ELP25.size(), fD2, fldash2, fl2, fF2, true) +
+                   Accumulate(pT, nTSize, g_ELP28.data(), g_ELP28.size(), fD2, fldash2, fl2, fF2, true) +
+                   Accumulate(pT, nTSize, g_ELP31.data(), g_ELP31.size(), fD2, fldash2, fl2, fF2, true) +
+                   Accumulate_3(pT, nTSize, g_ELP34.data(), g_ELP34.size(), fD2, fldash2, fl2, fF2) };
+    return ACoord::rangezero2threesixty((A / 3600.0) + ( rad2deg * MoonMeanMeanLongitude(pT, nTSize)));
+}
+#ifdef _MSC_VER
+#pragma warning(suppress : 26429)
+#endif //#ifdef _MSC_VER
+double AELP2000::EclipticLatitude(const double* pT, int nTSize) noexcept
+{
+    //Validate our parameters
+    assert(pT);
+    assert(nTSize >= 2);
+    //Compute the delaney arguments for the specified time
+    const double fD{ MoonMeanSolarElongation(pT, nTSize) };
+    const double fldash{ SunMeanAnomaly(pT, nTSize) };
+    const double fl{ MoonMeanAnomaly(pT, nTSize) };
+    const double fF{ MoonMeanArgumentOfLatitude(pT, nTSize) };
+    const double fD2{ MoonMeanSolarElongation(pT, 2) };
+    const double fldash2{ SunMeanAnomaly(pT, 2) };
+    const double fl2{ MoonMeanAnomaly(pT, 2) };
+    const double fF2{ MoonMeanArgumentOfLatitude(pT, 2) };
+    //Compute the planet mean longitudes for the specified time
+    const double fMe{ MercuryMeanLongitude(pT[1]) };
+    const double fV{ VenusMeanLongitude(pT[1]) };
+    const double fT{ MeanHeliocentricMeanLongitudeEarthMoonBarycentre(pT, 2) };
+    const double fMa{ MarsMeanLongitude(pT[1]) };
+    const double fJ{ JupiterMeanLongitude(pT[1]) };
+    const double fS{ SaturnMeanLongitude(pT[1]) };
+    const double fU{ UranusMeanLongitude(pT[1]) };
+    const double fN{ NeptuneMeanLongitude(pT[1]) };
+    //Calculate the Longitude
+    const double B{ Accumulate(g_ELP2.data(), g_ELP2.size(), fD, fldash, fl, fF) +
+                   Accumulate(pT, nTSize, g_ELP5.data(), g_ELP5.size(), fD2, fldash2, fl2, fF2, false) +
+                   Accumulate_2(pT, nTSize, g_ELP8.data(), g_ELP8.size(), fD2, fldash2, fl2, fF2, false) +
+                   AccumulateTable1(g_ELP11.data(), g_ELP11.size(), fD2, fl2, fF2, fMe, fV, fT, fMa, fJ, fS, fU, fN) +
+                   AccumulateTable1_2(pT, nTSize, g_ELP14.data(), g_ELP14.size(), fD2, fl2, fF2, fMe, fV, fT, fMa, fJ, fS, fU, fN) +
+                   AccumulateTable2(g_ELP17.data(), g_ELP17.size(), fD2, fldash2, fl2, fF2, fMe, fV, fT, fMa, fJ, fS, fU) +
+                   AccumulateTable2_2(pT, nTSize, g_ELP20.data(), g_ELP20.size(), fD2, fldash2, fl2, fF2, fMe, fV, fT, fMa, fJ, fS, fU) +
+                   Accumulate(pT, nTSize, g_ELP23.data(), g_ELP23.size(), fD2, fldash2, fl2, fF2, true) +
+                   Accumulate_2(pT, nTSize, g_ELP26.data(), g_ELP26.size(), fD2, fldash2, fl2, fF2, true) +
+                   Accumulate(pT, nTSize, g_ELP29.data(), g_ELP29.size(), fD2, fldash2, fl2, fF2, true) +
+                   Accumulate(pT, nTSize, g_ELP32.data(), g_ELP32.size(), fD2, fldash2, fl2, fF2, true) +
+                   Accumulate_3(pT, nTSize, g_ELP35.data(), g_ELP35.size(), fD2, fldash2, fl2, fF2) };
+    return ACoord::rangemninety2ninety(B / 3600.0);
+}
+#ifdef _MSC_VER
+#pragma warning(suppress : 26429)
+#endif //#ifdef _MSC_VER
+double AELP2000::RadiusVector(const double* pT, int nTSize) noexcept
+{
+    //Validate our parameters
+    assert(pT);
+    assert(nTSize >= 2);
+    //Compute the delaney arguments for the specified time
+    const double fD{ MoonMeanSolarElongation(pT, nTSize) };
+    const double fldash{ SunMeanAnomaly(pT, nTSize) };
+    const double fl{ MoonMeanAnomaly(pT, nTSize) };
+    const double fF{ MoonMeanArgumentOfLatitude(pT, nTSize) };
+    const double fD2{ MoonMeanSolarElongation(pT, 2) };
+    const double fldash2{ SunMeanAnomaly(pT, 2) };
+    const double fl2{ MoonMeanAnomaly(pT, 2) };
+    const double fF2{ MoonMeanArgumentOfLatitude(pT, 2) };
+    //Compute the planet mean longitudes for the specified time
+    const double fMe{ MercuryMeanLongitude(pT[1]) };
+    const double fV{ VenusMeanLongitude(pT[1]) };
+    const double fT{ MeanHeliocentricMeanLongitudeEarthMoonBarycentre(pT, 2) };
+    const double fMa{ MarsMeanLongitude(pT[1]) };
+    const double fJ{ JupiterMeanLongitude(pT[1]) };
+    const double fS{ SaturnMeanLongitude(pT[1]) };
+    const double fU{ UranusMeanLongitude(pT[1]) };
+    const double fN{ NeptuneMeanLongitude(pT[1]) };
+    //Calculate the Longitude
+    const double fValue{ Accumulate_2(g_ELP3.data(), g_ELP3.size(), fD, fldash, fl, fF) +
+                        Accumulate(pT, nTSize, g_ELP6.data(), g_ELP6.size(), fD2, fldash2, fl2, fF2, false) +
+                        Accumulate_2(pT, nTSize, g_ELP9.data(), g_ELP9.size(), fD2, fldash2, fl2, fF2, false) +
+                        AccumulateTable1(g_ELP12.data(), g_ELP12.size(), fD2, fl2, fF2, fMe, fV, fT, fMa, fJ, fS, fU, fN) +
+                        AccumulateTable1_2(pT, nTSize, g_ELP15.data(), g_ELP15.size(), fD2, fl2, fF2, fMe, fV, fT, fMa, fJ, fS, fU, fN) +
+                        AccumulateTable2(g_ELP18.data(), g_ELP18.size(), fD2, fldash2, fl2, fF2, fMe, fV, fT, fMa, fJ, fS, fU) +
+                        AccumulateTable2_2(pT, nTSize, g_ELP21.data(), g_ELP21.size(), fD2, fldash2, fl2, fF2, fMe, fV, fT, fMa, fJ, fS, fU) +
+                        Accumulate(pT, nTSize, g_ELP24.data(), g_ELP24.size(), fD2, fldash2, fl2, fF2, true) +
+                        Accumulate_2(pT, nTSize, g_ELP27.data(), g_ELP27.size(), fD2, fldash2, fl2, fF2, true) +
+                        Accumulate(pT, nTSize, g_ELP30.data(), g_ELP30.size(), fD2, fldash2, fl2, fF2, true) +
+                        Accumulate(pT, nTSize, g_ELP33.data(), g_ELP33.size(), fD2, fldash2, fl2, fF2, true) +
+                        Accumulate_3(pT, nTSize, g_ELP36.data(), g_ELP36.size(), fD2, fldash2, fl2, fF2) };
+    return fValue * 384747.9806448954 / 384747.9806743165;
+}
+
+
+// ELP MPP02 - From AA+ v2.49 (P.J.Naughter)
+// None of the return values have been converted yet!
+
+double AELPMPP02::EclipticLongitude(double JD, ELPMPP02_Correction correction, double* pDerivative) noexcept {
+    std::array<double, 5> t{ 0.0 };
+    t[0] = 1;
+    t[1] = (JD - JD_2000) / JD_CENTURY;
+    t[2] = t[1] * t[1];
+    t[3] = t[2] * t[1];
+    t[4] = t[3] * t[1];
+    return EclipticLongitude(t.data(), 5, correction, pDerivative);
+}
+double AELPMPP02::EclipticLatitude(double JD, ELPMPP02_Correction correction, double* pDerivative) noexcept {
+    std::array<double, 5> t{ 0.0 };
+    t[0] = 1;
+    t[1] = (JD - JD_2000) / JD_CENTURY;
+    t[2] = t[1] * t[1];
+    t[3] = t[2] * t[1];
+    t[4] = t[3] * t[1];
+    return EclipticLatitude(t.data(), 5, correction, pDerivative);
+}
+double AELPMPP02::RadiusVector(double JD, ELPMPP02_Correction correction, double* pDerivative) noexcept {
+    std::array<double, 5> t{ 0.0 };
+    t[0] = 1;
+    t[1] = (JD - JD_2000) / JD_CENTURY;
+    t[2] = t[1] * t[1];
+    t[3] = t[2] * t[1];
+    t[4] = t[3] * t[1];
+    return RadiusVector(t.data(), 5, correction, pDerivative);
+}
+
+glm::dvec3 AELPMPP02::EclipticRectangularCoordinates(double JD, ELPMPP02_Correction correction, glm::dvec3* pDerivative) noexcept {
+    std::array<double, 5> t{ 0.0 };
+    t[0] = 1;
+    t[1] = (JD - 2451545) / 36525;
+    t[2] = t[1] * t[1];
+    t[3] = t[2] * t[1];
+    t[4] = t[3] * t[1];
+    return EclipticRectangularCoordinates(t.data(), 5, correction, pDerivative);
+}
+
+glm::dvec3 AELPMPP02::EclipticRectangularCoordinatesJ2000(double JD, ELPMPP02_Correction correction, glm::dvec3* pDerivative) noexcept {
+    std::array<double, 5> t{ 0.0 };
+    t[0] = 1;
+    t[1] = (JD - 2451545) / 36525;
+    t[2] = t[1] * t[1];
+    t[3] = t[2] * t[1];
+    t[4] = t[3] * t[1];
+    return EclipticRectangularCoordinatesJ2000(t.data(), 5, correction, pDerivative);
+}
+
+
+double AELPMPP02::EclipticLongitude(const double* pT, int nTSize, ELPMPP02_Correction correction, double* pDerivative) noexcept {
+    //Validate our parameters
+    assert(pT);
+    assert(nTSize == 5);
+
+    //Work out the right data arrays to use
+    const std::array<std::array<double, 5>, 3>* g_pW{ nullptr };
+    const std::array<double, 5>* g_pEARTH{ nullptr };
+    const std::array<double, 5>* g_pPERI{ nullptr };
+    const std::array<double, 5>* g_pZETA{ nullptr };
+    const std::array<double, 1023>* g_pMAIN_S1_Coeff{ nullptr };
+    switch (correction)
+    {
+    case ELPMPP02_Nominal: {
+        g_pW = &g_W_Nominal;
+        g_pEARTH = &g_EARTH_Nominal;
+        g_pPERI = &g_PERI_Nominal;
+        g_pZETA = &g_ZETA_Nominal;
+        g_pMAIN_S1_Coeff = &g_MAIN_S1_Nominal;
+        break;
+    }
+    case ELPMPP02_LLR: {
+        g_pW = &g_W_LLR;
+        g_pEARTH = &g_EARTH_LLR;
+        g_pPERI = &g_PERI_LLR;
+        g_pZETA = &g_ZETA_LLR;
+        g_pMAIN_S1_Coeff = &g_MAIN_S1_LLR;
+        break;
+    }
+    case ELPMPP02_DE405: {
+        g_pW = &g_W_DE405;
+        g_pEARTH = &g_EARTH_DE405;
+        g_pPERI = &g_PERI_DE405;
+        g_pZETA = &g_ZETA_DE405;
+        g_pMAIN_S1_Coeff = &g_MAIN_S1_DE405;
+        break;
+    }
+    case ELPMPP02_DE406: {
+        g_pW = &g_W_DE406;
+        g_pEARTH = &g_EARTH_DE406;
+        g_pPERI = &g_PERI_DE406;
+        g_pZETA = &g_ZETA_DE406;
+        g_pMAIN_S1_Coeff = &g_MAIN_S1_DE406;
+        break;
+    }
+    default: {
+        assert(false);
+        break;
+    }
+    }
+    assert(g_pW);
+    assert(g_pPERI);
+    assert(g_pEARTH);
+    assert(g_pZETA);
+    const std::array<std::array<double, 5>, 3>& g_W{ *g_pW };
+    const std::array<double, 5>& g_EARTH{ *g_pEARTH };
+    const std::array<double, 5>& g_PERI{ *g_pPERI };
+    const std::array<double, 5>& g_ZETA{ *g_pZETA };
+    const std::array<double, 1023>& g_MAIN_S1_Coeff{ *g_pMAIN_S1_Coeff };
+
+    //Setup the Delaunay array
+    std::array<std::array<double, 5>, 4> fDelaunay{};
+    for (int i{ 0 }; i < 5; i++)
+    {
+        fDelaunay[0][i] = g_W[0][i] - g_EARTH[i]; //D
+        fDelaunay[1][i] = g_W[0][i] - g_W[2][i]; //F
+        fDelaunay[2][i] = g_W[0][i] - g_W[1][i]; //l
+        fDelaunay[3][i] = g_EARTH[i] - g_PERI[i]; //l'
+    }
+    fDelaunay[0][0] += pi;
+
+    //What will be the return value from this method
+    double fResult{ 0 };
+
+    //Set the output parameter to a default value if required
+    if (pDerivative) *pDerivative = 0;
+
+    //First the main problem
+    constexpr size_t nEndI{ g_MAIN_S1.size() };
+    for (size_t i{ 0 }; i < nEndI; i++) {
+        std::array<double, 5> fFi{};
+        for (int a{ 0 }; a < 5; a++) {
+            for (int j{ 0 }; j < 4; j++) fFi[a] += (g_MAIN_S1[i].m_I[j] * fDelaunay[j][a]);
+        }
+        double y{ fFi[0] };
+        double yp{ 0 };
+        for (int k{ 1 }; k <= 4; k++) {
+            y += (fFi[k] * pT[k]);
+            yp += (k * fFi[k] * pT[k - 1]);
+        }
+#ifdef _MSC_VER
+#pragma warning(suppress : 26488)
+#endif //#ifdef _MSC_VER
+        fResult += (g_MAIN_S1_Coeff[i] * sin(y));
+        if (pDerivative)
+#ifdef _MSC_VER
+#pragma warning(suppress : 26488)
+#endif //#ifdef _MSC_VER
+            * pDerivative += (g_MAIN_S1_Coeff[i] * cos(y) * yp);
+    }
+
+    //Then the perturbations
+    constexpr size_t nEndk{ g_PERT_S1.size() };
+    for (size_t k = 0; k < nEndk; k++) {
+        const size_t nEndP{ g_PERT_S1[k].m_nTableSize };
+        for (size_t p{ 0 }; p < nEndP; p++) {
+            std::array<double, 5> fFi{};
+            fFi[0] = atan2(g_PERT_S1[k].m_pTable[p].m_C, g_PERT_S1[k].m_pTable[p].m_S);
+            if (fFi[0] < 0) fFi[0] += tau;
+            for (int a{ 0 }; a < 5; a++) {
+                for (int i{ 0 }; i < 4; i++)
+                    fFi[a] += (g_PERT_S1[k].m_pTable[p].m_I[i] * fDelaunay[i][a]);
+                if (a < 2) {
+                    for (size_t i{ 4 }; i < 12; i++) fFi[a] += (g_Pmpp02[i - 4][a] * g_PERT_S1[k].m_pTable[p].m_I[i]);
+                }
+                fFi[a] += (g_PERT_S1[k].m_pTable[p].m_I[12] * g_ZETA[a]);
+            }
+
+            double y{ fFi[0] };
+            double yp{ 0 };
+            for (int i{ 1 }; i <= 4; i++) {
+                y += (fFi[i] * pT[i]);
+                yp += (i * fFi[i] * pT[i - 1]);
+            }
+            double x{ sqrt((g_PERT_S1[k].m_pTable[p].m_S * g_PERT_S1[k].m_pTable[p].m_S) + (g_PERT_S1[k].m_pTable[p].m_C * g_PERT_S1[k].m_pTable[p].m_C)) };
+            fResult += (x * pT[k] * sin(y));
+            if (pDerivative) {
+                if (k == 0) *pDerivative += (x * pT[k] * yp * cos(y));
+                else *pDerivative += (((k * x * pT[k - 1]) * sin(y)) + (x * pT[k] * yp * cos(y)));
+            }
+        }
+    }
+
+    fResult = ACoord::rangezero2threesixty((fResult / 3600.0) + rad2deg * (g_W[0][0] + (g_W[0][1] * pT[1]) + (g_W[0][2] * pT[2]) + (g_W[0][3] * pT[3]) + (g_W[0][4] * pT[4])));
+    if (pDerivative) {
+        *pDerivative = (*pDerivative / 3600.0) + rad2deg * (g_W[0][1] + (2 * g_W[0][2] * pT[1]) + (3 * g_W[0][3] * pT[2]) + (4 * g_W[0][4] * pT[3]));
+        *pDerivative /= JD_CENTURY;
+    }
+    return fResult;
+}
+
+double AELPMPP02::EclipticLatitude(const double* pT, int nTSize, ELPMPP02_Correction correction, double* pDerivative) noexcept
+{
+    //Validate our parameters
+    assert(pT);
+    assert(nTSize == 5);
+    //Work out the right data arrays to use
+    const std::array<std::array<double, 5>, 3>* g_pW{ nullptr };
+    const std::array<double, 5>* g_pEARTH{ nullptr };
+    const std::array<double, 5>* g_pPERI{ nullptr };
+    const std::array<double, 5>* g_pZETA{ nullptr };
+    const std::array<double, 918>* g_pMAIN_S2_Coeff{ nullptr };
+    switch (correction) {
+    case ELPMPP02_Nominal: {
+        g_pW = &g_W_Nominal;
+        g_pEARTH = &g_EARTH_Nominal;
+        g_pPERI = &g_PERI_Nominal;
+        g_pZETA = &g_ZETA_Nominal;
+        g_pMAIN_S2_Coeff = &g_MAIN_S2_Nominal;
+        break;
+    }
+    case ELPMPP02_LLR: {
+        g_pW = &g_W_LLR;
+        g_pEARTH = &g_EARTH_LLR;
+        g_pPERI = &g_PERI_LLR;
+        g_pZETA = &g_ZETA_LLR;
+        g_pMAIN_S2_Coeff = &g_MAIN_S2_LLR;
+        break;
+    }
+    case ELPMPP02_DE405: {
+        g_pW = &g_W_DE405;
+        g_pEARTH = &g_EARTH_DE405;
+        g_pPERI = &g_PERI_DE405;
+        g_pZETA = &g_ZETA_DE405;
+        g_pMAIN_S2_Coeff = &g_MAIN_S2_DE405;
+        break;
+    }
+    case ELPMPP02_DE406: {
+        g_pW = &g_W_DE406;
+        g_pEARTH = &g_EARTH_DE406;
+        g_pPERI = &g_PERI_DE406;
+        g_pZETA = &g_ZETA_DE406;
+        g_pMAIN_S2_Coeff = &g_MAIN_S2_DE406;
+        break;
+    }
+    default: {
+        assert(false);
+        break;
+    }
+    }
+    assert(g_pW);
+    assert(g_pPERI);
+    assert(g_pEARTH);
+    assert(g_pZETA);
+
+    const std::array<std::array<double, 5>, 3>& g_W{ *g_pW };
+    const std::array<double, 5>& g_EARTH{ *g_pEARTH };
+    const std::array<double, 5>& g_PERI{ *g_pPERI };
+    const std::array<double, 5>& g_ZETA{ *g_pZETA };
+    const std::array<double, 918>& g_MAIN_S2_Coeff{ *g_pMAIN_S2_Coeff };
+
+    //Setup the Delaunay array
+    std::array<std::array<double, 5>, 4> fDelaunay{};
+    for (int i{ 0 }; i < 5; i++)
+    {
+        fDelaunay[0][i] = g_W[0][i] - g_EARTH[i]; //D
+        fDelaunay[1][i] = g_W[0][i] - g_W[2][i]; //F
+        fDelaunay[2][i] = g_W[0][i] - g_W[1][i]; //l
+        fDelaunay[3][i] = g_EARTH[i] - g_PERI[i]; //l'
+    }
+    fDelaunay[0][0] += pi;
+
+    //What will be the return value from this method
+    double fResult{ 0 };
+
+    //Set the output parameter to a default value if required
+    if (pDerivative) *pDerivative = 0;
+
+    //First the main problem
+    constexpr size_t nEndI{ g_MAIN_S2.size() };
+    for (size_t i{ 0 }; i < nEndI; i++) {
+        std::array<double, 5> fFi{};
+        for (int a{ 0 }; a < 5; a++) {
+            for (int j{ 0 }; j < 4; j++) fFi[a] += (g_MAIN_S2[i].m_I[j] * fDelaunay[j][a]);
+        }
+        double y{ fFi[0] };
+        double yp{ 0 };
+        for (int k{ 1 }; k <= 4; k++) {
+            y += (fFi[k] * pT[k]);
+            yp += (k * fFi[k] * pT[k - 1]);
+        }
+#ifdef _MSC_VER
+#pragma warning(suppress : 26488)
+#endif //#ifdef _MSC_VER
+        fResult += (g_MAIN_S2_Coeff[i] * sin(y));
+        if (pDerivative)
+#ifdef _MSC_VER
+#pragma warning(suppress : 26488)
+#endif //#ifdef _MSC_VER
+            * pDerivative += (g_MAIN_S2_Coeff[i] * cos(y) * yp);
+    }
+
+    //Then the perturbations
+    constexpr size_t nEndk{ g_PERT_S2.size() };
+    for (size_t k{ 0 }; k < nEndk; k++) {
+        const size_t nEndP{ g_PERT_S2[k].m_nTableSize };
+        for (size_t p{ 0 }; p < nEndP; p++) {
+            std::array<double, 5> fFi{};
+            fFi[0] = atan2(g_PERT_S2[k].m_pTable[p].m_C, g_PERT_S2[k].m_pTable[p].m_S);
+            if (fFi[0] < 0)
+                fFi[0] += tau;
+            for (int a{ 0 }; a < 5; a++) {
+                for (int i{ 0 }; i < 4; i++) fFi[a] += (g_PERT_S2[k].m_pTable[p].m_I[i] * fDelaunay[i][a]);
+                if (a < 2) {
+                    for (size_t i{ 4 }; i < 12; i++) fFi[a] += (g_Pmpp02[i - 4][a] * g_PERT_S2[k].m_pTable[p].m_I[i]);
+                }
+                fFi[a] += (g_PERT_S2[k].m_pTable[p].m_I[12] * g_ZETA[a]);
+            }
+
+            double y{ fFi[0] };
+            double yp{ 0 };
+            for (int i{ 1 }; i <= 4; i++) {
+                y += (fFi[i] * pT[i]);
+                yp += (i * fFi[i] * pT[i - 1]);
+            }
+            double x{ sqrt((g_PERT_S2[k].m_pTable[p].m_S * g_PERT_S2[k].m_pTable[p].m_S) + (g_PERT_S2[k].m_pTable[p].m_C * g_PERT_S2[k].m_pTable[p].m_C)) };
+            fResult += (x * pT[k] * sin(y));
+            if (pDerivative) {
+                if (k == 0)  *pDerivative += (x * pT[k] * yp * cos(y));
+                else *pDerivative += (((k * x * pT[k - 1]) * sin(y)) + (x * pT[k] * yp * cos(y)));
+            }
+        }
+    }
+    fResult = ACoord::rangemninety2ninety(fResult / 3600.0);
+    if (pDerivative) *pDerivative = *pDerivative / (3600.0 * 36525.0);
+    return fResult;
+}
+
+double AELPMPP02::RadiusVector(const double* pT, int nTSize, ELPMPP02_Correction correction, double* pDerivative) noexcept
+{
+    //Validate our parameters
+    assert(pT);
+    assert(nTSize == 5);
+
+    //Work out the right data arrays to use
+    const std::array<std::array<double, 5>, 3>* g_pW{ nullptr };
+    const std::array<double, 5>* g_pEARTH{ nullptr };
+    const std::array<double, 5>* g_pPERI{ nullptr };
+    const std::array<double, 5>* g_pZETA{ nullptr };
+    const std::array<double, 704>* g_pMAIN_S3_Coeff{ nullptr };
+    switch (correction)
+    {
+    case ELPMPP02_Nominal: {
+        g_pW = &g_W_Nominal;
+        g_pEARTH = &g_EARTH_Nominal;
+        g_pPERI = &g_PERI_Nominal;
+        g_pZETA = &g_ZETA_Nominal;
+        g_pMAIN_S3_Coeff = &g_MAIN_S3_Nominal;
+        break;
+    }
+    case ELPMPP02_LLR:
+    {
+        g_pW = &g_W_LLR;
+        g_pEARTH = &g_EARTH_LLR;
+        g_pPERI = &g_PERI_LLR;
+        g_pZETA = &g_ZETA_LLR;
+        g_pMAIN_S3_Coeff = &g_MAIN_S3_LLR;
+        break;
+    }
+    case ELPMPP02_DE405: {
+        g_pW = &g_W_DE405;
+        g_pEARTH = &g_EARTH_DE405;
+        g_pPERI = &g_PERI_DE405;
+        g_pZETA = &g_ZETA_DE405;
+        g_pMAIN_S3_Coeff = &g_MAIN_S3_DE405;
+        break;
+    }
+    case ELPMPP02_DE406: {
+        g_pW = &g_W_DE406;
+        g_pEARTH = &g_EARTH_DE406;
+        g_pPERI = &g_PERI_DE406;
+        g_pZETA = &g_ZETA_DE406;
+        g_pMAIN_S3_Coeff = &g_MAIN_S3_DE406;
+        break;
+    }
+    default: {
+        assert(false);
+        break;
+    }
+    }
+    assert(g_pW);
+    assert(g_pPERI);
+    assert(g_pEARTH);
+    assert(g_pZETA);
+#ifdef __analysis_assume
+#pragma warning(suppress: 26477)
+    __analysis_assume(g_pW);
+#pragma warning(suppress: 26477)
+    __analysis_assume(g_pEARTH);
+#pragma warning(suppress: 26477)
+    __analysis_assume(g_pPERI);
+#pragma warning(suppress: 26477)
+    __analysis_assume(g_pZETA);
+#pragma warning(suppress: 26477)
+    __analysis_assume(pT);
+#pragma warning(suppress: 26477)
+    __analysis_assume(g_pMAIN_S3_Coeff);
+#endif
+    const std::array<std::array<double, 5>, 3>& g_W{ *g_pW };
+    const std::array<double, 5>& g_EARTH{ *g_pEARTH };
+    const std::array<double, 5>& g_PERI{ *g_pPERI };
+    const std::array<double, 5>& g_ZETA{ *g_pZETA };
+    const std::array<double, 704>& g_MAIN_S3_Coeff{ *g_pMAIN_S3_Coeff };
+
+    //Setup the Delaunay array
+    std::array<std::array<double, 5>, 4> fDelaunay{};
+    for (int i{ 0 }; i < 5; i++)
+    {
+        fDelaunay[0][i] = g_W[0][i] - g_EARTH[i]; //D
+        fDelaunay[1][i] = g_W[0][i] - g_W[2][i];  //F
+        fDelaunay[2][i] = g_W[0][i] - g_W[1][i];  //l
+        fDelaunay[3][i] = g_EARTH[i] - g_PERI[i]; //l'
+    }
+    fDelaunay[0][0] += pi;
+
+    //What will be the return value from this method
+    double fResult{ 0 };
+
+    //Set the output parameter to a default value if required
+    if (pDerivative)
+        *pDerivative = 0;
+
+    //First the main problem
+    constexpr size_t nEndI{ g_MAIN_S3.size() };
+    for (size_t i{ 0 }; i < nEndI; i++)
+    {
+        std::array<double, 5> fFi{};
+        for (int a{ 0 }; a < 5; a++)
+        {
+            for (int j{ 0 }; j < 4; j++)
+                fFi[a] += (g_MAIN_S3[i].m_I[j] * fDelaunay[j][a]);
+        }
+        double y{ fFi[0] };
+        double yp{ 0 };
+        for (int k{ 1 }; k <= 4; k++)
+        {
+            y += (fFi[k] * pT[k]);
+            yp += (k * fFi[k] * pT[k - 1]);
+        }
+#ifdef _MSC_VER
+#pragma warning(suppress : 26488)
+#endif //#ifdef _MSC_VER
+        fResult += (g_MAIN_S3_Coeff[i] * cos(y));
+        if (pDerivative)
+#ifdef _MSC_VER
+#pragma warning(suppress : 26488)
+#endif //#ifdef _MSC_VER
+            * pDerivative -= (g_MAIN_S3_Coeff[i] * sin(y) * yp);
+    }
+
+    //Then the perturbations
+    constexpr size_t nEndk{ g_PERT_S3.size() };
+    for (size_t k{ 0 }; k < nEndk; k++) {
+        const size_t nEndP{ g_PERT_S3[k].m_nTableSize };
+        for (size_t p{ 0 }; p < nEndP; p++) {
+            std::array<double, 5> fFi{};
+            fFi[0] = atan2(g_PERT_S3[k].m_pTable[p].m_C, g_PERT_S3[k].m_pTable[p].m_S);
+            if (fFi[0] < 0) fFi[0] += tau;
+            for (int a{ 0 }; a < 5; a++) {
+                for (int i{ 0 }; i < 4; i++)
+                    fFi[a] += (g_PERT_S3[k].m_pTable[p].m_I[i] * fDelaunay[i][a]);
+                if (a < 2) {
+                    for (size_t i{ 4 }; i < 12; i++)
+                        fFi[a] += (g_Pmpp02[i - 4][a] * g_PERT_S3[k].m_pTable[p].m_I[i]);
+                }
+                fFi[a] += (g_PERT_S3[k].m_pTable[p].m_I[12] * g_ZETA[a]);
+            }
+
+            double y{ fFi[0] };
+            double yp{ 0 };
+            for (int i{ 1 }; i <= 4; i++)
+            {
+                y += (fFi[i] * pT[i]);
+                yp += (i * fFi[i] * pT[i - 1]);
+            }
+            double x{ sqrt((g_PERT_S3[k].m_pTable[p].m_S * g_PERT_S3[k].m_pTable[p].m_S) + (g_PERT_S3[k].m_pTable[p].m_C * g_PERT_S3[k].m_pTable[p].m_C)) };
+            fResult += (x * pT[k] * sin(y));
+            if (pDerivative)
+            {
+                if (k == 0)
+                    *pDerivative += (x * pT[k] * yp * cos(y));
+                else
+                    *pDerivative += (((k * x * pT[k - 1]) * sin(y)) + (x * pT[k] * yp * cos(y)));
+            }
+        }
+    }
+
+    fResult *= 0.99999994982652029474691585875733;
+    if (pDerivative)
+        *pDerivative /= 36525.0;
+
+    return fResult;
+}
+
+
+glm::dvec3 AELPMPP02::EclipticRectangularCoordinates(const double* pT, int nTSize, ELPMPP02_Correction correction, glm::dvec3* pDerivative) noexcept {
+    double fLongitudeDerivative{ 0 };
+    double fLongitude{ EclipticLongitude(pT, nTSize, correction, &fLongitudeDerivative) };
+    fLongitudeDerivative *= 36525.0;
+    double fLatitudeDerivative{ 0 };
+    double fLatitude{ EclipticLatitude(pT, nTSize, correction, &fLatitudeDerivative) };
+    fLatitudeDerivative *= 36525.0;
+    double fRadiusDerivative{ 0 };
+    const double fRadius{ RadiusVector(pT, nTSize, correction, &fRadiusDerivative) };
+    fRadiusDerivative *= 36525.0;
+    fLongitude *= deg2rad;
+    fLongitudeDerivative *= deg2rad;
+    fLatitude *= deg2rad;
+    fLatitudeDerivative *= deg2rad;
+    const double fCosLong{ cos(fLongitude) };
+    const double fSinLong{ sin(fLongitude) };
+    const double fCosLat{ cos(fLatitude) };
+    const double fSinLat{ sin(fLatitude) };
+    const double fRCosLat{ fRadius * fCosLat };
+    const double fRSinLat{ fRadius * fSinLat };
+    glm::dvec3 value{ 0.0 };
+    value.x = fRCosLat * fCosLong;
+    value.y = fRCosLat * fSinLong;
+    value.z = fRSinLat;
+
+    if (pDerivative)
+    {
+        pDerivative->x = ((((fRadiusDerivative * fCosLat) - (fLatitudeDerivative * fRSinLat)) * fCosLong) - (fLongitudeDerivative * value.y)) / 36525.0;
+        pDerivative->y = ((((fRadiusDerivative * fCosLat) - (fLatitudeDerivative * fRSinLat)) * fSinLong) + (fLongitudeDerivative * value.x)) / 36525.0;
+        pDerivative->z = ((fRadiusDerivative * fSinLat) + (fLatitudeDerivative * fRCosLat)) / 36525.0;
+    }
+
+    return value;
+}
+
+
+glm::dvec3 AELPMPP02::EclipticRectangularCoordinatesJ2000(const double* pT, int nTSize, ELPMPP02_Correction correction, glm::dvec3* pDerivative) noexcept
+{
+    //Validate our parameters
+    assert(pT);
+    assert(nTSize == 5);
+#ifdef __analysis_assume
+#pragma warning(suppress: 26477)
+    __analysis_assume(pT);
+#endif
+
+    static constexpr std::array<double, 5> LaskarsP
+    { {
+      1.0180391e-5,
+      4.7020439e-7,
+     -5.417367e-10,
+     -2.507948e-12,
+      4.63486e-15
+    } };
+
+    static constexpr std::array<double, 5> LaskarsQ
+    { {
+     -1.13469002e-4,
+      1.2372674e-7,
+      1.265417e-9,
+     -1.371808e-12,
+     -3.20334e-15
+    } };
+
+    glm::dvec3 EclipticDerivative;
+    const glm::dvec3 Ecliptic{ EclipticRectangularCoordinates(pT, nTSize, correction, &EclipticDerivative) };
+    EclipticDerivative.x *= 36525.0;
+    EclipticDerivative.y *= 36525.0;
+    EclipticDerivative.z *= 36525.0;
+    const double fP{ (LaskarsP[0] + (LaskarsP[1] * pT[1]) + (LaskarsP[2] * pT[2]) + (LaskarsP[3] * pT[3]) + (LaskarsP[4] * pT[4])) * pT[1] };
+    const double fQ{ (LaskarsQ[0] + (LaskarsQ[1] * pT[1]) + (LaskarsQ[2] * pT[2]) + (LaskarsQ[3] * pT[3]) + (LaskarsQ[4] * pT[4])) * pT[1] };
+    const double fTwoP{ 2 * fP };
+    const double fP2{ fP * fP };
+    const double fQ2{ fQ * fQ };
+    const double fOneMinus2P2{ 1 - (2 * fP2) };
+    const double fOneMinus2Q2{ 1 - (2 * fQ2) };
+    const double fTwoPQ{ fTwoP * fQ };
+    const double fTwosqrt1MinusPart{ 2 * sqrt(1 - fP2 - fQ2) };
+    const double fPTwosqrt1MinusPart{ fP * fTwosqrt1MinusPart };
+    const double fQTwosqrt1MinusPart{ fQ * fTwosqrt1MinusPart };
+    glm::dvec3 J2000{ 0.0 };
+    J2000.x = (fOneMinus2P2 * Ecliptic.x) + (fTwoPQ * Ecliptic.y) + (fPTwosqrt1MinusPart * Ecliptic.z);
+    J2000.y = (fTwoPQ * Ecliptic.x) + (fOneMinus2Q2 * Ecliptic.y) - (fQTwosqrt1MinusPart * Ecliptic.z);
+    J2000.z = (-fPTwosqrt1MinusPart * Ecliptic.x) + (fQTwosqrt1MinusPart * Ecliptic.y) + ((fOneMinus2P2 + fOneMinus2Q2 - 1) * Ecliptic.z);
+    if (pDerivative)
+    {
+        const double fPp{ LaskarsP[0] + ((2 * LaskarsP[1]) + (3 * LaskarsP[2] * pT[1]) + (4 * LaskarsP[3] * pT[2]) + (5 * LaskarsP[3] * pT[4])) * pT[1] };
+        const double fQp{ LaskarsQ[0] + ((2 * LaskarsQ[1]) + (3 * LaskarsQ[2] * pT[1]) + (4 * LaskarsQ[3] * pT[2]) + (5 * LaskarsQ[3] * pT[4])) * pT[1] };
+        const double fMinus4PPp{ -4 * fP * fPp };
+        const double fMinus4QQp{ -4 * fQ * fQp };
+        const double fTwoPpQpQp{ 2 * ((fPp * fQ) + (fP * fQp)) };
+        const double fK1{ (fMinus4PPp + fMinus4QQp) / fTwosqrt1MinusPart };
+        const double fK2{ (fPp * fTwosqrt1MinusPart) + (fP * fK1) };
+        const double fK3{ (fQp * fTwosqrt1MinusPart) + (fQ * fK1) };
+        pDerivative->x = ((fOneMinus2P2 * EclipticDerivative.x) + (fTwoPQ * EclipticDerivative.y) + (fPTwosqrt1MinusPart * EclipticDerivative.z) + (fMinus4PPp * Ecliptic.x) + (fTwoPpQpQp * Ecliptic.y) + (fK2 * Ecliptic.z)) / 36525.0;
+        pDerivative->y = ((fTwoPQ * EclipticDerivative.x) + (fOneMinus2Q2 * EclipticDerivative.y) - (fQTwosqrt1MinusPart * EclipticDerivative.z) + (fTwoPpQpQp * Ecliptic.x) + (fMinus4QQp * Ecliptic.y) - (fK3 * Ecliptic.z)) / 36525.0;
+        pDerivative->z = ((-fPTwosqrt1MinusPart * EclipticDerivative.x) + (fQTwosqrt1MinusPart * EclipticDerivative.y) + ((fOneMinus2P2 + fOneMinus2Q2 - 1) * EclipticDerivative.z) - (fK2 * Ecliptic.x) + (fK3 * Ecliptic.y) + ((fMinus4PPp + fMinus4QQp) * Ecliptic.z)) / 36525.0;
+    }
+    return J2000;
+}
+
+
+

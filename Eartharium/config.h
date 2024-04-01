@@ -92,14 +92,42 @@ enum itemtype {
     NONE = maxuint,
 };
 
-struct LLH {
+struct LLD {
+public:
     double lat{ 0.0 };
     double lon{ 0.0 };
     double dst{ 0.0 };
-    void print() {
+    void print() const {
         std::cout << lat << "," << lon << ", " << dst << '\n';
     }
+    std::string str() {
+        char buff[100];
+        snprintf(buff, sizeof(buff), "%03.9f,%03.9f,%03.9f", lat, lon, dst);
+        std::string dstring = buff;
+        return dstring;
+    }
+    bool operator==(LLD& other) {
+        return (lat == other.lat && lon == other.lon && dst == other.dst);
+    }
+    LLD& operator+=(LLD& other) {
+        lat += other.lat;
+        lon += other.lon;
+        dst += other.dst;
+        return *this;
+    }
+    LLD& operator+=(LLD other) {
+        lat += other.lat;
+        lon += other.lon;
+        dst += other.dst;
+        return *this;
+    }
+    friend std::ostream& operator<<(std::ostream& os, LLD& llh) {
+        os << "Lat,Lon,Dst: " << llh.lat << "," << llh.lon << "," << llh.dst;
+        return os;
+    }
 };
+
+//using XYZ = glm::dvec3;
 
 // Camera movement via keyboard - These limits are used in Eartharium.cpp:keyboard_callback() for GLFW
 #define CAMERA_MAX_DIST 100.0f
@@ -186,15 +214,16 @@ const float locsunpathwidth = locpathwidth;
 const size_t polycurvereserve = 5000; // default number of points in a path to reserve
 
 // For debug convenience
-#define VPRINT(v) std::cout << "(" << v.x << "," << v.y << "," << v.z << ")\n"
+#define VPRINT(v) std::cout << "(" << v.x << "," << v.y << "," << v.z << ")"
+#define VPRINTNL(v) std::cout << "(" << v.x << "," << v.y << "," << v.z << ")\n"
 
 
 // TimeZones and CountryBorders config
 const float surface_offset = 0.0001f;
 
 // Mathematical constants
-const double pi = 3.14159265358979323846;
-const float pif = 3.14159265358979323846f;
+const double pi = 3.1415926535897932384626433832795;
+const float pif = 3.1415926535897932384626433832795f;
 const double tau = 2.0 * pi;
 const float tauf = 2.0f * pif;
 const double pi2 = pi / 2.0;
@@ -217,10 +246,16 @@ const float maxfloat = FLT_MAX;
 const double maxdouble = DBL_MAX;
 
 // Astronomical constants
+// For FK5
 const double JD_2000 = 2451545.0;             // Standard Epoch J2000 in Julian Day
 const double JD_UNIX = 2440587.5;             // Unix epoch 1970-01-01 00:00:00
 const double FIRST_LEAP_SECOND_JD = 2437300.5; // 1961 Jan 1, first entry in Leap Second Table
 const double LAST_LEAP_SECOND_JD = 2457754.5;  // 2017, currently last entry in Leap Second Table
+const double JD_CENTURY = 36525.0;
+const double JD_MILLENNIUM = 365250.0;
+// For FK4
+const double JD_B1950 = 2415020.3135;
+const double JD_TROPICAL_CENTURY = 36524.2199;
 const double earthradius = 6371.008;           // Earth average radius in kilometers
 const double earthradiusm = 6371008;           // Earth average radius in meters
 //const double earthaxialtilt = 23.439281;     // degrees (2007 wikipedia). Value changes over time, as Earth axis wobbles

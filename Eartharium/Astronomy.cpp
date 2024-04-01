@@ -7,16 +7,21 @@
 #include <iostream>
 #include <sstream>
 
-#include "AAplus/AAAberration.h"     // For CAAAberration::EarthVelocity
-#include "AAplus/AADynamicalTime.h"
-#include "AAplus/AAEquationOfTime.h"
-
 #include "config.h"
 #include "Astronomy.h"
 
+#include "astronomy/aconfig.h"
 #include "astronomy/acoordinates.h"
-#include "astronomy/asun.h"
 #include "astronomy/datetime.h"
+#include "astronomy/aearth.h"
+#include "astronomy/asun.h"
+#include "astronomy/amercury.h"
+#include "astronomy/avenus.h"
+#include "astronomy/amars.h"
+#include "astronomy/ajupiter.h"
+#include "astronomy/asaturn.h"
+#include "astronomy/auranus.h"
+#include "astronomy/aneptune.h"
 
 // Coordinate systems:
 //  + Heliocentric ecliptic = Ecliptic Latitude, Ecliptic Longitude, Radius Vector
@@ -300,7 +305,7 @@ Astronomy::stellarobject& Astronomy::getSObyName(const std::string starname) {
     std::cout << "ERROR! Astronomy::getSObyName() - Unknown name supplied: " << starname << '\n';
     return stellarobjects[0];  // Dummy entry with NO_DOUBLE ... "None"
 }
-LLH Astronomy::getDecRAbyName(const std::string starname, bool rad) {
+LLD Astronomy::getDecRAbyName(const std::string starname, bool rad) {
     std::string sname = starname;
     for (auto& n : Astronomy::stellarobject_xrefs) {
         //std::cout << n.popular_name << "|" << n.identifier << '\n';
@@ -318,7 +323,7 @@ LLH Astronomy::getDecRAbyName(const std::string starname, bool rad) {
     std::cout << "ERROR! Astronomy::getDecRAbyName() - Unknown name supplied: " << starname << '\n';
     return { 0.0, 0.0, NO_DOUBLE };
 }
-LLH Astronomy::getDecRAwithPMbyName(const std::string starname, double jd_tt, bool rad) {
+LLD Astronomy::getDecRAwithPMbyName(const std::string starname, double jd_tt, bool rad) {
     std::string sname = starname;
     for (auto& n : Astronomy::stellarobject_xrefs) {
         //std::cout << n.popular_name << "|" << n.identifier << '\n';
@@ -332,10 +337,10 @@ LLH Astronomy::getDecRAwithPMbyName(const std::string starname, double jd_tt, bo
             // apply Proper Motion
             double elapsedyears = (jd_tt - JD_2000) / 365.25;
             //std::cout << "Proper Motion in " << elapsedyears << '\n';
-            double dec = s.dec + s.pm_dec * elapsedyears / 3600000.0;
+            double dec = s.dec + s.pm_dec * elapsedyears / 3'600'000.0;
             // NOTE: SIMBAD proper motions are from the Hipparcos mission, the right ascension value is already multiplied by cos(s.dec)
             //double ra = s.ra + s.pm_ra / cos(deg2rad * s.dec) * elapsedyears / 3600000.0;
-            double ra = s.ra + s.pm_ra * elapsedyears / 3600000.0;
+            double ra = s.ra + s.pm_ra * elapsedyears / 3'600'000.0;
             //std::cout << "On date Ra Dec of " << starname << ": " << ra << ", " << dec << '\n';
             return { rad ? deg2rad * dec : dec, rad ? deg2rad * ra : ra, 0.0 }; // File was loaded in degrees
         }
@@ -343,12 +348,12 @@ LLH Astronomy::getDecRAwithPMbyName(const std::string starname, double jd_tt, bo
     std::cout << "ERROR! Astronomy::getDecRAwithPMbyName() - Unknown name supplied: " << starname << '\n';
     return { 0.0, 0.0, NO_DOUBLE };
 }
-LLH Astronomy::applyProperMotionJ2000(double jd_tt, LLH decra, LLH propermotion) {
-    // apply Proper Motion - decra is in radians, propermotion is in milliarcseconds, from stellarobject db.
+LLD Astronomy::applyProperMotionJ2000(double jd_tt, LLD decra, LLD propermotion) {
+    // apply Proper Motion - decra is in radians, propermotion is in milliarcseconds per year, from stellarobject db.
     if (jd_tt == NO_DOUBLE) jd_tt = getJD_TT();
     double elapsedyears = (jd_tt - JD_2000) / 365.25;
-    decra.lat += propermotion.lat * elapsedyears / 3600000.0;
-    decra.lon += propermotion.lon * elapsedyears / 3600000.0;
+    decra.lat += propermotion.lat * elapsedyears * deg2rad / 3'600'000.0;
+    decra.lon += propermotion.lon * elapsedyears * deg2rad / 3'600'000.0;
     return decra;
 }
 glm::vec4 Astronomy::getColorbyName(const std::string starname) {
@@ -449,7 +454,7 @@ void Astronomy::loadConstellations() {
         for (auto& c : constellations) {
             if (c.abbr == item) {
                 abbr_match = true;
-                c.outline.emplace_back(LLH{ ra, dec, 0.0 });
+                c.outline.emplace_back(LLD{ ra, dec, 0.0 });
                 break;
             }
         }
@@ -611,13 +616,15 @@ void Astronomy::setUnixTime(double utime) { // Unix time is in UTC
 void Astronomy::addTime(double d, double h, double min, double sec, bool do_eot) {
     //std::cout << "Current: " << getTimeString() << " JD_TT: " << getJD_TT() << " \t";
     // Is EoT being enabled now
-    if (do_eot && eot == 0.0) eot = CAAEquationOfTime::Calculate(m_datetime.jd_tt(), true);
+    //if (do_eot && eot == 0.0) eot = CAAEquationOfTime::Calculate(m_datetime.jd_tt(), true);
+    if (do_eot && eot == 0.0) eot = AEarth::EquationOfTime(m_datetime.jd_tt(), VSOP87_FULL);
     if (eot != 0.0 && do_eot) min += eot; // If EoT was applied last time update, remove it.
     //std::cout << "Astronomy::addTime() - Remove EoT: " << eot << '\n';
     if (!do_eot) eot = 0.0;
     m_datetime.addTime(0, 0, d, h, min, sec);
     if (do_eot) {
-        eot = CAAEquationOfTime::Calculate(m_datetime.jd_tt(), true);
+        //eot = CAAEquationOfTime::Calculate(m_datetime.jd_tt(), true);
+        eot = AEarth::EquationOfTime(m_datetime.jd_tt(), VSOP87_FULL);
         //std::cout << "Astronomy::addTime() -  Apply EoT: " << eot << '\n';
         m_datetime.addTime(0, 0, 0.0, 0.0, -eot, 0.0);
     }
@@ -633,10 +640,6 @@ void Astronomy::updateTimeString() {
     //m_datetime.string(timestr);
     timestr = m_datetime.string();
 }
-bool Astronomy::isLeapYear(double year) {
-    // Can be removed when unix time functions have been moved to EDateTime
-    return m_datetime.isLeapYear((long)year);
-}
 void Astronomy::dumpCurrentTime(unsigned int frame) {
     if (frame == NO_UINT) std::cout << "Current astronomical time (in UTC) at frame none:\n";
     else std::cout << "Current astronomical time (in UTC) at frame " << frame << ":\n";
@@ -651,72 +654,26 @@ void Astronomy::dumpCurrentTime(unsigned int frame) {
 }
 
 double Astronomy::ApparentGreenwichSiderealTime(double jd_utc, bool rad) noexcept {
-    // MEEUS98: Chapter 12
-    // AA+: CAASidereal::ApparentGreenwichSiderealTime(JD)
-    if (jd_utc == NO_DOUBLE) jd_utc = getJD_UTC();     // cache friendly time
-    double meanobliquity = MeanObliquityOfEcliptic(jd_utc, true);
-    double trueobliquity = meanobliquity + (NutationInObliquity(jd_utc, true));
-    double nutationinlongitude = NutationInLongitude(jd_utc, true);
-    double meangsid = MeanGreenwichSiderealTime(jd_utc, true);
-    double gsidtime = meangsid + (nutationinlongitude * cos(trueobliquity));
+    double gsidtime = AEarth::ApparentGreenwichSiderealTime(jd_utc);
     return rad ? gsidtime : rad2deg * gsidtime;
 }
 double Astronomy::MeanGreenwichSiderealTime(double jd_utc, bool rad) noexcept {
-    // MEEUS98: Chapter 12
-    // AA+: CAASidereal::MeanGreenwichSiderealTime(JD)
-    //Get the Julian day for the same day at midnight
-    //EDateTime date(jd_utc);
-    //EDateTime midnight(date.year(), date.month(), date.day(), 0.0, 0.0, 0.0);
-    // NOTE: The above is exactly equivalent to:
-    double jd_fraction = jd_utc - std::floor(jd_utc) + 0.5; //also good for negative jd
-    double jd_midnight = jd_utc - jd_fraction;
-    //Calculate the sidereal time at midnight
-    // Equation 12.1
-    //double T{ (midnight.jd_utc() - JD_2000) / 36525.0 };
-    double T{ (jd_midnight - JD_2000) / 36525.0 };
-    double TSquared{ T * T };
-    double TCubed{ TSquared * T };
-    // Equation 12.3 - Value is in degrees, only valid for JDs at midnight
-    double Value{ 100.46061837 + (36000.770053608 * T) + (0.000387933 * TSquared) - (TCubed / 38710000) };
-
-    //Adjust by the time of day - h, m, s converted to degrees times the constant suggested by Meeus
-    //Value += (((date.hour() * 15.0) + (date.minute() * 0.25) + (date.second() * 0.0041666666666666666666666666666667)) * 1.00273790935);
-    Value += jd_fraction * 24.0 * 15.0 * 1.00273790935;
-
-    // Alternative that can accept fractional UT JD, but apparently requires a machine with a "sufficient number of digits"
-    // A quick test reveals differences from 12.3 above in 9th decimal place which is 1/10000 of a second.
-    // If above turns out to be slow (due to the use of EDateTime), this is a reasonable alternative.
-    // Meeus Equation 12.1 and 12.4 -> gives Value in degrees
-    //const double T = (jd_utc - JD_2000) / 36525.0;
-    //const double TSquared = T * T;
-    //const double TCubed = TSquared * T;
-    //const double Value = 280.46061837 + 360.98564736629 * (jd_utc - JD_2000) + 0.000387933 * TSquared - TCubed / 38710000;
-
-    return rad ? ACoord::rangezero2tau(deg2rad * Value) : ACoord::rangezero2threesixty(Value);
-    // Tested, and 12.3 yields exact same result as AA+ (not odd, as that is where I got the code):
-    // Test Mean Greenwich Sidereal Time against AA+
-    //for (long i = 2023; i > -6000; i -= 100) {
-    //    astro->setTime(i, 9, 24.0, 23.0, 27.0, 56.0);
-    //    std::cout << "Year: " << i << "\n";
-    //    std::cout << CAASidereal::MeanGreenwichSiderealTime(astro->getJD_UTC()) << '\n';
-    //    std::cout << rad2hrs * astro->MeanGreenwichSiderealTime(astro->getJD_UTC(), true) << '\n';
-    //    std::cout << deg2hrs * astro->MeanGreenwichSiderealTime(astro->getJD_UTC()) << "\n\n";
-    //}
-
+    const double mgst = AEarth::MeanGreenwichSiderealTime(jd_utc);
+    return rad ? mgst : rad2deg * mgst;
 }
-double Astronomy::getEoT(double jd_tt) {  // Expects JD in TT
+double Astronomy::getEoT(double jd_tt) {
     if (jd_tt == NO_DOUBLE) jd_tt = m_datetime.jd_tt();
-    return CAAEquationOfTime::Calculate(jd_tt, true);
+    return AEarth::EquationOfTime(jd_tt, VSOP87_FULL);
 }
 
 // Coordinate Transformations
-LLH Astronomy::calcEc2Geo(double Beta, double Lambda, double Epsilon, bool rad) noexcept {
+LLD Astronomy::calcEc2Geo(double Beta, double Lambda, double Epsilon, bool rad) noexcept {
     if (!rad) {
         Beta *= deg2rad;
         Lambda *= deg2rad;
         Epsilon *= deg2rad;
     }
-    LLH Equatorial;
+    LLD Equatorial;
     Equatorial.lat = asin(sin(Beta) * cos(Epsilon) + cos(Beta) * sin(Epsilon) * sin(Lambda));
     Equatorial.lon = ACoord::rangezero2tau(atan2(sin(Lambda) * cos(Epsilon) - tan(Beta) * sin(Epsilon), cos(Lambda)));
     if (!rad) {
@@ -725,7 +682,7 @@ LLH Astronomy::calcEc2Geo(double Beta, double Lambda, double Epsilon, bool rad) 
     }
     return Equatorial;
 }
-LLH Astronomy::calcGeo2Ec(double Delta, double Alpha, double Epsilon, bool rad) noexcept {
+LLD Astronomy::calcGeo2Ec(double Delta, double Alpha, double Epsilon, bool rad) noexcept {
     // AA+: CAACoordinateTransformation::Equatorial2Ecliptic()
     // MEEUS98: This refers to algorithm 13.1 and 13.2 on page 93
     if (!rad) {
@@ -733,7 +690,7 @@ LLH Astronomy::calcGeo2Ec(double Delta, double Alpha, double Epsilon, bool rad) 
         Alpha *= deg2rad;
         Epsilon *= deg2rad;
     }
-    LLH Ecliptic;
+    LLD Ecliptic;
     Ecliptic.lon = ACoord::rangezero2tau(atan2(sin(Alpha) * cos(Epsilon) + tan(Delta) * sin(Epsilon), cos(Alpha)));
     Ecliptic.lat = asin(sin(Delta) * cos(Epsilon) - cos(Delta) * sin(Epsilon) * sin(Alpha));
     if (!rad) {
@@ -742,22 +699,22 @@ LLH Astronomy::calcGeo2Ec(double Delta, double Alpha, double Epsilon, bool rad) 
     }
     return Ecliptic;
 }
-LLH Astronomy::calcGeo2Topo(LLH pos, LLH loc) {
+LLD Astronomy::calcGeo2Topo(LLD pos, LLD loc) {
     // AA+: CAACoordinateTransformation::Equatorial2Horizontal()
     // TODO: Does NOT account for altitude of observer !!! (maybe doesn't matter, up is still up? Mountains are not high enough for parallax)
     // pos is DecGHA, loc is LatLon
     // NOTE: No caching, not likely to be called with same position twice for same JD
     double LocalHourAngle = pos.lon + loc.lon;
     // from CAACoordinateTransformation::Equatorial2Horizontal(rad2hrs * LocalHourAngle, rad2deg * pos.lat, rad2deg * loc.lat);
-    LLH topo;
+    LLD topo;
     topo.lon = atan2(sin(LocalHourAngle), cos(LocalHourAngle) * sin(loc.lat) - tan(pos.lat) * cos(loc.lat));
     topo.lat = asin(sin(loc.lat) * sin(pos.lat) + cos(loc.lat) * cos(pos.lat) * cos(LocalHourAngle));
     return topo;
 }
-LLH Astronomy::calcDecHA2GP(LLH decra, bool rad) {
+LLD Astronomy::calcDecHA2GP(LLD decra, bool rad) {
     // Map HA [0 ; pi) -> [0 ; -pi) and [pi ; tau) -> [pi ; 0)
     // !!! FIX: This assumes planetocentric coordinates (longitude is east-from-north) Make option for west-from-south !!!
-    LLH res = decra;
+    LLD res = decra;
     if (!rad) {
         res.lat *= deg2rad;
         res.lon *= deg2rad;
@@ -771,19 +728,19 @@ LLH Astronomy::calcDecHA2GP(LLH decra, bool rad) {
     }
     return res;
 }
-LLH Astronomy::calcDecRA2GP(LLH decra, double jd_utc, bool rad) { // Needs JD as UTC
+LLD Astronomy::calcDecRA2GP(LLD decra, double jd_utc, bool rad) { // Needs JD as UTC
     if (jd_utc == NO_DOUBLE) // jd was not specified, so go with current time
         return calcDecHA2GP({ decra.lat, rad ? (m_gsidtime - decra.lon) : (rad2deg * m_gsidtime - decra.lon), 0.0 }, rad);
     return calcDecHA2GP({ decra.lat, rad ? (ApparentGreenwichSiderealTime(jd_utc) - decra.lon) : (rad2deg * ApparentGreenwichSiderealTime(jd_utc) - decra.lon), 0.0 }, rad);
 }
-LLH Astronomy::getDecRA(size_t planet, double jd_tt, bool rad) {  // JD in TT
+LLD Astronomy::getDecRA(size_t planet, double jd_tt, bool rad) {  // JD in TT
     if (jd_tt == NO_DOUBLE) jd_tt = m_datetime.jd_tt();
     if (jd_tt == planet_jd[planet]) return { planet_dec[planet], planet_ra[planet], 0.0 };
     CelestialDetail details = getDetails(jd_tt, planet, ECGEO);
     if (!rad) return { rad2deg * details.geq.lat, rad2deg * details.geq.lon, 0.0 }; // Dec, GHA
     else return { details.geq.lat, details.geq.lon, 0.0 };
 }
-LLH Astronomy::getDecGHA(size_t planet, double jd_tt, bool rad) { // JD in TT
+LLD Astronomy::getDecGHA(size_t planet, double jd_tt, bool rad) { // JD in TT
     if (jd_tt == NO_DOUBLE) jd_tt = m_datetime.jd_tt();
     if (jd_tt == planet_jd[planet]) return { planet_dec[planet], planet_gha[planet], 0.0 };
     CelestialDetail details = getDetails(jd_tt, planet, ECGEO);
@@ -792,7 +749,7 @@ LLH Astronomy::getDecGHA(size_t planet, double jd_tt, bool rad) { // JD in TT
 }
 
 // General astronomical adjustments
-LLH Astronomy::EclipticAberration(double Beta, double Lambda, double jd_tt, bool rad) {
+LLD Astronomy::EclipticAberration(double Beta, double Lambda, double jd_tt, bool rad) {
     // From CAAAberration::EclipticAberration() converted to accept radians
     // See MEEUS98 Chapter 23 for Ron-Vondrák abberation
     double lambda = Lambda;
@@ -801,22 +758,22 @@ LLH Astronomy::EclipticAberration(double Beta, double Lambda, double jd_tt, bool
         lambda *= deg2rad;
         beta *= deg2rad;
     }
-    const double T = (jd_tt - JD_2000) / 36525;
+    const double T = (jd_tt - JD_2000) / 36525.0;
     const double e = 0.016708634 - T * (0.000042037 + 0.0000001267 * T);
     double pi = deg2rad * (102.93735 + T * (1.71946 + 0.00046 * T));
     constexpr double k = 20.49552;
-    double SunLongitude = ACoord::rangezero2tau(EcLonEarth(jd_tt) + (tau * 0.5));
+    double SunLongitude = ACoord::rangezero2tau(getEcLon(EARTH, jd_tt) + (tau * 0.5));
 
-    LLH aberration;
-    aberration.lon = (-k * cos(SunLongitude - lambda) + e * k * cos(pi - lambda)) / cos(beta) / 3600;
-    aberration.lat = -k * sin(Beta) * (sin(SunLongitude - lambda) - e * sin(pi - lambda)) / 3600;
+    LLD aberration;
+    aberration.lon = (-k * cos(SunLongitude - lambda) + e * k * cos(pi - lambda)) / cos(beta) / 3600.0;
+    aberration.lat = -k * sin(Beta) * (sin(SunLongitude - lambda) - e * sin(pi - lambda)) / 3600.0;
     if (rad) {
         aberration.lon *= deg2rad;
         aberration.lat *= deg2rad;
     }
     return aberration;
 }
-LLH Astronomy::EquatorialAberration(double dec, double ra, double jd_tt, bool rad) {
+LLD Astronomy::EquatorialAberration(double dec, double ra, double jd_tt, bool rad) {
     // See MEEUS98 Chapter 23 for Ron-Vondrák abberation
     double Dec = dec;
     double Ra = ra;
@@ -828,10 +785,11 @@ LLH Astronomy::EquatorialAberration(double dec, double ra, double jd_tt, bool ra
     double sinDelta = sin(Dec);
     double cosAlpha = cos(Ra);
     double sinAlpha = sin(Ra);
-    const CAA3DCoordinate velocity = CAAAberration::EarthVelocity(jd_tt, true); // high precision
-    LLH aberration;
-    aberration.lat = -(((velocity.X * cosAlpha + velocity.Y * sinAlpha) * sinDelta - velocity.Z * cosDelta) / 17314463350.0);
-    aberration.lon = (velocity.Y * cosAlpha - velocity.X * sinAlpha) / (17314463350.0 * cosDelta);
+    //const CAA3DCoordinate velocity = CAAAberration::EarthVelocity(jd_tt, true); // high precision
+    const glm::dvec3 velocity = AEarth::EarthVelocity(jd_tt, VSOP87_FULL);
+    LLD aberration;
+    aberration.lat = -(((velocity.x * cosAlpha + velocity.y * sinAlpha) * sinDelta - velocity.z * cosDelta) / 17314463350.0);
+    aberration.lon = (velocity.y * cosAlpha - velocity.x * sinAlpha) / (17314463350.0 * cosDelta);
     if (rad) {
         aberration.lat *= deg2rad;
         aberration.lon *= deg2rad;
@@ -839,7 +797,7 @@ LLH Astronomy::EquatorialAberration(double dec, double ra, double jd_tt, bool ra
     return aberration;
     // retval in radians
 }
-LLH Astronomy::FK5Correction(double Latitude, double Longitude, double jd_tt, bool rad) {
+LLD Astronomy::FK5Correction(double Latitude, double Longitude, double jd_tt, bool rad) {
     double lat = Latitude;
     double lon = Longitude;
     if (rad) {
@@ -848,7 +806,7 @@ LLH Astronomy::FK5Correction(double Latitude, double Longitude, double jd_tt, bo
     }
     const double T = (jd_tt - JD_2000) / 36525;
     double Ldash = lon - deg2rad * T * (1.397 + 0.00031 * T);
-    LLH fk5corr;
+    LLD fk5corr;
     const double latcor = 0.03916 * (std::cos(Ldash) - std::sin(Ldash));
     fk5corr.lat = dms2deg(0, 0, latcor);
     const double loncor = -0.09033 + 0.03916 * (std::cos(Ldash) + std::sin(Ldash)) * tan(lat);
@@ -859,7 +817,7 @@ LLH Astronomy::FK5Correction(double Latitude, double Longitude, double jd_tt, bo
     }
     return fk5corr;
 }
-LLH Astronomy::PrecessDecRA(const LLH decra, const double jd_tt, const double JD0) {  // ALWAYS in RADIANS
+LLD Astronomy::PrecessDecRA(const LLD decra, const double jd_tt, const double JD0) {  // ALWAYS in RADIANS
     // See https://climate.nasa.gov/news/2948/milankovitch-orbital-cycles-and-their-role-in-earths-climate/
     // apsidial precession causes the axial precession period to lower from 25771.5 years to around 23000 years.
     // Does the below take into account apsidial precession? A full cirle of Polaris does seem to be around 23000yr
@@ -883,14 +841,14 @@ LLH Astronomy::PrecessDecRA(const LLH decra, const double jd_tt, const double JD
     const double B = cos(phi) * cos(decra.lat) * cos(decra.lon + sigma) - sin(phi) * sin(decra.lat);
     const double C = sin(phi) * cos(decra.lat) * cos(decra.lon + sigma) + cos(phi) * sin(decra.lat);
     // if debugging, create printable value
-    //LLH value;
+    //LLD value;
     //value.lon = atan2(A, B) + zeta;
     //std::cout << "JD: " << JD << "Ra Dec : " << decra.lon << ", " << decra.lat << "->" << value.lon << ", " << value.lat << '\n';
     //value.lat = asin(C);
     //return value;
     return { asin(C), atan2(A, B) + zeta, 0.0 };
 }
-LLH Astronomy::PrecessJ2000DecRA(const LLH decra, const double jd_tt) {  // ALWAYS in RADIANS
+LLD Astronomy::PrecessJ2000DecRA(const LLD decra, const double jd_tt) {  // ALWAYS in RADIANS
     // Precess the Equinox for a geocentric coordinate (catalogue with proper motion applied)
     // AA+: CAAPrecession::PrecessEquatorial()
     // MEEUS92: Chapter 21
@@ -918,123 +876,43 @@ LLH Astronomy::PrecessJ2000DecRA(const LLH decra, const double jd_tt) {  // ALWA
     }
 }
 double Astronomy::MeanObliquityOfEcliptic(double jd_tt, bool rad) {
-    // AA+: CAANutation::MeanObliquityOfEcliptic(JD)
-    // MEEUS98: Chapter 22
-    // Calculates mean obliquity using the following:
-    // This formula is given in https://en.wikipedia.org/wiki/Axial_tilt credited to J.Laskar 1986
-    // Original Source:  http://articles.adsabs.harvard.edu/pdf/1986A%26A...157...59L
-    // Original Erratum: http://articles.adsabs.harvard.edu/pdf/1986A%26A...164..437L
-    // Good to 0.02" over 1000 years, several arc seconds over 10000 years (around J2000.0)
     if (jd_tt == NO_DOUBLE) jd_tt = getJD_TT();
-    const double U = (jd_tt - JD_2000) / 3652500;  // U is JD in deca millenia, from J2000.0
-    const double Usquared = U * U;
-    const double Ucubed = Usquared * U;
-    const double U4 = Ucubed * U;
-    const double U5 = U4 * U;
-    const double U6 = U5 * U;
-    const double U7 = U6 * U;
-    const double U8 = U7 * U;
-    const double U9 = U8 * U;
-    const double U10 = U9 * U;
-    // Could roll up these constants for speed
-    double retval = dms2deg(23, 26, 21.448)
-        - (ACoord::secs2deg(4680.93) * U)
-        - (ACoord::secs2deg(1.55) * Usquared)
-        + (ACoord::secs2deg(1999.25) * Ucubed)
-        - (ACoord::secs2deg(51.38) * U4)
-        - (ACoord::secs2deg(249.67) * U5)
-        - (ACoord::secs2deg(39.05) * U6)
-        + (ACoord::secs2deg(7.12) * U7)
-        + (ACoord::secs2deg(27.87) * U8)
-        + (ACoord::secs2deg(5.79) * U9)
-        + (ACoord::secs2deg(2.45) * U10);
-    return rad ? deg2rad * retval : retval;
+    // !!! FIX: Check cached value against jd_tt
+    double retval = AEarth::MeanObliquityOfEcliptic(jd_tt);
+    return rad ? retval : rad2deg * retval;
 }
 double Astronomy::TrueObliquityOfEcliptic(double jd_tt, bool rad) {
     if (jd_tt == NO_DOUBLE) jd_tt = getJD_TT();
+    // !!! FIX: Check cached value against jd_tt
     return MeanObliquityOfEcliptic(jd_tt, rad) + NutationInObliquity(jd_tt, rad);
 }
 double Astronomy::NutationInObliquity(double jd_tt, bool rad) {
-    // Nutation in Obliquity from AA+ v2.30
-    // NOTE: Different from NutationInLongitude(), here we use the COSINES of the nutation table!
     if (jd_tt == NO_DOUBLE) jd_tt = getJD_TT();
-    const double T = (jd_tt - JD_2000) / 36525;
-    const double Tsquared = T * T;
-    const double Tcubed = Tsquared * T;
-    double D = 297.85036 + (445267.111480 * T) - (0.0019142 * Tsquared) + (Tcubed / 189474);
-    D = ACoord::rangezero2threesixty(D);
-    double M = 357.52772 + (35999.050340 * T) - (0.0001603 * Tsquared) - (Tcubed / 300000);
-    M = ACoord::rangezero2threesixty(M);
-    double Mprime = 134.96298 + (477198.867398 * T) + (0.0086972 * Tsquared) + (Tcubed / 56250);
-    Mprime = ACoord::rangezero2threesixty(Mprime);
-    double F = 93.27191 + (483202.017538 * T) - (0.0036825 * Tsquared) + (Tcubed / 327270);
-    F = ACoord::rangezero2threesixty(F);
-    double omega = 125.04452 - (1934.136261 * T) + (0.0020708 * Tsquared) + (Tcubed / 450000);
-    omega = ACoord::rangezero2threesixty(omega);
-    double value = 0;
-    for (const auto& coeff : g_NutationCoefficients) {
-        double argument = (coeff.D * D) + (coeff.M * M) + (coeff.Mprime * Mprime) + (coeff.F * F) + (coeff.omega * omega);
-        argument *= deg2rad;
-        value += (coeff.coscoeff1 + (coeff.coscoeff2 * T)) * cos(argument) * 0.0001;
-    }
-    return rad ? deg2rad * value / 3600.0 : value / 3600.0;
+    // !!! FIX: Check cached value against jd_tt
+    double value = AEarth::NutationInObliquity(jd_tt);
+    return rad ? value : rad2deg * value;
 }
 double Astronomy::NutationInLongitude(double jd_tt, bool rad) {
-    // AA+: CAANutation::NutationInLongitude(JD)
-    // MEEUS98: Chapter 22
-    // NOTE: Different from NutationInObliquity(), here we use the SINES of the nutation table!
-    //       So only the for loop differs. Perhaps refactor/cache?
     if (jd_tt == NO_DOUBLE) jd_tt = getJD_TT();
-    const double T = (jd_tt - JD_2000) / 36525;
-    const double Tsquared = T * T;
-    const double Tcubed = Tsquared * T;
-    // Mean Elongation of the Moon from the Sun
-    double D = ACoord::rangezero2threesixty(297.85036 + (445267.111480 * T) - (0.0019142 * Tsquared) + (Tcubed / 189474));
-    // Mean Anomaly of the Sun (Earth)
-    double M = ACoord::rangezero2threesixty(357.52772 + (35999.050340 * T) - (0.0001603 * Tsquared) - (Tcubed / 300000));
-    // Mean Anomaly of the Moon
-    double Mprime = ACoord::rangezero2threesixty(134.96298 + (477198.867398 * T) + (0.0086972 * Tsquared) + (Tcubed / 56250));
-    // Moon's Argument of Latitude
-    double F = ACoord::rangezero2threesixty(93.27191 + (483202.017538 * T) - (0.0036825 * Tsquared) + (Tcubed / 327270));
-    // Longitude of the Ascending Node of the Moon's Mean Orbit on the Ecliptic, measured from the Mean Equinox of the Date
-    double omega = ACoord::rangezero2threesixty(125.04452 - (1934.136261 * T) + (0.0020708 * Tsquared) + (Tcubed / 450000));
-   double value = 0;
-    for (const auto& coeff : g_NutationCoefficients) {
-        const double argument = (coeff.D * D) + (coeff.M * M) + (coeff.Mprime * Mprime) + (coeff.F * F) + (coeff.omega * omega);
-        //const double radargument = CAACoordinateTransformation::DegreesToRadians(argument);
-        value += (coeff.sincoeff1 + (coeff.sincoeff2 * T)) * sin(deg2rad * argument) * 0.0001;
-    }
-    return rad ? deg2rad * value / 3600.0 : value / 3600.0;
+    // !!! FIX: Check cached value against jd_tt
+    double value = AEarth::NutationInLongitude(jd_tt);
+    return rad ? value : rad2deg * value;
     // retval is in degrees by default
 }
-
 double Astronomy::NutationInDeclination(double ra, double obliq, double nut_lon, double nut_obl, bool rad) {
-    if (!rad) {
-        ra *= deg2rad;
-        obliq *= deg2rad;
-        nut_lon *= deg2rad;
-        nut_obl *= deg2rad;
-    }
-    return rad ? (sin(obliq) * cos(ra) * nut_lon + sin(ra) * nut_obl)
-        : rad2deg * (sin(obliq) * cos(ra) * nut_lon + sin(ra) * nut_obl);
+    if (rad) return AEarth::NutationInDeclination(ra, obliq, nut_lon, nut_obl);
+    return rad2deg * AEarth::NutationInDeclination(deg2rad * ra, deg2rad * obliq, deg2rad * nut_lon, deg2rad * nut_obl);
 }
-double Astronomy::NutationInRightAscension(double dec, double ra, double obliq, double nut_lon, double nut_obl, bool rad) {
-    if (!rad) {
-        dec *= deg2rad;
-        ra *= deg2rad;
-        obliq *= deg2rad;
-        nut_lon *= deg2rad;
-        nut_obl *= deg2rad;
-    }
-    return rad ? (((cos(obliq) + (sin(obliq) * sin(ra) * tan(dec))) * nut_lon) - (cos(ra) * tan(dec) * nut_obl))
-        : rad2deg * (((cos(obliq) + (sin(obliq) * sin(ra) * tan(dec))) * nut_lon) - (cos(ra) * tan(dec) * nut_obl));
+double Astronomy::NutationInRightAscension(double ra, double dec, double obliq, double nut_lon, double nut_obl, bool rad) {
+    if (rad) return AEarth::NutationInRightAscension(ra, dec, obliq, nut_lon, nut_obl);
+    return rad2deg * AEarth::NutationInRightAscension(deg2rad*ra, deg2rad * dec, deg2rad * obliq, deg2rad * nut_lon, deg2rad * nut_obl);
 }
 // Stellar Earth Centered Equatorial
-LLH Astronomy::getTrueDecRAbyName(const std::string starname, double jd_tt, bool rad) {
+LLD Astronomy::getTrueDecRAbyName(const std::string starname, double jd_tt, bool rad) {
     // Apply Proper Motion
     // (Note: see https://stargazerslounge.com/topic/289480-calculating-ra-and-decl-of-a-star/ which I read after implementing below)
     if (jd_tt == NO_DOUBLE) jd_tt = m_datetime.jd_tt();
-    LLH decra = getDecRAwithPMbyName(starname, m_datetime.jd_tt(), true); // Always calculate from radians, convert at end to what bool rad indicates
+    LLD decra = getDecRAwithPMbyName(starname, m_datetime.jd_tt(), true); // Always calculate from radians, convert at end to what bool rad indicates
     //std::cout << "Astronomy::getTrueDecRAbyName(): Catalogue RA(hrs), Dec(deg): " << radecFormat(decra.lon, decra.lat, true) << '\n';
     // Apply Precession
     double JD0 = EDateTime::getJDUTC2TT(JD_2000); // Epoch 2000.0 - Same as epoch of the catalogue
@@ -1043,7 +921,6 @@ LLH Astronomy::getTrueDecRAbyName(const std::string starname, double jd_tt, bool
     const double t = (jd_tt - JD0) / 36525;
     const double tsquared = t * t;
     const double tcubed = tsquared * t;
-    // Precession parameters sigma, zeta & phi in arc seconds
     // NOTE: Since the Epoch of the star database is J2000, T and Tsquared are zero, so this could be simplified.
     //       The -O3 compiler flag probably optimizes this?
     const double sigma = deg2rad * ((2306.2181 + 1.39656 * T - 0.000139 * Tsquared) * t + (0.30188 - 0.000344 * T) * tsquared + 0.017998 * tcubed) / 3600.0;
@@ -1069,13 +946,14 @@ LLH Astronomy::getTrueDecRAbyName(const std::string starname, double jd_tt, bool
     //std::cout << " Calculated nutation in Dec: " << angle2DMSstring(nut_dec, true) << '\n';
     decra.lat += nut_dec;
     decra.lon += nut_ra;
-    //std::cout << "Astronomy::getTrueDecRAbyNameJD(): Nutated RA(hrs), Dec(deg): " << radecFormat(decra.lon, decra.lat, true) << '\n';
     // Apply aberration
     //CAA2DCoordinate aberration = EquatorialAberration(decra.lon, decra.lat, m_jd, true);
-    LLH aberration = EquatorialAberration(decra.lat, decra.lon, m_datetime.jd_tt(), true);
+    LLD aberration = EquatorialAberration(decra.lat, decra.lon, m_datetime.jd_tt(), true);
     decra.lat += aberration.lat;
     decra.lon += aberration.lon;
     //std::cout << "Astronomy::getTrueDecRAbyNameJD(): Aberrated RA(hrs), Dec(deg): " << radecFormat(decra.lon, decra.lat, true) << '\n';
+    // Precession parameters sigma, zeta & phi in arc seconds
+    //std::cout << "Astronomy::getTrueDecRAbyNameJD(): Nutated RA(hrs), Dec(deg): " << radecFormat(decra.lon, decra.lat, true) << '\n';
     // Ignore annual parallax
     if (!rad) {
         decra.lat *= rad2deg;
@@ -1092,25 +970,186 @@ unsigned int Astronomy::enablePlanet(size_t planet) {
 unsigned int Astronomy::disablePlanet(size_t planet) {
     return --planet_refcnt[planet];
 }
+
+CelestialDetailFull Astronomy::planetaryDetails(double jd_tt, Planet planet, Ephemeris eph) {
+    // What will be the return value
+    CelestialDetailFull details;
+    const double prec_angle = 0.00001 * deg2rad;
+    const double prec_distance = 0.000001; // AU
+    // Calculate the position of the earth first
+    double JD0{ jd_tt };
+    LLD earth0{ AEarth::EclipticCoordinates(JD0, eph) };
+    const double cosB0{ cos(earth0.lat) };
+
+    // Iterate to find the positions adjusting for light-time correction if required
+    LLD pla{ 0.0, 0.0, 0.0 };       // target planet coordinates
+    LLD pla_prev{ 0.0, 0.0, 0.0 };  // previous planet coordinates, during iteration
+    if (planet != A_SUN)
+    {
+        bool bRecalc{ true };
+        bool bFirstRecalc{ true };
+        while (bRecalc)
+        {
+            switch (planet)
+            {
+            case A_MERCURY: {
+                pla = AMercury::EclipticCoordinates(JD0, eph);
+                break;
+            }
+            case A_VENUS: {
+                pla = AVenus::EclipticCoordinates(JD0, eph);
+                break;
+            }
+            case A_MARS: {
+                pla = AMars::EclipticCoordinates(JD0, eph);
+                break;
+            }
+            case A_JUPITER: {
+                pla = AJupiter::EclipticCoordinates(JD0, eph);
+                break;
+            }
+            case A_SATURN: {
+                pla = ASaturn::EclipticCoordinates(JD0, eph);
+                break;
+            }
+            case A_URANUS: {
+                pla = AUranus::EclipticCoordinates(JD0, eph);
+                break;
+            }
+            case A_NEPTUNE: {
+                pla = ANeptune::EclipticCoordinates(JD0, eph);
+                break;
+            }
+            default: {
+                std::cout << "Astronomy::planetaryDetails(): ERROR - Unknown planet id passed" << std::endl;
+                assert(false);
+                break;
+            }
+            }
+            bool bFirstCalc = false;
+            if (!bFirstRecalc) {
+                bRecalc = ((fabs(pla.lon - pla_prev.lon) > prec_angle)
+                        || (fabs(pla.lat - pla_prev.lat) > prec_angle)
+                        || (fabs(pla.dst - pla_prev.dst) > prec_distance));
+                pla_prev = pla;
+            }
+            else {
+                bFirstCalc = true;
+                bFirstRecalc = false;
+                details.thecs = pla;  // True Heliocentric Ecliptic Spherical coordinate of the planet
+            }
+            const double cosB{ cos(pla.lat) };
+            const double cosL{ cos(pla.lon) };
+            // !!! FIX: Hoist this to a spherical to rectangular conversion in acoordinates
+            const double x{ (pla.dst * cosB * cosL) - (earth0.dst * cosB0 * cos(earth0.lon)) };
+            const double y{ (pla.dst * cosB * sin(pla.lon)) - (earth0.dst * cosB0 * sin(earth0.lon)) };
+            const double z{ (pla.dst * sin(pla.lat)) - (earth0.dst * sin(earth0.lat)) };
+            const double distance{ sqrt((x * x) + (y * y) + (z * z)) };
+            if (bFirstCalc) {
+                details.tgecr.x = x;
+                details.tgecr.y = y;
+                details.tgecr.z = z;
+            }
+            //Prepare for the next loop around
+            if (bRecalc) JD0 = jd_tt - ACoord::DistanceToLightTime(distance);
+        }
+    }
+    else { // planet == A_SUN
+        bool bRecalc{ true };
+        bool bFirstRecalc{ true };
+        while (bRecalc) {
+            pla = AEarth::EclipticCoordinates(JD0, eph);
+            bool bFirstCalc = false;
+            if (!bFirstRecalc) {
+                bRecalc = ((fabs(pla.lon - pla_prev.lon) > prec_angle)
+                        || (fabs(pla.lat - pla_prev.lat) > prec_angle)
+                        || (fabs(pla.dst - pla_prev.dst) > prec_distance));
+                pla_prev = pla;
+            }
+            else {
+                bFirstCalc = true;
+                bFirstRecalc = false;
+            }
+            if (bFirstCalc) {
+                const double cosB{ cos(pla.lat) };
+                const double cosL{ cos(pla.lon) };
+                details.tgecr.x = -pla.dst * cosB * cosL;
+                details.tgecr.y = -pla.dst * cosB * sin(pla.lon);
+                details.tgecr.z = -pla.dst * sin(pla.lat);
+            }
+            //Prepare for the next loop around
+            if (bRecalc) JD0 = jd_tt - ACoord::DistanceToLightTime(pla.dst);
+        }
+    }
+    double x{ 0 };
+    double y{ 0 };
+    double z{ 0 };
+    if (planet != A_SUN) {
+        const double cosB{ cos(pla.lat) };
+        const double cosL{ cos(pla.lon) };
+        x = (pla.dst * cosB * cosL) - (earth0.dst * cosB0 * cos(earth0.lon));
+        y = (pla.dst * cosB * sin(pla.lon)) - (earth0.dst * cosB0 * sin(earth0.lon));
+        z = (pla.dst * sin(pla.lat)) - (earth0.dst * sin(earth0.lat));
+    }
+    else {  // planet == A_SUN
+        const double cosB{ cos(pla.lat) };
+        const double cosL{ cos(pla.lon) };
+        x = -pla.dst * cosB * pla.lon;
+        y = -pla.dst * cosB * sin(pla.lon);
+        z = -pla.dst * sin(pla.lat);
+    }
+    double x2{ x * x };
+    double y2{ y * y };
+    // Apparent Geocentric ECliptical Spherical
+    details.agecs = { atan2(z, sqrt(x2 + y2)), sqrt(x2 + y2 + (z * z)), ACoord::rangezero2tau(atan2(y, x)) };
+    // Apparent Light Time
+    details.alt = ACoord::DistanceToLightTime(details.agecs.dst);
+    x2 = { details.tgecr.x * details.tgecr.x };
+    x2 = { details.tgecr.y * details.tgecr.y };
+    // True Geocentric ECliptical Rectangular to True Geocentric ECliptical Spherical
+    details.tgecs = { atan2(details.tgecr.z, sqrt(x2 + y2)),
+                      ACoord::rangezero2tau(atan2(details.tgecr.y, details.tgecr.x)),
+                      sqrt(x2 + y2 + (details.tgecr.z * details.tgecr.z)) };
+    // True Light Time
+    details.tlt = ACoord::DistanceToLightTime(details.tgecs.dst);
+    //Adjust for Aberration
+    details.agecs += AEarth::EclipticAberration(details.agecs.lon, details.agecs.lat, jd_tt, eph);
+    //convert to the FK5 system
+    details.agecs += FK5::CorrectionInLonLat(details.agecs, jd_tt);
+    //Correct for nutation
+    details.agecs.lon += AEarth::NutationInLongitude(jd_tt);
+    //Convert to RA and Dec
+    const double epsilon = AEarth::TrueObliquityOfEcliptic(jd_tt);
+    // Apparent Geocentric Equatorial Spherical
+    details.ageqs = Spherical::Ecliptic2Equatorial(details.agecs, epsilon, true);
+    details.ageqs.dst = details.agecs.dst;  // Apparent Geocentric Distance
+    // True Geocentric Equatorial Spherical
+    details.tgeqs = Spherical::Ecliptic2Equatorial(details.tgecs, epsilon, true);
+    details.tgeqs.dst = details.tgecs.dst;  // True Geocentric Distance
+
+    return details;
+}
+
 CelestialDetail Astronomy::getDetails2(double jd_tt, size_t planet, unsigned int type, bool hi) {
     // Use ASun and compare to below original
     if (planet != SUN) {
         std::cout << "Astronomy::getDetails2(): ERROR = This is a test function for the Sun, but a different object was supplied.";
         return CelestialDetail{ NO_DOUBLE, { NO_DOUBLE, NO_DOUBLE, NO_DOUBLE}, { NO_DOUBLE, NO_DOUBLE, NO_DOUBLE}, NO_DOUBLE };
     }
-    double lon = ASun::GeometricEclipticLongitude(getJD_TT(), hi);
-    double lat = ASun::GeometricEclipticLatitude(getJD_TT(), hi);
+    double lon = ASun::GeometricEclipticLongitude(getJD_TT(), VSOP87_FULL);
+    double lat = ASun::GeometricEclipticLatitude(getJD_TT(), VSOP87_FULL);
     CelestialDetail retval{ jd_tt, { lat, lon, 0.0 }, { 0.0, 0.0, 0.0 }, 0.0 };
     return retval;
 }
+
 CelestialDetail Astronomy::getDetails(double jd_tt, size_t planet, unsigned int type) {
     CelestialDetail details;
     details.jd_tt = jd_tt;
     //Calculate the position of the earth first
     double JD0 = jd_tt;
-    const double B0 = EcLatEarth(JD0);  // Radians
-    const double L0 = EcLonEarth(JD0);  // Radians
-    const double R0 = EcDstEarth(JD0);  // Astronomical Units
+    const double B0 = getEcLat(EARTH, JD0);  // Radians
+    const double L0 = getEcLon(EARTH, JD0);  // Radians
+    const double R0 = getEcDst(EARTH, JD0);  // Astronomical Units
     const double cosB0 = cos(B0);
     //Iterate to find the positions adjusting for light-time correction if required
     double B = 0;
@@ -1123,9 +1162,9 @@ CelestialDetail Astronomy::getDetails(double jd_tt, size_t planet, unsigned int 
         double LPrevious = 0;
         double RPrevious = 0;
         while (bRecalc) {
-            B = getEcLat(planet, JD0);                   // Radians
-            L = getEcLon(planet, JD0);                   // Radians
-            R = getRadius(planet, JD0, /* km */ false);  // Astronomical Units
+            B = getEcLat(planet, JD0); // Radians
+            L = getEcLon(planet, JD0); // Radians
+            R = getEcDst(planet, JD0); // Astronomical Units
             if (!bFirstRecalc) {
                 bRecalc = ((fabs(L - LPrevious) > deg2rad * 0.00001) || (fabs(B - BPrevious) > deg2rad * 0.00001) || (fabs(R - RPrevious) > 0.000001));
                 BPrevious = B;
@@ -1182,7 +1221,7 @@ CelestialDetail Astronomy::getDetails(double jd_tt, size_t planet, unsigned int 
     const double e = 0.016708634 - T * (0.000042037 + 0.0000001267 * T);
     double pi = deg2rad * (102.93735 + T * (1.71946 + 0.00046 * T));
     constexpr double k = 20.49552;
-    double SunLongitude = ACoord::rangezero2tau(EcLonEarth(jd_tt) + (tau * 0.5));
+    double SunLongitude = ACoord::rangezero2tau(getEcLon(EARTH, jd_tt) + (tau * 0.5));
     const double aberrationLon = (-k * cos(SunLongitude - appGeoLon) + e * k * cos(pi - appGeoLon)) / cos(appGeoLat) / 3600;
     const double aberrationLat = -k * sin(appGeoLat) * (sin(SunLongitude - appGeoLon) - e * sin(pi - appGeoLon)) / 3600;
     appGeoLon += deg2rad * aberrationLon;
@@ -1206,6 +1245,7 @@ CelestialDetail Astronomy::getDetails(double jd_tt, size_t planet, unsigned int 
     F = ACoord::rangezero2threesixty(F);
     double omega = 125.04452 - (1934.136261 * T) + (0.0020708 * Tsquared) + (Tcubed / 450000);
     omega = ACoord::rangezero2threesixty(omega);
+
     double nulon = 0;
     double nutobec = 0;
     for (const auto& coeff : g_NutationCoefficients) {
@@ -1241,7 +1281,7 @@ CelestialDetail Astronomy::getDetails(double jd_tt, size_t planet, unsigned int 
         // Nutation in Obliquity of Ecliptic already calculated in Nutation of Longitude above
         + ACoord::secs2deg(nutobec);
     //Convert to RA and Dec
-    LLH ApparentEqu = calcEc2Geo(appGeoLat, appGeoLon, deg2rad * obliqEc, true);
+    LLD ApparentEqu = calcEc2Geo(appGeoLat, appGeoLon, deg2rad * obliqEc, true);
     details.geq.lon = ApparentEqu.lon; // RA
     details.geogha = ApparentGreenwichSiderealTime(EDateTime::getJDTT2UTC(jd_tt), true) - details.geq.lon;
     details.geq.lat = ApparentEqu.lat; // Dec
@@ -1251,13 +1291,18 @@ CelestialDetail Astronomy::getDetails(double jd_tt, size_t planet, unsigned int 
 CelestialDetail Astronomy::getDetailsNew(double jd_tt, size_t planet, unsigned int type) {
     //bool debug = true;
     bool debug = false;
+    Ephemeris eph = VSOP87_FULL;
+    //Ephemeris eph = VSOP87_SHORT;
     CelestialDetail details;
     details.jd_tt = jd_tt;
     //Calculate the position of the earth first
-    double JD = jd_tt;
-    const double B0 = EcLatEarth(JD);  // Radians
-    const double L0 = EcLonEarth(JD);  // Radians
-    const double R0 = EcDstEarth(JD);  // Astronomical Units
+    double JD = jd_tt;  // JD will later be varied by light speed distance to find the true position of the planet
+
+    const LLD earth0{ 0.0, 0.0, 0.0 };
+
+    const double B0 = getEcLat(EARTH, JD, eph);  // Radians
+    const double L0 = getEcLon(EARTH, JD, eph);  // Radians
+    const double R0 = getEcDst(EARTH, JD, eph);  // Astronomical Units
     const double cosB0 = cos(B0);
     const double cosL0 = cos(L0);
     const double sinB0 = sin(B0);
@@ -1275,9 +1320,9 @@ CelestialDetail Astronomy::getDetailsNew(double jd_tt, size_t planet, unsigned i
         double RPrevious = 0;
 
         while (bRecalc) {
-            B = getEcLat(planet, JD);                   // Radians
-            L = getEcLon(planet, JD);                   // Radians
-            R = getRadius(planet, JD, /* km */ false);  // Astronomical Units
+            B = getEcLat(planet, JD, eph);                   // Radians
+            L = getEcLon(planet, JD, eph);                   // Radians
+            R = getEcDst(planet, JD, eph);  // Astronomical Units
             if (debug) {
                 std::cout << " JD,B,L,R: " << JD << "," << B << "," << L << "," << R << "\n";
             }
@@ -1332,26 +1377,34 @@ CelestialDetail Astronomy::getDetailsNew(double jd_tt, size_t planet, unsigned i
     }
     const double x2 = x * x;
     const double y2 = y * y;
+    //LLD appGeo{ 0.0, 0.0, 0.0 };
     double appGeoLat = atan2(z, sqrt(x2 + y2));
     double appGeoLon = ACoord::rangezero2tau(atan2(y, x));  // atan2() returns [-pi;+pi]
     double appGeoDst = sqrt(x2 + y2 + z * z);
     //details.ApparentLightTime = CAAElliptical::DistanceToLightTime(appGeoDst);
-    //Adjust for Aberration
-    const double T = (jd_tt - 2451545) / 36525;
+
+    //Adjust for Ecliptic Aberration
+    const double T = (jd_tt - JD_2000) / JD_CENTURY;
     const double e = 0.016708634 - T * (0.000042037 + 0.0000001267 * T);
     double pi = deg2rad * (102.93735 + T * (1.71946 + 0.00046 * T));
     constexpr double k = 20.49552;
     double SunLongitude = ACoord::rangezero2tau(L0 + (tau * 0.5));
+    // double SunLongitude2 = ASun::GeometricEclipticLongitude(jd_tt, VSOP87_SHORT);
+    // std::cout << "Sun Lon: " << SunLongitude << " " << SunLongitude2 << std::endl;
+    // Sun Lon: 2.91424565486794 2.91424565486794
+
     const double aberrationLon = (-k * cos(SunLongitude - appGeoLon) + e * k * cos(pi - appGeoLon)) / cos(appGeoLat) / 3600;
     const double aberrationLat = -k * sin(appGeoLat) * (sin(SunLongitude - appGeoLon) - e * sin(pi - appGeoLon)) / 3600;
     appGeoLon += deg2rad * aberrationLon;
     appGeoLat += deg2rad * aberrationLat;
+
     //convert to the FK5 system - Now takes radians
     double Ldash = appGeoLon - deg2rad * T * (1.397 + 0.00031 * T);
     const double fk5corrLon = ACoord::secs2deg(-0.09033 + 0.03916 * (std::cos(Ldash) + std::sin(Ldash)) * tan(appGeoLat));
     const double fk5corrLat = ACoord::secs2deg(0.03916 * (std::cos(Ldash) - std::sin(Ldash)));
     appGeoLon += deg2rad * fk5corrLon;
     appGeoLat += deg2rad * fk5corrLat;
+
     //Correct for Nutation in Longitude
     const double Tsquared = T * T;
     const double Tcubed = Tsquared * T;
@@ -1374,9 +1427,10 @@ CelestialDetail Astronomy::getDetailsNew(double jd_tt, size_t planet, unsigned i
         nutobec += (coeff.coscoeff1 + (coeff.coscoeff2 * T)) * cos(radargument) * 0.0001;
     }
     appGeoLon += deg2rad * ACoord::secs2deg(nulon);
+
     //Obtain True Obliquity of Ecliptic
     // Mean Obliquity of Ecliptic
-    const double U = (jd_tt - 2451545) / 3652500;
+    const double U = (jd_tt - JD_2000) / 3652500;
     const double Usquared = U * U;
     const double Ucubed = Usquared * U;
     const double U4 = Ucubed * U;
@@ -1399,11 +1453,13 @@ CelestialDetail Astronomy::getDetailsNew(double jd_tt, size_t planet, unsigned i
         + (ACoord::secs2deg(2.45) * U10)
         // Nutation in Obliquity of Ecliptic already calculated in Nutation of Longitude above
         + ACoord::secs2deg(nutobec);
+
     //Convert to RA and Dec
-    LLH ApparentEqu = calcEc2Geo(appGeoLat, appGeoLon, deg2rad * obliqEc, true);
-    details.geq.lon = ApparentEqu.lon; // RA
+    //LLD ApparentEqu = calcEc2Geo(appGeoLat, appGeoLon, deg2rad * obliqEc, true);
+    //details.geq.lat = ApparentEqu.lat; // Dec
+    //details.geq.lon = ApparentEqu.lon; // RA
+    details.geq = calcEc2Geo(appGeoLat, appGeoLon, deg2rad * obliqEc, true);
     details.geogha = ApparentGreenwichSiderealTime(EDateTime::getJDTT2UTC(jd_tt), true) - details.geq.lon;
-    details.geq.lat = ApparentEqu.lat; // Dec
     return details;
 }
 
@@ -1438,540 +1494,47 @@ void Astronomy::updateCelestialPaths() {
         if (!cp->fixedpath) cp->update();
     }
 }
-double Astronomy::getEcLat(size_t planet, double jd_tt) {
+double Astronomy::getEcLat(size_t planet, double jd_tt, Ephemeris eph) {
     // Heliocentric Ecliptic Latitude (ref. Equinox of Epoch) in radians
     // Unconditionally caching may or may not be desired. Consider a flag, or rename the function so it is clear that getEcLat{planet}() may be preferable. !!!
-    if (planet == MERCURY) planet_ecLat[planet] = EcLatMercury(jd_tt);
-    else if (planet == VENUS) planet_ecLat[planet] = EcLatVenus(jd_tt);
-    else if (planet == EARTH) planet_ecLat[planet] = EcLatEarth(jd_tt);
-    else if (planet == MARS) planet_ecLat[planet] = EcLatMars(jd_tt);
-    else if (planet == JUPITER) planet_ecLat[planet] = EcLatJupiter(jd_tt);
-    else if (planet == SATURN) planet_ecLat[planet] = EcLatSaturn(jd_tt);
-    else if (planet == URANUS) planet_ecLat[planet] = EcLatUranus(jd_tt);
-    else if (planet == NEPTUNE) planet_ecLat[planet] = EcLatNeptune(jd_tt);
+    if (planet == MERCURY) planet_ecLat[planet] = AMercury::EclipticLatitude(jd_tt, eph);
+    else if (planet == VENUS) planet_ecLat[planet] = AVenus::EclipticLatitude(jd_tt, eph);
+    else if (planet == EARTH) planet_ecLat[planet] = AEarth::EclipticLatitude(jd_tt, eph);
+    else if (planet == MARS) planet_ecLat[planet] = AMars::EclipticLatitude(jd_tt, eph);
+    else if (planet == JUPITER) planet_ecLat[planet] = AJupiter::EclipticLatitude(jd_tt, eph);
+    else if (planet == SATURN) planet_ecLat[planet] = ASaturn::EclipticLatitude(jd_tt, eph);
+    else if (planet == URANUS) planet_ecLat[planet] = AUranus::EclipticLatitude(jd_tt, eph);
+    else if (planet == NEPTUNE) planet_ecLat[planet] = ANeptune::EclipticLatitude(jd_tt, eph);
     else std::cout << "APlanet::getEcLat(): planet unknown: " << planet << "\n";
     return planet_ecLat[planet];
 }
-double Astronomy::getEcLon(size_t planet, double jd_tt) {
+double Astronomy::getEcLon(size_t planet, double jd_tt, Ephemeris eph) {
     // Heliocentric Ecliptic Longitude (ref. Equinox of Epoch) in radians
-    if (planet == MERCURY) planet_ecLon[planet] = EcLonMercury(jd_tt);
-    else if (planet == VENUS) planet_ecLon[planet] = EcLonVenus(jd_tt);
-    else if (planet == EARTH) planet_ecLon[planet] = EcLonEarth(jd_tt);
-    else if (planet == MARS) planet_ecLon[planet] = EcLonMars(jd_tt);
-    else if (planet == JUPITER) planet_ecLon[planet] = EcLonJupiter(jd_tt);
-    else if (planet == SATURN) planet_ecLon[planet] = EcLonSaturn(jd_tt);
-    else if (planet == URANUS) planet_ecLon[planet] = EcLonUranus(jd_tt);
-    else if (planet == NEPTUNE) planet_ecLon[planet] = EcLonNeptune(jd_tt);
+    if (planet == MERCURY) planet_ecLon[planet] = AMercury::EclipticLongitude(jd_tt, eph);
+    else if (planet == VENUS) planet_ecLon[planet] = AVenus::EclipticLongitude(jd_tt, eph);
+    else if (planet == EARTH) planet_ecLon[planet] = AEarth::EclipticLongitude(jd_tt, eph);
+    else if (planet == MARS) planet_ecLon[planet] = AMars::EclipticLongitude(jd_tt, eph);
+    else if (planet == JUPITER) planet_ecLon[planet] = AJupiter::EclipticLongitude(jd_tt, eph);
+    else if (planet == SATURN) planet_ecLon[planet] = ASaturn::EclipticLongitude(jd_tt, eph);
+    else if (planet == URANUS) planet_ecLon[planet] = AUranus::EclipticLongitude(jd_tt, eph);
+    else if (planet == NEPTUNE) planet_ecLon[planet] = ANeptune::EclipticLongitude(jd_tt, eph);
     else std::cout << "APlanet::getEcLon(): planet unknown: " << planet << "\n";
     return planet_ecLon[planet];
 }
-double Astronomy::getRadius(size_t planet, double jd_tt, bool km) {
+double Astronomy::getEcDst(size_t planet, double jd_tt, Ephemeris eph) {
     // Heliocentric Ecliptic Radius (ref. Equinox of Epoch) in kilometers
-    if (planet == MERCURY) planet_ecRadius[planet] = EcDstMercury(jd_tt);
-    else if (planet == VENUS) planet_ecRadius[planet] = EcDstVenus(jd_tt);
-    else if (planet == EARTH) planet_ecRadius[planet] = EcDstEarth(jd_tt);
-    else if (planet == MARS) planet_ecRadius[planet] = EcDstMars(jd_tt);
-    else if (planet == JUPITER) planet_ecRadius[planet] = EcDstJupiter(jd_tt);
-    else if (planet == SATURN) planet_ecRadius[planet] = EcDstSaturn(jd_tt);
-    else if (planet == URANUS) planet_ecRadius[planet] = EcDstUranus(jd_tt);
-    else if (planet == NEPTUNE) planet_ecRadius[planet] = EcDstNeptune(jd_tt);
+    if (planet == MERCURY) planet_ecRadius[planet] = AMercury::EclipticDistance(jd_tt, eph);
+    else if (planet == VENUS) planet_ecRadius[planet] = AVenus::EclipticDistance(jd_tt, eph);
+    else if (planet == EARTH) planet_ecRadius[planet] = AEarth::EclipticDistance(jd_tt, eph);
+    else if (planet == MARS) planet_ecRadius[planet] = AMars::EclipticDistance(jd_tt, eph);
+    else if (planet == JUPITER) planet_ecRadius[planet] = AJupiter::EclipticDistance(jd_tt, eph);
+    else if (planet == SATURN) planet_ecRadius[planet] = ASaturn::EclipticDistance(jd_tt, eph);
+    else if (planet == URANUS) planet_ecRadius[planet] = AUranus::EclipticDistance(jd_tt, eph);
+    else if (planet == NEPTUNE) planet_ecRadius[planet] = ANeptune::EclipticDistance(jd_tt, eph);
     else std::cout << "APlanet::getRadius(): planet unknown: " << planet << "\n";
-    if (km) planet_ecRadius[planet] = au2km * planet_ecRadius[planet];
     return planet_ecRadius[planet];
 }
-// Below is imported from CAA[planet] | planet = {Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune}
-// Implements EcLat[planet](), EcLon[planet](), EcDst[planet](), e.g. EcLonMars() etc
-// This avoids a few function call context switches, as well as incessant conversions between degrees and radians
 
-//  Heliocentric Ecliptic Calculations for Latitude, Longitude, Distance in radians and AU
-double Astronomy::EcLonMercury(double jd_tt) {
-    const double rho = (jd_tt - 2451545) / 365250;
-    double L0 = 0;
-    for (const auto& L0Coefficient : g_L0MercuryCoefficients)
-        L0 += (L0Coefficient.A * cos(L0Coefficient.B + (L0Coefficient.C * rho)));
-    double L1 = 0;
-    for (const auto& L1Coefficient : g_L1MercuryCoefficients)
-        L1 += (L1Coefficient.A * cos(L1Coefficient.B + (L1Coefficient.C * rho)));
-    double L2 = 0;
-    for (const auto& L2Coefficient : g_L2MercuryCoefficients)
-        L2 += (L2Coefficient.A * cos(L2Coefficient.B + (L2Coefficient.C * rho)));
-    double L3 = 0;
-    for (const auto& L3Coefficient : g_L3MercuryCoefficients)
-        L3 += (L3Coefficient.A * cos(L3Coefficient.B + (L3Coefficient.C * rho)));
-    double L4 = 0;
-    for (const auto& L4Coefficient : g_L4MercuryCoefficients)
-        L4 += (L4Coefficient.A * cos(L4Coefficient.B + (L4Coefficient.C * rho)));
-    double L5 = 0;
-    for (const auto& L5Coefficient : g_L5MercuryCoefficients)
-        L5 += (L5Coefficient.A * cos(L5Coefficient.B + (L5Coefficient.C * rho)));
-    double value = (L0 + rho * (L1 + rho * (L2 + rho * (L3 + rho * (L4 + rho * L5))))) / 100000000;
-    return ACoord::rangezero2tau(value);
-}
-double Astronomy::EcLatMercury(double jd_tt) {
-    const double rho = (jd_tt - 2451545) / 365250;
-    double B0 = 0;
-    for (const auto& B0Coefficient : g_B0MercuryCoefficients)
-        B0 += (B0Coefficient.A * cos(B0Coefficient.B + (B0Coefficient.C * rho)));
-    double B1 = 0;
-    for (const auto& B1Coefficient : g_B1MercuryCoefficients)
-        B1 += (B1Coefficient.A * cos(B1Coefficient.B + (B1Coefficient.C * rho)));
-    double B2 = 0;
-    for (const auto& B2Coefficient : g_B2MercuryCoefficients)
-        B2 += (B2Coefficient.A * cos(B2Coefficient.B + (B2Coefficient.C * rho)));
-    double B3 = 0;
-    for (const auto& B3Coefficient : g_B3MercuryCoefficients)
-        B3 += (B3Coefficient.A * cos(B3Coefficient.B + (B3Coefficient.C * rho)));
-    double B4 = 0;
-    for (const auto& B4Coefficient : g_B4MercuryCoefficients)
-        B4 += (B4Coefficient.A * cos(B4Coefficient.B + (B4Coefficient.C * rho)));
-    double value = (B0 + rho * (B1 + rho * (B2 + rho * (B3 + rho * B4)))) / 100000000;
-    return ACoord::rangemhalfpi2halfpi(value);
-}
-double Astronomy::EcDstMercury(double jd_tt) {
-    const double rho = (jd_tt - 2451545) / 365250;
-    double R0 = 0;
-    for (const auto& R0Coefficient : g_R0MercuryCoefficients)
-        R0 += (R0Coefficient.A * cos(R0Coefficient.B + (R0Coefficient.C * rho)));
-    double R1 = 0;
-    for (const auto& R1Coefficient : g_R1MercuryCoefficients)
-        R1 += (R1Coefficient.A * cos(R1Coefficient.B + (R1Coefficient.C * rho)));
-    double R2 = 0;
-    for (const auto& R2Coefficient : g_R2MercuryCoefficients)
-        R2 += (R2Coefficient.A * cos(R2Coefficient.B + (R2Coefficient.C * rho)));
-    double R3 = 0;
-    for (const auto& R3Coefficient : g_R3MercuryCoefficients)
-        R3 += (R3Coefficient.A * cos(R3Coefficient.B + (R3Coefficient.C * rho)));
-    return (R0 + rho * (R1 + rho * (R2 + rho * R3))) / 100000000;
-}
-double Astronomy::EcLonVenus(double jd_tt) {
-    const double rho = (jd_tt - 2451545) / 365250;
-    double L0 = 0;
-    for (const auto& L0Coefficient : g_L0VenusCoefficients)
-        L0 += (L0Coefficient.A * cos(L0Coefficient.B + (L0Coefficient.C * rho)));
-    double L1 = 0;
-    for (const auto& L1Coefficient : g_L1VenusCoefficients)
-        L1 += (L1Coefficient.A * cos(L1Coefficient.B + (L1Coefficient.C * rho)));
-    double L2 = 0;
-    for (const auto& L2Coefficient : g_L2VenusCoefficients)
-        L2 += (L2Coefficient.A * cos(L2Coefficient.B + (L2Coefficient.C * rho)));
-    double L3 = 0;
-    for (const auto& L3Coefficient : g_L3VenusCoefficients)
-        L3 += (L3Coefficient.A * cos(L3Coefficient.B + (L3Coefficient.C * rho)));
-    double L4 = 0;
-    for (const auto& L4Coefficient : g_L4VenusCoefficients)
-        L4 += (L4Coefficient.A * cos(L4Coefficient.B + (L4Coefficient.C * rho)));
-    double L5 = 0;
-    for (const auto& L5Coefficient : g_L5VenusCoefficients)
-        L5 += (L5Coefficient.A * cos(L5Coefficient.B + (L5Coefficient.C * rho)));
-    double value = (L0 + rho * (L1 + rho * (L2 + rho * (L3 + rho * (L4 + rho * L5))))) / 100000000;
-    return ACoord::rangezero2tau(value);
-}
-double Astronomy::EcLatVenus(double jd_tt) {
-    const double rho = (jd_tt - 2451545) / 365250;
-    double B0 = 0;
-    for (const auto& B0Coefficient : g_B0VenusCoefficients)
-        B0 += (B0Coefficient.A * cos(B0Coefficient.B + (B0Coefficient.C * rho)));
-    double B1 = 0;
-    for (const auto& B1Coefficient : g_B1VenusCoefficients)
-        B1 += (B1Coefficient.A * cos(B1Coefficient.B + (B1Coefficient.C * rho)));
-    double B2 = 0;
-    for (const auto& B2Coefficient : g_B2VenusCoefficients)
-        B2 += (B2Coefficient.A * cos(B2Coefficient.B + (B2Coefficient.C * rho)));
-    double B3 = 0;
-    for (const auto& B3Coefficient : g_B3VenusCoefficients)
-        B3 += (B3Coefficient.A * cos(B3Coefficient.B + (B3Coefficient.C * rho)));
-    double B4 = 0;
-    for (const auto& B4Coefficient : g_B4VenusCoefficients)
-        B4 += (B4Coefficient.A * cos(B4Coefficient.B + (B4Coefficient.C * rho)));
-    double value = (B0 + rho * (B1 + rho * (B2 + rho * (B3 + rho * B4)))) / 100000000;
-    return ACoord::rangemhalfpi2halfpi(value);
-}
-double Astronomy::EcDstVenus(double jd_tt) {
-    const double rho = (jd_tt - 2451545) / 365250;
-    double R0 = 0;
-    for (const auto& R0Coefficient : g_R0VenusCoefficients)
-        R0 += (R0Coefficient.A * cos(R0Coefficient.B + (R0Coefficient.C * rho)));
-    double R1 = 0;
-    for (const auto& R1Coefficient : g_R1VenusCoefficients)
-        R1 += (R1Coefficient.A * cos(R1Coefficient.B + (R1Coefficient.C * rho)));
-    double R2 = 0;
-    for (const auto& R2Coefficient : g_R2VenusCoefficients)
-        R2 += (R2Coefficient.A * cos(R2Coefficient.B + (R2Coefficient.C * rho)));
-    double R3 = 0;
-    for (const auto& R3Coefficient : g_R3VenusCoefficients)
-        R3 += (R3Coefficient.A * cos(R3Coefficient.B + (R3Coefficient.C * rho)));
-    double R4 = 0;
-    for (const auto& R4Coefficient : g_R4VenusCoefficients)
-        R4 += (R4Coefficient.A * cos(R4Coefficient.B + (R4Coefficient.C * rho)));
-    return (R0 + rho * (R1 + rho * (R2 + rho * (R3 + rho * R4)))) / 100000000;
-}
-double Astronomy::EcLonEarth(double jd_tt) {
-    const double rho = (jd_tt - 2451545) / 365250;
-    double L0 = 0;
-    for (const auto& L0Coefficient : g_L0EarthCoefficients)
-        L0 += (L0Coefficient.A * cos(L0Coefficient.B + (L0Coefficient.C * rho)));
-    double L1 = 0;
-    for (const auto& L1Coefficient : g_L1EarthCoefficients)
-        L1 += (L1Coefficient.A * cos(L1Coefficient.B + (L1Coefficient.C * rho)));
-    double L2 = 0;
-    for (const auto& L2Coefficient : g_L2EarthCoefficients)
-        L2 += (L2Coefficient.A * cos(L2Coefficient.B + (L2Coefficient.C * rho)));
-    double L3 = 0;
-    for (const auto& L3Coefficient : g_L3EarthCoefficients)
-        L3 += (L3Coefficient.A * cos(L3Coefficient.B + (L3Coefficient.C * rho)));
-    double L4 = 0;
-    for (const auto& L4Coefficient : g_L4EarthCoefficients)
-        L4 += (L4Coefficient.A * cos(L4Coefficient.B + (L4Coefficient.C * rho)));
-    double L5 = 0;
-    for (const auto& L5Coefficient : g_L5EarthCoefficients)
-        L5 += (L5Coefficient.A * cos(L5Coefficient.B + (L5Coefficient.C * rho)));
-    double value = (L0 + rho * (L1 + rho * (L2 + rho * (L3 + rho * (L4 + rho * L5))))) / 100000000;
-    return ACoord::rangezero2tau(value);
-}
-double Astronomy::EcLatEarth(double jd_tt) {
-    const double rho = (jd_tt - 2451545) / 365250;
-    double B0 = 0;
-    for (const auto& B0Coefficient : g_B0EarthCoefficients)
-        B0 += (B0Coefficient.A * cos(B0Coefficient.B + (B0Coefficient.C * rho)));
-    double B1 = 0;
-    for (const auto& B1Coefficient : g_B1EarthCoefficients)
-        B1 += (B1Coefficient.A * cos(B1Coefficient.B + (B1Coefficient.C * rho)));
-    double value = (B0 + B1 * rho) / 100000000;
-    return ACoord::rangemhalfpi2halfpi(value);
-}
-double Astronomy::EcDstEarth(double jd_tt) {
-    const double rho = (jd_tt - 2451545) / 365250;
-    double R0 = 0;
-    for (const auto& R0Coefficient : g_R0EarthCoefficients)
-        R0 += (R0Coefficient.A * cos(R0Coefficient.B + (R0Coefficient.C * rho)));
-    double R1 = 0;
-    for (const auto& R1Coefficient : g_R1EarthCoefficients)
-        R1 += (R1Coefficient.A * cos(R1Coefficient.B + (R1Coefficient.C * rho)));
-    double R2 = 0;
-    for (const auto& R2Coefficient : g_R2EarthCoefficients)
-        R2 += (R2Coefficient.A * cos(R2Coefficient.B + (R2Coefficient.C * rho)));
-    double R3 = 0;
-    for (const auto& R3Coefficient : g_R3EarthCoefficients)
-        R3 += (R3Coefficient.A * cos(R3Coefficient.B + (R3Coefficient.C * rho)));
-    double R4 = 0;
-    for (const auto& R4Coefficient : g_R4EarthCoefficients)
-        R4 += (R4Coefficient.A * cos(R4Coefficient.B + (R4Coefficient.C * rho)));
-    return (R0 + rho * (R1 + rho * (R2 + rho * (R3 + rho * R4)))) / 100000000;
-}
-double Astronomy::EcLonMars(double jd_tt) {
-    const double rho = (jd_tt - 2451545) / 365250;
-    double L0 = 0;
-    for (const auto& L0Coefficient : g_L0MarsCoefficients)
-        L0 += (L0Coefficient.A * std::cos(L0Coefficient.B + (L0Coefficient.C * rho)));
-    double L1 = 0;
-    for (const auto& L1Coefficient : g_L1MarsCoefficients)
-        L1 += (L1Coefficient.A * std::cos(L1Coefficient.B + (L1Coefficient.C * rho)));
-    double L2 = 0;
-    for (const auto& L2Coefficient : g_L2MarsCoefficients)
-        L2 += (L2Coefficient.A * std::cos(L2Coefficient.B + (L2Coefficient.C * rho)));
-    double L3 = 0;
-    for (const auto& L3Coefficient : g_L3MarsCoefficients)
-        L3 += (L3Coefficient.A * std::cos(L3Coefficient.B + (L3Coefficient.C * rho)));
-    double L4 = 0;
-    for (const auto& L4Coefficient : g_L4MarsCoefficients)
-        L4 += (L4Coefficient.A * std::cos(L4Coefficient.B + (L4Coefficient.C * rho)));
-    double L5 = 0;
-    for (const auto& L5Coefficient : g_L5MarsCoefficients)
-        L5 += (L5Coefficient.A * std::cos(L5Coefficient.B + (L5Coefficient.C * rho)));
-    double value = (L0 + rho * (L1 + rho * (L2 + rho * (L3 + rho * (L4 + rho * L5))))) / 100000000;
-    return ACoord::rangezero2tau(value);
-}
-double Astronomy::EcLatMars(double jd_tt) {
-    const double rho = (jd_tt - 2451545) / 365250;
-    double B0 = 0;
-    for (const auto& B0Coefficient : g_B0MarsCoefficients)
-        B0 += (B0Coefficient.A * std::cos(B0Coefficient.B + (B0Coefficient.C * rho)));
-    double B1 = 0;
-    for (const auto& B1Coefficient : g_B1MarsCoefficients)
-        B1 += (B1Coefficient.A * std::cos(B1Coefficient.B + (B1Coefficient.C * rho)));
-    double B2 = 0;
-    for (const auto& B2Coefficient : g_B2MarsCoefficients)
-        B2 += (B2Coefficient.A * std::cos(B2Coefficient.B + (B2Coefficient.C * rho)));
-    double B3 = 0;
-    for (const auto& B3Coefficient : g_B3MarsCoefficients)
-        B3 += (B3Coefficient.A * std::cos(B3Coefficient.B + (B3Coefficient.C * rho)));
-    double B4 = 0;
-    for (const auto& B4Coefficient : g_B4MarsCoefficients)
-        B4 += (B4Coefficient.A * std::cos(B4Coefficient.B + (B4Coefficient.C * rho)));
-    double value = (B0 + rho * (B1 + rho * (B2 + rho * (B3 + rho * B4)))) / 100000000;
-    return ACoord::rangemhalfpi2halfpi(value);
-}
-double Astronomy::EcDstMars(double jd_tt) {
-    const double rho = (jd_tt - 2451545) / 365250;
-    double R0 = 0;
-    for (const auto& R0Coefficients : g_R0MarsCoefficients)
-        R0 += (R0Coefficients.A * std::cos(R0Coefficients.B + (R0Coefficients.C * rho)));
-    double R1 = 0;
-    for (const auto& R1Coefficient : g_R1MarsCoefficients)
-        R1 += (R1Coefficient.A * std::cos(R1Coefficient.B + (R1Coefficient.C * rho)));
-    double R2 = 0;
-    for (const auto& R2Coefficient : g_R2MarsCoefficients)
-        R2 += (R2Coefficient.A * std::cos(R2Coefficient.B + (R2Coefficient.C * rho)));
-    double R3 = 0;
-    for (const auto& R3Coefficient : g_R3MarsCoefficients)
-        R3 += (R3Coefficient.A * std::cos(R3Coefficient.B + (R3Coefficient.C * rho)));
-    double R4 = 0;
-    for (const auto& R4Coefficient : g_R4MarsCoefficients)
-        R4 += (R4Coefficient.A * std::cos(R4Coefficient.B + (R4Coefficient.C * rho)));
-    return (R0 + rho * (R1 + rho * (R2 + rho * (R3 + rho * R4)))) / 100000000;
-}
-double Astronomy::EcLonJupiter(double jd_tt) {
-    const double rho = (jd_tt - 2451545) / 365250;
-    double L0 = 0;
-    for (const auto& L0Coefficient : g_L0JupiterCoefficients)
-        L0 += (L0Coefficient.A * cos(L0Coefficient.B + (L0Coefficient.C * rho)));
-    double L1 = 0;
-    for (const auto& L1Coefficient : g_L1JupiterCoefficients)
-        L1 += (L1Coefficient.A * cos(L1Coefficient.B + (L1Coefficient.C * rho)));
-    double L2 = 0;
-    for (const auto& L2Coefficient : g_L2JupiterCoefficients)
-        L2 += (L2Coefficient.A * cos(L2Coefficient.B + (L2Coefficient.C * rho)));
-    double L3 = 0;
-    for (const auto& L3Coefficient : g_L3JupiterCoefficients)
-        L3 += (L3Coefficient.A * cos(L3Coefficient.B + (L3Coefficient.C * rho)));
-    double L4 = 0;
-    for (const auto& L4Coefficient : g_L4JupiterCoefficients)
-        L4 += (L4Coefficient.A * cos(L4Coefficient.B + (L4Coefficient.C * rho)));
-    double L5 = 0;
-    for (const auto& L5Coefficient : g_L5JupiterCoefficients)
-        L5 += (L5Coefficient.A * cos(L5Coefficient.B + (L5Coefficient.C * rho)));
-    double value = (L0 + rho * (L1 + rho * (L2 + rho * (L3 + rho * (L4 + rho * L5))))) / 100000000;
-    return ACoord::rangezero2tau(value);
-}
-double Astronomy::EcLatJupiter(double jd_tt) {
-    const double rho = (jd_tt - 2451545) / 365250;
-    double B0 = 0;
-    for (const auto& B0Coefficient : g_B0JupiterCoefficients)
-        B0 += (B0Coefficient.A * std::cos(B0Coefficient.B + (B0Coefficient.C * rho)));
-    double B1 = 0;
-    for (const auto& B1Coefficient : g_B1JupiterCoefficients)
-        B1 += (B1Coefficient.A * std::cos(B1Coefficient.B + (B1Coefficient.C * rho)));
-    double B2 = 0;
-    for (const auto& B2Coefficient : g_B2JupiterCoefficients)
-        B2 += (B2Coefficient.A * std::cos(B2Coefficient.B + (B2Coefficient.C * rho)));
-    double B3 = 0;
-    for (const auto& B3Coefficient : g_B3JupiterCoefficients)
-        B3 += (B3Coefficient.A * std::cos(B3Coefficient.B + (B3Coefficient.C * rho)));
-    double B4 = 0;
-    for (const auto& B4Coefficient : g_B4JupiterCoefficients)
-        B4 += (B4Coefficient.A * std::cos(B4Coefficient.B + (B4Coefficient.C * rho)));
-    double B5 = 0;
-    for (const auto& B5Coefficient : g_B5JupiterCoefficients)
-        B5 += (B5Coefficient.A * std::cos(B5Coefficient.B + (B5Coefficient.C * rho)));
-    double value = (B0 + rho * (B1 + rho * (B2 + rho * (B3 + rho * (B4 + rho * B5))))) / 100000000;
-    return ACoord::rangemhalfpi2halfpi(value);
-}
-double Astronomy::EcDstJupiter(double jd_tt) {
-    const double rho = (jd_tt - 2451545) / 365250;
-    double R0 = 0;
-    for (const auto& R0Coefficients : g_R0JupiterCoefficients)
-        R0 += (R0Coefficients.A * std::cos(R0Coefficients.B + (R0Coefficients.C * rho)));
-    double R1 = 0;
-    for (const auto& R1Coefficient : g_R1JupiterCoefficients)
-        R1 += (R1Coefficient.A * std::cos(R1Coefficient.B + (R1Coefficient.C * rho)));
-    double R2 = 0;
-    for (const auto& R2Coefficient : g_R2JupiterCoefficients)
-        R2 += (R2Coefficient.A * std::cos(R2Coefficient.B + (R2Coefficient.C * rho)));
-    double R3 = 0;
-    for (const auto& R3Coefficient : g_R3JupiterCoefficients)
-        R3 += (R3Coefficient.A * std::cos(R3Coefficient.B + (R3Coefficient.C * rho)));
-    double R4 = 0;
-    for (const auto& R4Coefficient : g_R4JupiterCoefficients)
-        R4 += (R4Coefficient.A * std::cos(R4Coefficient.B + (R4Coefficient.C * rho)));
-    double R5 = 0;
-    for (const auto& R5Coefficient : g_R5JupiterCoefficients)
-        R5 += (R5Coefficient.A * cos(R5Coefficient.B + (R5Coefficient.C * rho)));
-
-    return (R0 + rho * (R1 + rho * (R2 + rho * (R3 + rho * (R4 + rho * R5))))) / 100000000;
-}
-double Astronomy::EcLonSaturn(double jd_tt) {
-    const double rho = (jd_tt - 2451545) / 365250;
-    double L0 = 0;
-    for (const auto& L0Coefficient : g_L0SaturnCoefficients)
-        L0 += (L0Coefficient.A * std::cos(L0Coefficient.B + (L0Coefficient.C * rho)));
-    double L1 = 0;
-    for (const auto& L1Coefficient : g_L1SaturnCoefficients)
-        L1 += (L1Coefficient.A * std::cos(L1Coefficient.B + (L1Coefficient.C * rho)));
-    double L2 = 0;
-    for (const auto& L2Coefficient : g_L2SaturnCoefficients)
-        L2 += (L2Coefficient.A * std::cos(L2Coefficient.B + (L2Coefficient.C * rho)));
-    double L3 = 0;
-    for (const auto& L3Coefficient : g_L3SaturnCoefficients)
-        L3 += (L3Coefficient.A * std::cos(L3Coefficient.B + (L3Coefficient.C * rho)));
-    double L4 = 0;
-    for (const auto& L4Coefficient : g_L4SaturnCoefficients)
-        L4 += (L4Coefficient.A * std::cos(L4Coefficient.B + (L4Coefficient.C * rho)));
-    double L5 = 0;
-    for (const auto& L5Coefficient : g_L5SaturnCoefficients)
-        L5 += (L5Coefficient.A * std::cos(L5Coefficient.B + (L5Coefficient.C * rho)));
-    double value = (L0 + rho * (L1 + rho * (L2 + rho * (L3 + rho * (L4 + rho * L5))))) / 100000000;
-    return ACoord::rangezero2tau(value);
-}
-double Astronomy::EcLatSaturn(double jd_tt) {
-    const double rho = (jd_tt - 2451545) / 365250;
-    double B0 = 0;
-    for (const auto& B0Coefficient : g_B0SaturnCoefficients)
-        B0 += (B0Coefficient.A * std::cos(B0Coefficient.B + (B0Coefficient.C * rho)));
-    double B1 = 0;
-    for (const auto& B1Coefficient : g_B1SaturnCoefficients)
-        B1 += (B1Coefficient.A * std::cos(B1Coefficient.B + (B1Coefficient.C * rho)));
-    double B2 = 0;
-    for (const auto& B2Coefficient : g_B2SaturnCoefficients)
-        B2 += (B2Coefficient.A * std::cos(B2Coefficient.B + (B2Coefficient.C * rho)));
-    double B3 = 0;
-    for (const auto& B3Coefficient : g_B3SaturnCoefficients)
-        B3 += (B3Coefficient.A * std::cos(B3Coefficient.B + (B3Coefficient.C * rho)));
-    double B4 = 0;
-    for (const auto& B4Coefficient : g_B4SaturnCoefficients)
-        B4 += (B4Coefficient.A * std::cos(B4Coefficient.B + (B4Coefficient.C * rho)));
-    double B5 = 0;
-    for (const auto& B5Coefficient : g_B5SaturnCoefficients)
-        B5 += (B5Coefficient.A * std::cos(B5Coefficient.B + (B5Coefficient.C * rho)));
-    double value = (B0 + rho * (B1 + rho * (B2 + rho * (B3 + rho * (B4 + rho * B5))))) / 100000000;
-    return ACoord::rangemhalfpi2halfpi(value);
-}
-double Astronomy::EcDstSaturn(double jd_tt) {
-    const double rho = (jd_tt - 2451545) / 365250;
-    double R0 = 0;
-    for (const auto& R0Coefficients : g_R0SaturnCoefficients)
-        R0 += (R0Coefficients.A * std::cos(R0Coefficients.B + (R0Coefficients.C * rho)));
-    double R1 = 0;
-    for (const auto& R1Coefficient : g_R1SaturnCoefficients)
-        R1 += (R1Coefficient.A * std::cos(R1Coefficient.B + (R1Coefficient.C * rho)));
-    double R2 = 0;
-    for (const auto& R2Coefficient : g_R2SaturnCoefficients)
-        R2 += (R2Coefficient.A * std::cos(R2Coefficient.B + (R2Coefficient.C * rho)));
-    double R3 = 0;
-    for (const auto& R3Coefficient : g_R3SaturnCoefficients)
-        R3 += (R3Coefficient.A * std::cos(R3Coefficient.B + (R3Coefficient.C * rho)));
-    double R4 = 0;
-    for (const auto& R4Coefficient : g_R4SaturnCoefficients)
-        R4 += (R4Coefficient.A * std::cos(R4Coefficient.B + (R4Coefficient.C * rho)));
-    double R5 = 0;
-    for (const auto& R5Coefficient : g_R5SaturnCoefficients)
-        R5 += (R5Coefficient.A * std::cos(R5Coefficient.B + (R5Coefficient.C * rho)));
-    return (R0 + rho * (R1 + rho * (R2 + rho * (R3 + rho * (R4 + rho * R5))))) / 100000000;
-}
-double Astronomy::EcLonUranus(double jd_tt) {
-    const double rho = (jd_tt - 2451545) / 365250;
-    double L0 = 0;
-    for (const auto& L0Coefficient : g_L0UranusCoefficients)
-        L0 += (L0Coefficient.A * std::cos(L0Coefficient.B + (L0Coefficient.C * rho)));
-    double L1 = 0;
-    for (const auto& L1Coefficient : g_L1UranusCoefficients)
-        L1 += (L1Coefficient.A * std::cos(L1Coefficient.B + (L1Coefficient.C * rho)));
-    double L2 = 0;
-    for (const auto& L2Coefficient : g_L2UranusCoefficients)
-        L2 += (L2Coefficient.A * std::cos(L2Coefficient.B + (L2Coefficient.C * rho)));
-    double L3 = 0;
-    for (const auto& L3Coefficient : g_L3UranusCoefficients)
-        L3 += (L3Coefficient.A * std::cos(L3Coefficient.B + (L3Coefficient.C * rho)));
-    double L4 = 0;
-    for (const auto& L4Coefficient : g_L4UranusCoefficients)
-        L4 += (L4Coefficient.A * std::cos(L4Coefficient.B + (L4Coefficient.C * rho)));
-    double value = (L0 + rho * (L1 + rho * (L2 + rho * (L3 + rho * L4)))) / 100000000;
-    return ACoord::rangezero2tau(value);
-}
-double Astronomy::EcLatUranus(double jd_tt) {
-    const double rho = (jd_tt - 2451545) / 365250;
-    double B0 = 0;
-    for (const auto& B0Coefficient : g_B0UranusCoefficients)
-        B0 += (B0Coefficient.A * std::cos(B0Coefficient.B + (B0Coefficient.C * rho)));
-    double B1 = 0;
-    for (const auto& B1Coefficient : g_B1UranusCoefficients)
-        B1 += (B1Coefficient.A * std::cos(B1Coefficient.B + (B1Coefficient.C * rho)));
-    double B2 = 0;
-    for (const auto& B2Coefficient : g_B2UranusCoefficients)
-        B2 += (B2Coefficient.A * std::cos(B2Coefficient.B + (B2Coefficient.C * rho)));
-    double B3 = 0;
-    for (const auto& B3Coefficient : g_B3UranusCoefficients)
-        B3 += (B3Coefficient.A * std::cos(B3Coefficient.B + (B3Coefficient.C * rho)));
-    double B4 = 0;
-    for (const auto& B4Coefficient : g_B4UranusCoefficients)
-        B4 += (B4Coefficient.A * std::cos(B4Coefficient.B + (B4Coefficient.C * rho)));
-    double value = (B0 + rho * (B1 + rho * (B2 + rho * (B3 + rho * B4)))) / 100000000;
-    return ACoord::rangemhalfpi2halfpi(value);
-}
-double Astronomy::EcDstUranus(double jd_tt) {
-    const double rho = (jd_tt - 2451545) / 365250;
-    double R0 = 0;
-    for (const auto& R0Coefficients : g_R0UranusCoefficients)
-        R0 += (R0Coefficients.A * std::cos(R0Coefficients.B + (R0Coefficients.C * rho)));
-    double R1 = 0;
-    for (const auto& R1Coefficient : g_R1UranusCoefficients)
-        R1 += (R1Coefficient.A * std::cos(R1Coefficient.B + (R1Coefficient.C * rho)));
-    double R2 = 0;
-    for (const auto& R2Coefficient : g_R2UranusCoefficients)
-        R2 += (R2Coefficient.A * std::cos(R2Coefficient.B + (R2Coefficient.C * rho)));
-    double R3 = 0;
-    for (const auto& R3Coefficient : g_R3UranusCoefficients)
-        R3 += (R3Coefficient.A * std::cos(R3Coefficient.B + (R3Coefficient.C * rho)));
-    double R4 = 0;
-    for (const auto& R4Coefficient : g_R4UranusCoefficients)
-        R4 += (R4Coefficient.A * std::cos(R4Coefficient.B + (R4Coefficient.C * rho)));
-    return (R0 + rho * (R1 + rho * (R2 + rho * (R3 + rho * R4)))) / 100000000;
-}
-double Astronomy::EcLonNeptune(double jd_tt) {
-    const double rho = (jd_tt - 2451545) / 365250;
-    double L0 = 0;
-    for (const auto& L0Coefficient : g_L0NeptuneCoefficients)
-        L0 += (L0Coefficient.A * std::cos(L0Coefficient.B + (L0Coefficient.C * rho)));
-    double L1 = 0;
-    for (const auto& L1Coefficient : g_L1NeptuneCoefficients)
-        L1 += (L1Coefficient.A * std::cos(L1Coefficient.B + (L1Coefficient.C * rho)));
-    double L2 = 0;
-    for (const auto& L2Coefficient : g_L2NeptuneCoefficients)
-        L2 += (L2Coefficient.A * std::cos(L2Coefficient.B + (L2Coefficient.C * rho)));
-    double L3 = 0;
-    for (const auto& L3Coefficient : g_L3NeptuneCoefficients)
-        L3 += (L3Coefficient.A * std::cos(L3Coefficient.B + (L3Coefficient.C * rho)));
-    double L4 = 0;
-    for (const auto& L4Coefficient : g_L4NeptuneCoefficients)
-        L4 += (L4Coefficient.A * std::cos(L4Coefficient.B + (L4Coefficient.C * rho)));
-    double value = (L0 + rho * (L1 + rho * (L2 + rho * (L3 + rho * L4)))) / 100000000;
-    return ACoord::rangezero2tau(value);
-}
-double Astronomy::EcLatNeptune(double jd_tt) {
-    const double rho = (jd_tt - 2451545) / 365250;
-    double B0 = 0;
-    for (const auto& B0Coefficient : g_B0NeptuneCoefficients)
-        B0 += (B0Coefficient.A * std::cos(B0Coefficient.B + (B0Coefficient.C * rho)));
-    double B1 = 0;
-    for (const auto& B1Coefficient : g_B1NeptuneCoefficients)
-        B1 += (B1Coefficient.A * std::cos(B1Coefficient.B + (B1Coefficient.C * rho)));
-    double B2 = 0;
-    for (const auto& B2Coefficient : g_B2NeptuneCoefficients)
-        B2 += (B2Coefficient.A * std::cos(B2Coefficient.B + (B2Coefficient.C * rho)));
-    double B3 = 0;
-    for (const auto& B3Coefficient : g_B3NeptuneCoefficients)
-        B3 += (B3Coefficient.A * std::cos(B3Coefficient.B + (B3Coefficient.C * rho)));
-    double B4 = 0;
-    for (const auto& B4Coefficient : g_B4NeptuneCoefficients)
-        B4 += (B4Coefficient.A * std::cos(B4Coefficient.B + (B4Coefficient.C * rho)));
-    double value = (B0 + rho * (B1 + rho * (B2 + rho * (B3 + rho * B4)))) / 100000000;
-    return ACoord::rangemhalfpi2halfpi(value);
-}
-double Astronomy::EcDstNeptune(double jd_tt) {
-    const double rho = (jd_tt - 2451545) / 365250;
-    double R0 = 0;
-    for (const auto& R0Coefficients : g_R0NeptuneCoefficients)
-        R0 += (R0Coefficients.A * std::cos(R0Coefficients.B + (R0Coefficients.C * rho)));
-    double R1 = 0;
-    for (const auto& R1Coefficient : g_R1NeptuneCoefficients)
-        R1 += (R1Coefficient.A * std::cos(R1Coefficient.B + (R1Coefficient.C * rho)));
-    double R2 = 0;
-    for (const auto& R2Coefficient : g_R2NeptuneCoefficients)
-        R2 += (R2Coefficient.A * std::cos(R2Coefficient.B + (R2Coefficient.C * rho)));
-    double R3 = 0;
-    for (const auto& R3Coefficient : g_R3NeptuneCoefficients)
-        R3 += (R3Coefficient.A * std::cos(R3Coefficient.B + (R3Coefficient.C * rho)));
-    return (R0 + rho * (R1 + rho * (R2 + rho * R3))) / 100000000;
-}
 int Astronomy::getString2UnixTime(std::string& string) {
     // TODO: Implement like in Eartharium.cpp:TestArea5(), but resilient to missing seconds, and accepting either '/' or '-' date separator
     std::cout << "ERROR: Astronomy::getString2UnixTime() is not yet implemented.";
@@ -2005,7 +1568,7 @@ int Astronomy::calcUnixTimeYearDay(double year, double month, double day) {
     for (int m = 0; m < mo; m++) {
         days += months[m];
     }
-    if (isLeapYear(year) && month > 2.0) days += 1;
+    if (EDateTime::isLeapYear((long)year) && month > 2.0) days += 1;
     if (year < 1970) days -= 1;  // 
     return days + (int)day - 1;  // -1 because UnixTime starts on day zero, not day one.
 }
@@ -2115,15 +1678,16 @@ void Astronomy::updateGeocentric(size_t planet) {
 }
 void Astronomy::updateAGsid() { // Updates GSid, and sets nutation in the process
     // If these functions cache results, it is a catch 22. So have separate private functions for these updates:
-    m_meanobliquity = MeanObliquityOfEcliptic(m_datetime.jd_utc(), true);
-    m_trueobliquity = m_meanobliquity + (NutationInObliquity(m_datetime.jd_utc(), true));
-    m_nutationinlongitude = NutationInLongitude(m_datetime.jd_utc(), true);
+    //m_meanobliquity = MeanObliquityOfEcliptic(m_datetime.jd_tt(), true);
+    m_meanobliquity = AEarth::MeanObliquityOfEcliptic(m_datetime.jd_tt());
+    m_trueobliquity = m_meanobliquity + AEarth::NutationInObliquity(m_datetime.jd_tt());
+    m_nutationinlongitude = NutationInLongitude(m_datetime.jd_tt(), true);
     m_meangsid = updateMGsid(m_datetime.jd_utc());
     m_gsidtime = m_meangsid + (m_nutationinlongitude * cos(m_trueobliquity));
 }
 double Astronomy::updateMGsid(double jd_utc) {
     double jd_fraction = jd_utc - std::floor(jd_utc) + 0.5; //also good for negative jd
-    double T{ (jd_utc - jd_fraction - JD_2000) / 36525.0 };
+    double T{ (jd_utc - jd_fraction - JD_2000) / JD_CENTURY };
     double TSquared{ T * T };
     double TCubed{ TSquared * T };
     double Value{ 100.46061837 + (36000.770053608 * T) + (0.000387933 * TSquared) - (TCubed / 38710000) };

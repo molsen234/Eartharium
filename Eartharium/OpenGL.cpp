@@ -36,7 +36,7 @@ void VertexBuffer::Unbind() const
 {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
-unsigned int VertexBuffer::GetRenderID() {
+unsigned int VertexBuffer::GetRenderID() const {
     return m_RenderID;
 }
 
@@ -54,16 +54,16 @@ IndexBuffer::IndexBuffer(const unsigned int* data, unsigned int count) {
 IndexBuffer::~IndexBuffer() {
     glDeleteBuffers(1, &m_RenderID);
 }
-void IndexBuffer::Bind() {
+void IndexBuffer::Bind() const {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_RenderID);
 }
-void IndexBuffer::Unbind() {
+void IndexBuffer::Unbind() const {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
-unsigned int IndexBuffer::GetRenderID() {
+unsigned int IndexBuffer::GetRenderID() const {
     return m_RenderID;
 }
-unsigned int IndexBuffer::GetCount() {
+unsigned int IndexBuffer::GetCount() const {
     return m_Count;
 }
 

@@ -1,0 +1,344 @@
+// AAPlus vs MDO - test script and result below
+
+// AA+ library
+#include "AAplus/AASun.h"
+#include "AAplus/AAEarth.h"
+#include "AAplus/AANutation.h"
+#include "AAplus/AAFK5.h"
+#include "AAplus/AASidereal.h"
+#include "AAplus/AAAberration.h"
+#include "AAplus/AAEquationOfTime.h"
+
+// MDO astronomy library
+//#include "astronomy/aearth.h"
+#include "astronomy/asun.h"
+
+void CompareMDOtoAAPlus(Application& app) {
+    double jd = JD_2000+5000;
+
+    Astronomy astro{};
+    // Earth
+    // =====
+    // VSOP87 D Earth
+    std::cout << "MDO AEarth::VSOP87_D_Longitude(jd):              " << rad2deg * AEarth::VSOP87_D_Longitude(jd) << std::endl;
+    std::cout << "MDO AEarth::EclipticLongitude(jd, VSOP87_FULL):  " << rad2deg * AEarth::EclipticLongitude(jd, VSOP87_FULL) << std::endl;
+    std::cout << "AA+ CAAEarth::EclipticLongitude(jd, true):       " << CAAEarth::EclipticLongitude(jd, true) << std::endl;
+    std::cout << "MDO AEarth::EclipticLongitude(jd, VSOP87_SHORT): " << rad2deg * AEarth::EclipticLongitude(jd, VSOP87_SHORT) << std::endl;
+    std::cout << "AA+ CAAEarth::EclipticLongitude(jd, false):      " << CAAEarth::EclipticLongitude(jd, false) << std::endl;
+    std::cout << std::endl;
+    std::cout << "MDO AEarth::VSOP87_D_Latitude(jd):              " << rad2deg * AEarth::VSOP87_D_Latitude(jd) << std::endl;
+    std::cout << "MDO AEarth::EclipticLatitude(jd, VSOP87_FULL):  " << rad2deg * AEarth::EclipticLatitude(jd, VSOP87_FULL) << std::endl;
+    std::cout << "AA+ CAAEarth::EclipticLatitude(jd, true):       " << CAAEarth::EclipticLatitude(jd, true) << std::endl;
+    std::cout << "MDO AEarth::EclipticLatitude(jd, VSOP87_SHORT): " << rad2deg * AEarth::EclipticLatitude(jd, VSOP87_SHORT) << std::endl;
+    std::cout << "AA+ CAAEarth::EclipticLatitude(jd, false):      " << CAAEarth::EclipticLatitude(jd, false) << std::endl;
+    std::cout << std::endl;
+    std::cout << "MDO AEarth::VSOP87_D_Distance(jd):          " << AEarth::VSOP87_D_Distance(jd) << std::endl;
+    std::cout << "MDO AEarth::RadiusVector(jd, VSOP87_FULL):  " << AEarth::EclipticDistance(jd, VSOP87_FULL) << std::endl;
+    std::cout << "AA+ CAAEarth::RadiusVector(jd, true):       " << CAAEarth::RadiusVector(jd, true) << std::endl;
+    std::cout << "MDO AEarth::RadiusVector(jd, VSOP87_SHORT): " << AEarth::EclipticDistance(jd, VSOP87_SHORT) << std::endl;
+    std::cout << "AA+ CAAEarth::RadiusVector(jd, false):      " << CAAEarth::RadiusVector(jd, false) << std::endl;
+    std::cout << std::endl;
+    // VSOP87 B Earth
+    std::cout << "MDO AEarth::VSOP87_B_Longitude(jd):                   " << rad2deg * AEarth::VSOP87_B_Longitude(jd) << std::endl;
+    std::cout << "MDO AEarth::EclipticLongitudeJ2000(jd, VSOP87_FULL):  " << rad2deg * AEarth::EclipticLongitudeJ2000(jd, VSOP87_FULL) << std::endl;
+    std::cout << "AA+ CAAEarth::EclipticLongitudeJ2000(jd, true):       " << CAAEarth::EclipticLongitudeJ2000(jd, true) << std::endl;
+    std::cout << "MDO AEarth::EclipticLongitudeJ2000(jd, VSOP87_SHORT): " << rad2deg * AEarth::EclipticLongitudeJ2000(jd, VSOP87_SHORT) << std::endl;
+    std::cout << "AA+ CAAEarth::EclipticLongitudeJ2000(jd, false):      " << CAAEarth::EclipticLongitudeJ2000(jd, false) << std::endl;
+    std::cout << std::endl;
+    std::cout << "MDO AEarth::VSOP87_B_Latitude(jd):                   " << rad2deg * AEarth::VSOP87_B_Latitude(jd) << std::endl;
+    std::cout << "MDO AEarth::EclipticLatitudeJ2000(jd, VSOP87_FULL):  " << rad2deg * AEarth::EclipticLatitudeJ2000(jd, VSOP87_FULL) << std::endl;
+    std::cout << "AA+ CAAEarth::EclipticLatitudeJ2000(jd, true):       " << CAAEarth::EclipticLatitudeJ2000(jd, true) << std::endl;
+    std::cout << "MDO AEarth::EclipticLatitudeJ2000(jd, VSOP87_SHORT): " << rad2deg * AEarth::EclipticLatitudeJ2000(jd, VSOP87_SHORT) << std::endl;
+    std::cout << "AA+ CAAEarth::EclipticLatitudeJ2000(jd, false):      " << CAAEarth::EclipticLatitudeJ2000(jd, false) << std::endl;
+    std::cout << std::endl;
+
+    std::cout << "MDO AEarth::SunMeanAnomaly(jd):   " << rad2deg * AEarth::SunMeanAnomaly(jd) << std::endl;
+    std::cout << "AA+ CAAEarth::SunMeanAnomaly(jd): " << CAAEarth::SunMeanAnomaly(jd) << std::endl;
+    std::cout << std::endl;
+
+    std::cout << "MDO AEarth::Eccentricity(jd):   " << AEarth::Eccentricity(jd) << std::endl;
+    std::cout << "AA+ CAAEarth::Eccentricity(jd): " << CAAEarth::Eccentricity(jd) << std::endl;
+    std::cout << std::endl;
+
+    std::cout << "MDO AEarth::MeanObliquityOfEcliptic(jd):     " << rad2deg * AEarth::MeanObliquityOfEcliptic(jd) << std::endl;
+    std::cout << "AA+ CANutation::MeanObliquityOfEcliptic(jd): " << CAANutation::MeanObliquityOfEcliptic(jd) << std::endl;
+    double obl = AEarth::TrueObliquityOfEcliptic(jd);
+    std::cout << "MDO AEarth::TrueObliquityOfEcliptic(jd):     " << rad2deg * obl << std::endl;
+    std::cout << "AA+ CANutation::TrueObliquityOfEcliptic(jd): " << CAANutation::TrueObliquityOfEcliptic(jd) << std::endl;
+    std::cout << std::endl;
+
+    double nut_lo = AEarth::NutationInLongitude(jd);
+    std::cout << "MDO AEarth::NutationInLongitude(jd):          " << 3600.0 * rad2deg * nut_lo << std::endl;
+    std::cout << "MDO Astronomy::NutationInLongitude(jd,true):  " << 3600.0 * rad2deg * astro.NutationInLongitude(jd, true) << std::endl;
+    std::cout << "MDO Astronomy::NutationInLongitude(jd,false): " << 3600.0 * astro.NutationInLongitude(jd, false) << std::endl;
+    std::cout << "AA+ CANutation::NutationInLongitude(jd):      " << CAANutation::NutationInLongitude(jd) << std::endl;
+    std::cout << std::endl;
+
+    double nut_ob = AEarth::NutationInObliquity(jd);
+    std::cout << "MDO AEarth::NutationInObliquity(jd):          " << 3600.0 * rad2deg * nut_ob << std::endl;
+    std::cout << "MDO Astronomy::NutationInObliquity(jd,true):  " << 3600.0 * rad2deg * astro.NutationInObliquity(jd,true) << std::endl;
+    std::cout << "MDO Astronomy::NutationInObliquity(jd,false): " << 3600.0 * astro.NutationInObliquity(jd,false) << std::endl;
+    std::cout << "AA+ CANutation::NutationInObliquity(jd):      " << CAANutation::NutationInObliquity(jd) << std::endl;
+    std::cout << std::endl;
+
+    // !!! FIX: These require more parameters, test later
+    std::cout << "MDO AEarth::NutationInRightAscension(ra,dec,obl,nutlon,nutobl):          " << 3600.0 * rad2deg * AEarth::NutationInRightAscension(hrs2rad * 10.0, deg2rad * 10.0, obl, nut_lo, nut_ob) << std::endl;
+    std::cout << "MDO Astronomy::NutationInRightAscension(ra,dec,obl,nutlon,nutobl,true):  " << 3600.0 * rad2deg * astro.NutationInRightAscension(hrs2rad * 10.0, deg2rad * 10.0, obl, nut_lo, nut_ob, true) << std::endl;
+    std::cout << "MDO Astronomy::NutationInRightAscension(ra,dec,obl,nutlon,nutobl,false): " << 3600.0 * astro.NutationInRightAscension(hrs2deg * 10.0, 10.0, rad2deg * obl, rad2deg * nut_lo, rad2deg * nut_ob, false) << std::endl;
+    std::cout << "AA+ CAANutation::NutationInRightAscension(ra,dec,obl,nutlon,nutobl):     " << CAANutation::NutationInRightAscension(10.0, 10.0, rad2deg * obl, rad2deg * nut_lo * 3600.0, rad2deg * nut_ob * 3600.0) << std::endl;
+    std::cout << std::endl;
+
+    std::cout << "MDO AEarth::NutationInDeclination(ra,obl,nutlon,nutobl):          " << 3600.0 * rad2deg * AEarth::NutationInDeclination(hrs2rad * 10.0, obl,nut_lo, nut_ob) << std::endl;
+    std::cout << "MDO Astronomy::NutationInDeclination(ra,obl,nutlon,nutobl,true):  " << 3600.0 * rad2deg * astro.NutationInDeclination(hrs2rad * 10.0, obl, nut_lo, nut_ob, true) << std::endl;
+    std::cout << "MDO Astronomy::NutationInDeclination(ra,obl,nutlon,nutobl,false): " << 3600.0 * astro.NutationInDeclination(hrs2deg * 10.0, rad2deg * obl, rad2deg * nut_lo, rad2deg * nut_ob, false) << std::endl;
+    std::cout << "AA+ CANutation::NutationInDeclination(ra,obl,nutlon,nutobl):      " << CAANutation::NutationInDeclination(10.0, rad2deg * obl, rad2deg * nut_lo * 3600.0, rad2deg * nut_ob * 3600.0) << std::endl;
+    std::cout << std::endl;
+
+    std::cout << "MDO AEarth::EquationOfTime(jd, VSOP87_FULL): " << AEarth::EquationOfTime(jd, VSOP87_FULL) << std::endl;
+    std::cout << "AA+ CAAEquationOfTime::Calculate(jd, true):  " << CAAEquationOfTime::Calculate(jd, true) << std::endl;
+    std::cout << "Meeus98 example 28.a: (1992-10-13 00:00 = jd_tt 2448908.5)" << std::endl;
+    EDateTime eot_datetime{ EDateTime::getJDTT2UTC(2448908.5) }; // EDateTime can only initialize from JD_UTC at the moment
+    std::cout << " jd_tt = " << eot_datetime.jd_tt() << std::endl;
+    std::cout << "Calculated EoT w/full VSOP87:  " << AEarth::EquationOfTime(eot_datetime.jd_tt(), VSOP87_FULL) << std::endl;
+    std::cout << "Calculated EoT w/short VSOP87: " << AEarth::EquationOfTime(eot_datetime.jd_tt(), VSOP87_SHORT) << std::endl;
+    std::cout << "Meeus answer:                  13.70940 (the 0.0002 discrepancy stems from rounding in Meeus)\n";
+    std::cout << std::endl;
+
+    std::cout << "MDO AEarth::MeanGreenwichSiderealTime(jd):          " << rad2hrs * AEarth::MeanGreenwichSiderealTime(jd) << std::endl;
+    std::cout << "AA+ CAASidereal::MeanGreenwichSiderealTime(jd):     " << CAASidereal::MeanGreenwichSiderealTime(jd) << std::endl;
+    std::cout << "MDO AEarth::ApparentGreenwichSiderealTime(jd):      " << rad2hrs * AEarth::ApparentGreenwichSiderealTime(jd) << std::endl;
+    std::cout << "AA+ CAASidereal::ApparentGreenwichSiderealTime(jd): " << CAASidereal::ApparentGreenwichSiderealTime(jd) << std::endl;
+    std::cout << std::endl;
+
+    // Missing all tests below EquationOfTime() in aearth.h
+
+    // Sun
+    std::cout << "MDO ASun::GeometricEclipticLongitude(jd, VSOP87_FULL):  " << rad2deg * ASun::GeometricEclipticLongitude(jd, VSOP87_FULL) << std::endl;
+    std::cout << "AA+ CAASun::GeometricEclipticLongitude(jd, true):       " << CAASun::GeometricEclipticLongitude(jd, true) << std::endl;
+    std::cout << "MDO ASun::GeometricEclipticLongitude(jd, VSOP87_SHORT): " << rad2deg * ASun::GeometricEclipticLongitude(jd, VSOP87_SHORT) << std::endl;
+    std::cout << "AA+ CAASun::GeometricEclipticLongitude(jd, false):      " << CAASun::GeometricEclipticLongitude(jd, false) << std::endl;
+    std::cout << std::endl;
+
+    std::cout << "MDO ASun::GeometricEclipticLatitude(jd, VSOP87_FULL):  " << rad2deg * ASun::GeometricEclipticLatitude(jd, VSOP87_FULL) << std::endl;
+    std::cout << "AA+ CAASun::GeometricEclipticLatitude(jd, true):       " << CAASun::GeometricEclipticLatitude(jd, true) << std::endl;
+    std::cout << "MDO ASun::GeometricEclipticLatitude(jd, VSOP87_SHORT): " << rad2deg * ASun::GeometricEclipticLatitude(jd, VSOP87_SHORT) << std::endl;
+    std::cout << "AA+ CAASun::GeometricEclipticLatitude(jd, false):      " << CAASun::GeometricEclipticLatitude(jd, false) << std::endl;
+    std::cout << std::endl;
+
+    std::cout << "MDO ASun::GeometricEclipticLongitudeJ2000(jd, VSOP87_FULL):  " << rad2deg * ASun::GeometricEclipticLongitudeJ2000(jd, VSOP87_FULL) << std::endl;
+    std::cout << "AA+ CAASun::GeometricEclipticLongitudeJ2000(jd, true):       " << CAASun::GeometricEclipticLongitudeJ2000(jd, true) << std::endl;
+    std::cout << "MDO ASun::GeometricEclipticLongitudeJ2000(jd, VSOP87_SHORT): " << rad2deg * ASun::GeometricEclipticLongitudeJ2000(jd, VSOP87_SHORT) << std::endl;
+    std::cout << "AA+ CAASun::GeometricEclipticLongitudeJ2000(jd, false):      " << CAASun::GeometricEclipticLongitudeJ2000(jd, false) << std::endl;
+    std::cout << std::endl;
+
+    std::cout << "MDO ASun::GeometricEclipticLatitudeJ2000(jd, VSOP87_FULL):  " << rad2deg * ASun::GeometricEclipticLatitudeJ2000(jd, VSOP87_FULL) << std::endl;
+    std::cout << "AA+ CAASun::GeometricEclipticLatitudeJ2000(jd, true):       " << CAASun::GeometricEclipticLatitudeJ2000(jd, true) << std::endl;
+    std::cout << "MDO ASun::GeometricEclipticLatitudeJ2000(jd, VSOP87_SHORT): " << rad2deg * ASun::GeometricEclipticLatitudeJ2000(jd, VSOP87_SHORT) << std::endl;
+    std::cout << "AA+ CAASun::GeometricEclipticLatitudeJ2000(jd, false):      " << CAASun::GeometricEclipticLatitudeJ2000(jd, false) << std::endl;
+    std::cout << std::endl;
+
+    std::cout << "MDO ASun::GeometricFK5EclipticLongitude(jd, VSOP87_FULL):  " << rad2deg * ASun::GeometricFK5EclipticLongitude(jd, VSOP87_FULL) << std::endl;
+    std::cout << "AA+ CAASun::GeometricFK5EclipticLongitude(jd, true):       " << CAASun::GeometricFK5EclipticLongitude(jd, true) << std::endl;
+    std::cout << "MDO ASun::GeometricFK5EclipticLongitude(jd, VSOP87_SHORT): " << rad2deg * ASun::GeometricFK5EclipticLongitude(jd, VSOP87_SHORT) << std::endl;
+    std::cout << "AA+ CAASun::GeometricFK5EclipticLongitude(jd, false):      " << CAASun::GeometricFK5EclipticLongitude(jd, false) << std::endl;
+    std::cout << std::endl;
+
+    std::cout << "MDO ASun::GeometricFK5EclipticLatitude(jd, VSOP87_FULL):  " << rad2deg * ASun::GeometricFK5EclipticLatitude(jd, VSOP87_FULL) << std::endl;
+    std::cout << "AA+ CAASun::GeometricFK5EclipticLatitude(jd, true):       " << CAASun::GeometricFK5EclipticLatitude(jd, true) << std::endl;
+    std::cout << "MDO ASun::GeometricFK5EclipticLatitude(jd, VSOP87_SHORT): " << rad2deg * ASun::GeometricFK5EclipticLatitude(jd, VSOP87_SHORT) << std::endl;
+    std::cout << "AA+ CAASun::GeometricFK5EclipticLatitude(jd, false):      " << CAASun::GeometricFK5EclipticLatitude(jd, false) << std::endl;
+    std::cout << std::endl;
+
+    std::cout << "MDO ASun::ApparentEclipticLongitude(jd, VSOP87_FULL):  " << rad2deg * ASun::ApparentEclipticLongitude(jd, VSOP87_FULL) << std::endl;
+    std::cout << "AA+ CAASun::ApparentEclipticLongitude(jd, true):       " << CAASun::ApparentEclipticLongitude(jd, true) << std::endl;
+    std::cout << "MDO ASun::ApparentEclipticLongitude(jd, VSOP87_SHORT): " << rad2deg * ASun::ApparentEclipticLongitude(jd, VSOP87_SHORT) << std::endl;
+    std::cout << "AA+ CAASun::ApparentEclipticLongitude(jd, false):      " << CAASun::ApparentEclipticLongitude(jd, false) << std::endl;
+    std::cout << std::endl;
+
+    std::cout << "MDO ASun::ApparentEclipticLatitude(jd, VSOP87_FULL):  " << rad2deg * ASun::ApparentEclipticLatitude(jd, VSOP87_FULL) << std::endl;
+    std::cout << "AA+ CAASun::ApparentEclipticLatitude(jd, true):       " << CAASun::ApparentEclipticLatitude(jd, true) << std::endl;
+    std::cout << "MDO ASun::ApparentEclipticLatitude(jd, VSOP87_SHORT): " << rad2deg * ASun::ApparentEclipticLatitude(jd, VSOP87_SHORT) << std::endl;
+    std::cout << "AA+ CAASun::ApparentEclipticLatitude(jd, false):      " << CAASun::ApparentEclipticLatitude(jd, false) << std::endl;
+    std::cout << std::endl;
+
+    std::cout << "MDO VariationGeometricEclipticLongitude: " << rad2deg * 3600.0 * ASun::VariationGeometricEclipticLongitude(JD_2000) << std::endl;
+    std::cout << "AA+ VariationGeometricEclipticLongitude: " << CAASun::VariationGeometricEclipticLongitude(JD_2000) << std::endl;
+    std::cout << std::endl;
+
+    std::cout << std::endl;
+    std::cout << "Missing a few tests here, go fix it some day!! (CompareMDOtoAAPlus() in Eartharium.cpp)\n";
+    std::cout << "The missing tests are rectangular coordinates, I only changed from Coordinate3D to glm::dvece3, so they should be fine.\n";
+    std::cout << std::endl;
+    std::cout << std::endl;
+
+    // Coordinates - FK5
+    std::cout << "MDO FK5::CorrectionInLongitude(lon, lat, jd):    " << rad2deg * FK5::CorrectionInLongitude(deg2rad * 50.0, deg2rad * 1.0, jd) << std::endl;
+    std::cout << "AA+ CAAFK5::CorrectionInLongitude(lon, lat, jd): " << CAAFK5::CorrectionInLongitude(50.0, 1.0, jd) << std::endl;
+    std::cout << "MDO FK5::CorrectionInLatitude(lon, jd):          " << rad2deg * FK5::CorrectionInLatitude(deg2rad * 50.0, jd) << std::endl;
+    std::cout << "AA+ CAAFK5::CorrectionInLatitude(lon, jd):       " << CAAFK5::CorrectionInLatitude(50.0, jd) << std::endl;
+    std::cout << std::endl;
+
+
+    // Astronomy::getDetails()
+    CelestialDetail det = astro.getDetails(jd, MARS, ECGEO);
+    det.print();
+    CelestialDetail det2 = astro.getDetailsNew(jd, MARS, ECGEO);
+    det2.print();
+
+    return;
+}
+
+
+
+
+
+
+
+
+
+
+C:\Coding\Eartharium\Eartharium\x64\Release>Eartharium.exe
+default fbo GL_SAMPLES: 4
+OpenGL version:  4.6.0 - Build 26.20.100.7927
+OpenGL vendor:   Intel
+OpenGL renderer: Intel(R) UHD Graphics 630
+Available texture slots: 32 per stage, 192 total.
+Available line width: 0 to 31
+Maximum Anisotropic Filtering Samples: 16
+Maximum Viewport size (x,y): 16384, 16384
+
+
+
+MDO AEarth::VSOP87_D_Longitude(jd):              346.973970437283
+MDO AEarth::EclipticLongitude(jd, VSOP87_FULL):  346.973970437283
+AA+ CAAEarth::EclipticLongitude(jd, true):       346.973970437283
+MDO AEarth::EclipticLongitude(jd, VSOP87_SHORT): 346.973976488272
+AA+ CAAEarth::EclipticLongitude(jd, false):      346.973976488272
+
+MDO AEarth::VSOP87_D_Latitude(jd):              9.55874696058565e-05
+MDO AEarth::EclipticLatitude(jd, VSOP87_FULL):  9.55874696058565e-05
+AA+ CAAEarth::EclipticLatitude(jd, true):       9.55874696058565e-05
+MDO AEarth::EclipticLatitude(jd, VSOP87_SHORT): 9.44912001115222e-05
+AA+ CAAEarth::EclipticLatitude(jd, false):      9.44912001115222e-05
+
+MDO AEarth::VSOP87_D_Distance(jd):          1.00715156737328
+MDO AEarth::RadiusVector(jd, VSOP87_FULL):  1.00715156737328
+AA+ CAAEarth::RadiusVector(jd, true):       1.00715156737328
+MDO AEarth::RadiusVector(jd, VSOP87_SHORT): 1.00715136227656
+AA+ CAAEarth::RadiusVector(jd, false):      1.00715136227656
+
+MDO AEarth::VSOP87_B_Longitude(jd):                   346.782729783629
+MDO AEarth::EclipticLongitudeJ2000(jd, VSOP87_FULL):  346.782729783629
+AA+ CAAEarth::EclipticLongitudeJ2000(jd, true):       346.782729783629
+MDO AEarth::EclipticLongitudeJ2000(jd, VSOP87_SHORT): 346.782735772294
+AA+ CAAEarth::EclipticLongitudeJ2000(jd, false):      346.782735772294
+
+MDO AEarth::VSOP87_B_Latitude(jd):                   0.000346054172628369
+MDO AEarth::EclipticLatitudeJ2000(jd, VSOP87_FULL):  0.000346054172628369
+AA+ CAAEarth::EclipticLatitudeJ2000(jd, true):       0.000346054172628369
+MDO AEarth::EclipticLatitudeJ2000(jd, VSOP87_SHORT): 0.000344936027251426
+AA+ CAAEarth::EclipticLatitudeJ2000(jd, false):      0.000344936027251426
+
+MDO AEarth::SunMeanAnomaly(jd):   245.530515069139
+AA+ CAAEarth::SunMeanAnomaly(jd): 245.530515069139
+
+MDO AEarth::Eccentricity(jd):   0.99965543969818
+AA+ CAAEarth::Eccentricity(jd): 0.99965543969818
+
+MDO AEarth::MeanObliquityOfEcliptic(jd):     23.4375111550782
+AA+ CANutation::MeanObliquityOfEcliptic(jd): 23.4375111550782
+MDO AEarth::TrueObliquityOfEcliptic(jd):     23.4357032902857
+AA+ CANutation::TrueObliquityOfEcliptic(jd): 23.4357032902857
+
+MDO AEarth::NutationInLongitude(jd):          11.5218680449436
+MDO Astronomy::NutationInLongitude(jd,true):  11.5218680449436
+MDO Astronomy::NutationInLongitude(jd,false): 11.5218680449436
+AA+ CANutation::NutationInLongitude(jd):      11.5218680449436
+
+MDO AEarth::NutationInObliquity(jd):          -6.50831325277676
+MDO Astronomy::NutationInObliquity(jd,true):  -6.50831325277676
+MDO Astronomy::NutationInObliquity(jd,false): -6.50831325277676
+AA+ CANutation::NutationInObliquity(jd):      -6.50831325277676
+
+MDO AEarth::NutationInRightAscension(ra,dec,obl,nutlon,nutobl):          9.98155796722016
+MDO Astronomy::NutationInRightAscension(ra,dec,obl,nutlon,nutobl,true):  9.98155796722016
+MDO Astronomy::NutationInRightAscension(ra,dec,obl,nutlon,nutobl,false): 9.98155796722016
+AA+ CAANutation::NutationInRightAscension(ra,dec,obl,nutlon,nutobl):     9.98155796722016
+
+MDO AEarth::NutationInDeclination(ra,obl,nutlon,nutobl):          -7.22269546867116
+MDO Astronomy::NutationInDeclination(ra,obl,nutlon,nutobl,true):  -7.22269546867116
+MDO Astronomy::NutationInDeclination(ra,obl,nutlon,nutobl,false): -7.22269546867116
+AA+ CANutation::NutationInDeclination(ra,obl,nutlon,nutobl):      -7.22269546867116
+
+MDO AEarth::EquationOfTime(jd, VSOP87_FULL): 2.74672329973665
+AA+ CAAEquationOfTime::Calculate(jd, true):  2.74672329973677
+Meeus98 example 28.a: (1992-10-13 00:00 = jd_tt 2448908.5)
+ jd_tt = 2448908.5
+Calculated EoT w/full VSOP87:  13.7096329871456
+Calculated EoT w/short VSOP87: 13.7096750854149
+Meeus answer:                  13.70940 (the 0.0002 discrepancy stems from rounding in Meeus)
+
+MDO AEarth::MeanGreenwichSiderealTime(jd):          11.246497137977
+AA+ CAASidereal::MeanGreenwichSiderealTime(jd):     11.246497137977
+MDO AEarth::ApparentGreenwichSiderealTime(jd):      11.2466929045367
+AA+ CAASidereal::ApparentGreenwichSiderealTime(jd): 11.2466929045367
+
+MDO ASun::GeometricEclipticLongitude(jd, VSOP87_FULL):  166.973970437283
+AA+ CAASun::GeometricEclipticLongitude(jd, true):       166.973970437283
+MDO ASun::GeometricEclipticLongitude(jd, VSOP87_SHORT): 166.973976488272
+AA+ CAASun::GeometricEclipticLongitude(jd, false):      166.973976488272
+
+MDO ASun::GeometricEclipticLatitude(jd, VSOP87_FULL):  -9.55874696058565e-05
+AA+ CAASun::GeometricEclipticLatitude(jd, true):       -9.55874696058565e-05
+MDO ASun::GeometricEclipticLatitude(jd, VSOP87_SHORT): -9.44912001115222e-05
+AA+ CAASun::GeometricEclipticLatitude(jd, false):      -9.44912001115222e-05
+
+MDO ASun::GeometricEclipticLongitudeJ2000(jd, VSOP87_FULL):  166.782729783629
+AA+ CAASun::GeometricEclipticLongitudeJ2000(jd, true):       166.782729783629
+MDO ASun::GeometricEclipticLongitudeJ2000(jd, VSOP87_SHORT): 166.782735772294
+AA+ CAASun::GeometricEclipticLongitudeJ2000(jd, false):      166.782735772294
+
+MDO ASun::GeometricEclipticLatitudeJ2000(jd, VSOP87_FULL):  -0.000346054172628369
+AA+ CAASun::GeometricEclipticLatitudeJ2000(jd, true):       -0.000346054172628369
+MDO ASun::GeometricEclipticLatitudeJ2000(jd, VSOP87_SHORT): -0.000344936027251426
+AA+ CAASun::GeometricEclipticLatitudeJ2000(jd, false):      -0.000344936027251426
+
+MDO ASun::GeometricFK5EclipticLongitude(jd, VSOP87_FULL):  166.97394534563
+AA+ CAASun::GeometricFK5EclipticLongitude(jd, true):       166.97394534563
+MDO ASun::GeometricFK5EclipticLongitude(jd, VSOP87_SHORT): 166.973951396618
+AA+ CAASun::GeometricFK5EclipticLongitude(jd, false):      166.973951396618
+
+MDO ASun::GeometricFK5EclipticLatitude(jd, VSOP87_FULL):  -0.000108664238013173
+AA+ CAASun::GeometricFK5EclipticLatitude(jd, true):       -0.000108664238013173
+MDO ASun::GeometricFK5EclipticLatitude(jd, VSOP87_SHORT): -0.000107567967663138
+AA+ CAASun::GeometricFK5EclipticLatitude(jd, false):      -0.000107567967663138
+
+MDO ASun::ApparentEclipticLongitude(jd, VSOP87_FULL):  166.971493014526
+AA+ CAASun::ApparentEclipticLongitude(jd, true):       166.971493014526
+MDO ASun::ApparentEclipticLongitude(jd, VSOP87_SHORT): 166.971493015678
+AA+ CAASun::ApparentEclipticLongitude(jd, false):      166.971500718168
+
+MDO ASun::ApparentEclipticLatitude(jd, VSOP87_FULL):  -0.000108664238013173
+AA+ CAASun::ApparentEclipticLatitude(jd, true):       -0.000108664238013173
+MDO ASun::ApparentEclipticLatitude(jd, VSOP87_SHORT): -0.000107567967663138
+AA+ CAASun::ApparentEclipticLatitude(jd, false):      -0.000107567967663138
+
+MDO VariationGeometricEclipticLongitude: 3669.87643675798
+AA+ VariationGeometricEclipticLongitude: 3669.87643675798
+
+
+Missing a few tests here, go fix it some day!! (CompareMDOtoAAPlus() in Eartharium.cpp)
+The missing tests are rectangular coordinates, I only changed from Coordinate3D to glm::dvece3, so they should be fine.
+
+
+MDO FK5::CorrectionInLongitude(lon, lat, jd):    -2.48240918343742e-05
+AA+ CAAFK5::CorrectionInLongitude(lon, lat, jd): -2.48240918343742e-05
+MDO FK5::CorrectionInLatitude(lon, jd):          -1.28960065365937e-06
+AA+ CAAFK5::CorrectionInLatitude(lon, jd):       -1.28960065365937e-06
+
+0.0264119129662124,1.82488672415397, 1.60313349824132
+0.421411415173632,1.84969781455463, 0
+0.0264119129662124,1.82488672415397, 1.60313349824132
+0.421411415173632,1.84969781455463, 0
+
+C:\Coding\Eartharium\Eartharium\x64\Release>

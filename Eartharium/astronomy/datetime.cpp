@@ -23,11 +23,29 @@ EDateTime::EDateTime(long year, long month, double day, double hour, double minu
     calcJDs();
 }
 // - From Julian Date
-EDateTime::EDateTime(double jd_utc) { // Expects JD in UTC
+EDateTime::EDateTime(double jd_utc, bool tt) { // Expects JD in UTC
+    // Optional bool tt is false by default, indicating a JD_UTC is expected.
+    // If instead a JD_TT is supplied, set the bool to true for correct conversion.
+    // This is needed as two different ctors both just taking a double is ambiguous and thus results in a compiler error.
+    // 
+    // TT / UT correctness confirmed as per: https://aa.usno.navy.mil/faq/TT using code:
+    //EDateTime J2k{ JD_2000, /* bool tt = */ true };
+    //std::cout << J2k.string() << " detailed seconds: " << J2k.second() << '\n';
+    // Output: 2000-01-01 11:58:56 UTC detailed seconds: 55.8159989118576
+    //According to link above:
+    // The epoch designated "J2000.0" is specified as Julian date 2451545.0 TT, or 2000 January 1, 12h TT.
+    // This epoch can also be expressed as 2000 January 1, 11:59:27.816 TAI or 2000 January 1, 11:58:55.816 UTC.
+
     // source for JD to date time calculation: https://www.aa.quae.nl/en/reken/juliaansedag.html#4_2
-    m_JD_UTC = jd_utc;
-    m_JD_TT = getJDUTC2TT(jd_utc);
-    double jd_civ = jd_utc + 0.5; // From astronomical jd to civil which is assumed below
+    if (!tt) {
+        m_JD_UTC = jd_utc;
+        m_JD_TT = getJDUTC2TT(jd_utc);
+    }
+    else {
+        m_JD_TT = jd_utc;
+        m_JD_UTC = getJDTT2UTC(jd_utc);
+    }
+    double jd_civ = m_JD_UTC + 0.5; // From astronomical jd to civil which is assumed below
     int c1 = myDivQuotient((int)std::floor(jd_civ) * 4 - 6884477, 146097);
     int e1 = myDivRemainder((int)std::floor(jd_civ) * 4 - 6884477, 146097) / 4;
     int a1 = myDivQuotient(100 * e1 + 99, 36525);
@@ -55,17 +73,17 @@ EDateTime::EDateTime(long unixtime) {
     setJD_UTC(getUnixTime2JD_UTC(unixtime));
 }
 // Getters
-long EDateTime::year() { return m_year; }
-long EDateTime::month() { return m_month; }
-double EDateTime::day() { return m_day; }
-double EDateTime::hour() { return m_hour; }
-double EDateTime::minute() { return m_minute; }
-double EDateTime::second() { return m_second; }
+long EDateTime::year() const { return m_year; }
+long EDateTime::month() const { return m_month; }
+double EDateTime::day() const { return m_day; }
+double EDateTime::hour() const { return m_hour; }
+double EDateTime::minute() const { return m_minute; }
+double EDateTime::second() const { return m_second; }
 double EDateTime::jd_tt() /* Astronomical Julian date */ const { return m_JD_TT; }
-double EDateTime::jd_utc() /* Astronomical Julian date */ { return m_JD_UTC; }
-bool EDateTime::isLeap() /* returns true if leap year, false otherwise */ { return isLeapYear(m_year); }
-long EDateTime::weekday() /* Sun=0 Mon=1 Tue=2 Wed=3 Thu=4 Fri=5 Sat=6 */ { return ((int)(m_JD_TT + 0.5) + 1) % 7; }
-long EDateTime::dayofyear() {
+double EDateTime::jd_utc() /* Astronomical Julian date */ const { return m_JD_UTC; }
+bool EDateTime::isLeap() /* returns true if leap year, false otherwise */ const { return isLeapYear(m_year); }
+long EDateTime::weekday() /* Sun=0 Mon=1 Tue=2 Wed=3 Thu=4 Fri=5 Sat=6 */ const { return ((int)(m_JD_TT + 0.5) + 1) % 7; }
+long EDateTime::dayofyear() const {
     static long months[] = { 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
     long days = 0;
     for(long m=1; m<m_month; m++) { // Don't count current month

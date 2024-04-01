@@ -7,7 +7,7 @@
 // -----------
 class EDateTime {
 	// TODO: !!! Merge with DateTime class in Utilities
-	// TODO: !!! Integrate with the TimeZones class (in Utilities), to accept setTime() with a timezone and convert automatically !!!
+	// TODO: !!! Integrate with the TimeZones class (in Utilities), to accept setTime() with a timezone and convert automatically
 public:
 	// Constructors
 	// - Default constructor sets current system time in UTC
@@ -15,21 +15,21 @@ public:
 	// - From date and time in UTC
 	EDateTime(long year, long month, double day, double hour, double minute, double second);
 	// - From Julian Date
-	EDateTime(double jd_utc);  // FIX: !!! add bool to specify if it is a UTC or TT JD !!!
+	EDateTime(double jd_utc, bool tt = false);
 	// - From a Unix Time Stamp
 	EDateTime(long unixtime);
 	// Getters
-	long year();
-	long month();
-	double day();
-	double hour();
-	double minute();
-	double second();
+	long year() const;
+	long month() const;
+	double day() const;
+	double hour() const;
+	double minute() const;
+	double second() const;
 	double jd_tt() const;
-	double jd_utc();
-	bool isLeap();
-	long weekday();
-	long dayofyear();
+	double jd_utc() const;
+	bool isLeap() const;
+	long weekday() const;
+	long dayofyear() const;
 	std::string string();
 	long unixTime();
 	// Setters

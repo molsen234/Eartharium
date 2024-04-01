@@ -28,6 +28,7 @@ to maintain a single distribution point for the source code.
 #include "AAEarth.h"
 #include <cmath>
 
+#include <iostream>  // MDO
 
 //////////////////// Implementation ///////////////////////////////////////////
 
@@ -39,6 +40,7 @@ double CAAFK5::CorrectionInLongitude(double Longitude, double Latitude, double J
   //Convert to radians
   Ldash = CAACoordinateTransformation::DegreesToRadians(Ldash);
   Latitude = CAACoordinateTransformation::DegreesToRadians(Latitude);
+  //std::cout << "Latitude" << Latitude << std::endl; // MDO
 
   const double value{-0.09033 + (0.03916*(cos(Ldash) + sin(Ldash)))*tan(Latitude)};
   return CAACoordinateTransformation::DMSToDegrees(0, 0, value);

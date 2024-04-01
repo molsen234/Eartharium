@@ -57,7 +57,6 @@ double CAAEquationOfTime::Calculate(double JD, bool bHighPrecision) noexcept
   const double SunLat{CAASun::ApparentEclipticLatitude(JD, bHighPrecision)};
   double epsilon{CAANutation::TrueObliquityOfEcliptic(JD)};
   const CAA2DCoordinate Equatorial{CAACoordinateTransformation::Ecliptic2Equatorial(SunLong, SunLat, epsilon)};
-
   epsilon = CAACoordinateTransformation::DegreesToRadians(epsilon);
   double E{L0 - 0.0057183 - (Equatorial.X*15) + CAACoordinateTransformation::DMSToDegrees(0, 0, CAANutation::NutationInLongitude(JD)) * cos(epsilon)};
   if (E > 180)

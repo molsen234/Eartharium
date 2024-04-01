@@ -42,8 +42,12 @@ out vec4 FragColor;
 uniform sampler2D texture1; // Daylight texture
 
 void main() {
+    // Clearly this needs to be more sophisticated.
+    // It would be nice to have a slightly darkened sky sphere, with milky way relatively clearly visible
+    // so Earth etc can be viewed through the celestial sphere, but rendered stars on the far side are still a bit darker
+    // than the front ones, due to being viewed through the dark celestial sphere.
     vec4 dCol = texture(texture1, TexCoord);
     float lfactor = clamp(dot(lightDir, lNormal),0.0,1.0); //+0.1;
-    FragColor = vec4((dCol.rgb * lfactor),1.0);
+    //FragColor = vec4((dCol.rgb * lfactor),1.0);
     FragColor = dCol; // lfactor is 0.0 on inside due to clamping
 };

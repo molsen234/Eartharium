@@ -135,8 +135,8 @@ T Lerper<T>::getNextSmooth() {
 
 
 //struct Animation {
-//    // Should be templated so it can work with different objects: floats, doubles, vec3, vec4, LLH, etc.
-//    // To work with LLH, LLH will need at least a + operator
+//    // Should be templated so it can work with different objects: floats, doubles, vec3, vec4, LLD, etc.
+//    // To work with LLD, LLD will need at least a + operator
 //    double* param = nullptr;      // Pointer to parameter to be animated
 //    //Lerper<T>* lerper = nullptr;  // Lerper that delivers the next value, constructed by Animator
 //    double startvalue = 0.0;
@@ -386,7 +386,7 @@ public:
     void updateLight();
     void setLookAt(glm::vec3 position, glm::vec3 target, glm::vec3 upwards);
     void setPosXYZ(glm::vec3 pos);
-    void setPosLLH(LLH llh);
+    void setPosLLH(LLD llh);
     glm::vec3 getPosXYZ();
     void setTarget(glm::vec3 target);
     void setFoV(float fov);
@@ -1337,7 +1337,7 @@ private:
 // Should help refactor those chunky classes.
 //class PathBuilder {
 //public:
-//    static void generate(LLH llh1, LLH llh2, ) {
+//    static void generate(LLD llh1, LLD llh2, ) {
 //
 //    }
 //};

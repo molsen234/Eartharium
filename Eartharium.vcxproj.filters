@@ -204,13 +204,34 @@
     <ClCompile Include="Eartharium\astronomy\acoordinates.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Eartharium\astronomy\anutation.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Eartharium\FigureGeometry.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Eartharium\AAplus\AAMoonPhases2.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\astronomy\amoon.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\astronomy\vsop87.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\astronomy\amercury.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\astronomy\avenus.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\astronomy\amars.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\astronomy\ajupiter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\astronomy\asaturn.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Eartharium\astronomy\vsop87\vsop87.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -410,13 +431,115 @@
     <ClInclude Include="Eartharium\astronomy\acoordinates.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Eartharium\astronomy\anutation.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Eartharium\FigureGeometry.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Eartharium\AAplus\AAMoonPhases2.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\amoon.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\vsop87.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\aconfig.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\aearth_vsop87_short.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\aearth_nutation_table.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\aearth_aberration_table.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\amercury.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\amercury_vsop87_full.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\amercury_vsop87_short.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\aearth_vsop87_full.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\avenus.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\avenus_vsop87_full.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\avenus_vsop87_short.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\amars.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\amars_vsop87_short.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\amars_vsop87_full.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\ajupiter_vsop87_short.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\ajupiter_vsop87_full.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\ajupiter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\asaturn.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\asaturn_vsop87_full.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\asaturn_vsop87_short.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\vsop87\aearth_vsop87_full.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\vsop87\aearth_vsop87_short.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\vsop87\ajupiter_vsop87_full.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\vsop87\ajupiter_vsop87_short.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\vsop87\amars_vsop87_full.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\vsop87\amars_vsop87_short.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\vsop87\amercury_vsop87_full.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\vsop87\amercury_vsop87_short.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\vsop87\asaturn_vsop87_full.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\vsop87\asaturn_vsop87_short.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\vsop87\avenus_vsop87_full.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\vsop87\avenus_vsop87_short.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eartharium\astronomy\vsop87\vsop87.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

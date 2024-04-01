@@ -2,7 +2,7 @@
 
 #include "FigureGeometry.h"
 
-//glm::vec3 NormalSphere::getLoc3D(const LLH loc, const float gpuRadius, const bool rad) {
+//glm::vec3 NormalSphere::getLoc3D(const LLD loc, const float gpuRadius, const bool rad) {
 //    double lat = loc.lat, lon = loc.lon;
 //    if (!rad) {
 //        lat *= deg2rad;

@@ -91,7 +91,7 @@ public:
 	~VertexBuffer();
 	void LoadData(const void* data, unsigned int size);
 	void UpdateData(const void* data, unsigned int size);
-	unsigned int GetRenderID();
+	unsigned int GetRenderID() const;
 	void Bind() const;
 	void Unbind() const;
 	// Might want to have Lock()/Unlock() so you can modify the data without colliding with rendering
@@ -109,10 +109,10 @@ private:
 public:
 	IndexBuffer(const unsigned int* data, unsigned int size);
 	~IndexBuffer();
-	void Bind();
-	void Unbind();
-	unsigned int GetRenderID();
-	unsigned int GetCount();
+	void Bind() const;
+	void Unbind() const;
+	unsigned int GetRenderID() const;
+	unsigned int GetCount() const;
 	// Might want to have Lock()/Unlock() so you can modify the data without colliding with rendering
 	// (in a game engine for example). Here we probably build and then render the objects in serial.
 };

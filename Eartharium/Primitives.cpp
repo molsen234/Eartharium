@@ -479,7 +479,7 @@ void Camera::setPosXYZ(glm::vec3 position) {
     this->position = position;
     Recalc();
 }
-void Camera::setPosLLH(LLH llh) {
+void Camera::setPosLLH(LLD llh) {
     while (camLon > 180.0) camLon -= 360.0;
     while (camLon < -180.0) camLon += 360.0;
     // How to normalize latitude properly? Not practical as 100 should go to 80 and longitude should change 180 whereas 360 should simply go to 0.
@@ -2351,6 +2351,8 @@ PolyCurveSO::PolyCurveSO(Scene* scene, SceneObject* parent, glm::vec4 color, flo
     va = new VertexArray;
     vb1 = new VertexBuffer(&m_verts[0], (unsigned int)m_verts.size() * sizeof(Vertex));
     vb2 = nullptr; // Will be built dynamically during each Draw() call
+    //vb2 = new VertexBuffer(&m_segments[0], m_segments.capacity() * sizeof(Primitive3D));
+
     va->AddBuffer(*vb1, *vbl1, true);
     ib = new IndexBuffer((unsigned int*)&m_tris[0], (unsigned int)m_tris.size() * 3);  // IB uses COUNT, not BYTES!!!
 }
@@ -2359,7 +2361,7 @@ PolyCurveSO::~PolyCurveSO() {
     delete vbl1;
     delete ib;
     delete vb1;
-    // delete vb2;  // Is deleted on every draw() call completion
+    //delete vb2;  // Is deleted on every draw() call completion
     delete va;
 }
 void PolyCurveSO::setColor(glm::vec4 color) {
@@ -2439,6 +2441,8 @@ void PolyCurveSO::draw(Camera* cam) {
     ib->Bind();
     va->AddBuffer(*vb1, *vbl1, true);
     vb2 = new VertexBuffer(&m_segments[0], (unsigned int)m_segments.size() * sizeof(Primitive3D));
+    // Can't use vb2->UpdateData(&m_segments[0], (unsigned int)m_segments.size() * sizeof(Primitive3D)); if size increases
+    //std::cout << "PolyCurveSO::draw(): m_segments.size() = " << (unsigned int)m_segments.size() << '\n';
     va->AddBuffer(*vb2, *vbl2, false);
     // Primitives list (0,1,2 are in vertex list)
     glVertexAttribDivisor(3, 1);    // Color4

@@ -34,7 +34,6 @@ to maintain a single distribution point for the source code.
 #include <cmath>
 #include <array>
 
-
 //////////////////// Macros / Defines /////////////////////////////////////////
 
 #ifdef _MSC_VER
@@ -224,7 +223,6 @@ double CAANutation::NutationInRightAscension(double Alpha, double Delta, double 
   Alpha = CAACoordinateTransformation::HoursToRadians(Alpha);
   Delta = CAACoordinateTransformation::DegreesToRadians(Delta);
   Obliquity = CAACoordinateTransformation::DegreesToRadians(Obliquity);
-
   return ((cos(Obliquity) + (sin(Obliquity)*sin(Alpha)*tan(Delta)))*NutationInLongitude) - (cos(Alpha)*tan(Delta)*NutationInObliquity);
 }
 

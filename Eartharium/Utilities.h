@@ -152,7 +152,7 @@ class KMLFile {
 public:
     struct kmlentry {
         EDateTime timestamp;         // <when>2016-08-07T21:14:39Z</when>
-        LLH location{ 0.0,0.0,0.0 }; // <gx:coord>8.52743 47.48766 610</gx:coord>
+        LLD location{ 0.0,0.0,0.0 }; // <gx:coord>8.52743 47.48766 610</gx:coord>
     };
     static int parseFile(SmartPath& path, const std::string& kmlfile) {
         // !!! FIX: Make a TimePath to use instead of SmartPath !!!
@@ -177,7 +177,7 @@ public:
                 mi = stod(line.substr(20, 2));
                 se = stod(line.substr(23, 2));
                 //std::cout << yr << ";" << mo << ";" << da << ";" << hr << ";" << mi << ";" << se << "\n";
-                kmlbuffer.emplace_back(kmlentry{ EDateTime{yr,mo,da,hr,mi,se}, LLH{0.0,0.0,0.0} });
+                kmlbuffer.emplace_back(kmlentry{ EDateTime{yr,mo,da,hr,mi,se}, LLD{0.0,0.0,0.0} });
             }
             if (line.substr(1, 8) == "gx:coord") {
                 //std::cout << line << "\n";

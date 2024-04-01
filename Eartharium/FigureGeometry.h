@@ -5,8 +5,8 @@
 
 //class NormalSphere {
 //public:
-//	glm::dvec3 getLoc3D(LLH loc, bool rad);
-//	glm::vec3 getGPULoc3D(LLH loc, bool rad);
+//	glm::dvec3 getLoc3D(LLD loc, bool rad);
+//	glm::vec3 getGPULoc3D(LLD loc, bool rad);
 //
 //	
 //private:
