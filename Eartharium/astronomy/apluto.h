@@ -1,6 +1,7 @@
 #pragma once
 #include "../config.h"
 #include "aconfig.h"
+#include "acoordinates.h"
 
 class APluto {
 public:

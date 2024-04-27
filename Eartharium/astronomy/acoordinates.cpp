@@ -27,7 +27,7 @@ double ACoord::rangemhalfpi2halfpi(double rad) { // snap radian value to -pi/2 t
 double ACoord::rangemninety2ninety(double deg) { // snap degree value to -90.0 to 90.0 range
 	double fResult = rangezero2threesixty(deg);
 	if (fResult > 1.5 * 180.0)
-		fResult = fResult - tau;
+		fResult = fResult - 360.0;
 	else if (fResult > 180.0)
 		fResult = 180.0 - fResult;
 	else if (fResult > 90.0)
@@ -262,7 +262,32 @@ LLD Spherical::Horizontal2Equatorial(double Azimuth, double Altitude, double Lat
 	}
 	return Equatorial;
 }
-
+LLD Spherical::Equatorial2Galactic(double Alpha, double Delta) noexcept {
+	// Meeus98 eqn 13.7
+	Alpha = (deg2rad * 192.25) - Alpha;
+	LLD Galactic;
+	const double cosAlpha = cos(Alpha);
+	const double sin274 = sin(deg2rad * 27.4);
+	const double cos274 = cos(deg2rad * 27.4);
+	Galactic.lon = atan2(sin(Alpha), (cosAlpha * sin274) - (tan(Delta) * cos274));
+	Galactic.lon = (deg2rad * 303.0) - Galactic.lon;
+	Galactic.lon = ACoord::rangezero2tau(Galactic.lon);
+	Galactic.lat = asin((sin(Delta) * sin274) + (cos(Delta) * cos274 * cosAlpha));
+	return Galactic;
+}
+LLD Spherical::Galactic2Equatorial(double l, double b) noexcept {
+	// Meeus98 eqn 13.8
+	l -= deg2rad * 123.0;
+	LLD Equatorial;
+	const double cosl = cos(l);
+	const double sin274 = sin(deg2rad * 27.4);
+	const double cos274 = cos(deg2rad * 27.4);
+	Equatorial.lon = atan2(sin(l), (cosl * sin274) - (tan(b) * cos274));
+	Equatorial.lon += deg2rad * 12.25;
+	Equatorial.lon = ACoord::rangezero2tau(Equatorial.lon);
+	Equatorial.lat = asin((sin(b) * sin274) + (cos(b) * cos274 * cosl));
+	return Equatorial;
+}
 
 double FK5::CorrectionInLongitude(double lon, double lat, double jd_tt) noexcept {
 	const double T{ (jd_tt - JD_2000) / JD_CENTURY };

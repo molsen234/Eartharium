@@ -1,0 +1,81 @@
+
+Astronomical Coordinate Transformations
+=======================================
+
+Frame types
+-----------
+Mean equator/ecliptic and equinox: precession is accounted for
+True equator/ecliptic and equinox: precession and nutation are accounted for
+
+
+Apparent position: Aberration (and sometimes speed of light) is accounted for (parallax?)
+Geometric position: where the object actually is located at the instant?
+
+Inertial means non-moving, non-rotating reference frame.
+Dynamic meand non-inertial. Mean dynamic has precession applied, true dynamic has precession and nutation applied.
+
+
+Coordinate types
+----------------
+Ecliptic: referenced to plane of Earth's orbit around the Sun and the northbound equinox
+Equatorial: referenced to plane of Earth's equator and the northbound equinox
+Topocentric: referenced to the observer position on the surface of Earth (or other body)
+
+Coordinate origins
+------------------
+Heliocentric:  centered on the center of mass of the Sun
+Barycentric:   centered on the center of mass of the solar system, i.e. the barycenter
+Geocentric:    centered on the center of mass of the Earth
+EMB:           (Earth-Moon Barycenter) centered on the center of mass of the Earth-Moon system
+Selenocentric: centered on the center of mass of the Moon
+Planetocentric:generic term, centered on the center of pass of a planet
+Areocentric:   centered on the center of mass of Mars
+
+Planetographic: These are coordinates based on ellipsoid surface normals, thus "down" does not point to the center of mass.
+
+Note: planetocentric coordinates are useful for celestial sphere positions,
+      planetographic are useful for observer positions (as they take the ellipsoid into account.)
+	  -detic coordinates are different from these two, look up details.
+
+
+Stellar Objects
+---------------
+Catalogue coordinates are as read from catalogue typically in geocentric equatorial coordinates
+True coordinates are catalogue coordinates with proper motion, precession and nutation applied
+The process of calculating the apparent position for an observer on Earth is as follows:
+- Read the catalogue coordinates and proper motion (typically in Equatorial coordinates RA,Dec)
+- Apply the proper motion to the retrieved coordinates
+- Precess the coordinates from catalogue epoch (typically J2000) to equator and equinox of date.
+- Apply nutation
+- Apply aberration
+- Optionally apply parallax (which is very tiny for stars) and transform to observer frame ?
+Note: With stellar objects, conventionally there is no light time compensation as the geometric position doesn't matter
+
+Solar System Objects
+--------------------
+Positions of solar system objects are typically calculated from an Ephemeris rather than read from a catalogue.
+The ephemeris can either be simple evaluations of conic section orbits, or of large tables of coefficients interpolating more complete physical models.
+
+For planets using the VSOP87 ephemeris, proceed as follows:
+- Calculate the Ecliptic coordinates via the ephemeris
+- Iterate until light time adjustments are below a chosen threshold
+- Apply ecliptic aberration
+- Apply FK5 correction
+- Apply nutation (in longitude)
+- Convert to Equatorial coordinates using obliquity of ecliptic (Mean or true?)
+- Optionally apply parallax and transform to observer coordinates (Topocentric, Alt/Az or otherwise)
+
+Note: One may wonder why stellar objects apply nutation before aberration while solar system objects do the opposite.
+      While the difference is small, it is worth while looking into this detail.
+
+Notes and quotes:
+-----------------
+"Mean Ecliptic and Equinox of Date Frames are closely related to mean equator and equinox of date frames: for a given body, the former is obtained by rotating the latter about the X-axis by the mean obliquity of date." [NAIF]
+
+
+
+
+
+
+References:
+[NAIF] https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/FORTRAN/req/frames.html

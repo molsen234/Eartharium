@@ -6,6 +6,7 @@
 #include "config.h"
 
 #include "astronomy/aconfig.h"
+#include "astronomy/acoordinates.h"
 #include "astronomy/datetime.h"
 
 // Protos
@@ -52,6 +53,19 @@ struct CelestialDetailFull {
 	double alt = 0.0;             // Apparent Light Time
 
 	double jd_tt = 0.0;           // JD in Terrestrial Time when the position was calculated
+
+	// Mostly for troubleshooting, and also serves as a key to the abbreviated member variable names
+	void print() {
+		std::cout << " True Heliocentric Ecliptic Spherical:     " << thecs.str_EC() << std::endl;
+		std::cout << " True Geocentric Ecliptic Rectangular:     " << tgecr.x << ", " << tgecr.y << ", " << tgecr.z << std::endl;
+		std::cout << " True Geocentric Ecliptic Spherical:       " << tgecs.str_EC() << std::endl;
+		std::cout << " True Geocentric Equatorial Spherical:     " << tgeqs.str_EQ() << std::endl;
+		std::cout << " Apparent Geocentric Ecliptic Spherical:   " << agecs.str_EC() << std::endl;
+		std::cout << " Apparent Geocentric Equatorial Spherical: " << ageqs.str_EQ() << std::endl;
+		std::cout << " True Light Time:                          " << tlt << std::endl;
+		std::cout << " Apparent Light Time:                      " << alt << std::endl;
+		std::cout << " Calculated at JD TT:                      " << jd_tt << std::endl;
+	}
 };
 
 // ---------------
@@ -242,9 +256,15 @@ public:
 	LLD getTrueDecRAbyName(const std::string starname, double jd_tt = NO_DOUBLE, bool rad = false);
 	//LLD calcTrueDecRa(const LLD decra, const double jd_tt = NO_DOUBLE, const double JD0 = JD_2000); // If no Epoch, assume J2000
 
+	// Lunar calculations
+	LLD MoonTrueEcliptic(double jd_tt, Lunar_Ephemeris eph = MEEUS_SHORT);
+	LLD MoonApparentEcliptic(double jd_tt, Lunar_Ephemeris eph = MEEUS_SHORT);
+	LLD MoonTrueEquatorial(double jd_tt, Lunar_Ephemeris eph = MEEUS_SHORT);
+
 	// Planetary calculations
 	unsigned int enablePlanet(size_t planet);
 	unsigned int disablePlanet(size_t planet);
+	LLD EclipticalCoordinates(double jd_tt, Planet planet, Ephemeris eph);
 	CelestialDetailFull planetaryDetails(double jd_tt, Planet planet, Ephemeris eph);
 	CelestialDetail getDetails2(double jd_tt, size_t planet, unsigned int type, bool hi);
 	CelestialDetail getDetails(double jd_tt, size_t planet, unsigned int type);

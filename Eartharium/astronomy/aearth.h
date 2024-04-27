@@ -19,14 +19,15 @@ public:
         const double T{ (jd_tt - JD_2000) / JD_CENTURY };
         const double T2{ T * T };
         const double T3{ T2 * T };
-        double value{ ACoord::rangezero2threesixty(357.5291092 + (35999.0502909 * T) - (0.0001536 * T2) + (T3 / 24490000)) };
+        double value{ ACoord::rangezero2threesixty(357.529'1092 + (35'999.050'2909 * T) - (0.000'1536 * T2) + (T3 / 24'490'000)) };
         return deg2rad * value;
     }
     static double Eccentricity(double jd_tt) noexcept {
         const double T{ (jd_tt - JD_2000) / JD_CENTURY };
         return 1 - (0.002516 * T) - (0.0000074 * T * T);  // not an angle
     }
-
+    // Precession
+    // 
     // Obliquity
     static double MeanObliquityOfEcliptic(double jd_tt);
     static double TrueObliquityOfEcliptic(double jd_tt);

@@ -12,6 +12,7 @@
 
 #include "Earth.h"
 #include "astronomy/acoordinates.h"
+//#include "astronomy/amoon.h"
 
 // ----------
 //  LocGroup
@@ -1612,32 +1613,16 @@ glm::vec3 DetailedEarth::getMoonGPLocation() {
     return getLoc3D(sublunar, true);
 }
 
-LLD DetailedEarth::calcMoon() {
+LLD DetailedEarth::calcMoon() {  // Gives same results as the previous AA+ v2.49 based function
     double currentJD = scene->astro->getJD_TT();
-    //std::cout << "JD TT/UTC: " << scene->astro->getJD_TT() << " / " << scene->astro->getJD_UTC() << "\n";
-    // Ecliptic Moon
-    double elon = CAAMoon::EclipticLongitude(currentJD);  // lambda in degrees
-    //double elon = CAAELP2000::EclipticLongitude(currentJD);  // lambda in degrees
-    double elat = CAAMoon::EclipticLatitude(currentJD);   // beta   in degrees
-    //double elat = CAAELP2000::EclipticLatitude(currentJD);   // beta   in degrees
-    // Celestial (equatorial) Moon
-    double Epsilon = CAANutation::TrueObliquityOfEcliptic(currentJD);
-    CAA2DCoordinate equa = CAACoordinateTransformation::Ecliptic2Equatorial(elon, elat, Epsilon);
-    double moonDist = CAAMoon::RadiusVector(currentJD); // RadiusVector() returns in km
-    double moonRA = hrs2rad * equa.X;
-    double moonDec = deg2rad * equa.Y;
-    // Hour angle - Should maybe have an Astronomy::calcRA2HA(double ra, bool rad=false)
+    LLD qmoon = scene->astro->MoonTrueEquatorial(currentJD, ELP_MPP02);
     double sidtime = scene->astro->ApparentGreenwichSiderealTime(NO_DOUBLE, true);
-    double moonHour = -moonRA + sidtime; // Gsid returns in radians now, so don't convert!
-    double w = cos(moonDec);
+    double moonHour = -qmoon.lon + sidtime;
+    double w = cos(qmoon.lat);
     MoonLightDir.x = (float)(cos(-moonHour) * w);
     MoonLightDir.y = (float)(sin(-moonHour) * w);
-    MoonLightDir.z = (float)(sin(moonDec));
-    LLD moongp = scene->astro->calcDecHA2GP({ moonDec, moonHour, 0.0 }, true);
-    //std::cout << "Moon GP: " << moongp.lat * rad2deg << ", " << moongp.lon * rad2deg << "\n";
-    //std::cout << "Moon Ecliptic Lon/Lat: " << scene->astro->angle2DMSstring(elon, false) << ", " << scene->astro->angle2DMSstring(elat, false) << "\n";
-    //std::cout << "Moon RA/Dec: " << scene->astro->angle2uHMSstring(moonRA, true) << ", " << scene->astro->angle2DMSstring(moonDec, true) << "\n";
-    //std::cout << "Apparent Sidereal time: " << scene->astro->angle2uHMSstring(sidtime, true) << "\n";
+    MoonLightDir.z = (float)(sin(qmoon.lat));
+    LLD moongp = scene->astro->calcDecHA2GP({ qmoon.lat, moonHour, 0.0 }, true);
     return moongp;
 }
 
@@ -1680,6 +1665,7 @@ bool DetailedEarth::update() {
 
     subsolar = scene->astro->calcDecHA2GP(scene->astro->getDecGHA(SUN, NO_DOUBLE, true), true);
     sublunar = calcMoon();
+    //std::cout << sublunar.str() << std::endl;
 
     //if (do_eccentriclight) { SunLightDir = getNml3D_EE(subsolar.lat, subsolar.lon, 0.0f); return; }
     SunLightDir = getNml3D_NS(subsolar, true);

@@ -112,7 +112,22 @@ LLD AProperMotion::EquatorialPMToEcliptic(double Alpha /*ra*/, double Delta /*de
 
 // Precession
 
+LLD APrecession::PrecessEquatorialJ2000(LLD decra, double jd_tt) {
+	// From PrecessEquatorial() by taking JD0 = JD_2000
+	const double t = (jd_tt - JD_2000) / 36525;
+	const double tsquared = t * t;
+	const double tcubed = tsquared * t;
+	const double sigma = deg2rad * dms2deg(0, 0, (2306.2181 * t) + (0.30188 * tsquared) + (0.017998 * tcubed));
+	const double zeta = deg2rad * dms2deg(0, 0, (2306.2181 * t) + (1.09468 * tsquared) + (0.018203 * tcubed));
+	const double phi = deg2rad * dms2deg(0, 0, (2004.3109 * t) - (0.42665 * tsquared) - (0.041833 * tcubed));
+	const double A = cos(decra.lat) * sin(decra.lon + sigma);
+	const double B = cos(phi) * cos(decra.lat) * cos(decra.lon + sigma) - sin(phi) * sin(decra.lat);
+	const double C = sin(phi) * cos(decra.lat) * cos(decra.lon + sigma) + cos(phi) * sin(decra.lat);
+	return { asin(C), atan2(A, B) + zeta, decra.dst };
+}
+
 LLD APrecession::PrecessEquatorial(double Alpha, double Delta, double JD0, double JD) noexcept {
+	// From AA+ CAAPrecession, modified to accept and return radians
 	const double T{ (JD0 - JD_2000) / JD_CENTURY };
 	const double Tsquared{ T * T };
 	const double t{ (JD - JD0) / JD_CENTURY };

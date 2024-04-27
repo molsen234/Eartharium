@@ -2,6 +2,7 @@
 
 #include "../config.h"
 #include "aconfig.h"
+#include "acoordinates.h"
 
 class AMars {
 public:

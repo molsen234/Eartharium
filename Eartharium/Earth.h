@@ -533,6 +533,7 @@ private:
 // Path of Earth's north pole on celestial sphere due to precession
 // - Might optionally have nutation
 // - 
+// !!! FIX: Use https://www.aanda.org/articles/aa/full_html/2011/10/aa17274-11/aa17274-11.html to get accurate precession over long periods
 class PrecessionPath : public SceneObject {
 public:
     PrecessionPath(Scene* scene, SceneObject* parent, BodyGeometry* geometry, float width = 0.003f, glm::vec4 color = GREEN);

@@ -22,6 +22,7 @@
 #include "astronomy/asaturn.h"
 #include "astronomy/auranus.h"
 #include "astronomy/aneptune.h"
+#include "astronomy/amoon.h"
 
 // Coordinate systems:
 //  + Heliocentric ecliptic = Ecliptic Latitude, Ecliptic Longitude, Radius Vector
@@ -654,7 +655,9 @@ void Astronomy::dumpCurrentTime(unsigned int frame) {
 }
 
 double Astronomy::ApparentGreenwichSiderealTime(double jd_utc, bool rad) noexcept {
+    if (jd_utc == NO_DOUBLE) jd_utc = getJD_UTC();
     double gsidtime = AEarth::ApparentGreenwichSiderealTime(jd_utc);
+    //std::cout << "Astronomy::ApparentGreenwichSiderealTime(" << jd_utc << "," << (rad ? "true" : "false") << ") gsidtime = " << gsidtime << std::endl;
     return rad ? gsidtime : rad2deg * gsidtime;
 }
 double Astronomy::MeanGreenwichSiderealTime(double jd_utc, bool rad) noexcept {
@@ -843,8 +846,8 @@ LLD Astronomy::PrecessDecRA(const LLD decra, const double jd_tt, const double JD
     // if debugging, create printable value
     //LLD value;
     //value.lon = atan2(A, B) + zeta;
-    //std::cout << "JD: " << JD << "Ra Dec : " << decra.lon << ", " << decra.lat << "->" << value.lon << ", " << value.lat << '\n';
     //value.lat = asin(C);
+    //std::cout << "JD: " << JD << "Ra Dec : " << decra.lon << ", " << decra.lat << "->" << value.lon << ", " << value.lat << '\n';
     //return value;
     return { asin(C), atan2(A, B) + zeta, 0.0 };
 }
@@ -852,7 +855,7 @@ LLD Astronomy::PrecessJ2000DecRA(const LLD decra, const double jd_tt) {  // ALWA
     // Precess the Equinox for a geocentric coordinate (catalogue with proper motion applied)
     // AA+: CAAPrecession::PrecessEquatorial()
     // MEEUS92: Chapter 21
-    // (Does NOT abberate)
+    // (Does NOT aberrate)
     // jd is desired Julian Day, default to current JD in relevant Astronomy object
     double JD = jd_tt == NO_DOUBLE ? getJD_TT() : jd_tt;
     if (JD == getJD_TT()) {  // If current time, use cached values
@@ -962,6 +965,33 @@ LLD Astronomy::getTrueDecRAbyName(const std::string starname, double jd_tt, bool
     return decra;
 }
 
+// Lunar calculations
+LLD Astronomy::MoonTrueEcliptic(double jd_tt, Lunar_Ephemeris eph) {
+    // !!! FIX: Maybe make JD optional, defaulting to current, and cache result
+    return AMoon::EclipticCoordinates(jd_tt, eph);
+}
+LLD Astronomy::MoonApparentEcliptic(double jd_tt, Lunar_Ephemeris eph) {
+    // !!! FIX: Maybe make JD optional, defaulting to current, and cache result
+    LLD moonpos{ 0.0, 0.0, 0.0 };
+    moonpos = AMoon::EclipticCoordinates(jd_tt, eph);
+
+    //moonpos += AEarth::EclipticAberration(moonpos.lon, moonpos.lat, jd_tt, VSOP87_FULL);
+    //moonpos += FK5::CorrectionInLonLat(moonpos, jd_tt);  // Convert to the FK5 system
+    moonpos.lon += AEarth::NutationInLongitude(jd_tt);
+    // According to Meeus, nutation is all that is required for MEEUS_SHORT, which is simply a short ELP2000, so same should apply to all?
+    return moonpos;
+}
+LLD Astronomy::MoonTrueEquatorial(double jd_tt, Lunar_Ephemeris eph) {
+    // Ecliptic Moon
+    LLD emoon = AMoon::EclipticCoordinates(jd_tt, eph);
+    //LLD emoon = MoonApparentEcliptic(jd_tt, eph);
+    //std::cout << emoon.str_EC() << std::endl;
+
+    // Equatorial Moon
+    double Epsilon = TrueObliquityOfEcliptic(jd_tt, true);
+    LLD qmoon = Spherical::Ecliptic2Equatorial(emoon, Epsilon, true);
+    return qmoon;
+}
 
 // Planetary calculations
 unsigned int Astronomy::enablePlanet(size_t planet) {
@@ -971,162 +1001,102 @@ unsigned int Astronomy::disablePlanet(size_t planet) {
     return --planet_refcnt[planet];
 }
 
-CelestialDetailFull Astronomy::planetaryDetails(double jd_tt, Planet planet, Ephemeris eph) {
-    // What will be the return value
-    CelestialDetailFull details;
-    const double prec_angle = 0.00001 * deg2rad;
-    const double prec_distance = 0.000001; // AU
-    // Calculate the position of the earth first
-    double JD0{ jd_tt };
-    LLD earth0{ AEarth::EclipticCoordinates(JD0, eph) };
-    const double cosB0{ cos(earth0.lat) };
-
-    // Iterate to find the positions adjusting for light-time correction if required
-    LLD pla{ 0.0, 0.0, 0.0 };       // target planet coordinates
-    LLD pla_prev{ 0.0, 0.0, 0.0 };  // previous planet coordinates, during iteration
-    if (planet != A_SUN)
-    {
-        bool bRecalc{ true };
-        bool bFirstRecalc{ true };
-        while (bRecalc)
-        {
-            switch (planet)
-            {
-            case A_MERCURY: {
-                pla = AMercury::EclipticCoordinates(JD0, eph);
-                break;
-            }
-            case A_VENUS: {
-                pla = AVenus::EclipticCoordinates(JD0, eph);
-                break;
-            }
-            case A_MARS: {
-                pla = AMars::EclipticCoordinates(JD0, eph);
-                break;
-            }
-            case A_JUPITER: {
-                pla = AJupiter::EclipticCoordinates(JD0, eph);
-                break;
-            }
-            case A_SATURN: {
-                pla = ASaturn::EclipticCoordinates(JD0, eph);
-                break;
-            }
-            case A_URANUS: {
-                pla = AUranus::EclipticCoordinates(JD0, eph);
-                break;
-            }
-            case A_NEPTUNE: {
-                pla = ANeptune::EclipticCoordinates(JD0, eph);
-                break;
-            }
-            default: {
-                std::cout << "Astronomy::planetaryDetails(): ERROR - Unknown planet id passed" << std::endl;
-                assert(false);
-                break;
-            }
-            }
-            bool bFirstCalc = false;
-            if (!bFirstRecalc) {
-                bRecalc = ((fabs(pla.lon - pla_prev.lon) > prec_angle)
-                        || (fabs(pla.lat - pla_prev.lat) > prec_angle)
-                        || (fabs(pla.dst - pla_prev.dst) > prec_distance));
-                pla_prev = pla;
-            }
-            else {
-                bFirstCalc = true;
-                bFirstRecalc = false;
-                details.thecs = pla;  // True Heliocentric Ecliptic Spherical coordinate of the planet
-            }
-            const double cosB{ cos(pla.lat) };
-            const double cosL{ cos(pla.lon) };
-            // !!! FIX: Hoist this to a spherical to rectangular conversion in acoordinates
-            const double x{ (pla.dst * cosB * cosL) - (earth0.dst * cosB0 * cos(earth0.lon)) };
-            const double y{ (pla.dst * cosB * sin(pla.lon)) - (earth0.dst * cosB0 * sin(earth0.lon)) };
-            const double z{ (pla.dst * sin(pla.lat)) - (earth0.dst * sin(earth0.lat)) };
-            const double distance{ sqrt((x * x) + (y * y) + (z * z)) };
-            if (bFirstCalc) {
-                details.tgecr.x = x;
-                details.tgecr.y = y;
-                details.tgecr.z = z;
-            }
-            //Prepare for the next loop around
-            if (bRecalc) JD0 = jd_tt - ACoord::DistanceToLightTime(distance);
+LLD Astronomy::EclipticalCoordinates(double jd_tt, Planet planet, Ephemeris eph) {
+    switch (planet) {
+        case A_MERCURY: return AMercury::EclipticCoordinates(jd_tt, eph);
+        case A_VENUS:   return AVenus::EclipticCoordinates(jd_tt, eph);
+        case A_MARS:    return AMars::EclipticCoordinates(jd_tt, eph);
+        case A_JUPITER: return AJupiter::EclipticCoordinates(jd_tt, eph);
+        case A_SATURN:  return ASaturn::EclipticCoordinates(jd_tt, eph);
+        case A_URANUS:  return AUranus::EclipticCoordinates(jd_tt, eph);
+        case A_NEPTUNE: return ANeptune::EclipticCoordinates(jd_tt, eph);
+        default: {
+            std::cout << "Astronomy::EclipticalCoordinates(): ERROR - Unknown planet id passed" << std::endl;
+            assert(false);
         }
     }
-    else { // planet == A_SUN
+}
+CelestialDetailFull Astronomy::planetaryDetails(double jd_tt, Planet planet, Ephemeris eph) {
+    // return value
+    CelestialDetailFull details;
+
+    // Precision parameters for Light Time compensation
+    const double prec_angle = 0.00001 * deg2rad;  // 0.00001 degrees = 36 mas (milli arc seconds)
+    const double prec_distance = 0.000001;        // AU
+
+    // Iterate to find the positions adjusting for light-time correction if required
+    double JD0{ jd_tt };            // jd modified during iteration
+    LLD pla{ 0.0, 0.0, 0.0 };       // target planet/sun coordinates
+    LLD pla_prev{ 0.0, 0.0, 0.0 };  // previous planet/sun coordinates, during iteration
+    glm::dvec3 tgecr_lt{ 0.0 };     // light time adjusted true geocentric ecliptical rectangular coordinates, output of light time iteration
+
+    if (planet != A_SUN) {
+        // Calculate the position of the earth first
+        const glm::dvec3 earth0_rect{ Spherical::Spherical2Rectangular(AEarth::EclipticCoordinates(JD0, eph)) };
+        // True Heliocentric ECliptical Spherical coordinates of the planet
+        pla = EclipticalCoordinates(JD0, planet, eph);
+        details.thecs = pla;
+        // True Geocentric ECliptical Rectangular coordinates of the planet
+        details.tgecr = Spherical::Spherical2Rectangular(pla) - earth0_rect;  // OK!
+        // Iterate to get Light Time corrected planet position
         bool bRecalc{ true };
-        bool bFirstRecalc{ true };
+        bool bFirst{ true };
         while (bRecalc) {
-            pla = AEarth::EclipticCoordinates(JD0, eph);
-            bool bFirstCalc = false;
-            if (!bFirstRecalc) {
-                bRecalc = ((fabs(pla.lon - pla_prev.lon) > prec_angle)
-                        || (fabs(pla.lat - pla_prev.lat) > prec_angle)
-                        || (fabs(pla.dst - pla_prev.dst) > prec_distance));
-                pla_prev = pla;
-            }
-            else {
-                bFirstCalc = true;
-                bFirstRecalc = false;
-            }
-            if (bFirstCalc) {
-                const double cosB{ cos(pla.lat) };
-                const double cosL{ cos(pla.lon) };
-                details.tgecr.x = -pla.dst * cosB * cosL;
-                details.tgecr.y = -pla.dst * cosB * sin(pla.lon);
-                details.tgecr.z = -pla.dst * sin(pla.lat);
-            }
+            //std::cout << "Calculating Planet Light Time compensation." << std::endl;
+            if (!bFirst) pla = EclipticalCoordinates(JD0, planet, eph); // For first run, use values calculated just above
+            bFirst = false;
+            bRecalc = ((fabs(pla.lon - pla_prev.lon) > prec_angle)
+                || (fabs(pla.lat - pla_prev.lat) > prec_angle)
+                || (fabs(pla.dst - pla_prev.dst) > prec_distance));
+            pla_prev = pla;
+            //Prepare for the next loop around
+            if (bRecalc) JD0 = jd_tt - ACoord::DistanceToLightTime(glm::length(Spherical::Spherical2Rectangular(pla) - earth0_rect));
+        }
+        tgecr_lt = Spherical::Spherical2Rectangular(pla) - earth0_rect;
+    }
+    else { // planet == A_SUN
+        // Note: True Heliocentric ECliptical Spherical coordinates are by definition 0.0,0.0,0.0
+        // True Geocentric ECliptical Spherical coordinates
+        pla = AEarth::EclipticCoordinates(JD0, eph);
+        details.tgecr = -Spherical::Spherical2Rectangular(pla);  // Sun's Geocentric coordinates are the inverse of Earth's Heliocentric coords
+        // Light Time compensated True Geocentric ECliptical Spherical coordinates
+        bool bRecalc{ true };  // Prime the while() loop
+        bool bFirst{ true };
+        while (bRecalc) {
+            if (!bFirst) pla = AEarth::EclipticCoordinates(JD0, eph);
+            bFirst = false;
+            bRecalc = ((fabs(pla.lon - pla_prev.lon) > prec_angle)
+                || (fabs(pla.lat - pla_prev.lat) > prec_angle)
+                || (fabs(pla.dst - pla_prev.dst) > prec_distance));
+            pla_prev = pla;
             //Prepare for the next loop around
             if (bRecalc) JD0 = jd_tt - ACoord::DistanceToLightTime(pla.dst);
         }
+        // Light Time compensated True Geocentric ECliptical Rectangular coordinates
+        tgecr_lt = -Spherical::Spherical2Rectangular(pla);
     }
-    double x{ 0 };
-    double y{ 0 };
-    double z{ 0 };
-    if (planet != A_SUN) {
-        const double cosB{ cos(pla.lat) };
-        const double cosL{ cos(pla.lon) };
-        x = (pla.dst * cosB * cosL) - (earth0.dst * cosB0 * cos(earth0.lon));
-        y = (pla.dst * cosB * sin(pla.lon)) - (earth0.dst * cosB0 * sin(earth0.lon));
-        z = (pla.dst * sin(pla.lat)) - (earth0.dst * sin(earth0.lat));
-    }
-    else {  // planet == A_SUN
-        const double cosB{ cos(pla.lat) };
-        const double cosL{ cos(pla.lon) };
-        x = -pla.dst * cosB * pla.lon;
-        y = -pla.dst * cosB * sin(pla.lon);
-        z = -pla.dst * sin(pla.lat);
-    }
-    double x2{ x * x };
-    double y2{ y * y };
-    // Apparent Geocentric ECliptical Spherical
-    details.agecs = { atan2(z, sqrt(x2 + y2)), sqrt(x2 + y2 + (z * z)), ACoord::rangezero2tau(atan2(y, x)) };
-    // Apparent Light Time
-    details.alt = ACoord::DistanceToLightTime(details.agecs.dst);
-    x2 = { details.tgecr.x * details.tgecr.x };
-    x2 = { details.tgecr.y * details.tgecr.y };
+
     // True Geocentric ECliptical Rectangular to True Geocentric ECliptical Spherical
-    details.tgecs = { atan2(details.tgecr.z, sqrt(x2 + y2)),
-                      ACoord::rangezero2tau(atan2(details.tgecr.y, details.tgecr.x)),
-                      sqrt(x2 + y2 + (details.tgecr.z * details.tgecr.z)) };
+    details.tgecs = Spherical::Rectangular2Spherical(details.tgecr);
     // True Light Time
     details.tlt = ACoord::DistanceToLightTime(details.tgecs.dst);
-    //Adjust for Aberration
+
+    // True -> Apparent Geocentric ECliptical Spherical (corrections below are all spherical)
+    // Use True Geocentric ECliptic Rectangular to get True Geocentric ECliptic Spherical
+    details.agecs = Spherical::Rectangular2Spherical(tgecr_lt);
     details.agecs += AEarth::EclipticAberration(details.agecs.lon, details.agecs.lat, jd_tt, eph);
-    //convert to the FK5 system
-    details.agecs += FK5::CorrectionInLonLat(details.agecs, jd_tt);
-    //Correct for nutation
+    details.agecs += FK5::CorrectionInLonLat(details.agecs, jd_tt);  // Convert to the FK5 system
     details.agecs.lon += AEarth::NutationInLongitude(jd_tt);
-    //Convert to RA and Dec
+    details.alt = ACoord::DistanceToLightTime(details.agecs.dst);  // Apparent Light Time
+    // Convert to RA and Dec
     const double epsilon = AEarth::TrueObliquityOfEcliptic(jd_tt);
-    // Apparent Geocentric Equatorial Spherical
-    details.ageqs = Spherical::Ecliptic2Equatorial(details.agecs, epsilon, true);
-    details.ageqs.dst = details.agecs.dst;  // Apparent Geocentric Distance
     // True Geocentric Equatorial Spherical
     details.tgeqs = Spherical::Ecliptic2Equatorial(details.tgecs, epsilon, true);
     details.tgeqs.dst = details.tgecs.dst;  // True Geocentric Distance
-
+    // Apparent Geocentric Equatorial Spherical
+    details.ageqs = Spherical::Ecliptic2Equatorial(details.agecs, epsilon, true);
+    details.ageqs.dst = details.agecs.dst;  // Apparent Geocentric Distance
+    details.jd_tt = jd_tt;
     return details;
 }
 
@@ -1639,7 +1609,7 @@ std::string Astronomy::angle2DMstring(double angle, bool rad) {
 std::string Astronomy::formatLatLon(double lat, double lon, bool rad) {
     std::string dstring;
     std::string slat = angle2uDMSstring(lat, rad);  // Unsigned version of angle to DMS string
-    std::string slon = angle2uDMSstring(lon, rad);  // ditto
+    std::string slon = angle2uDMSstring(lon, rad);  // ditto, because we do N/S and E/W below
     char buff[100];
     snprintf(buff, sizeof(buff), "%s%s , %s%s", lat >= 0.0 ? "N" : "S", slat.c_str(), lon >= 0.0 ? "E" : "W", slon.c_str());
     dstring = buff;

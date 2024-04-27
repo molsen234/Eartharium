@@ -1,5 +1,5 @@
 #include "ajupiter.h"
-#include "acoordinates.h"
+//#include "acoordinates.h"
 #include "vsop87/ajupiter_vsop87_short.h"
 #include "vsop87/ajupiter_vsop87_full.h"
 

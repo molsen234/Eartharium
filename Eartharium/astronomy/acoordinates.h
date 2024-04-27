@@ -3,6 +3,56 @@
 
 #include "../config.h"
 
+struct LLD {
+public:
+    double lat{ 0.0 };
+    double lon{ 0.0 };
+    double dst{ 0.0 };
+    void print() const {
+        std::cout << lat << "," << lon << ", " << dst << '\n';
+    }
+    std::string str() {
+        char buff[100];
+        snprintf(buff, sizeof(buff), "%03.9f,%03.9f,%03.9f", lat, lon, dst);
+        std::string dstring = buff;
+        return dstring;
+    }
+    std::string str_EQ() {  // Equatorial is Dec(deg), RA(hrs), dst(AU)
+        char buff[100];
+        //snprintf(buff, sizeof(buff), "%03.9f,%03.9f,%03.9f", rad2deg * lat, rad2hrs * lon, dst);
+        snprintf(buff, sizeof(buff), "%03.14f,%03.14f,%03.14f", rad2deg * lat, rad2hrs * lon, dst);
+        std::string dstring = buff;
+        return dstring;
+    }
+    std::string str_EC() {  // Equatorial is Dec(deg), RA(hrs), dst(AU)
+        char buff[100];
+        //snprintf(buff, sizeof(buff), "%03.9f,%03.9f,%03.9f", rad2deg * lat, rad2deg * lon, dst);
+        snprintf(buff, sizeof(buff), "%03.14f,%03.14f,%03.14f", rad2deg * lat, rad2deg * lon, dst);
+        std::string dstring = buff;
+        return dstring;
+    }
+    bool operator==(LLD& other) {
+        return (lat == other.lat && lon == other.lon && dst == other.dst);
+    }
+    LLD& operator+=(LLD& other) {
+        lat += other.lat;
+        lon += other.lon;
+        dst += other.dst;
+        return *this;
+    }
+    LLD& operator+=(LLD other) {
+        lat += other.lat;
+        lon += other.lon;
+        dst += other.dst;
+        return *this;
+    }
+    friend std::ostream& operator<<(std::ostream& os, LLD& lld) {
+        os << "Lat,Lon,Dst: " << lld.lat << "," << lld.lon << "," << lld.dst;
+        return os;
+    }
+};
+
+//using XYZ = glm::dvec3;
 class ACoord {
 public:
 	static double secs2deg(double seconds);
@@ -31,14 +81,27 @@ class AAngularSeparation { // !!! FIX: Move to Spherical ?
 class Spherical {
 	// !!! FIX: Maybe add the angle functions from CAAAngularSeparation etc.
 public:
-
 	static LLD Equatorial2Ecliptic(double Alpha, double Delta, double Epsilon, bool rad = false) noexcept;
 	static LLD Equatorial2Ecliptic(LLD latlon, double Epsilon, bool rad = false) noexcept;
 	static LLD Ecliptic2Equatorial(double Lambda, double Beta, double Epsilon, bool rad = false) noexcept;
 	static LLD Ecliptic2Equatorial(LLD decra, double Epsilon, bool rad = false) noexcept;
 	static LLD Equatorial2Horizontal(double LocalHourAngle, double Delta, double Latitude, bool rad = false) noexcept;
 	static LLD Horizontal2Equatorial(double Azimuth, double Altitude, double Latitude, bool rad = false) noexcept;
-	// There are also Galactic conversions in AACoordinateTransformation
+    static LLD Equatorial2Galactic(double Alpha, double Delta) noexcept;
+    static LLD Galactic2Equatorial(double l, double b) noexcept;
+
+    static glm::dvec3 Spherical2Rectangular(LLD spherical) {  // defined in .h to incourage inlining
+        const double cosB = cos(spherical.lat);
+        const double cosL = cos(spherical.lon);
+        return { spherical.dst * cosB * cosL, spherical.dst * cosB * sin(spherical.lon), spherical.dst * sin(spherical.lat) };
+    }
+    static LLD Rectangular2Spherical(glm::dvec3 rectangular) {  // defined in .h to incourage inlining
+        const double x2{ rectangular.x * rectangular.x };
+        const double y2{ rectangular.y * rectangular.y };
+        return { atan2(rectangular.z, sqrt(x2 + y2)),
+                  ACoord::rangezero2tau(atan2(rectangular.y, rectangular.x)),
+                  sqrt(x2 + y2 + (rectangular.z * rectangular.z)) };
+    }
 };
 
 class FK5 {

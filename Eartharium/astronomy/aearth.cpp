@@ -392,13 +392,13 @@ LLD AEarth::EclipticAberration(const double Lambda, const double Beta, const dou
     const double T{ (jd_tt - JD_2000) / JD_CENTURY };
     const double Tsquared{ T * T };
     const double e{ 0.016708634 - (0.000042037 * T) - (0.0000001267 * Tsquared) };
-    double pi{ deg2rad * (102.93735 + (1.71946 * T) + (0.00046 * Tsquared)) };
+    double Pi{ deg2rad * (102.93735 + (1.71946 * T) + (0.00046 * Tsquared)) };
     constexpr double k{ 20.49552 };
     double SunLongitude{ ASun::GeometricEclipticLongitude(jd_tt, eph) }; // radians
 
     LLD aberration;
-    aberration.lon = (-k * cos(SunLongitude - Lambda) + e * k * cos(pi - Lambda)) / cos(Beta) / 3600;
-    aberration.lat = -k * sin(Beta) * (sin(SunLongitude - Lambda) - e * sin(pi - Lambda)) / 3600;
+    aberration.lon = deg2rad * ((-k * cos(SunLongitude - Lambda) + e * k * cos(Pi - Lambda)) / cos(Beta)) / 3600;
+    aberration.lat = deg2rad * (-k * sin(Beta) * (sin(SunLongitude - Lambda) - e * sin(Pi - Lambda))) / 3600;
 
     return aberration;
 }

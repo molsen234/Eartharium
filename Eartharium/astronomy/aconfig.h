@@ -32,6 +32,11 @@ enum ELPMPP02_Correction {
 	ELPMPP02_DE406
 };
 
+enum APrecession_Model {
+	MEEUS,
+	IAU2006
+};
+
 // !!! FIX: These refraction enums could be named better. Give it a good think.
 enum Fwd_Refraction {
 	// True -> Apparent

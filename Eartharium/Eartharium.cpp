@@ -100,6 +100,245 @@ void TimeGetDetails(Application& app) {
     std::cout << "RA/Dec: " << rad2hrs * old.geq.lon << ", " << rad2deg * old.geq.lat << "\n";
 }
 
+#include "AAplus/AAElliptical.h"
+void testPlanetaryDetail(Application& app) {
+
+    // Mars - 2024-04-08 12:00 UTC
+
+    // My library (converted from AA+ to always use radians)
+    Astronomy* astro = app.newAstronomy();
+    astro->setTime(2024, 4, 8.0, 12.0, 0.0, 0.0);
+    std::cout << "\n\nMARS " << astro->timestr << " - MDO Library" << std::endl;
+    CelestialDetailFull details = astro->planetaryDetails(astro->getJD_TT(), A_MARS, VSOP87_FULL);
+    details.print();
+    std::cout << std::endl;
+
+    // AA+ - P.J.Naughter
+    std::cout << "MARS - AA+ v2.49 - P.J.Naughter" << std::endl;
+    CAAEllipticalPlanetaryDetails aaplus = CAAElliptical::Calculate(astro->getJD_TT(), CAAElliptical::Object::MARS, true);
+    std::cout << " True Heliocentric Ecliptic Spherical:    "
+        << aaplus.TrueHeliocentricEclipticalLatitude << ","
+        << aaplus.TrueHeliocentricEclipticalLongitude << ","
+        << aaplus.TrueHeliocentricDistance << std::endl;
+
+    std::cout << " True Geocentric Ecliptic Rectangular:     "
+        << aaplus.TrueGeocentricRectangularEcliptical.X << ","
+        << aaplus.TrueGeocentricRectangularEcliptical.Y << ","
+        << aaplus.TrueGeocentricRectangularEcliptical.Z << std::endl;
+
+    std::cout << " True Geocentric Ecliptic Spherical:       "
+        << aaplus.TrueGeocentricEclipticalLatitude << ","
+        << aaplus.TrueGeocentricEclipticalLongitude << ","
+        << aaplus.TrueGeocentricDistance << std::endl;
+
+    std::cout << " True Geocentric Equatorial Spherical:     "
+        << aaplus.TrueGeocentricDeclination << ","
+        << aaplus.TrueGeocentricRA << ","
+        << aaplus.TrueGeocentricDistance << std::endl;
+
+    std::cout << " Apparent Geocentric Ecliptic Spherical:   "
+        << aaplus.ApparentGeocentricEclipticalLatitude << ","
+        << aaplus.ApparentGeocentricEclipticalLongitude << ","
+        << aaplus.ApparentGeocentricDistance << std::endl;
+
+    std::cout << " Apparent Geocentric Equatorial Spherical: "
+        << aaplus.ApparentGeocentricDeclination << ","
+        << aaplus.ApparentGeocentricRA << ","
+        << aaplus.ApparentGeocentricDistance << std::endl;
+
+    // Sun - 2024-04-08 12:00 UTC
+
+    // Astronomy::planetaryDetails() - M.D.Olsen
+    std::cout << "\n\nSUN " << astro->timestr << " - MDO Library" << std::endl;
+    details = astro->planetaryDetails(astro->getJD_TT(), A_SUN, VSOP87_FULL);
+    details.print();
+    std::cout << std::endl;
+
+    // AA+ - P.J.Naughter
+    std::cout << "SUN - AA+ v2.49 - P.J.Naughter" << std::endl;
+    aaplus = CAAElliptical::Calculate(astro->getJD_TT(), CAAElliptical::Object::SUN, true);
+    std::cout << " True Heliocentric Ecliptic Spherical:     "
+        << aaplus.TrueHeliocentricEclipticalLatitude << ","
+        << aaplus.TrueHeliocentricEclipticalLongitude << ","
+        << aaplus.TrueHeliocentricDistance << std::endl;
+
+    std::cout << " True Geocentric Ecliptic Rectangular:     "
+        << aaplus.TrueGeocentricRectangularEcliptical.X << ","
+        << aaplus.TrueGeocentricRectangularEcliptical.Y << ","
+        << aaplus.TrueGeocentricRectangularEcliptical.Z << std::endl;
+
+    std::cout << " True Geocentric Ecliptic Spherical:       "
+        << aaplus.TrueGeocentricEclipticalLatitude << ","
+        << aaplus.TrueGeocentricEclipticalLongitude << ","
+        << aaplus.TrueGeocentricDistance << std::endl;
+
+    std::cout << " True Geocentric Equatorial Spherical:     "
+        << aaplus.TrueGeocentricDeclination << ","
+        << aaplus.TrueGeocentricRA << ","
+        << aaplus.TrueGeocentricDistance << std::endl;
+
+    std::cout << " Apparent Geocentric Ecliptic Spherical:   "
+        << aaplus.ApparentGeocentricEclipticalLatitude << ","
+        << aaplus.ApparentGeocentricEclipticalLongitude << ","
+        << aaplus.ApparentGeocentricDistance << std::endl;
+
+    std::cout << " Apparent Geocentric Equatorial Spherical: "
+        << aaplus.ApparentGeocentricDeclination << ","
+        << aaplus.ApparentGeocentricRA << ","
+        << aaplus.ApparentGeocentricDistance << std::endl;
+
+
+    //// Time the two functions to verify cost of the refactor
+    //auto start = std::chrono::high_resolution_clock::now();
+    //auto stop = std::chrono::high_resolution_clock::now();
+    //CelestialDetailFull old1;
+    //CAAEllipticalPlanetaryDetails old2;
+    //double count = 10000; // 100'000;
+    //double i = 0;
+    //
+    //// AA+ v2.49
+    //start = std::chrono::high_resolution_clock::now();
+    //for (i = 0; i < count; i++) {
+    //    old2 = CAAElliptical::Calculate(astro->getJD_TT(), CAAElliptical::Object::MARS, true);
+    //}
+    //stop = std::chrono::high_resolution_clock::now();
+    //std::cout << "CAAElliptical::Calculate() Time in us:  " << std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count() << '\n';
+    //
+    //// Astronomy (MDO)
+    //start = std::chrono::high_resolution_clock::now();
+    //for (i = 0; i < count; i++) {
+    //    old1 = astro->planetaryDetails(astro->getJD_TT(), A_MARS, VSOP87_FULL);
+    //}
+    //stop = std::chrono::high_resolution_clock::now();
+    //std::cout << "Astronomy::planetaryDetail() Time in us:  " << std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count() << '\n';
+}
+
+#include "astronomy/amoon.h"
+#include "astronomy/astars.h"  // for precession 
+#include "AAplus/AAMoon.h"
+#include "AAplus/AAELP2000.h"
+#include "AAplus/AAELPMPP02.h"
+
+void testLunarPosition(Application& app) {
+    // Moon - 2024-04-08 12:00 UTC
+
+    // My library (converted from AA+ to always use radians)
+    Astronomy* astro = app.newAstronomy();
+    //astro->setTime(2024, 4, 8.0, 12.0, 0.0, 0.0);
+    //astro->setTime(1992, 4, 12.0, 0.0, 0.0, 0.0);
+    astro->setJD_UTC(2448724.5);
+    double jd_tt = astro->getJD_TT();
+    //double jd_tt = 2448724.5;
+
+    // True Geocentric Ecliptic Spherical coordinates
+    LLD meeusa1 = AMoon::EclipticCoordinates(jd_tt, MEEUS_SHORT);
+    LLD meeusb1 = astro->MoonApparentEcliptic(jd_tt, MEEUS_SHORT);
+    LLD elp2ka1 = AMoon::EclipticCoordinates(jd_tt, ELP2000_82);
+    LLD elp2kb1 = astro->MoonTrueEcliptic(jd_tt, ELP2000_82);
+    LLD elp2kc1 = AELP2000::EclipticCoordinates(jd_tt);
+    LLD mpp02a1 = AMoon::EclipticCoordinates(jd_tt, ELP_MPP02);
+    LLD mpp02b1 = astro->MoonTrueEcliptic(jd_tt, ELP_MPP02);
+    glm::dvec3 mrect = AELP2000::EclipticRectangularCoordinates(jd_tt);
+    glm::dvec3 mrfk5 = AELP2000::EquatorialRectangularCoordinatesFK5(jd_tt);
+    LLD mfk5 = Spherical::Rectangular2Spherical(mrfk5);
+    LLD mdate = APrecession::PrecessEquatorialJ2000(mfk5, jd_tt);
+
+    std::cout << "\n\nMOON " << astro->timestr << " -> jd_tt: " << jd_tt << " - MDO Library" << std::endl;
+    std::cout << "Ephemeris coordinates: " << std::endl;
+    std::cout << " MDO Meeus Short: " << meeusa1.str_EC() << " - " << astro->angle2DMSstring(meeusa1.lat, true) << "," << astro->angle2uDMSstring(meeusa1.lon, true) << std::endl;
+    std::cout << " MDO ELP2000-82:  " << elp2ka1.str_EC() << " - " << astro->angle2DMSstring(elp2ka1.lat, true) << "," << astro->angle2uDMSstring(elp2ka1.lon, true) << std::endl;
+    std::cout << " LLD ELP2000-82:  " << elp2kc1.str_EC() << " - " << astro->angle2DMSstring(elp2kc1.lat, true) << "," << astro->angle2uDMSstring(elp2kc1.lon, true) << std::endl;
+    std::cout << " MDO ELP2000-82 Rectangular:  " << mrect.x << "," << mrect.y << "," << mrect.z << std::endl;
+    std::cout << " MDO ELP2000-82 EQ FK5@J2000: " << mrfk5.x << "," << mrfk5.y << "," << mrfk5.z << std::endl;
+    std::cout << " MDO ELP2000-82 FK5@J2000: " << mfk5.str_EC() << " - " << astro->angle2DMSstring(mfk5.lat, true) << "," << astro->angle2uHMSstring(mfk5.lon, true) << std::endl;
+    std::cout << " MDO ELP2000-82 FK5@date: " << mdate.str_EC() << " - " << astro->angle2DMSstring(mdate.lat, true) << "," << astro->angle2uHMSstring(mdate.lon, true) << std::endl;
+    std::cout << " MDO ELPMPP02:    " << mpp02a1.str_EC() << " - " << astro->angle2DMSstring(mpp02a1.lat, true) << "," << astro->angle2uDMSstring(mpp02a1.lon, true) << std::endl;
+    std::cout << std::endl;
+
+
+    // AA+ - P.J.Naughter
+    std::cout << "MOON - AA+ v2.49 - P.J.Naughter" << std::endl;
+    std::cout << "Ephemeris coordinates: " << std::endl;
+    std::cout << " AA+ Meeus Short: "
+        << CAAMoon::EclipticLatitude(jd_tt) << ","
+        << CAAMoon::EclipticLongitude(jd_tt) << ","
+        << CAAMoon::RadiusVector(jd_tt) << std::endl;
+    std::cout << " AA+ ELP2000-82:  "
+        << CAAELP2000::EclipticLatitude(jd_tt) << ","
+        << CAAELP2000::EclipticLongitude(jd_tt) << ","
+        << CAAELP2000::RadiusVector(jd_tt) << std::endl;
+    CAA3DCoordinate rect{ CAAELP2000::EclipticRectangularCoordinates(jd_tt) };
+    std::cout << " AA+ ELP2000-82 Rectangular: " << rect.X << "," << rect.Y << "," << rect.Z << std::endl;
+    CAA3DCoordinate rfk5{ CAAELP2000::EquatorialRectangularCoordinatesFK5(jd_tt) };
+    std::cout << " AA+ ELP2000-82 EQ Rect FK5: " << rfk5.X << "," << rfk5.Y << "," << rfk5.Z << std::endl;
+    LLD sfk5 = Spherical::Rectangular2Spherical({ rfk5.X, rfk5.Y, rfk5.Z });
+    std::cout << " LLD ELP2000-82 FK5: " << sfk5.str_EC() << " - " << astro->angle2DMSstring(sfk5.lat, true) << "," << astro->angle2uHMSstring(sfk5.lon, true) << std::endl;
+    std::cout << " AA+ ELPMPP02:    "
+        << CAAELPMPP02::EclipticLatitude(jd_tt) << ","
+        << CAAELPMPP02::EclipticLongitude(jd_tt) << ","
+        << CAAELPMPP02::RadiusVector(jd_tt) << std::endl;
+
+    // NOTE: When comparing the above to Stellarium, the following facts are important:
+    //       1) Stellarium displays and takes JD in UTC!
+    //       2) Switch off topocentric coordinates!
+    //       3) Switch off atmosphere!
+    //       4) Switch off aberration.
+    //       5) Meeus Short returns Ecliptic of date directly.
+    //       6) ELP2000_82 returns FK5 @J2000 when using EquatorialRectangularCoordinatesFK5()
+    astro->setJD_UTC(JD_2000);
+    std::cout << "\n\n J2000.0 UTC: " << astro->getJD_UTC() << " TT: " << astro->getJD_TT() << std::endl;
+}
+
+
+void testDetailedEarth(Application& app) {
+    Astronomy* astro = app.newAstronomy();
+    astro->setTime(2024, 4, 8.0, 18.0, 40.0, 0.0);
+    //std::cout << astro.getTimeString() << std::endl;
+    Scene* scene = app.newScene();
+    scene->astro = astro;
+    Camera* cam = scene->w_camera; // Pick up default camera
+    app.currentCam = cam;          // Bind camera to keyboard updates
+    RenderLayer3D* layer = app.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, nullptr);
+    text->setFont(app.m_font2);
+    text->setAstronomy(astro);
+    RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    gui->addLayer3D(layer, "EarthView");
+
+    DetailedEarth* erf = new DetailedEarth(scene, nullptr, "NSAE", 180, 90, 1.0f);
+    app.currentEarth2 = erf;
+    erf->w_twilight = false;
+    //erf->addEquator();
+    //erf->addPrimeMeridian();
+    //erf->addArcticCircles();
+    //erf->removeArcticCircles();
+    //erf->addTropicCircles();
+    erf->addSunGP();
+    erf->sungp->setRadius(0.1f);
+    //erf->position = { 0.0f, 0.5f, 0.0f };
+    //erf->addGrid(15.0);
+    //erf->addCelestialSphere();
+    //erf->celestialgrid->setSpacing(24);
+    //erf->gridOb->setColor(LIGHT_GREY);
+    //erf->addEcliptic();
+    erf->addMoonGP();
+    erf->moongp->setRadius(0.1f);
+
+    while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
+    {
+        if (app.anim) {
+            //astro->setTimeNow();
+            astro->addTime(0.0, 0.0, 4.0, 0.0);
+            //astro->addTime(0.0, 0.0, 0.0, 31558149.504); // Sidereal year in seconds
+        }
+
+        //app.anim = false; // Nice for single step action. <space> will set app.anim in app.render, and we get back here one frame later.
+        app.render();
+    }
+
+}
+
+
 
 // Application is a global container for all the rest
 Application app = Application();  // New global after refactor
@@ -129,8 +368,9 @@ void IdleArea(Application& myapp) {
 
         myapp.render();
     }
-
 }
+
+
 
 // -------------------------------------
 //  Python scripting module definitions
@@ -169,7 +409,7 @@ PYBIND11_EMBEDDED_MODULE(eartharium, m) {
         .def_readwrite("z", &glm::vec4::z)
         .def_readwrite("w", &glm::vec4::w)
         ;
-    py::class_<ImFont>(m, "Font") // "Stolen" from https://toscode.gitee.com/lilingTG/bimpy/blob/master/bimpy.cpp it has lots of ImGui .def's
+    py::class_<ImFont>(m, "Font") // From https://toscode.gitee.com/lilingTG/bimpy/blob/master/bimpy.cpp it has lots of ImGui .def's
         .def(py::init())
         ;
     py::class_<EDateTime>(m, "EDateTime")
@@ -465,7 +705,10 @@ int main(int argc, char** argv) {
     // but requires a recompile for every change. Python scripts can simply be saved after changes, and Eartharium can be run again.
     
     // Call scenario
-    TimeGetDetails(app);
+    //TimeGetDetails(app);
+    //testPlanetaryDetail(app);
+    testLunarPosition(app);
+    //testDetailedEarth(app);
 
     // Cleanup - Move this to cleanup function in Application.
     glfwTerminate();

@@ -92,43 +92,6 @@ enum itemtype {
     NONE = maxuint,
 };
 
-struct LLD {
-public:
-    double lat{ 0.0 };
-    double lon{ 0.0 };
-    double dst{ 0.0 };
-    void print() const {
-        std::cout << lat << "," << lon << ", " << dst << '\n';
-    }
-    std::string str() {
-        char buff[100];
-        snprintf(buff, sizeof(buff), "%03.9f,%03.9f,%03.9f", lat, lon, dst);
-        std::string dstring = buff;
-        return dstring;
-    }
-    bool operator==(LLD& other) {
-        return (lat == other.lat && lon == other.lon && dst == other.dst);
-    }
-    LLD& operator+=(LLD& other) {
-        lat += other.lat;
-        lon += other.lon;
-        dst += other.dst;
-        return *this;
-    }
-    LLD& operator+=(LLD other) {
-        lat += other.lat;
-        lon += other.lon;
-        dst += other.dst;
-        return *this;
-    }
-    friend std::ostream& operator<<(std::ostream& os, LLD& llh) {
-        os << "Lat,Lon,Dst: " << llh.lat << "," << llh.lon << "," << llh.dst;
-        return os;
-    }
-};
-
-//using XYZ = glm::dvec3;
-
 // Camera movement via keyboard - These limits are used in Eartharium.cpp:keyboard_callback() for GLFW
 #define CAMERA_MAX_DIST 100.0f
 #define CAMERA_MIN_DIST 2.0f
@@ -230,15 +193,15 @@ const double pi2 = pi / 2.0;
 const float pi2f = pif / 2.0f;
 const double pi4 = pi / 4.0;
 const float pi4f = pif / 4.0f;
-const double twopi = 2 / pi;
-const double deg2rad = tau / 360.0;
+const double twopi = 2.0 / pi;
+const double deg2rad = tau / 360.0;          // 0.017453292519943295769236907684886
 const float deg2radf = tauf / 360.0f;
-const double rad2deg = 360.0 / tau;
+const double rad2deg = 360.0 / tau;          // 57.295779513082320876798154814105
 const float rad2degf = 360.0f / tauf;
 const double hrs2deg = 15.0;
 const double deg2hrs = 1.0 / 15.0;
-const double rad2hrs = 24.0 / tau;
-const double hrs2rad = tau / 24.0;
+const double rad2hrs = 24.0 / tau;           // 3.8197186342054880584532103209403
+const double hrs2rad = tau / 24.0;           // 0.26179938779914943653855361527329
 const double ninety = deg2rad * 89.99999;    // Used to avoid singularity at poles
 const double tiny = 0.00001;                 // Used to determine practically zero
 const double verytiny = 0.0000001;           // even closer to zero
@@ -248,14 +211,18 @@ const double maxdouble = DBL_MAX;
 // Astronomical constants
 // For FK5
 const double JD_2000 = 2451545.0;             // Standard Epoch J2000 in Julian Day
-const double JD_UNIX = 2440587.5;             // Unix epoch 1970-01-01 00:00:00
-const double FIRST_LEAP_SECOND_JD = 2437300.5; // 1961 Jan 1, first entry in Leap Second Table
-const double LAST_LEAP_SECOND_JD = 2457754.5;  // 2017, currently last entry in Leap Second Table
-const double JD_CENTURY = 36525.0;
-const double JD_MILLENNIUM = 365250.0;
 // For FK4
 const double JD_B1950 = 2415020.3135;
 const double JD_TROPICAL_CENTURY = 36524.2199;
+// For period calculations
+const double JD_CENTURY = 36525.0;
+const double JD_MILLENNIUM = 365250.0;
+// For deltaT lookups
+const double FIRST_LEAP_SECOND_JD = 2437300.5; // 1961 Jan 1, first entry in Leap Second Table
+const double LAST_LEAP_SECOND_JD = 2457754.5;  // 2017, currently last entry in Leap Second Table
+// UNIX epoch, used when converting timestamps
+const double JD_UNIX = 2440587.5;             // Unix epoch 1970-01-01 00:00:00
+// Earth parameters
 const double earthradius = 6371.008;           // Earth average radius in kilometers
 const double earthradiusm = 6371008;           // Earth average radius in meters
 //const double earthaxialtilt = 23.439281;     // degrees (2007 wikipedia). Value changes over time, as Earth axis wobbles
