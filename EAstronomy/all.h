@@ -1,0 +1,23 @@
+#pragma once
+
+// These are all the includes for using the library, i.e. leaving out the long table includes.
+#include "aconfig.h"
+#include "acoordinates.h"
+#include "datetime.h"
+#include "aasteroids.h"
+#include "aellipsoids.h"
+#include "aelliptical.h"
+#include "aorbits.h"
+#include "asun.h"
+#include "amercury.h"
+#include "avenus.h"
+#include "aearth.h"
+#include "amoon.h"
+#include "amars.h"
+#include "ajupiter.h"
+#include "asaturn.h"
+#include "auranus.h"
+#include "aneptune.h"
+#include "apluto.h"
+//#include "vsop87/vsop87.h"
+//#include "config.h"

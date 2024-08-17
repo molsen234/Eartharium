@@ -1,18 +1,12 @@
 
-//#include <glm/gtc/quaternion.hpp>
-//#include <glm/gtx/quaternion.hpp>
 
 #include <glm/gtx/rotate_vector.hpp>     // Rotation matrices for glm
 
-// These are still used for Moon calculations
-#include "AAplus/AANutation.h"
-#include "AAplus/AAMoon.h"
-#include "AAplus/AAPhysicalMoon.h"
-#include "AAplus/AAELP2000.h"
-
 #include "Earth.h"
-#include "astronomy/acoordinates.h"
-//#include "astronomy/amoon.h"
+//#include "Renderer.h"
+
+//  #include "astronomy/aearth.h"
+//  #include "astronomy/amoon.h"
 
 // ----------
 //  LocGroup
@@ -525,16 +519,16 @@ glm::vec3 BodyGeometry::getNml3D_ER(const LLD loc, const bool rad) {
 //void update() override;
 // createShape() might get tri and vert vectors if rendering is done in SceneObject or elsewhere - decide in constructor
 void BodyGeometry::createShape() {    // Creates the mesh geometry, should probably only be called once at creation
-    double lat, lon;
     // Build mesh from bottom left to top right, meridian by meridian
+    LLD latlon{};
     for (unsigned int v = 0; v <= m_meshV; v++) {  // -pi/2 to pi/2 => (v/m_meshV)*pi -pi/2
-        lat = (pi * v / m_meshV) - pi2;
+        latlon.lat = (pi * v / m_meshV) - pi2;
         for (unsigned int u = 0; u <= m_meshU; u++) {
-            lon = (tau * u / m_meshU) - pi;
+            latlon.lon = (tau * u / m_meshU) - pi;
             //lon = (pi * u / m_meshU) - pi;
-            glm::vec3 loc = getLoc3D({ lat, lon, 0.0 }, true);     // position of vertex
-            glm::vec3 nms = getNml3D_NS({ lat, lon }, true);  // Insolation normal, always NS (or G8?)
-            glm::vec3 nml = getNml3D({ lat, lon }, true);     // Geometry normal, for camera lighting
+            glm::vec3 loc = getLoc3D(latlon, true);     // position of vertex
+            glm::vec3 nms = getNml3D_NS(latlon, true);  // Insolation normal, always NS (or G8?)
+            glm::vec3 nml = getNml3D(latlon, true);     // Geometry normal, for camera lighting
             vertices.push_back({ loc, nms, nml, glm::vec2(u / (float)(m_meshU) + texoffset_x / 8192.0f, v / (float)m_meshV) + texoffset_y / 4096.0f, BLACK });
             //vertices.push_back({ loc, nms, nml, glm::vec2(u / (float)(m_meshU*2) + texoffset_x / 8192.0f, v / (float)m_meshV) + texoffset_y / 4096.0f, BLACK });
             if (u < m_meshU && v < m_meshV) {
@@ -547,15 +541,15 @@ void BodyGeometry::createShape() {    // Creates the mesh geometry, should proba
 void BodyGeometry::updateShape() {    // Updates the mesh geometry, called when tex offset, mode or morph param change
     if (!dirty_geometry) return;
     unsigned int i = 0;
-    double lat, lon;
+    LLD latlon;
     // Update mesh from bottom left to top right, meridian by meridian
     for (unsigned int v = 0; v <= m_meshV; v++) {
-        lat = (pi * v / m_meshV) - pi2;
+        latlon.lat = (pi * v / m_meshV) - pi2;
         for (unsigned int u = 0; u <= m_meshU; u++) {
-            lon = (tau * u / m_meshU) - pi;
+            latlon.lon = (tau * u / m_meshU) - pi;
             //lon = (pi * u / m_meshU) - pi;
-            vertices[i].position = getLoc3D({ lat, lon, 0.0 }, true);
-            vertices[i].surface_normal = getNml3D({ lat, lon }, true);
+            vertices[i].position = getLoc3D(latlon, true);
+            vertices[i].surface_normal = getNml3D(latlon, true);
             // NOTE: This is only partial separation between geometry and insolation, maybe a more general approach will be good
             //       e.g. to show how wrong it looks to have flat Earth insolation on a globe, etc.
             //if (do_eccentriclight) vertices[i].normal_i = getNml3D_EE(lat, lon, 0.0f);
@@ -685,10 +679,14 @@ void Longitude::setWidth(float width) {
 }
 void Longitude::generate() {
     path->clearPoints();
+    LLD latlon{};
     glm::vec3 pos{ 0.0f };
     // A longitude does not encounter an edge in any geometries, so SmartPath will have no splits
+    latlon.lon = lon;
+    latlon.dst = 0.0;
     for (double lat = -pi2; lat <= pi2+verytiny; lat += deg2rad) {
-        pos = (locref->*locpos)({ lat, lon, 0.0 }, true); // Dynamically calls earth->getLoc3D() (Earth2::getLoc3D())
+        latlon.lat = lat;
+        pos = (locref->*locpos)(latlon, true); // Dynamically calls earth->getLoc3D() (Earth2::getLoc3D())
         path->addPoint(pos);
     }
 }
@@ -729,8 +727,12 @@ void Latitude::generate() {
     path->clearPoints();
     // FIX: Might run to < pi instead of <= pi, and add starting point to end (lat, -pi) to ensure closed path
     // UPD: Latitude is not a closed path on some geometries (e.g. ER)
+    LLD latlon{};
+    latlon.lat = lat;
+    latlon.dst = 0.0;
     for (double lon = -pi; lon <= pi; lon += deg2rad) {
-        pos = (locref->*locpos)({ lat, lon, 0.0 }, true);
+        latlon.lon = lon;
+        pos = (locref->*locpos)(latlon, true);
         path->addPoint(pos);
     }
 }
@@ -908,15 +910,17 @@ void SmallCircle::generate() { // Generate by drawing circle around north pole a
     double const cz = cos(zangle);
     double const sz = sin(zangle);
     double const lz = sin(pi2 - radius);
+    LLD latlon{};
+    latlon.dst = location.dst;
     for (double angle = -pi; angle <= pi; angle += stepsize) {
         double lx = cos(pi2 - radius) * cos(angle);
         double ly = cos(pi2 - radius) * sin(angle);
         double l2x = lx * cy + lz * sy;
         double l3x = l2x * cz - ly * sz;
         double l3y = l2x * sz + ly * cz;
-        double lat = atan2(-lx * sy + lz * cy, sqrt(l3x * l3x + l3y * l3y));
-        double lon = atan2(l3y, l3x);
-        pos = (locref->*locpos)({ lat, lon, location.dst }, true); // Dynamically calls earth->getLoc3D() (Earth2::getLoc3D())
+        latlon.lat = atan2(-lx * sy + lz * cy, sqrt(l3x * l3x + l3y * l3y));
+        latlon.lon = atan2(l3y, l3x);
+        pos = (locref->*locpos)(latlon, true); // Dynamically calls earth->getLoc3D() (Earth2::getLoc3D())
         path->addPoint(pos);
     }
     path->generate();
@@ -993,10 +997,7 @@ LLD GreatCircleArc::calcGreatArc(const LLD lld1, const LLD lld2, const double f,
     ret.lon = atan2(y, x);
     // On the poles longitude is undefined, setting to 0.0. Except, it ruins paths passing straight over the pole. !!!
     //if (abs(ret.lat) == pi2) ret.lon = 0.0;
-    if (!rad) {
-        ret.lat *= rad2deg;
-        ret.lon *= rad2deg;
-    }
+    if (!rad) ret *= rad2deg;
     return ret;
 }
 void GreatCircleArc::findSplitPoint() {
@@ -1006,9 +1007,10 @@ void GreatCircleArc::findSplitPoint() {
     if (std::abs(det - 180.0) < tiny) {
         std::cout << "GreatCircleArc::findSplitPoint(): Crossing Pole! det=" << det - 180.0 << '\n';
         // The below might not work, see comments about poles in GreatCircleArc::calcGreatArc()
-        double split_lon = (end_point.lon - start_point.lon) / 2;
-        if (det < 0.0) split_point = { -90.0, split_lon, 0.0 }; // south pole
-        else split_point = { 90.0, split_lon, 0.0 }; // north pole
+        split_point.lon = (end_point.lon - start_point.lon) / 2;
+        split_point.dst = 0.0;
+        if (det < 0.0) split_point.lat = -90.0;  // south pole
+        else split_point.lat = 90.0;             // north pole
         return;
     }
     // Check for dateline seam crossing
@@ -1019,7 +1021,7 @@ void GreatCircleArc::findSplitPoint() {
 
 void GreatCircleArc::generate() {
     glm::vec3 pos{ 0.0f };
-    LLD loc{ 0.0, 0.0, 0.0 };
+    LLD loc{ };
     //std::cout << start_point << " " << split_point << " " << end_point << '\n';
     if (split_point == end_point) { // There is no split
         for (double t = 0.0; t <= 1.0; t += 1.0 / steps) {
@@ -1328,19 +1330,19 @@ void Ecliptic::generate() {
     if (start_eclip_lon < 0.0) start_eclip_lon += tau;
     //std::cout << start_eclip_lon << '\n';
     for (double lon = start_eclip_lon; lon <= tau; lon += deg2rad) {
-        gpos = scene->astro->calcEc2Geo(0.0, lon, epsilon, true);
-        tpos = scene->astro->calcDecRA2GP(gpos, NO_DOUBLE, true);
+        gpos = scene->astro->calcEc2Geo(0.0, lon, epsilon);
+        tpos = scene->astro->calcDecRA2GP(gpos, NO_DOUBLE);
         pos = (locref->*locpos)(tpos, true);
         path->addPoint(pos);
     }
     for (double lon = 0.0; lon <= start_eclip_lon; lon += deg2rad) {
-        gpos = scene->astro->calcEc2Geo(0.0, lon, epsilon, true);
-        tpos = scene->astro->calcDecRA2GP(gpos, NO_DOUBLE, true);
+        gpos = scene->astro->calcEc2Geo(0.0, lon, epsilon);
+        tpos = scene->astro->calcDecRA2GP(gpos, NO_DOUBLE);
         pos = (locref->*locpos)(tpos, true);
         path->addPoint(pos);
     }
-    gpos = scene->astro->calcEc2Geo(0.0, start_eclip_lon-tiny, epsilon, true);
-    tpos = scene->astro->calcDecRA2GP(gpos, NO_DOUBLE, true);
+    gpos = scene->astro->calcEc2Geo(0.0, start_eclip_lon-tiny, epsilon);
+    tpos = scene->astro->calcDecRA2GP(gpos, NO_DOUBLE);
     pos = (locref->*locpos)(tpos, true);
     path->addPoint(pos);
 }
@@ -1372,13 +1374,33 @@ void PrecessionPath::setWidth(float width) {
 void PrecessionPath::generate() {
     path->clearPoints();
     EDateTime* time = new EDateTime();
-    time->setTime(-2000, 1, 1.0, 0.0, 0.0, 0.0);
-    LLD decra{ 0.0, 0.0, 0.0 };
+    //time->setTime(-2000, 1, 1.0, 0.0, 0.0, 0.0);
+    LLD decra{ };
     glm::vec3 pos{ 0.0f, 0.0f, 0.0f };
     for (int year = -26000; year < 26000; year += 50) {
         time->setTime(year, 1, 1.0, 0.0, 0.0, 0.0);
-        decra = scene->astro->PrecessJ2000DecRA({ pi2, 0.0, 0.0 }, time->jd_tt());
-        pos = (locref->*locpos)(decra, true);
+        decra = scene->astro->PrecessJ2000DecRA({ pi2, 0.0, 0.0 }, time->jd_tt()); // precess pole
+        //pos = (locref->*locpos)(decra, true);
+        pos = AEarth::EquatorialPoleVondrak(time->jd_tt());  // Most of the precession is in the equatorial pole
+        //pos = AEarth::EclipticPoleVondrak(time->jd_tt());  // Most of the precession is in the equatorial pole
+        // Convert to spherical
+        LLD spos{};
+        double diag = sqrt(pos.x * pos.x + pos.y * pos.y);
+        // atan2 is a bit sensitive at the poles
+        if (diag < 0.0000001 && pos.z + tiny > 1.0) {
+            spos.lat = pi2;
+            spos.lon = 0.0;
+        }
+        else if (diag < 0.0000001 && pos.z - tiny < -1.0) {
+            spos.lat = -pi2;
+            spos.lon = 0.0;
+        }
+        else {
+            spos.lat = atan2(pos.z, diag);
+            spos.lon = atan2(pos.y, pos.x);
+        }
+        spos.dst = 0.0;  // glm::length(pos);
+        pos = (locref->*locpos)(spos, true);
         path->addPoint(pos);
     }
 }
@@ -1430,7 +1452,7 @@ void DetailedSky::addGridEquatorial() {
     equatorialgrid->addLongitude(0.0);
     equatorialgrid->addLatitude(0.0);
     equatorialgrid->setColor(PURPLE);
-
+    equatorialgrid->setWidth(0.005f);
 }
 void DetailedSky::addGridEcliptic() {
     eclipticgrid = new Grid(scene, this, this, "EclipticGrid");
@@ -1441,6 +1463,7 @@ void DetailedSky::addGridEcliptic() {
     eclipticgrid->addLongitude(0.0);
     eclipticgrid->addLatitude(0.0);
     eclipticgrid->setColor(GREEN);
+    eclipticgrid->setWidth(0.005f);
 }
 void DetailedSky::addEcliptic() {
     ecliptic = new Ecliptic(scene, this, this, NO_FLOAT, GREEN);
@@ -1467,7 +1490,15 @@ void DetailedSky::addStar(size_t unique, Astronomy::stellarobject& star) {
     glm::vec4 color{ (float)star.red, (float)star.green, (float)star.blue, 1.0f};
     size_t index = skydotsFactory->addXYZ(getDecRA2Pos3D(starpos), color, size); // Split out for readability
     //size_t index = skydotsFactory->addXYZ(getLoc3D(starpos, true), color, size); // Split out for readability
-    skydotDefs.push_back({ unique, color, { star.dec, star.ra, 0.0 }, {star.pm_dec,star.pm_ra, 0.0}, size, index });
+    LLD stardecra{};
+    stardecra.lat = star.dec;
+    stardecra.lon = star.ra;
+    stardecra.dst = 0.0;
+    LLD starpm{};
+    starpm.lat = star.pm_dec;
+    starpm.lon = star.pm_ra;
+    starpm.dst = 0.0;
+    skydotDefs.push_back({ unique, color, stardecra, starpm, size, index });
     return; // skydotDefs.size() - 1;
 }
 void DetailedSky::addDotDecRA(size_t unique, double dec, double ra, glm::vec4 color, float size, bool rad) {
@@ -1475,9 +1506,17 @@ void DetailedSky::addDotDecRA(size_t unique, double dec, double ra, glm::vec4 co
         dec *= deg2rad;
         ra *= deg2rad;
     }
-    size_t index = skydotsFactory->addXYZ(getDecRA2Pos3D({ dec, ra, 0.0 }), color, size); // Split out for readability
+    LLD pos{};
+    pos.lat = dec;
+    pos.lon = ra;
+    pos.dst = 0.0;
+    size_t index = skydotsFactory->addXYZ(getDecRA2Pos3D(pos), color, size); // Split out for readability
     //size_t index = skydotsFactory->addXYZ(getLoc3D({ dec, ra, 0.0 }, true), color, size); // Split out for readability
-    skydotDefs.push_back({ unique, color, { dec, ra, 0.0 }, {0.0,0.0, 0.0}, size, index });
+    LLD nullpos{};
+    nullpos.lat = 0.0;
+    nullpos.lon = 0.0;
+    nullpos.dst = 0.0;
+    skydotDefs.push_back({ unique, color, pos, nullpos, size, index });
     return;
 }
 glm::vec3 DetailedSky::getDecRA2Pos3D(LLD decra) { // Input MUST be radians !!!
@@ -1558,7 +1597,7 @@ LLD DetailedSky::fromLocalCoords(LLD loc, const bool rad) {
         myloc.lon *= deg2rad;
     }
     // !!! FIX: Include Sidereal Time, using siderealtime boolean flag !!!
-    myloc.lon = clampmPitoPi(myloc.lon);
+    myloc.lon = ACoord::rangempi2pi(myloc.lon);
     if (myloc.lon < 0.0) myloc.lon = myloc.lon + tau;
     if (!rad) {
         myloc.lat *= rad2deg;
@@ -1598,7 +1637,7 @@ void DetailedEarth::addSunGP() { // Maybe return the SunGP* so user can access d
 glm::vec3 DetailedEarth::getSunGPLocation() {
     //LLD sunpos = m_scene->astro->getDecRA(SUN);   // Only returns degrees, not radians? Test to see. Looks like only radians, no degrees.
     //std::cout << m_scene->astro->formatDecRA(sunpos.lat, sunpos.lon, true) << '\n';
-    //sunpos = m_scene->astro->calcDecRA2GP(sunpos, m_scene->astro->getJD_UTC(), true);
+    //sunpos = m_scene->astro->calcDecRA2GP(sunpos, m_scene->astro->getJD_UTC());
     // subsolar happens to already be calculated for insolation, so using that.
     // Does this need to be available outside the class? I.e. could addSunGP() and update()/updateSunGP() just use subsolar directly?
     //std::cout << "SunGP: " << subsolar.lat << ", " << subsolar.lon << "\n";
@@ -1622,7 +1661,7 @@ LLD DetailedEarth::calcMoon() {  // Gives same results as the previous AA+ v2.49
     MoonLightDir.x = (float)(cos(-moonHour) * w);
     MoonLightDir.y = (float)(sin(-moonHour) * w);
     MoonLightDir.z = (float)(sin(qmoon.lat));
-    LLD moongp = scene->astro->calcDecHA2GP({ qmoon.lat, moonHour, 0.0 }, true);
+    LLD moongp = scene->astro->calcDecHA2GP({ qmoon.lat, moonHour, 0.0 });
     return moongp;
 }
 
@@ -1663,7 +1702,7 @@ bool DetailedEarth::update() {
 
     updateShape();  // Update actual geometry provided by BodyGeometry
 
-    subsolar = scene->astro->calcDecHA2GP(scene->astro->getDecGHA(SUN, NO_DOUBLE, true), true);
+    subsolar = scene->astro->calcDecHA2GP(scene->astro->getDecGHA(A_SUN, NO_DOUBLE));
     sublunar = calcMoon();
     //std::cout << sublunar.str() << std::endl;
 
@@ -1845,26 +1884,26 @@ bool DetailedMoon::update() {
     double currentJD = scene->astro->getJD_TT();
     double rotY = 0.0, rotZ = 0.0, rotX = 0.0;
 
-    CAAPhysicalMoonDetails libration;
+    APhysicalMoonDetails libration;
     // Earth Moon distance
-    double moonDist = CAAMoon::RadiusVector(currentJD); // RadiusVector() returns in km - seems consistently 40km low for Jan 2023.
+    double moonDist = AMoon::RadiusVector(currentJD); // RadiusVector() returns in km - seems consistently 40km low for Jan 2023.
     if (gui_geocentric) {
         // Verify against: https://lamid58.blogspot.com/2019/09/lunar-libration.html
         // Lunar Libration for current month: https://www.lunarphasepro.com/the-moon-this-month/
         // Note, above are without Position Angle of axis. bool DetailedMoon::gui_positionangle can turn that on (true) or off (false)
-        libration = CAAPhysicalMoon::CalculateGeocentric(currentJD);
+        libration = AMoon::CalculateGeocentric(currentJD);
     }
     else {
         // Maybe work out the exact value? OR just ignore it, the difference is 2% in apparent size
         // In addition to the geocentric radius (chapter 11 in Meeus I think, CAAGlobe2),
         // the orientation angle Observer-EarthCenter-Moon must be used.
         moonDist -= earthradius;
-        libration = CAAPhysicalMoon::CalculateTopocentric(currentJD, topoLon * rad2deg, topoLat * rad2deg);
+        libration = AMoon::CalculateTopocentric(currentJD, topoLon, topoLat);
         // Is the parallactic angle (Chapter 14) included in libration.P ?
     }
-    if (gui_librationlatitude) rotY = libration.b * deg2rad;
-    if (gui_librationlongitude) rotZ = libration.l * deg2rad;
-    if (gui_positionangle) rotX = libration.P * deg2rad;
+    if (gui_librationlatitude) rotY = libration.b;
+    if (gui_librationlongitude) rotZ = libration.l;
+    if (gui_positionangle) rotX = libration.P;
     //std::cout << "Libration: " << libration.l << "," << libration.b << '\n';
 
     // Adjust camera distance so the size of the Moon shows correctly (e.g. supermoon)
@@ -1875,9 +1914,9 @@ bool DetailedMoon::update() {
     //          but illustrative enough to implement it?
     m_camDist = (float)moonDist * radius / (float)moonradius;
     // Selenographic position of the Sun (use for rendering terminator in shader)
-    CAASelenographicMoonDetails selsun = CAAPhysicalMoon::CalculateSelenographicPositionOfSun(currentJD,/* bHighPrecision */ true);
-    SunLightDir = getNml3D_NS({ selsun.b0, selsun.l0 }, false);   // Used for insolation in shader
-    sunDir = { getLoc3D({ selsun.b0, selsun.l0 }, false), 1.0f }; // Used for Sun location dot, which is morph dependent
+    ASelenographicMoonDetails selsun = AMoon::CalculateSelenographicPositionOfSun(currentJD, ELP2000_82);
+    SunLightDir = getNml3D_NS({ selsun.b0, selsun.l0 }, true);   // Used for insolation in shader
+    sunDir = { getLoc3D({ selsun.b0, selsun.l0 }, true), 1.0f }; // Used for Sun location dot, which is morph dependent
 
     //worldmatrix = glm::rotate(worldmatrix, (float)rotX, glm::vec3(1.0f, 0.0f, 0.0f));
     //worldmatrix = glm::rotate(worldmatrix, (float)rotY, glm::vec3(0.0f, 1.0f, 0.0f));
@@ -2593,14 +2632,10 @@ glm::vec3 Earth::getNml3D_E8(double rLat, double rLon, double height) {
     // - General Normal of Ellipsoid from Latitude & Longitude
     //   (ref. https://math.stackexchange.com/questions/2974280/normal-vector-to-ellisoid-surface)
     //   (lat,lon) = (cos(lat)*cos(lon)/a, cos(lat)*sin(lon)/b, sin(lat)*c) 
+    glm::vec3 nml = getLoc3D_E8(rLat, rLon, 0.0f);
     double a = 6378137.0f;     // Semimajor axis
     double f = 298.257223563f; // inverse flattening
     double b = a - a / f;      // Semiminor axis
-    //glm::vec3 nml;
-    //nml.x = cos(rLat) * cos(rLon) / a;
-    //nml.y = cos(rLat) * sin(rLon) / a;
-    //nml.z = sin(rLat) * b;
-    glm::vec3 nml = getLoc3D_E8(rLat, rLon, 0.0f);
     nml.x /= (float)(a * a);
     nml.y /= (float)(a * a);
     nml.z /= (float)(b * b);
@@ -2639,8 +2674,8 @@ glm::vec3 Earth::getNml3D_E7(double rLat, double rLon, double height) {
     nml.z /= (float)(b * b);
     return glm::normalize(nml);
 }
-LLD Earth::calcHADec2LatLon(LLD radec, bool rad) {
-    return m_scene->astro->calcDecHA2GP(radec, rad);
+LLD Earth::calcHADec2LatLon(LLD radec) {
+    return m_scene->astro->calcDecHA2GP(radec);
     //// Map HA [0 ; pi) -> [0 ; -pi) and [pi ; tau) -> [pi ; 0)
     //if (!rad) {
     //    radec.lat *= deg2rad;
@@ -2658,11 +2693,8 @@ glm::vec3 Earth::calcHADec2Dir(LLD radec) {
     radec = calcHADec2LatLon(radec);
     return getLoc3D(radec.lat, radec.lon, 0.0);
 }
-LLD Earth::calcRADec2LatLon(LLD radec, double jd_utc, bool rad) { // Needs JD as UTC
-    return m_scene->astro->calcDecRA2GP(radec, jd_utc, rad);
-    //if (jd_utc == NO_DOUBLE) // jd was not specified, so go with current time
-    //    return calcHADec2LatLon({ radec.lat, rad ? (m_scene->astro->ApparentGreenwichSiderealTime() - radec.lon) : (rad2deg * m_scene->astro->ApparentGreenwichSiderealTime() - radec.lon), 0.0 }, rad);
-    //return calcHADec2LatLon({ radec.lat, rad ? (m_scene->astro->ApparentGreenwichSiderealTime(jd_utc) - radec.lon) : (rad2deg * m_scene->astro->ApparentGreenwichSiderealTime(jd_utc) - radec.lon), 0.0 }, rad);
+LLD Earth::calcRADec2LatLon(LLD radec, double jd_utc) { // Needs JD as UTC
+    return m_scene->astro->calcDecRA2GP(radec, jd_utc);
 }
 LLD Earth::getXYZtoLLD_NS(glm::vec3 pos) {
     // NOTE: Gives height above Center of Earth, not height above Surface!! (i.e. geocentric, not topocentric)
@@ -2692,7 +2724,7 @@ double Earth::calcSunSemiDiameter(double jd_tt) {
     // Sun semidiameter in arc minutes as apparent from Earth - should it support radians too? Add when required.
     if (jd_tt == NO_DOUBLE) jd_tt = m_scene->astro->getJD_TT();
     // 955.63 from CAADiameters::SunSemidiameterA()
-    return (959.63 / m_scene->astro->getEcDst(EARTH, jd_tt)) / 60.0;
+    return (959.63 / m_scene->astro->getEcDst(A_EARTH, jd_tt)) / 60.0;
 }
 double Earth::calcRefractionAlmanac(double elevation, double temperature, double pressure) {
     // returns refraction correction in arcminutes. Takes elevation in degrees, temperature in Celcius (centigrade), pressure in hPa (mbar)
@@ -2786,25 +2818,25 @@ LLD Earth::getSextantLoc(size_t index) {
 
 LLD Earth::getSun(double jd) {
     // If jd == 0 get Sun GHA,Dec for current JD, else get Sun for provided JD - handled in getDecGHA()
-    return m_scene->astro->getDecGHA(SUN, jd, true);
+    return m_scene->astro->getDecGHA(A_SUN, jd);
 }
-LLD Earth::getSubsolar(double jd, bool rad) {
-    return calcHADec2LatLon(m_scene->astro->getDecGHA(SUN, jd, rad), rad);
+LLD Earth::getSubsolar(double jd) {
+    return calcHADec2LatLon(m_scene->astro->getDecGHA(A_SUN, jd));
 }
-LLD Earth::getPlanet(size_t planet, double jd, bool rad) {
-    return m_scene->astro->getDecGHA(planet, jd, rad);
+LLD Earth::getPlanet(Planet planet, double jd) {
+    return m_scene->astro->getDecGHA(planet, jd);
 }
 void Earth::CalcMoon() {
     double currentJD = m_scene->astro->getJD_TT();
     if (m_moonJD == currentJD) return;
-    double elon = CAAMoon::EclipticLongitude(currentJD);  // lambda
-    double elat = CAAMoon::EclipticLatitude(currentJD);   // beta
-    double Epsilon = CAANutation::TrueObliquityOfEcliptic(currentJD);
-    CAA2DCoordinate equa = CAACoordinateTransformation::Ecliptic2Equatorial(elon, elat, Epsilon);
-    m_moonDist = CAAMoon::RadiusVector(currentJD); // RadiusVector() returns in km
-    m_moonRA = hrs2rad * equa.X;
-    m_moonDec = deg2rad * equa.Y;
-    m_moonHour = m_moonRA - m_scene->astro->ApparentGreenwichSiderealTime(NO_DOUBLE, true); // Gsid returns in radians now, so don't convert!
+    double elon = AMoon::EclipticLongitude(currentJD);  // lambda
+    double elat = AMoon::EclipticLatitude(currentJD);   // beta
+    double Epsilon = AEarth::TrueObliquityOfEcliptic(currentJD);
+    LLD equa = Spherical::Ecliptic2Equatorial2(elon, elat, Epsilon);
+    m_moonDist = AMoon::RadiusVector(currentJD); // RadiusVector() returns in km
+    m_moonRA = equa.lon;
+    m_moonDec = equa.lat;
+    m_moonHour = m_moonRA - m_scene->astro->ApparentGreenwichSiderealTime(NO_DOUBLE, true);
     double w = cos(m_moonDec);
     MoonLightDir.x = (float)(cos(m_moonHour) * w);
     MoonLightDir.y = (float)(sin(m_moonHour) * w);
@@ -2819,11 +2851,11 @@ LLD Earth::CalcMoonJD(double jd_utc) {
     // NOTE: Returns position of Moon at JD, does NOT update m_moon*
     //double gsidtime = CAASidereal::ApparentGreenwichSiderealTime(jd_utc); // Nonstd JD, don't just pick from World
     double gsidtime = rad2hrs * m_scene->astro->ApparentGreenwichSiderealTime(jd_utc, true); // Nonstd JD, don't just pick from World
-    double elon = CAAMoon::EclipticLongitude(EDateTime::getJDUTC2TT(jd_utc));  // lambda
-    double elat = CAAMoon::EclipticLatitude(EDateTime::getJDUTC2TT(jd_utc));   // beta
-    double Epsilon = CAANutation::TrueObliquityOfEcliptic(EDateTime::getJDUTC2TT(jd_utc));
-    CAA2DCoordinate equa = CAACoordinateTransformation::Ecliptic2Equatorial(elon, elat, Epsilon);
-    return { deg2rad * equa.Y, hrs2rad * (equa.X - gsidtime), m_moonDist }; // m_moonDist?
+    double elon = AMoon::EclipticLongitude(EDateTime::getJDUTC2TT(jd_utc));  // lambda
+    double elat = AMoon::EclipticLatitude(EDateTime::getJDUTC2TT(jd_utc));   // beta
+    double Epsilon = AEarth::TrueObliquityOfEcliptic(EDateTime::getJDUTC2TT(jd_utc));
+    LLD equa = Spherical::Ecliptic2Equatorial2(elon, elat, Epsilon);
+    return { equa.lat, equa.lon - gsidtime, m_moonDist }; // m_moonDist?
 }
 size_t Earth::addDot(double lat, double lon, double height, float size, glm::vec4 color, bool radians) {
     if (!radians) {
@@ -2848,7 +2880,7 @@ void Earth::deleteDot(size_t index) {
 }
 size_t Earth::addFirstPointAries() {
     double lon = -m_scene->astro->ApparentGreenwichSiderealTime(NO_DOUBLE, true);
-    lon = clampmPitoPi(lon);
+    lon = ACoord::rangempi2pi(lon);
     glm::vec3 pos = getLoc3D(0.0, lon, 0.0);
     size_t index = m_dots->addXYZ(pos, GREEN, 0.01f);
     m_dotcache.push_back({ GREEN, 0.0, lon, 0.0, 0.01f, index });
@@ -2856,7 +2888,7 @@ size_t Earth::addFirstPointAries() {
 }
 void Earth::updateFirstPointAries(size_t index) {
     double lon = -m_scene->astro->ApparentGreenwichSiderealTime(NO_DOUBLE, true);
-    lon = clampmPitoPi(lon);
+    lon = ACoord::rangempi2pi(lon);
     m_dotcache[index].lon = lon;
     glm::vec3 pos = getLoc3D(0.0, lon, 0.0);
     m_dots->changeXYZ(m_dotcache[index].index, pos, m_dotcache[index].color, m_dotcache[index].size);
@@ -2894,7 +2926,7 @@ void Earth::updateArrow3DTrueSun(arrowcache& ar) {
 }
 void Earth::addLunarUmbraCone() {
     const double radiusdiff = moonradius - sunradius;
-    LLD sun = m_scene->astro->getDecGHA(SUN, NO_DOUBLE, true);
+    LLD sun = m_scene->astro->getDecGHA(A_SUN, NO_DOUBLE);
     glm::vec3 sunpos = getLoc3D_NS(sun.lat, sun.lon, sun.dst);
     glm::vec3 moonpos = getLoc3D_NS(m_moonDec, m_moonHour, m_moonDist);
     glm::vec3 conedir = sunpos - moonpos;
@@ -2909,7 +2941,7 @@ void Earth::addLunarUmbraCone() {
 void Earth::addUmbraCone() {
     // Interesting: https://oldblog.erikras.com/2011/12/16/how-big-is-the-earths-shadow-on-the-moon
     const float shadowlen = 219.5f; // Shadow cone length in Earth radii
-    LLD sun = m_scene->astro->getDecGHA(SUN, NO_DOUBLE, true); // sun.dst = 0.0
+    LLD sun = m_scene->astro->getDecGHA(A_SUN, NO_DOUBLE); // sun.dst = 0.0
     if (sun.lon < pi) sun.lon = -sun.lon;
     else sun.lon = tau - sun.lon; // subsolar.lon is now -pi to pi east of south
     glm::vec3 sunpos = getLoc3D_NS(sun.lat, sun.lon, sun.dst);
@@ -2920,7 +2952,7 @@ void Earth::addUmbraCone() {
 glm::vec3 Earth::getSubsolarXYZ(double jd_utc) {
     if (jd_utc == 0.0) return flatSun;
     if (jd_utc == m_jd_utc) return flatSun;
-    LLD mysun = m_scene->astro->getDecGHA(SUN, EDateTime::getJDUTC2TT(jd_utc), true); // subsolar.lon is west of south, 0 to tau
+    LLD mysun = m_scene->astro->getDecGHA(A_SUN, EDateTime::getJDUTC2TT(jd_utc)); // subsolar.lon is west of south, 0 to tau
     if (mysun.lon < pi) mysun.lon = -mysun.lon;
     else mysun.lon = tau - mysun.lon;                          // subsolar.lon is now -pi to pi east of south
     return getLoc3D(mysun.lat, mysun.lon, m_flatsunheight / earthradius);
@@ -3026,10 +3058,10 @@ void Earth::updateSublunarPoint() {
     if (moon_lon < pi) moon_lon = -moon_lon;
     else moon_lon = tau - moon_lon;                          // moon_lon is now -pi to pi east of south
 
-    LLD testmoon = m_scene->astro->calcDecHA2GP(LLD{ m_moonDec, -m_moonHour, 0.0 }, true);
+    LLD testmoon = m_scene->astro->calcDecHA2GP(LLD{ m_moonDec, -m_moonHour, 0.0 });
     //m_moonob->Update(getLoc3D(m_moonDec, moon_lon, m_flatsunheight / earthradius));
     m_moonob->Update(getLoc3D(testmoon.lat, testmoon.lon, m_flatsunheight / earthradius));
-    m_moonob->Update(glm::vec3(0.0,0.0,0.0));
+    //m_moonob->Update(glm::vec3(0.0,0.0,0.0));
     //std::cout << "Sublunar point : " << m_moonDec << ", " << moon_lon << "\n";
     //std::cout << "Sublunar LLD : " << testmoon.lat << ", " << testmoon.lon << "\n";
 }
@@ -3086,7 +3118,7 @@ void Earth::addSunSectors(float width, glm::vec4 color, double degrees) {
     // 
     // NOTE: Add refraction flag? No, this indicates how far the Sun GP travels in 3 hours, not where the Sun appears.
     //       So, if the terminator is used to indicate a further 
-    LLD subsolar = calcHADec2LatLon(m_scene->astro->getDecGHA(SUN, NO_DOUBLE, true));
+    LLD subsolar = calcHADec2LatLon(m_scene->astro->getDecGHA(A_SUN, NO_DOUBLE));
     LLD top = { 0.0, 0.0, 0.0 };
     LLD btm = { 0.0, 0.0, 0.0 };
     if (subsolar.lat >= 0.0) {
@@ -3123,7 +3155,7 @@ void Earth::addSunSectors(float width, glm::vec4 color, double degrees) {
     addArc(subsolar, rgt, color, width, true, &Earth::calcGreatArc, SUNSECTOR);
 }
 void Earth::updateSunSectors() {
-    LLD subsolar = calcHADec2LatLon(m_scene->astro->getDecGHA(SUN, NO_DOUBLE, true));
+    LLD subsolar = calcHADec2LatLon(m_scene->astro->getDecGHA(A_SUN, NO_DOUBLE));
     LLD top = { 0.0, 0.0, 0.0 };
     LLD btm = { 0.0, 0.0, 0.0 };
     if (subsolar.lat >= 0.0) {
@@ -3272,10 +3304,10 @@ void Earth::updateLatitudeCurve(polycache& p) {
     p.path->generate();
 }
 size_t Earth::addLongitudeCurve(double lon, glm::vec4 color, float width, bool rad, unsigned int type) {
-    bool debug = false;
-    if (lon == -45.0) {
-        debug = true;
-    }
+    //bool debug = false;
+    //if (lon == -45.0) {
+    //    debug = true;
+    //}
     if (!rad) lon *= deg2rad;
     PolyCurve* curve = m_scene->newPolyCurve(color, width);
     for (int lat = -90; lat <= 90; lat++) {
@@ -3308,14 +3340,19 @@ void Earth::addEcliptic() {
     // 1) The ecliptic plane slices through Earth without curvature
     // 2) The center of the Earth always lies in the ecliptic plane by definition
     double obliquity = m_scene->astro->TrueObliquityOfEcliptic(NO_DOUBLE, true);
-    m_ecliptic = addTissotIndicatrix({ pi2 - obliquity, clampmPitoPi(-m_scene->astro->ApparentGreenwichSiderealTime(NO_DOUBLE, true) - pi2), 0.0 }, pi2, true, GREEN, 0.005f);  // Should really have a more generically named primitive
+    m_ecliptic = addTissotIndicatrix({ pi2 - obliquity,
+                                       ACoord::rangempi2pi(-m_scene->astro->ApparentGreenwichSiderealTime(NO_DOUBLE, true) - pi2),
+                                       0.0 },
+                                       pi2, true, GREEN, 0.005f);  // Should really have a more generically named primitive
 }
 void Earth::updateEcliptic() {
     if (m_ecliptic == NO_UINT) return;
     double obliquity = m_scene->astro->TrueObliquityOfEcliptic(NO_DOUBLE, true);
     TissotCache* ecliptic = &tissotcache[m_ecliptic];
     ecliptic->lat = pi2 - obliquity;
-    ecliptic->lon = clampmPitoPi(-m_scene->astro->ApparentGreenwichSiderealTime(NO_DOUBLE, true) - pi2);
+    double agsid = -m_scene->astro->ApparentGreenwichSiderealTime(NO_DOUBLE, true) - pi2;
+    ecliptic->lon = ACoord::rangempi2pi(agsid);
+    //std::cout << "agsid=" << agsid << ", ecliptic.lon=" << ecliptic->lon << "\n";
     updateTissotIndicatrix(*ecliptic);
 }
 size_t Earth::addLerpArc(LLD lld1, LLD lld2, glm::vec4 color, float width, bool rad) {
@@ -3483,7 +3520,7 @@ void Earth::addSubsolarPath(double begin, double finish, unsigned int steps, boo
     if (begin == NO_DOUBLE) begin = -0.5;
     if (finish == NO_DOUBLE) finish = 0.5;
     if (steps == NO_UINT) steps = (unsigned int)((finish - begin) * 360.0); // default to 360 degrees per day
-    sunpath = m_scene->astro->getCelestialPath(SUN, begin, finish, steps, ECGEO, fixed);
+    sunpath = m_scene->astro->getCelestialPath(A_SUN, begin, finish, steps, ECGEO, fixed);
     suncurve = m_scene->newPolyCurve(SUNCOLOR, 0.005f, steps);
     updateSubsolarPath();
 }
@@ -4160,7 +4197,7 @@ void Earth::updateMorph() {
 }
 void Earth::updateSun() {
     // Get XYZ of subsolar point and flat sun (as per sun height set in GUI)
-    subsolar = m_scene->astro->getDecGHA(SUN, NO_DOUBLE, true); // subsolar.lon is west of south, 0 to tau
+    subsolar = m_scene->astro->getDecGHA(A_SUN, NO_DOUBLE); // subsolar.lon is west of south, 0 to tau
     //std::cout << "Earth::updateSun(): subsolar.gha { " << subsolar.lat << ", " << subsolar.lon << ", " << subsolar.dst << " }\n";
 
     if (subsolar.lon < pi) subsolar.lon = -subsolar.lon;
@@ -4332,7 +4369,7 @@ SubStellarPoint::SubStellarPoint(Earth& earth, const std::string& starname, cons
     else m_color = color;
     m_decra = m_earth->m_scene->astro->getTrueDecRAbyName(name, m_jd, true);
     //m_decra = m_earth->m_scene->m_astro->getDecRAbyName(name, true);
-    m_loc = m_earth->calcRADec2LatLon(m_decra, EDateTime::getJDTT2UTC(m_jd), true);
+    m_loc = m_earth->calcRADec2LatLon(m_decra, EDateTime::getJDTT2UTC(m_jd));
     m_loc.lat += m_dist_lat; // Is always 0.0 at construction time, is changed by shiftSpeedTime()
     //m_earth->addDot(m_decra.lat, m_decra.lon, 0.0, 0.02f, LIGHT_RED, true);
     m_pos = m_earth->getLoc3D(m_loc.lat, m_loc.lon);
@@ -4363,9 +4400,9 @@ void SubStellarPoint::shiftSpeedTime(double bearing, double knots, double minute
     m_loc.lat += m_dist_lat;
 }
 void SubStellarPoint::adjustElevation() {
-    double dip = (m_observerHeight == NO_DOUBLE) ? 0.0 : deg2rad * dms2deg(0.0, 1.76 * sqrt(m_observerHeight), 0.0);
+    double dip = (m_observerHeight == NO_DOUBLE) ? 0.0 : ACoord::dms2rad(0.0, 1.76 * sqrt(m_observerHeight), 0.0);
     m_elevation = m_rawElevation - m_indexError - dip;
-    double refraction = (m_temperature == NO_DOUBLE || m_pressure == NO_DOUBLE) ? 0.0 : deg2rad * 60 * dms2deg(0.0, m_earth->calcRefractionBennett(rad2deg * m_elevation, m_temperature, m_pressure), 0.0);
+    double refraction = (m_temperature == NO_DOUBLE || m_pressure == NO_DOUBLE) ? 0.0 : 60 * ACoord::dms2rad(0.0, m_earth->calcRefractionBennett(rad2deg * m_elevation, m_temperature, m_pressure), 0.0);
     m_elevation -= refraction; // Reverse the predicted refraction to get from apparent to true elevation
     //std::cout << "SubStellarPoint {" << this << "} - " << name
     //    //<< ": Index Error = " << Astronomy::angle2DMstring(m_indexError, true)
@@ -4398,7 +4435,7 @@ LLD SubStellarPoint::getDetails(bool rad) {
 void SubStellarPoint::update() {
     //std::cout << "SubStellarPoint::update()\n";
     if (!locked) { // Locked means don't update location with time
-        m_loc = m_earth->calcRADec2LatLon(m_decra); // m_jd not passed, so Earth calculates new location based on current time
+        m_loc = m_earth->calcRADec2LatLon(m_decra, true); // m_jd not passed, so Earth calculates new location based on current time
         m_loc.lat += m_dist_lat;
     }
     // position may still change with the same location if Earth morphs
@@ -5039,7 +5076,7 @@ glm::mat4 Location::calcWorld2LocalMatrix() {
     return world2local;
 }
 glm::vec3 Location::getTrueSunDir(double jd) {
-    LLD sun = m_scene->astro->getDecGHA(SUN, jd, true);
+    LLD sun = m_scene->astro->getDecGHA(A_SUN, jd);
     localsun = m_scene->astro->calcGeo2Topo(sun, { m_lat, m_lon, 0.0 }); // Sun Ele, Azi
     return calcEleAzi2Dir(localsun, true);
 }
@@ -5053,7 +5090,7 @@ Location::TrueSun::TrueSun(Location* location) : m_location(location) {
     update(true, true); // Ensure there are valid astronomical values
 }
 void Location::TrueSun::update(bool time, bool geometry) {
-    sun = m_location->m_scene->astro->getDecGHA(SUN, NO_DOUBLE, true); // Current Sun GHA, Dec, no JD specified
+    sun = m_location->m_scene->astro->getDecGHA(A_SUN, NO_DOUBLE); // Current Sun GHA, Dec, no JD specified
     localsun = m_location->m_scene->astro->calcGeo2Topo(sun, { m_location->m_lat, m_location->m_lon, 0.0 }); // Sun Ele, Azi
     // AA+ gives Hour Angles westwards from south in range {pi;pi]. We store them like that, and convert to clockwise from North when displaying degrees.
     //std::cout << "Calculated Azi, Ele: " << rad2deg * localsun.lon << ", " << rad2deg * localsun.lat << "\n";
@@ -5170,17 +5207,17 @@ void Location::TrueSun::updateAziAngText() {
     std::string angle = dstring;
     m_aziangtext->updateText(angle);
 }void Location::TrueSun::enablePath24() {
-    m_location->addPlanetaryPath(SUN, -0.5, 0.5, 100, TRUESUN3D, defaultcolor, 0.002f);
+    m_location->addPlanetaryPath(A_SUN, -0.5, 0.5, 100, TRUESUN3D, defaultcolor, 0.002f);
 }
 // No need for an update function, that is handled in Location
 void Location::TrueSun::disablePath24() {
-    m_location->deletePlanetaryPath(TRUESUN3D, SUN);
+    m_location->deletePlanetaryPath(TRUESUN3D, A_SUN);
 }
 void Location::TrueSun::enableAnalemma() {
-    m_location->addPlanetaryPath(SUN, -183.0, 183.0, 366, TRUEANALEMMA3D, defaultcolor, 0.002f);
+    m_location->addPlanetaryPath(A_SUN, -183.0, 183.0, 366, TRUEANALEMMA3D, defaultcolor, 0.002f);
 }
 void Location::TrueSun::disableAnalemma() {
-    m_location->deletePlanetaryPath(TRUEANALEMMA3D, SUN);
+    m_location->deletePlanetaryPath(TRUEANALEMMA3D, A_SUN);
 }
 double Location::TrueSun::getElevation(bool radians) {
     if (radians) return localsun.lat;
@@ -5202,7 +5239,7 @@ Location::FlatSun::FlatSun(Location* location) : m_location(location) {
     update(true, true); // Ensure there are valid astronomical values
 }
 void Location::FlatSun::update(bool time, bool geometry) {
-    sun = m_location->m_scene->astro->getDecGHA(SUN, NO_DOUBLE, true); // Current Sun GHA, Dec, no JD specified
+    sun = m_location->m_scene->astro->getDecGHA(A_SUN, NO_DOUBLE); // Current Sun GHA, Dec, no JD specified
     while (sun.lon < -pi) sun.lon += tau;
     while (sun.lon > pi) sun.lon -= tau;
     // Negate sun.lon to get east of south instead of west of south
@@ -5333,7 +5370,7 @@ void Location::FlatSun::disablePath24() {
     m_location->deletePlanetaryPath(TRUESUN3D, SUN);  // FIX !!!
 }
 void Location::FlatSun::enableAnalemma() {
-    m_location->addPlanetaryPath(SUN, -183.0, 183.0, 366, TRUEANALEMMA3D, defaultcolor, 0.002f);
+    m_location->addPlanetaryPath(A_SUN, -183.0, 183.0, 366, TRUEANALEMMA3D, defaultcolor, 0.002f);
 }
 void Location::FlatSun::disableAnalemma() {
     m_location->deletePlanetaryPath(TRUEANALEMMA3D, SUN);
@@ -5354,7 +5391,7 @@ void Location::FlatSun::doPath24() {
     double myJD = m_location->m_scene->astro->getJD_TT() + 0.5;
     for (double fday = myJD - 1.0; fday < myJD; fday += 0.01) {
         //m_path24->addPoint(m_location->m_pos + m_location->getFlatSunDir(fday) * m_location->m_radius);
-        sun = m_location->m_scene->astro->getDecGHA(SUN, fday, true); // Current Sun GHA, Dec, no JD specified
+        sun = m_location->m_scene->astro->getDecGHA(A_SUN, fday); // Current Sun GHA, Dec, no JD specified
         while (sun.lon < -pi) sun.lon += tau;
         while (sun.lon > pi) sun.lon -= tau;
         if (sun.lat > pi2 || sun.lat < -pi2) std::cout << "WARNING: Location::FlatSun::update(): sun.lat is out of range: " << sun.lat << "\n";
@@ -5701,7 +5738,7 @@ void Location::deleteLocDot() {
 void Location::updateLocDot(dotcache& d) {
     m_dots->changeXYZ(d.index, m_pos, d.color, d.size);
 }
-void Location::addTruePlanetDot(size_t planet, float size, glm::vec4 color, bool checkit) {
+void Location::addTruePlanetDot(Planet planet, float size, glm::vec4 color, bool checkit) {
     if (checkit) { // Caller can specify to skip if this type of arrow is already present
         for (auto& dc : m_dotcache) {
             if (dc.unique == planet) return;
@@ -5709,14 +5746,14 @@ void Location::addTruePlanetDot(size_t planet, float size, glm::vec4 color, bool
     }
     color = getPlanetColor(planet, color);
     m_scene->astro->enablePlanet(planet);
-    LLD pos = m_scene->astro->getDecGHA(planet, NO_DOUBLE, true);
+    LLD pos = m_scene->astro->getDecGHA(planet, NO_DOUBLE);
     LLD topo = m_scene->astro->calcGeo2Topo(pos, { m_lat, m_lon, 0.0 });
     glm::vec3 dir = calcEleAzi2Dir(topo, true);
     size_t index = m_dots->addXYZ(m_pos + dir * m_radius, color, size);
-    m_dotcache.push_back({ m_pos + dir * m_radius, size, color, index, TRUEPLANET3D, planet });
+    m_dotcache.push_back({ m_pos + dir * m_radius, size, color, index, TRUEPLANET3D, (size_t)planet });
 }
 void Location::updateTruePlanetDot(dotcache& dc) {
-    LLD pos = m_scene->astro->getDecGHA(dc.unique, NO_DOUBLE, true);
+    LLD pos = m_scene->astro->getDecGHA((Planet)dc.unique, NO_DOUBLE);
     LLD topo = m_scene->astro->calcGeo2Topo(pos, { m_lat, m_lon, 0.0 });
     glm::vec3 dir = calcEleAzi2Dir(topo, true);
     m_dots->changeXYZ(dc.index, m_pos + dir * m_radius, dc.color, dc.size);
@@ -5741,28 +5778,26 @@ void Location::addArrow3DTrueMoon(float length, float width, glm::vec4 color, bo
         }
     }
     LLD moon = m_earth->getMoon();    // sun { rad sunDec, rad sunHour, AU sunDist }
-    CAA2DCoordinate localmoon = CAACoordinateTransformation::Equatorial2Horizontal(
-        rad2hrs * (-moon.lon + m_lon), rad2deg * moon.lat, rad2deg * m_lat);
-    glm::vec3 dir = calcEleAzi2Dir({ localmoon.Y, localmoon.X, 0.0 }, false);
+    LLD localmoon = Spherical::Equatorial2Horizontal((-moon.lon + m_lon), moon.lat, m_lat);
+    glm::vec3 dir = calcEleAzi2Dir(localmoon, true);
     size_t index = m_arrows->addStartDirLen(m_pos, dir, length, width, color);
-    m_arrowcache.push_back({ m_pos,dir,color,length,width,localmoon.Y,localmoon.X,index,TRUEMOON3D, maxuint });
+    m_arrowcache.push_back({ m_pos,dir,color,length,width,localmoon.lat,localmoon.lon,index,TRUEMOON3D, maxuint });
 }
 void Location::updateArrow3DTrueMoon(arrowcache& ar) {
     LLD moon = m_earth->getMoon();    // sun { rad sunDec, rad sunHour, AU sunDist }
-    CAA2DCoordinate localmoon = CAACoordinateTransformation::Equatorial2Horizontal(
-        rad2hrs * (-moon.lon + m_lon), rad2deg * moon.lat, rad2deg * m_lat);
-    glm::vec3 dir = calcEleAzi2Dir({ localmoon.Y, localmoon.X, 0.0 }, false);
+    LLD localmoon = Spherical::Equatorial2Horizontal((-moon.lon + m_lon), moon.lat, m_lat);
+    glm::vec3 dir = calcEleAzi2Dir(localmoon, true);
     m_arrows->changeStartDirLen(ar.index, m_pos, dir, ar.length, 0.003f, ar.color);
 }
 
 void Location::updateArrow3DTruePlanet(arrowcache& ar) {
-    LLD pos = m_scene->astro->getDecGHA(ar.unique, NO_DOUBLE, true);
+    LLD pos = m_scene->astro->getDecGHA((Planet)ar.unique, NO_DOUBLE);
     LLD topo = m_scene->astro->calcGeo2Topo(pos, { m_lat, m_lon, 0.0 });
     glm::vec3 dir = calcEleAzi2Dir(topo, true);
     m_arrows->changeStartDirLen(ar.index, m_pos, dir, ar.length, 0.003f, ar.color);
 }
 // ADD: change, delete
-void Location::addArrow3DTruePlanet(size_t planet, float length, glm::vec4 color, bool checkit) {
+void Location::addArrow3DTruePlanet(Planet planet, float length, glm::vec4 color, bool checkit) {
     if (checkit) { // Caller can specify to skip if this type of arrow is already present
         for (auto& ar : m_arrowcache) {
             if (ar.unique == planet) return;
@@ -5770,11 +5805,11 @@ void Location::addArrow3DTruePlanet(size_t planet, float length, glm::vec4 color
     }
     color = getPlanetColor(planet, color);
     m_scene->astro->enablePlanet(planet);
-    LLD pos = m_scene->astro->getDecGHA(planet, NO_DOUBLE, true);
+    LLD pos = m_scene->astro->getDecGHA(planet, NO_DOUBLE);
     LLD topo = m_scene->astro->calcGeo2Topo(pos, { m_lat, m_lon, 0.0 });
     glm::vec3 dir = calcEleAzi2Dir(topo, true);
     size_t index = m_arrows->addStartDirLen(m_pos, dir, length, 0.003f, color);
-    m_arrowcache.push_back({ m_pos, dir, color, length, 0.003f, topo.lat, topo.lon, index, TRUEPLANET3D, planet });
+    m_arrowcache.push_back({ m_pos, dir, color, length, 0.003f, topo.lat, topo.lon, index, TRUEPLANET3D, (size_t)planet });
 }
 //-------------------------------------- Lines --------------------------------------//
 void Location::addLine3DFlatSun(float width, glm::vec4 color, bool checkit) {
@@ -5795,11 +5830,11 @@ void Location::updateLine3DFlatSun(cylindercache& l) {
 //-------------------------------------- Paths --------------------------------------//
 // To facilitate deleting paths, they should return an id of some sort. Done! No??
 // Additionally the polycache must support gap elimination (or mark entries as void). Done by using tightvec!
-void Location::addPlanetaryPath(size_t planet, double startoffset, double endoffset, unsigned int steps, unsigned int type, glm::vec4 color, float width) {
+void Location::addPlanetaryPath(Planet planet, double startoffset, double endoffset, unsigned int steps, unsigned int type, glm::vec4 color, float width) {
     CelestialPath* planetCP = m_scene->astro->getCelestialPath(planet, startoffset, endoffset, steps, ECGEO);
     color = getPlanetColor(planet, color);
     PolyCurve* path = m_scene->newPolyCurve(color, width);
-    size_t index = m_polycache.store({ path, planetCP, width, type, color, 0.0, 0.0, planet });
+    size_t index = m_polycache.store({ path, planetCP, width, type, color, 0.0, 0.0, (size_t)planet });
     m_polycache[index].index = index;
     updatePlanetaryPath(m_polycache[index]);
 }
@@ -5831,22 +5866,22 @@ void Location::deletePlanetaryPath(unsigned int type, size_t unique) {
     else std::cout << "WARNING: Location::deletePlanetaryPath() called but no path was found with type = " << type << "!\n";
 }
 // ADD: change, delete
-void Location::addPlanetTruePath24(size_t planet, glm::vec4 color, float width) {
+void Location::addPlanetTruePath24(Planet planet, glm::vec4 color, float width) {
     // Planetary path across sky in 24 hrs, roughly follows earth rotation of course
     addPlanetaryPath(planet, -0.5, 0.5, 100, TRUEPLANET3D, color, width);
 }
 // ADD: change(color, width)
-void Location::deletePlanetTruePath24(size_t planet) {
+void Location::deletePlanetTruePath24(Planet planet) {
     deletePlanetaryPath(TRUEPLANET3D, planet);
 }
-void Location::addPlanetTruePathSidYear(size_t planet, glm::vec4 color, float width) {
+void Location::addPlanetTruePathSidYear(Planet planet, glm::vec4 color, float width) {
     // Planetary path across fixed star background, over approximately 1 year
-    double bracket = sidyearparms[planet - SUN].bracket;
-    double stepsize = sidyearparms[planet - SUN].stepsize;
+    double bracket = sidyearparms[planet].bracket;
+    double stepsize = sidyearparms[planet].stepsize;
     addPlanetaryPath(planet, -bracket * sidereald, bracket * sidereald, 2 * (unsigned int)(bracket / stepsize), SIDPLANET3D, color, width);
 }
 // ADD: change
-void Location::deletePlanetTruePathSidYear(size_t planet) {
+void Location::deletePlanetTruePathSidYear(Planet planet) {
     deletePlanetaryPath(SIDPLANET3D, planet);
 }
 void Location::addPath3DFlatSun(glm::vec4 color, float width) {
@@ -5885,9 +5920,8 @@ void Location::doPath3DTrueMoon(PolyCurve* path) {
     double myJD = m_scene->astro->getJD_UTC() + 0.5;
     for (double fday = myJD - 1.0; fday < myJD; fday += 0.01) {
         LLD moon = m_earth->getMoon(fday);
-        CAA2DCoordinate localmoon = CAACoordinateTransformation::Equatorial2Horizontal(
-            rad2hrs * (-moon.lon + m_lon), rad2deg * moon.lat, rad2deg * m_lat);
-        glm::vec3 dir = calcEleAzi2Dir({ localmoon.Y, localmoon.X, 0.0 }, false);
+        LLD localmoon = Spherical::Equatorial2Horizontal((-moon.lon + m_lon), moon.lat, m_lat);
+        glm::vec3 dir = calcEleAzi2Dir(localmoon, true);
         path->addPoint(m_pos + dir * m_radius);
     }
     path->generate();
@@ -5910,9 +5944,8 @@ void Location::doTrueLunalemma(PolyCurve* path) {
     glm::vec3 dir = glm::vec3(0.0f);
     for (double fday = myJD; fday < myJD + 29.0; fday += 1.035028 + (m_scene->m_app->lunalemmaOffset/86400.0)) {
         LLD moon = m_earth->getMoon(fday);
-        CAA2DCoordinate localmoon = CAACoordinateTransformation::Equatorial2Horizontal(
-            rad2hrs * (-moon.lon + m_lon), rad2deg * moon.lat, rad2deg * m_lat);
-        dir = calcEleAzi2Dir({ localmoon.Y, localmoon.X, 0.0 }, false);
+        LLD localmoon = Spherical::Equatorial2Horizontal((-moon.lon + m_lon), moon.lat, m_lat);
+        dir = calcEleAzi2Dir(localmoon, true);
         path->addPoint(m_pos + dir * m_radius);
         m_lunalemmatrail->push(m_pos + dir * m_radius);
     }
@@ -5957,9 +5990,9 @@ SolarSystem::SolarSystem(Scene* scene, bool geocentric) : m_scene(scene), m_geoc
     // Calculate positions and create celestial objects
     SunPos(false);
     EarthPos(false);
-    for (unsigned int p = MERCURY; p <= EARTH; p++) {
-        PlanetPos(p, false);
-        PlanetOrbit(p);
+    for (unsigned int p = A_MERCURY; p <= A_SUN; p++) {
+        PlanetPos((Planet)p, false);
+        PlanetOrbit((Planet)p);
     }
 }
 SolarSystem::~SolarSystem() {
@@ -5974,9 +6007,9 @@ void SolarSystem::Update() {
     m_jd = m_astro->getJD_TT();
     SunPos(true);
     EarthPos(true);
-    for (unsigned int p = MERCURY; p <= EARTH; p++) {
-        PlanetPos(p, true);
-        PlanetOrbit(p);
+    for (unsigned int p = A_MERCURY; p <= A_SUN; p++) {
+        PlanetPos((Planet)p, true);
+        PlanetOrbit((Planet)p);
     }
     //PlanetPos(EARTH, true);
     //if (m_geocentric) PlanetOrbit(SUN);
@@ -5997,43 +6030,43 @@ void SolarSystem::addTrails(int traillength) {
     // Also, naming is inconsistent, addTrails() and changeTrails() are better.
     // Further, enabling trails per planet is preferable, use ALL to do all of them.
     m_traillen = abs(traillength); // Force traillen positive. It is int to suit ImGUI::SliderInt()
-    for (size_t p = MERCURY; p <= EARTH; p++) {
+    for (size_t p = A_MERCURY; p <= A_SUN; p++) {
         if (m_PlanetTrail[p] == nullptr) m_PlanetTrail[p] = new ParticleTrail(m_scene, m_traillen, m_planetinfos[p].color);
     }
     m_trails = true;
 }
 void SolarSystem::clearTrails() {
-    for (size_t p = MERCURY; p <= EARTH; p++) {
+    for (size_t p = A_MERCURY; p <= A_SUN; p++) {
         if (m_PlanetTrail[p] != nullptr) m_PlanetTrail[p]->clear();
     }
 }
-glm::vec3 SolarSystem::CalcPlanet(size_t planet, double jd_tt) {
+glm::vec3 SolarSystem::CalcPlanet(Planet planet, double jd_tt) {
     if (jd_tt == 0.0) jd_tt = m_jd;
     const double lon = m_astro->getEcLon(planet, jd_tt);  // Radians
     const double lat = m_astro->getEcLat(planet, jd_tt);  // Radians
     const double dst = m_astro->getEcDst(planet, jd_tt);  // AU
     return Ecliptic2Cartesian(lat, lon, dst);
 }
-void SolarSystem::PlanetPos(size_t planet, bool update) {
+void SolarSystem::PlanetPos(Planet planet, bool update) {
     // NOTE: Optionally push to trail depending on distance from last frame. !!!
     glm::vec3 pos = CalcPlanet(planet) + m_sunpos;
     if (!update) m_PlanetDot[planet] = m_scene->getDotsFactory()->addXYZ(pos, m_planetinfos[planet].color, planetdot);
     if (update) m_scene->getDotsFactory()->changeXYZ(m_PlanetDot[planet], pos, m_planetinfos[planet].color, planetdot);
     if (m_PlanetTrail[planet] != nullptr && m_trails) m_PlanetTrail[planet]->push(pos);
 }
-void SolarSystem::PlanetOrbit(size_t planet) {
-    if (m_PlanetPath[planet - SUN] == nullptr) {
-        double siderealyear = m_planetinfos[planet - SUN].sidyear;
-        glm::vec4 color = m_planetinfos[planet - SUN].color;
+void SolarSystem::PlanetOrbit(Planet planet) {
+    if (m_PlanetPath[planet] == nullptr) {
+        double siderealyear = m_planetinfos[planet].sidyear;
+        glm::vec4 color = m_planetinfos[planet].color;
         color.a = 0.4f;
-        m_PlanetPath[planet - SUN] = new PolyCurve(m_scene, color, solsyspathwidth);
-        //m_PlanetPath[planet - SUN] = m_scene->newPolyCurve(color, solsyspathwidth); // Scene draws these automatically!!
-        m_PlanetOrbit[planet - SUN] = m_scene->astro->getCelestialPath(planet, -0.5 * siderealyear, 0.5 * siderealyear, orbitsteps, EC);
+        m_PlanetPath[planet] = new PolyCurve(m_scene, color, solsyspathwidth);
+        //m_PlanetPath[planet] = m_scene->newPolyCurve(color, solsyspathwidth); // Scene draws these automatically!!
+        m_PlanetOrbit[planet] = m_scene->astro->getCelestialPath(planet, -0.5 * siderealyear, 0.5 * siderealyear, orbitsteps, EC);
     }
-    m_PlanetPath[planet - SUN]->clearPoints(); // Even if it was just created, clearing an empty vector should be cheap
-    for (auto const& pt : m_PlanetOrbit[planet - SUN]->entries) {
-        if (planet == SUN) m_PlanetPath[planet - SUN]->addPoint(Ecliptic2Cartesian(pt.hec.lat, pt.hec.lon, pt.hec.dst)); // Heliocentric
-        else  m_PlanetPath[planet - SUN]->addPoint(Ecliptic2Cartesian(pt.hec.lat, pt.hec.lon, pt.hec.dst) + m_sunpos);
+    m_PlanetPath[planet]->clearPoints(); // Even if it was just created, clearing an empty vector should be cheap
+    for (auto const& pt : m_PlanetOrbit[planet]->entries) {
+        if (planet == A_SUN) m_PlanetPath[planet]->addPoint(Ecliptic2Cartesian(pt.hec.lat, pt.hec.lon, pt.hec.dst)); // Heliocentric
+        else  m_PlanetPath[planet]->addPoint(Ecliptic2Cartesian(pt.hec.lat, pt.hec.lon, pt.hec.dst) + m_sunpos);
     }
     m_PlanetPath[planet]->generate();
  }
@@ -6041,7 +6074,7 @@ void SolarSystem::SunPos(bool update) {
     m_sunpos = m_geocentric ? CalcSun() : glm::vec3(0.0f);
     if (!update) m_SunDot = m_scene->getDotsFactory()->addXYZ(m_sunpos, SUNCOLOR, planetdot);
     if (update) m_scene->getDotsFactory()->changeXYZ(m_SunDot, m_sunpos, SUNCOLOR, planetdot);
-    if (m_PlanetTrail[SUN] != nullptr && m_trails) m_PlanetTrail[SUN]->push(m_sunpos);
+    if (m_PlanetTrail[A_SUN] != nullptr && m_trails) m_PlanetTrail[A_SUN]->push(m_sunpos);
 }
 void SolarSystem::SunOrbit(bool update) {
     m_SunPath = new PolyCurve(m_scene, SUNCOLOR, solsyspathwidth);
@@ -6055,9 +6088,9 @@ void SolarSystem::SunOrbit(bool update) {
 }
 glm::vec3 SolarSystem::CalcSun(double jd_tt) {
     if (jd_tt == 0.0) jd_tt = m_jd;
-    const double lon = m_astro->getEcLon(EARTH, jd_tt);
-    const double lat = m_astro->getEcLat(EARTH, jd_tt);
-    const double dst = au2km * m_astro->getEcDst(EARTH, jd_tt);
+    const double lon = m_astro->getEcLon(A_EARTH, jd_tt);
+    const double lat = m_astro->getEcLat(A_EARTH, jd_tt);
+    const double dst = au2km * m_astro->getEcDst(A_EARTH, jd_tt);
     return -Ecliptic2Cartesian(lat,lon,dst);
 }
 void SolarSystem::EarthPos(bool update) {
@@ -6069,9 +6102,9 @@ void SolarSystem::EarthPos(bool update) {
 }
 glm::vec3 SolarSystem::CalcEarth(double jd_tt) {
     if (jd_tt == 0.0) jd_tt = m_jd;
-    const double lon = m_astro->getEcLon(EARTH, jd_tt);
-    const double lat = m_astro->getEcLat(EARTH, jd_tt);
-    const double dst = au2km * m_astro->getEcDst(EARTH, jd_tt);
+    const double lon = m_astro->getEcLon(A_EARTH, jd_tt);
+    const double lat = m_astro->getEcLat(A_EARTH, jd_tt);
+    const double dst = au2km * m_astro->getEcDst(A_EARTH, jd_tt);
     return Ecliptic2Cartesian(lat, lon, dst);
 }
 glm::vec3 SolarSystem::Ecliptic2Cartesian(double Brad, double Lrad, double dst) {
@@ -6082,14 +6115,14 @@ glm::vec3 SolarSystem::Ecliptic2Cartesian(double Brad, double Lrad, double dst) 
     pos.z = (float)(dst * sin(Brad));
     return pos;
 }
-glm::vec3 SolarSystem::GetPlanetPos(size_t planet) {  // Optional JD ?
-    if (planet == SUN) return m_sunpos;
-    else if (planet == EARTH) return m_earthpos;
-    else if (planet > SUN && planet < EARTH) return CalcPlanet(planet);
+glm::vec3 SolarSystem::GetPlanetPos(Planet planet) {  // Optional JD ?
+    if (planet == A_SUN) return m_sunpos;
+    else if (planet == A_EARTH) return m_earthpos;
+    else if (planet > A_SUN && planet < A_EARTH) return CalcPlanet(planet);
     else std::cout << "SolarSystem::GetPlanetPos() called with invalid planet enum: " << planet << ", returning glm::vec3(0.0f)!\n";
     return glm::vec3(0.0f);
 }
-void SolarSystem::AddDistLine(size_t planet1, size_t planet2, glm::vec4 color, float width) {
+void SolarSystem::AddDistLine(Planet planet1, Planet planet2, glm::vec4 color, float width) {
     if (m_cylinders == nullptr) m_cylinders = m_scene->getCylindersFactory();
     size_t index = m_cylinders->addStartEnd(GetPlanetPos(planet1), GetPlanetPos(planet2), width, color);
     m_distlines.store({ index, planet1, planet2, color, width });
@@ -6098,8 +6131,8 @@ void SolarSystem::UpdateDistLines() {
     for (auto& dl : m_distlines.m_Elements) {
         glm::vec3 p1 = GetPlanetPos(dl.planet1);
         glm::vec3 p2 = GetPlanetPos(dl.planet2);
-        if (dl.planet1 != SUN) p1 += m_sunpos;
-        if (dl.planet2 != SUN) p2 += m_sunpos;
+        if (dl.planet1 != A_SUN) p1 += m_sunpos;
+        if (dl.planet2 != A_SUN) p2 += m_sunpos;
         m_cylinders->changeStartEnd(dl.index, p1, p2, dl.width, dl.color);
     }
 }
@@ -6108,8 +6141,8 @@ void SolarSystem::changeCentricity() {
 }
 void SolarSystem::changeOrbits() {
     if (orbits && !m_orbits) { // Orbits being enabled
-        for (unsigned int p = MERCURY; p <= EARTH; p++) {
-            PlanetOrbit(p); // Create or update
+        for (unsigned int p = A_MERCURY; p <= A_SUN; p++) {
+            PlanetOrbit((Planet)p); // Create or update
         }
         m_orbits = true;
     }
@@ -6128,12 +6161,12 @@ void SolarSystem::changeTrails() {
 void SolarSystem::changeTraillen() {
     if (traillen == m_traillen) return; // called in error
     if (traillen < m_traillen) {
-        for (unsigned int p = MERCURY; p <= EARTH; p++) {
+        for (unsigned int p = A_MERCURY; p <= A_SUN; p++) {
             if (m_PlanetTrail[p] != nullptr) m_PlanetTrail[p]->trim(traillen);
         }
     }
     else {
-        for (unsigned int p = MERCURY; p <= EARTH; p++) {
+        for (unsigned int p = A_MERCURY; p <= A_SUN; p++) {
             if (m_PlanetTrail[p] != nullptr) m_PlanetTrail[p]->expand(traillen);
         }
     }
@@ -6298,11 +6331,6 @@ void SkySphere::addDotDecRA(unsigned int unique, double dec, double ra, glm::vec
         dec *= deg2rad;
         ra *= deg2rad;
     }
-    //double ra2;
-    //if (ra < pi) ra2 = -ra;
-    //else ra2 = tau - ra;
-    //glm::vec3 pos = getLoc3D_NS(dec, m_gsid - ra2);
-    //unsigned int index = m_dots->addXYZ(getLoc3D_NS(dec, m_gsid - ra), color, size);
     size_t index = m_dots->addXYZ(getDecRA2Pos3D(dec, ra), color, size);
     m_dotcache.push_back({ unique, color, dec, ra, 0.0f, size, index });
     //std::cout << "addDotDecRA(): " << dec << "," << ra << "\n";
@@ -6476,3 +6504,337 @@ float SkySphere::getMagnitude2Radius(const double magnitude) const {
     return (float)((4.0 - (magnitude + 1.5) / 2.0) / (200.0 / m_Radius));
 }
 
+
+
+
+// ------------
+//  Time Zones
+// ------------
+// To make a geographically based time zone picker:
+// https://github.com/BertoldVdb/ZoneDetect
+// Quick sanity check: https://cdn.bertold.org/demo/timezone.html
+// https://www.iana.org/time-zones
+// https://github.com/evansiroky/timezone-boundary-builder
+// https://github.com/evansiroky/timezone-boundary-builder/releases
+// - It's complicated -
+// It is better to let a Location "pick" a time zone, either manually or by checking bounding boxes,
+// and then actual outlines in shapefile from https://github.com/evansiroky/timezone-boundary-builder
+// Once a time zone is selected, the Location needs to pick up the local time for the current UTC time
+// This is done by first checking the Links data for any redirects of the time zone, then parsing the
+// Time zone arrived at, while applying any rules listed. There can be multiple lists of named rules
+// involved, see Ireland for a complex example.
+// Both Zones and Rules have complex formats that require careful parsing. Additionally some rules may
+// overlap, and resolution is done first by time, and if equal, by earliest in zone file. Thus, parse
+// the IANA zone files sequentially and assign sequence numbers in addition to indices (in case a storage
+// container that might reorder entries is used, or sorting is desirable at some point).
+// Apply the Zone offset appropriate to the UTC time, then apply any additional shifts specified in the
+// applicable Rule (if any).
+// zic, the sample code from IANA tz, compiles the Zones & Rules into a different format. Look into this,
+// as that may be easier to parse, thus foregoing subtle parsing bugs.
+//
+// For geographic zone matching, see: https://web.archive.org/web/20130126163405/http://geomalgorithms.com/a03-_inclusion.html
+// Alternatively use this librarry: https://github.com/BertoldVdb/ZoneDetect
+TimeZones::TimeZones(Scene* scene, const std::string& filebase) : m_scene(scene) {
+    // Data source: https://github.com/evansiroky/timezone-boundary-builder
+    // ESRI .shp file format:
+    // https://en.wikipedia.org/wiki/Shapefile (basic explanation, enough to get started)
+    // https://www.esri.com/content/dam/esrisites/sitecore-archive/Files/Pdfs/library/whitepapers/pdfs/shapefile.pdf (full spec)
+    // dBASE XBase .dbf format:
+    // https://www.clicketyclick.dk/databases/xbase/format/index.html
+    // (for now, just using Excel to open and read the row number (subtract 1 for header before using).
+    // Could make a summary CSV file, or build a full .dbl parser. Would it be an interesting challenge, or perhaps even useful?
+    // o For now, make a CSV file, the source data is not updated very often.
+    // Note: There are libraries available for these sort of things too.
+
+    // Load and parse the ShapeFile with time zone outlines
+    ShapeFile::parseFile(records, filebase + ".shp");
+    // Load and parse the time zone outline names
+    parseNames(filebase + ".csv");
+    // Load IANA tz database
+    tzFile::loadFiles(timezonedb, "C:\\Coding\\IANA-tzdb\\");
+}
+void TimeZones::addTimeZone(Earth& earth, const std::string timezonename) {
+    // Check CSV file for spelling of countries, this does NOT have fuzzy search.
+    // Alternatively look up the index manually and pass that instead (as unsigned int)
+    size_t index = 0;
+    for (auto& cn : timezonenames) { // Should probably use a std::find, this is the 21st century.
+        if (timezonename == cn.searchname) index = cn.index; // If there are duplicates, this returns the last
+    }
+    if (index == 0) {
+        std::cout << "WARNING: TimeZones::addTimeZones(): No match found for timezone name: " << timezonename << ", defaulting to timezone_id = 1\n";
+        index = 1;
+    }
+    // A better failure mode is to return NO_UINT or zero instead of a different time zone than the one requested.
+    addTimeZone(earth, index);
+}
+void TimeZones::addTimeZone(Earth& earth, size_t rindex) {
+    // This could take Earth (for getLoc3D()) and an array where to drop the points.
+    // Ideally I want to be able to draw a border on a globe, then unlink it from the geometry,
+    //  have it float up while Earth morphs, and settle down to compare to the new size.
+    //  (Of course this requires two borders, one that remains linked and one that floats)
+    // But start by simply getting a border onto Earth, then make it morph. I can add a duplicate
+    //  function to whatever object ends up holding a border. Begin by using a PolyCurve, change to GL_LINE later.
+    // UPD: Now using PolyLine, which is always flat and has width in screen space rather than world space.
+    // Note: The GMT offset zones ONLY cover the international waters. So to get the complete zone displayed
+    //       I need to collect all the zones where that offset is used at the current time. This would then
+    //       display all areas with the same wall clock time I think. Or probably DST is not applied in international waters?
+
+    // Should scan borderparts vector to see if the requested border exists already !!!
+    //  o That may conflict with creating floating duplicate as pondered above.
+    rindex--;  // Array indices assume array starts at 1
+    for (auto& part : records[rindex]->parts) {
+        //std::cout << "CountryBorder::addBorder(): part: " << part.partnum << " start: " << part.startindex << " length: " << part.length << "\n";
+        timezoneparts.push_back(new timezonepartcache());
+        timezoneparts.back()->timezone_id = rindex + 1;
+        timezoneparts.back()->part = &part;
+        timezoneparts.back()->polyline = m_scene->newPolyLine(LIGHT_RED, 0.001f, part.length);
+        timezoneparts.back()->earth = &earth;
+        for (size_t i = part.startindex; i < (part.startindex + part.length); i++) {
+            timezoneparts.back()->polyline->addPoint(earth.getLoc3D(deg2rad * records[rindex]->points[i].latitude, deg2rad * records[rindex]->points[i].longitude, surface_offset));
+        }
+        timezoneparts.back()->polyline->generate();
+    }
+}
+void TimeZones::update() { // Updates all of the time zone outline parts at once
+    // This is even prepared to update "countries" on other planets, if they have a getLoc3D() function (or separate instances of Earth)
+    // NOTE: Since this is plotted at 0.0f terrain height, it will intersect Earth tris !!!
+    for (auto& pcache : timezoneparts) {
+        //std::cout << "TimeZone::update(): timezone_id = " << pcache->timezone_id << ", polyline = " << pcache->polyline << ", earth = " << pcache->earth << '\n';
+        pcache->polyline->clearPoints();
+        //std::cout << "TimeZone::update(): part: " << part.partnum << " start: " << part.startindex << " length: " << part.length << "\n";
+        for (size_t i = pcache->part->startindex; i < (pcache->part->startindex + pcache->part->length); i++) {
+            pcache->polyline->addPoint(pcache->earth->getLoc3D(deg2rad * records[pcache->timezone_id - 1]->points[i].latitude, deg2rad * records[pcache->timezone_id - 1]->points[i].longitude, surface_offset));
+        }
+        pcache->polyline->generate();
+    }
+}
+void TimeZones::draw() {
+    std::cout << "TimeZones::draw(): no need to call draw(), PolyLines were allocated via Scene, so will be drawn there.\n";
+    //for (auto& pcache : borderparts) {
+    //    pcache->polyline->draw();
+    //}
+}
+int TimeZones::parseNames(const std::string& namefile) {
+    std::cout << "TimeZones::parseNames() - Processing file: " << namefile << '\n';
+    std::istringstream parse;
+    std::string line;
+    std::ifstream stream(namefile);
+    getline(stream, line); // Skip headers
+    unsigned int i = 0;
+    while (getline(stream, line)) {
+        //std::cout << line << '\n';
+        i++;
+        timezonenames.emplace_back(TimeZoneName());
+        timezonenames.back().index = i;
+        parse.clear();
+        parse.str(line);
+        std::getline(parse, timezonenames.back().searchname, ',');
+        //std::getline(parse, timezonenames.back().displayname, ',');
+    }
+    return 0;
+}
+std::string TimeZones::getLocalTime(const std::string& timezone, const DateTime& datetime) {
+    return tzFile::getLocalTime(timezonedb, timezone, datetime);
+}
+std::string TimeZones::getLocalTime(const std::string& timezone, long year, long month, double day, double hour, double minute, double second) {
+    return tzFile::getLocalTime(timezonedb, timezone, year, month, day, hour, minute, second);
+}
+void TimeZones::dumpTimeZoneDetails(const std::string& timezone) {
+    tzFile::dumpTimeZoneDetails(timezonedb, timezone);
+}
+
+
+// -----------------
+//  Country Borders
+// -----------------
+// Strictly speaking this is Country Outlines
+CountryBorders::CountryBorders(Scene* scene, const std::string& filebase) : m_scene(scene) {
+    // Data source: http://www.naturalearthdata.com/downloads/
+    // ESRI .shp file format:
+    // https://en.wikipedia.org/wiki/Shapefile (basic explanation, enough to get started)
+    // https://www.esri.com/content/dam/esrisites/sitecore-archive/Files/Pdfs/library/whitepapers/pdfs/shapefile.pdf (full spec)
+    // dBASE XBase .dbf format:
+    // https://www.clicketyclick.dk/databases/xbase/format/index.html
+    // (for now, just using Excel to open and read the row number (subtract 1 for header before using).
+    // Could make a summary CSV file, or build a full .dbl parser. Would it be an interesting challenge, or perhaps even useful?
+    // o For now, make a CSV file, the source data is not updated very often.
+    // Note: There are libraries available for these sort of things too.
+    ShapeFile::parseFile(records, filebase + ".shp");
+    // If a generic shapefile loader is made, pass std::vector<ShapeRecord*> records by reference.
+    parseNames(filebase + ".csv");
+
+}
+void CountryBorders::addBorder(Earth& earth, const std::string countryname) {
+    // Check CSV file for spelling of countries, this does NOT have fuzzy search.
+    // Alternatively look up the index manually and pass that instead, see below definition
+    size_t index = 0;
+    for (auto& cn : countrynames) { // Should probably use a std::find, this is the 21st century.
+        if (countryname == cn.searchname) index = cn.index; // If there are duplicates, this returns the last
+    }
+    if (index == 0) {
+        std::cout << "WARNING: CountryBorders::addBorder(): No match found for country name: " << countryname << ", defaulting to country_id = 1\n";
+        index = 1;
+    }
+    addBorder(earth, index);
+}
+void CountryBorders::addBorder(Earth& earth, size_t rindex) {
+    // This could take Earth (for getLoc3D()) and an array where to drop the points.
+    // Ideally I want to be able to draw a border on a globe, then unlink it from the geometry,
+    //  have it float up while Earth morphs, and settle down to compare to the new size.
+    //  (Of course this requires two borders, one that remains linked and one that floats)
+    // But start by simply getting a border onto Earth, then make it morph. I can add a duplicate
+    //  function to whatever object ends up holding a border. Begin by using a PolyCurve, change to GL_LINE later.
+    // UPD: Now using PolyLine, which is always flat and has width in screen space rather than world space.
+    // Make an update function for morphing.
+
+    // Should scan borderparts vector to see if the requested border exists already !!!
+    //  o That may conflict with creating floating duplicate as pondered above.
+    rindex--;  // Array indices assume array starts at 1
+    for (auto& part : records[rindex]->parts) {
+        //std::cout << "CountryBorder::addBorder(): part: " << part.partnum << " start: " << part.startindex << " length: " << part.length << "\n";
+        borderparts.push_back(new borderpartcache());
+        borderparts.back()->country_id = rindex + 1;
+        borderparts.back()->part = &part;
+        borderparts.back()->polyline = m_scene->newPolyLine(LIGHT_RED, 0.001f, part.length);
+        borderparts.back()->earth = &earth;
+        for (size_t i = part.startindex; i < (part.startindex + part.length); i++) {
+            borderparts.back()->polyline->addPoint(earth.getLoc3D(deg2rad * records[rindex]->points[i].latitude, deg2rad * records[rindex]->points[i].longitude, surface_offset));
+        }
+        borderparts.back()->polyline->generate();
+    }
+}
+void CountryBorders::update() { // Updates all of the country border parts at once
+    // This is even prepared to update "countries" on other planets, if they have a getLoc3D() function (or separate instances of Earth)
+    // NOTE: Since this is plotted at 0.0f terrain height, it will intersect Earth tris !!!
+    for (auto& pcache : borderparts) {
+        //std::cout << "CountryBorder::update(): country_id = " << pcache->country_id << ", polyline = " << pcache->polyline << ", earth = " << pcache->earth << '\n';
+        pcache->polyline->clearPoints();
+        //std::cout << "CountryBorder::update(): part: " << part.partnum << " start: " << part.startindex << " length: " << part.length << "\n";
+        for (size_t i = pcache->part->startindex; i < (pcache->part->startindex + pcache->part->length); i++) {
+            pcache->polyline->addPoint(pcache->earth->getLoc3D(deg2rad * records[pcache->country_id - 1]->points[i].latitude,
+                deg2rad * records[pcache->country_id - 1]->points[i].longitude, surface_offset));
+        }
+        pcache->polyline->generate();
+    }
+}
+void CountryBorders::draw() {
+    std::cout << "CountryBorders::draw(): no need to call draw(), PolyLines were allocated via Scene, so will be drawn there.\n";
+    //for (auto& pcache : borderparts) {
+    //    pcache->polyline->draw();
+    //}
+}
+int CountryBorders::parseNames(const std::string& namefile) {
+    std::istringstream parse;
+    std::string line;
+    std::ifstream stream(namefile);
+    getline(stream, line); // Skip headers
+    unsigned int i = 0;
+    while (getline(stream, line)) {
+        i++;
+        countrynames.emplace_back(CountryName());
+        countrynames.back().index = i;
+        parse.clear();
+        parse.str(line);
+        std::getline(parse, countrynames.back().searchname, ',');
+        std::getline(parse, countrynames.back().displayname, ',');
+    }
+    return 0;
+}
+
+
+// ----------------
+//  Constellations
+// ----------------
+// For implementation notes, see CountryBorders
+Constellations2::Constellations2(Scene* scene, const std::string& filebase) : m_scene(scene) {
+    // Data source: http://www.naturalearthdata.com/downloads/
+    // ESRI .shp file format:
+    // https://en.wikipedia.org/wiki/Shapefile (basic explanation, enough to get started)
+    // https://www.esri.com/content/dam/esrisites/sitecore-archive/Files/Pdfs/library/whitepapers/pdfs/shapefile.pdf (full spec)
+    // dBASE XBase .dbf format:
+    // https://www.clicketyclick.dk/databases/xbase/format/index.html
+    // (for now, just using Excel to open and read the row number (subtract 1 for header before using).
+    // Could make a summary CSV file, or build a full .dbl parser. Would it be an interesting challenge, or perhaps even useful?
+    // o For now, make a CSV file, the source data is not updated very often.
+    // Note: There are libraries available for these sort of things too.
+    ShapeFile::parseFile(records, filebase + ".shp");
+    // If a generic shapefile loader is made, pass std::vector<ShapeRecord*> records by reference.
+    parseNames(filebase + ".csv");
+
+}
+void Constellations2::addBorder(BodyGeometry& geom, const std::string constellationname) {
+    // Check CSV file for spelling of countries, this does NOT have fuzzy search.
+    // Alternatively look up the index manually and pass that instead (as unsigned int)
+    size_t index = 0;
+    for (auto& cn : constellationnames) { // Should probably use a std::find, this is the 21st century.
+        if (constellationname == cn.searchname) index = cn.index; // If there are duplicates, this returns the last
+    }
+    if (index == 0) {
+        std::cout << "WARNING: Constellations::addBorder(): No match found for constellation name: " << constellationname << ", defaulting to country_id = 1\n";
+        index = 1;
+    }
+    addBorder(geom, index);
+}
+void Constellations2::addBorder(BodyGeometry& geom, size_t rindex) {
+    // This could take Earth (for getLoc3D()) and an array where to drop the points.
+    // Ideally I want to be able to draw a border on a globe, then unlink it from the geometry,
+    //  have it float up while Earth morphs, and settle down to compare to the new size.
+    //  (Of course this requires two borders, one that remains linked and one that floats)
+    // But start by simply getting a border onto Earth, then make it morph. I can add a duplicate
+    //  function to whatever object ends up holding a border. Begin by using a PolyCurve, change to GL_LINE later.
+    // UPD: Now using PolyLine, which is always flat and has width in screen space rather than world space.
+    // Make an update function for morphing.
+
+    // Should scan borderparts vector to see if the requested border exists already !!!
+    //  o That may conflict with creating floating duplicate as pondered above.
+    rindex--;  // Array indices assume array starts at 1
+    for (auto& part : records[rindex]->parts) {
+        //std::cout << "CountryBorder::addBorder(): part: " << part.partnum << " start: " << part.startindex << " length: " << part.length << "\n";
+        constellationparts.push_back(new bordeconstellationpartcache());
+        constellationparts.back()->country_id = rindex + 1;
+        constellationparts.back()->part = &part;
+        constellationparts.back()->polyline = m_scene->newPolyLine(LIGHT_RED, 0.001f, part.length);
+        constellationparts.back()->geom = &geom;
+        for (size_t i = part.startindex; i < (part.startindex + part.length); i++) {
+            constellationparts.back()->polyline->addPoint(geom.getLoc3D({ deg2rad * records[rindex]->points[i].latitude, deg2rad * records[rindex]->points[i].longitude, surface_offset }, true));
+        }
+        constellationparts.back()->polyline->generate();
+    }
+}
+void Constellations2::update() { // Updates all of the country border parts at once
+    // This is even prepared to update "countries" on other planets, if they have a getLoc3D() function (or separate instances of Earth)
+    // NOTE: Since this is plotted at 0.0f terrain height, it will intersect Earth tris !!!
+    for (auto& pcache : constellationparts) {
+        //std::cout << "CountryBorder::update(): country_id = " << pcache->country_id << ", polyline = " << pcache->polyline << ", earth = " << pcache->earth << '\n';
+        pcache->polyline->clearPoints();
+        //std::cout << "CountryBorder::update(): part: " << part.partnum << " start: " << part.startindex << " length: " << part.length << "\n";
+        for (size_t i = pcache->part->startindex; i < (pcache->part->startindex + pcache->part->length); i++) {
+            pcache->polyline->addPoint(pcache->geom->getLoc3D({ deg2rad * records[pcache->country_id - 1]->points[i].latitude,
+                deg2rad * records[pcache->country_id - 1]->points[i].longitude, surface_offset }, true));
+        }
+        pcache->polyline->generate();
+    }
+}
+void Constellations2::draw() {
+    std::cout << "Constellations::draw(): no need to call draw(), PolyLines were allocated via Scene, so will be drawn there.\n";
+    //for (auto& pcache : borderparts) {
+    //    pcache->polyline->draw();
+    //}
+}
+int Constellations2::parseNames(const std::string& namefile) {
+    std::istringstream parse;
+    std::string line;
+    std::ifstream stream(namefile);
+    getline(stream, line); // Skip headers
+    unsigned int i = 0;
+    while (getline(stream, line)) {
+        i++;
+        constellationnames.emplace_back(ConstellationName());
+        constellationnames.back().index = i;
+        parse.clear();
+        parse.str(line);
+        std::getline(parse, constellationnames.back().searchname, ',');
+        std::getline(parse, constellationnames.back().displayname, ',');
+    }
+    return 0;
+}

@@ -332,7 +332,7 @@ Shader* ShaderLibrary::getShader(unsigned int shader) {
 // ----------------------
 // OpenGL Initialization
 // ----------------------
-GLFWwindow* setupEnv(unsigned int width, unsigned int height, GLint major, GLint minor, bool fullscreen) {
+GLFWwindow* setupEnv(unsigned int width, unsigned int height, GLint major, GLint minor, bool fullscreen, bool debug_info) {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, major);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, minor);
@@ -356,10 +356,6 @@ GLFWwindow* setupEnv(unsigned int width, unsigned int height, GLint major, GLint
         glfwTerminate();
         return NULL;
     }
-    // Check if GLFW enabled multisamples
-    GLint parm = 0;
-    glGetNamedFramebufferParameteriv(0, GL_SAMPLES, &parm);
-    std::cout << "default fbo GL_SAMPLES: " << parm << "\n";  // Note: Intel UHD 630 drivers give incorrect values!
 
     int texture_units;
     int tex_max_units;
@@ -371,15 +367,21 @@ GLFWwindow* setupEnv(unsigned int width, unsigned int height, GLint major, GLint
     glGetIntegerv(GL_SMOOTH_LINE_WIDTH_RANGE, linwidth);
     glGetIntegerv(GL_MAX_VIEWPORT_DIMS, vplims);
     glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &maxanis);
-    std::cout << "OpenGL version:  " << glGetString(GL_VERSION) << "\n";
-    std::cout << "OpenGL vendor:   " << glGetString(GL_VENDOR) << "\n";
-    std::cout << "OpenGL renderer: " << glGetString(GL_RENDERER) << "\n";
-    std::cout << "Available texture slots: " << texture_units << " per stage, " << tex_max_units << " total." << "\n";
-    std::cout << "Available line width: " << linwidth[0] << " to " << linwidth[1] << "\n";
-    std::cout.precision(15);
-    std::cout << "Maximum Anisotropic Filtering Samples: " << maxanis << "\n";
-    std::cout << "Maximum Viewport size (x,y): " << vplims[0] << ", " << vplims[1] << '\n';
-    std::cout << "\n\n" << std::endl;
+    if (debug_info) {
+        // Check if GLFW enabled multisamples
+        GLint parm = 0;
+        glGetNamedFramebufferParameteriv(0, GL_SAMPLES, &parm);
+        std::cout << "default fbo GL_SAMPLES: " << parm << "\n";  // Note: Intel UHD 630 drivers give incorrect values!
+        std::cout << "OpenGL version:  " << glGetString(GL_VERSION) << "\n";
+        std::cout << "OpenGL vendor:   " << glGetString(GL_VENDOR) << "\n";
+        std::cout << "OpenGL renderer: " << glGetString(GL_RENDERER) << "\n";
+        std::cout << "Available texture slots: " << texture_units << " per stage, " << tex_max_units << " total." << "\n";
+        std::cout << "Available line width: " << linwidth[0] << " to " << linwidth[1] << "\n";
+        std::cout.precision(15);
+        std::cout << "Maximum Anisotropic Filtering Samples: " << maxanis << "\n";
+        std::cout << "Maximum Viewport size (x,y): " << vplims[0] << ", " << vplims[1] << '\n';
+        std::cout << "\n\n" << std::endl;
+    }
     // Register callback for when user resizes the window
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetKeyCallback(window, keyboard_callback);

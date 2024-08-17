@@ -1,10 +1,11 @@
 
 #include <set>
 
+#include "../EAstronomy/all.h"
+#include "config.h"
+
 #include "Utilities.h"
-
-#include "AAplus/AADate.h"  // Merge DateTime with EDateTime in Astronomy
-
+//#include "astronomy/datetime.h"  // Already included in Utilities.h
 
 
 // -----------
@@ -22,12 +23,12 @@ void DateTime::add(DateTime& other) {
     while (hour > 24.0) { hour -= 24.0; day += 1.0; }
     while (hour < 0.0) { hour += 24.0; day -= 1.0; }
     day += other.day;
-    while (day > (CAADate::IsLeap(year, true) ? tzFile::months[(size_t)month - 1].days_leap : tzFile::months[(size_t)month - 1].days_normal)) {
-        day -= CAADate::IsLeap(year, true) ? tzFile::months[(size_t)month - 1].days_leap : tzFile::months[(size_t)month - 1].days_normal;
+    while (day > (EDateTime::isLeapYear(year) ? tzFile::months[(size_t)month - 1].days_leap : tzFile::months[(size_t)month - 1].days_normal)) {
+        day -= EDateTime::isLeapYear(year) ? tzFile::months[(size_t)month - 1].days_leap : tzFile::months[(size_t)month - 1].days_normal;
         month += 1;
     }
     while (day < 0.0) {
-        day += CAADate::IsLeap(year, true) ? tzFile::months[(size_t)month - 1].days_leap : tzFile::months[(size_t)month - 1].days_normal;
+        day += EDateTime::isLeapYear(year) ? tzFile::months[(size_t)month - 1].days_leap : tzFile::months[(size_t)month - 1].days_normal;
         month -= 1;
     }
     month += other.month;
@@ -48,12 +49,12 @@ void DateTime::add(long y, long mo, double d, double h, double mi, double s) {
     while (hour > 24.0) { hour -= 24.0; day += 1.0; }
     while (hour < 0.0) { hour += 24.0; day -= 1.0; }
     day += d;
-    while (day > (CAADate::IsLeap(year, true) ? tzFile::months[(size_t)month - 1].days_leap : tzFile::months[(size_t)month - 1].days_normal)) {
-        day -= CAADate::IsLeap(year, true) ? tzFile::months[(size_t)month - 1].days_leap : tzFile::months[(size_t)month - 1].days_normal;
+    while (day > (EDateTime::isLeapYear(year) ? tzFile::months[(size_t)month - 1].days_leap : tzFile::months[(size_t)month - 1].days_normal)) {
+        day -= EDateTime::isLeapYear(year) ? tzFile::months[(size_t)month - 1].days_leap : tzFile::months[(size_t)month - 1].days_normal;
         month += 1;
     }
     while (day < 0.0) {
-        day += CAADate::IsLeap(year, true) ? tzFile::months[(size_t)month - 1].days_leap : tzFile::months[(size_t)month - 1].days_normal;
+        day += EDateTime::isLeapYear(year) ? tzFile::months[(size_t)month - 1].days_leap : tzFile::months[(size_t)month - 1].days_normal;
         month -= 1;
     }
     month += mo;
@@ -80,12 +81,12 @@ DateTime DateTime::operator+(DateTime& other) {
     while (rhour > 24.0) { rhour -= 24.0; rday += 1.0; }
     while (rhour < 0.0) { rhour += 24.0; rday -= 1.0; }
     // Accumulate as if only time and day were added, in order to advance leap years correctly
-    while (rday > (CAADate::IsLeap(year, true) ? tzFile::months[(size_t)month - 1].days_leap : tzFile::months[(size_t)month - 1].days_normal)) {
-        rday -= CAADate::IsLeap(year, true) ? tzFile::months[(size_t)month - 1].days_leap : tzFile::months[(size_t)month - 1].days_normal;
+    while (rday > (EDateTime::isLeapYear(year) ? tzFile::months[(size_t)month - 1].days_leap : tzFile::months[(size_t)month - 1].days_normal)) {
+        rday -= EDateTime::isLeapYear(year) ? tzFile::months[(size_t)month - 1].days_leap : tzFile::months[(size_t)month - 1].days_normal;
         month += 1;
     }
     while (rday < 0.0) {
-        rday += CAADate::IsLeap(year, true) ? tzFile::months[(size_t)month - 1].days_leap : tzFile::months[(size_t)month - 1].days_normal;
+        rday += EDateTime::isLeapYear(year) ? tzFile::months[(size_t)month - 1].days_leap : tzFile::months[(size_t)month - 1].days_normal;
         month -= 1;
     }
     // Now add the months, and roll year forward if needed
@@ -422,9 +423,10 @@ double tzFile::parseDay(const std::string& day, long& month, long& year) {
         for (auto& wd : weekdays) {
             if (wday.substr(0, wd.match_name.size()) == wd.match_name) wdaynum = wd.number;
         }
-        unsigned int fwday = (unsigned int)CAADate(year, month, 1.0, true).DayOfWeek(); // First of month weekday
+        //unsigned int fwday = (unsigned int)CAADate(year, month, 1.0, true).DayOfWeek(); // First of month weekday
+        unsigned int fwday = (unsigned int)EDateTime(year, month, 1.0, 0.0, 0.0, 0.0).weekday(); // First of month weekday
         retval = 22 + (wdaynum - fwday); // Can never exceed 28, but may fall too low, so week forward afterwards, until less than 7 from end.
-        if (CAADate::IsLeap(year, true)) while (retval <= months[(size_t)month - 1].days_leap - 7) retval += 7;
+        if (EDateTime::isLeapYear(year)) while (retval <= months[(size_t)month - 1].days_leap - 7) retval += 7;
         else while (retval <= months[(size_t)month - 1].days_normal - 7) retval += 7;
         //std::cout << " -> last " << weekdays[wdaynum].full_name << " in " << months[(size_t)month - 1].full_name << " is the " << retval << '\n';
         return retval; // No month/year shift possible
@@ -455,17 +457,17 @@ double tzFile::parseDay(const std::string& day, long& month, long& year) {
                 month = 12;
                 year--;
             }
-            retval += (CAADate::IsLeap(year, true) ? months[(size_t)month - 1].days_leap : months[(size_t)month - 1].days_normal);
+            retval += (EDateTime::isLeapYear(year) ? months[(size_t)month - 1].days_leap : months[(size_t)month - 1].days_normal);
         }
     }
-    unsigned int cwday = (unsigned int)CAADate(year, month, retval, true).DayOfWeek();
+    unsigned int cwday = (unsigned int)EDateTime(year, month, 1.0, 0.0, 0.0, 0.0).weekday();
     if (cwday > wdaynum) retval += 7;
     retval += wdaynum - cwday;
-    if (retval <= (CAADate::IsLeap(year, true) ? months[(size_t)month - 1].days_leap : months[(size_t)month - 1].days_normal)) return retval;
+    if (retval <= (EDateTime::isLeapYear(year) ? months[(size_t)month - 1].days_leap : months[(size_t)month - 1].days_normal)) return retval;
     else { // Went to following month
         month++;
         if (month == 13) { month = 1; year++; } // Went to following year
-        return (double)retval - (CAADate::IsLeap(year, true) ? months[(size_t)month - 2].days_leap : months[(size_t)month - 2].days_normal);
+        return (double)retval - (EDateTime::isLeapYear(year) ? months[(size_t)month - 2].days_leap : months[(size_t)month - 2].days_normal);
     }
 }
 void tzFile::parseTime(const std::string& timestr, double& hours, double& minutes, double& seconds, char& suffix) {
@@ -962,6 +964,61 @@ int ShapeFile::parseFile(std::vector<ShapeRecord*>& records, const std::string& 
     return 0;
 }
 
+// ----------
+//  KML File
+// ----------
+int KMLFile::parseFile(SmartPath& path, const std::string& kmlfile) {
+    // !!! FIX: Make a TimePath to use instead of SmartPath !!!
+    std::ifstream infile(kmlfile, std::ifstream::in); // | std::ifstream::binary)
+    if (!infile.is_open()) return -1;
+    std::vector<kmlentry> kmlbuffer;
+    std::string line;
+    long yr, mo;
+    double da, hr, mi, se;
+    double lat, lon, dst;
+    std::string token;
+    size_t index{ 0 };
+    while (getline(infile, line)) {
+        trim(line);                               // trim() is in config.h
+        if (line.length() < 9) continue;
+        if (line.substr(1, 4) == "when") {
+            //std::cout << line << "\n";
+            yr = stol(line.substr(8, 4));
+            mo = stol(line.substr(11, 2));
+            da = stod(line.substr(14, 2));
+            hr = stod(line.substr(17, 2));
+            mi = stod(line.substr(20, 2));
+            se = stod(line.substr(23, 2));
+            //std::cout << yr << ";" << mo << ";" << da << ";" << hr << ";" << mi << ";" << se << "\n";
+            kmlbuffer.emplace_back(kmlentry{ EDateTime{yr,mo,da,hr,mi,se}, LLD{0.0,0.0,0.0} });
+        }
+        if (line.substr(1, 8) == "gx:coord") {
+            //std::cout << line << "\n";
+            line.erase(0, line.find_first_of('>') + 1);
+            line.erase(line.find_first_of('<'));
+            std::stringstream ss(line);
+            //std::cout << "Index: " << index << " : " << line << "\n";
+            ss >> token;
+            lat = stod(token);
+            ss >> token;
+            lon = stod(token);
+            ss >> token;
+            dst = stod(token);
+            kmlbuffer[index].location = { lat, lon, dst };
+            //std::cout << "Index: " << index << " : ";
+            //kmlbuffer[index].location.print();
+            index++;
+        }
+    }
+    std::cout << "KMLFile::parseFile(): " << index << " points loaded:\n";
+    index = 0;
+    for (auto& p : kmlbuffer) {
+        std::cout << index << " : " << p.timestamp.string() << " = ";
+        p.location.print();
+        index++;
+    }
+    return 0;
+}
 
 // -------------
 //  Binary File

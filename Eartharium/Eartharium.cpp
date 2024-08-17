@@ -1,66 +1,53 @@
 
 #include <chrono>  // For comparing execution times of different functions.
 
-#include <glm/gtx/string_cast.hpp>
-
-// These are used by various scenarios, because stuff is missing from Astronomy
-//#include "AAplus/AAAberration.h"
-//#include "AAplus/AAMoon.h"
-//#include "AAplus/AANutation.h"
-//#include "AAplus/AAPhysicalMoon.h"
-//#include "AAplus/AAPrecession.h"   // !!! FIX: Solver evaluations use this, convert those to use Astronomy !!!
-//#include "AAplus/AARefraction.h"   // refraction is calculated in a dynamic function in Earth, refactor that
-//
-//#include "AAplus/AARiseTransitSet2.h"
-//#include "AAplus/AAMoonPhases2.h"
-
-// For the Python interface. Split into separate file if possible.
-#include <python310/Python.h>
-#include <pybind11/embed.h>
-#include <pybind11/stl.h>
-namespace py = pybind11;
-
 // Protos
 void GLClearError();
 void GLPrintError();
 
 //#include "OpenGL.h"
-#include "Primitives.h"
-#include "Earth.h"
 #include "Astronomy.h"
+#include "Renderer.h"
+#include "Primitives.h"
+//#include "SceneObjects.h"
+#include "Earth.h"
 //#include "Utilities.h"
-#include "astronomy/acoordinates.h"
-#include "astronomy/aearth.h"
-#include "FigureGeometry.h"
+//  #include "astronomy/acoordinates.h"
+//  #include "astronomy/aearth.h"
+//#include "FigureGeometry.h"
+
+#include "../EAstronomy/all.h"
+
+#include "pythoninterface.h"
 
 // -----------
 //  Locations
 // -----------
 // Just a few handy locations. Eventually a location manager should load from a file and offer interactive maintenance !!!
-LLD l_gnw = { 51.477811, 0.001475, 0.0 };      // Greenwich Royal Observatory, UK
-LLD l_qqt = { 69.243574, -53.540529, 0.0 };    // Quequertarsuaq, Greenland
-LLD l_cph = { 55.6761, 12.5683, 0.0 };         // Copenhagen, Denmark 55.6761° N, 12.5683° E
-LLD l_nyc = { 40.7182, -74.0060, 0.0 };        // New York, USA 40.7128° N, 74.0060° W
-LLD l_tok = { 35.668009, 139.773577, 0.0 };    // Tokyo, Japan 35.668009, 139.773577
-LLD l_sye = { 24.0889, 32.8998, 0.0 };         // Syene, Egypt 24.0889° N, 32.8998° E
-LLD l_alx = { 31.2001, 29.9187, 0.0 };         // Alexandria, Egypt 31.2001° N, 29.9187° E
-LLD l_clm = { 6.9271, 79.8612, 0.0 };          // Colombo, Sri Lanka 6.9271° N, 79.8612° E
-LLD l_rig = { -53.822025, -67.651686, 0.0 };   // Rio Grande, Argentina - 53.822025, -67.651686
-LLD l_ams = { 52.3676, 4.9041, 0.0 };          // Amsterdam, The Netherlands 52.3676° N, 4.9041° E
-LLD l_perth = { -31.942045, 115.963123, 0.0 }; // Perth airport(PER) Australia
+LLD l_gnw{ 51.477811, 0.001475, 0.0 };      // Greenwich Royal Observatory, UK
+LLD l_qqt{ 69.243574, -53.540529, 0.0 };    // Quequertarsuaq, Greenland
+LLD l_cph{ 55.6761, 12.5683, 0.0 };         // Copenhagen, Denmark 55.6761° N, 12.5683° E
+LLD l_nyc{ 40.7182, -74.0060, 0.0 };        // New York, USA 40.7128° N, 74.0060° W
+LLD l_tok{ 35.668009, 139.773577, 0.0 };    // Tokyo, Japan 35.668009, 139.773577
+LLD l_sye{ 24.0889, 32.8998, 0.0 };         // Syene, Egypt 24.0889° N, 32.8998° E
+LLD l_alx{ 31.2001, 29.9187, 0.0 };         // Alexandria, Egypt 31.2001° N, 29.9187° E
+LLD l_clm{ 6.9271, 79.8612, 0.0 };          // Colombo, Sri Lanka 6.9271° N, 79.8612° E
+LLD l_rig{ -53.822025, -67.651686, 0.0 };   // Rio Grande, Argentina - 53.822025, -67.651686
+LLD l_ams{ 52.3676, 4.9041, 0.0 };          // Amsterdam, The Netherlands 52.3676° N, 4.9041° E
+LLD l_perth{ -31.942045, 115.963123, 0.0 }; // Perth airport(PER) Australia
 LLD l_sydney{ -33.8688, 151.2093, 66.0 };      // Sydney Australia according to google maps (incl elevation)
-LLD l_cptwn = { -33.974195, 18.602728, 0.0 };  // Cape Town airport South Africa
-LLD l_puare = { -53.002324, -70.854556, 0.0 }; // Punta Arenas airport(PUQ) Chile
-LLD l_stiag = { -33.3898, -70.7944, 0.0 };     // Santiago airport(SCL) Chile
-LLD l_sydny = { -33.9399, 151.1753, 0.0 };     // Sydney airport(SYD) Australia
-LLD l_buair = { -34.818463, -58.534176, 0.0 }; // Buenos Aires airport(EZE) Argentina
-LLD l_frafu = { 50.037967, 8.561057, 0.0 };    // Frankfurt airport(FRA) Germany
-LLD l_seoul = { 37.468028, 126.442011, 0.0 };  // Seoul airport(ICN) South Korea
-LLD l_kabul = { 34.543447, 69.177123, 1817.522 };  // Kabul FlatEarthIntel.com measurepoint
-LLD l_jamaica = { 18.1096, -77.2975, 0.0 };    // Jamaica according to google. For Columbus Eclipse
+LLD l_cptwn{ -33.974195, 18.602728, 0.0 };  // Cape Town airport South Africa
+LLD l_puare{ -53.002324, -70.854556, 0.0 }; // Punta Arenas airport(PUQ) Chile
+LLD l_stiag{ -33.3898, -70.7944, 0.0 };     // Santiago airport(SCL) Chile
+LLD l_sydny{ -33.9399, 151.1753, 0.0 };     // Sydney airport(SYD) Australia
+LLD l_buair{ -34.818463, -58.534176, 0.0 }; // Buenos Aires airport(EZE) Argentina
+LLD l_frafu{ 50.037967, 8.561057, 0.0 };    // Frankfurt airport(FRA) Germany
+LLD l_seoul{ 37.468028, 126.442011, 0.0 };  // Seoul airport(ICN) South Korea
+LLD l_kabul{ 34.543447, 69.177123, 1817.522 };  // Kabul FlatEarthIntel.com measurepoint
+LLD l_jamaica{ 18.1096, -77.2975, 0.0 };    // Jamaica according to google. For Columbus Eclipse
 
 // Places to check webcams for sunrise/sunset
-LLD l_phuket = { 7.891579, 98.295930, 0.0 };   // Phuket west facing (sunset) webcam: https://www.webcamtaxi.com/en/thailand/phuket/patong-beach-resort.html
+LLD l_phuket{ 7.891579, 98.295930, 0.0 };   // Phuket west facing (sunset) webcam: https://www.webcamtaxi.com/en/thailand/phuket/patong-beach-resort.html
 
 
 // ---------------
@@ -76,9 +63,6 @@ public:
 
 
 
-
-
-
 void TimeGetDetails(Application& app) {
     Astronomy* astro = app.newAstronomy();
     astro->setTime(-200, 9, 23.0, 0.0, 0.0, 0.0);
@@ -90,134 +74,21 @@ void TimeGetDetails(Application& app) {
     double count = 1000; // 100'000;
     double i = 0;
     start = std::chrono::high_resolution_clock::now();
-    old = astro->getDetailsNew(astro->getJD_TT(), URANUS, ECGEO);
+    //old = astro->getDetails(astro->getJD_TT(), URANUS, ECGEO);
     //return;
     for (i = 0; i < count; i++) {
-        old = astro->getDetailsNew(astro->getJD_TT(), URANUS, ECGEO);
+    //    old = astro->getDetails(astro->getJD_TT(), URANUS, ECGEO);
     }
     stop = std::chrono::high_resolution_clock::now();
     std::cout << " Time in us:  " << std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count() << '\n';
     std::cout << "RA/Dec: " << rad2hrs * old.geq.lon << ", " << rad2deg * old.geq.lat << "\n";
 }
 
-#include "AAplus/AAElliptical.h"
-void testPlanetaryDetail(Application& app) {
 
-    // Mars - 2024-04-08 12:00 UTC
-
-    // My library (converted from AA+ to always use radians)
-    Astronomy* astro = app.newAstronomy();
-    astro->setTime(2024, 4, 8.0, 12.0, 0.0, 0.0);
-    std::cout << "\n\nMARS " << astro->timestr << " - MDO Library" << std::endl;
-    CelestialDetailFull details = astro->planetaryDetails(astro->getJD_TT(), A_MARS, VSOP87_FULL);
-    details.print();
-    std::cout << std::endl;
-
-    // AA+ - P.J.Naughter
-    std::cout << "MARS - AA+ v2.49 - P.J.Naughter" << std::endl;
-    CAAEllipticalPlanetaryDetails aaplus = CAAElliptical::Calculate(astro->getJD_TT(), CAAElliptical::Object::MARS, true);
-    std::cout << " True Heliocentric Ecliptic Spherical:    "
-        << aaplus.TrueHeliocentricEclipticalLatitude << ","
-        << aaplus.TrueHeliocentricEclipticalLongitude << ","
-        << aaplus.TrueHeliocentricDistance << std::endl;
-
-    std::cout << " True Geocentric Ecliptic Rectangular:     "
-        << aaplus.TrueGeocentricRectangularEcliptical.X << ","
-        << aaplus.TrueGeocentricRectangularEcliptical.Y << ","
-        << aaplus.TrueGeocentricRectangularEcliptical.Z << std::endl;
-
-    std::cout << " True Geocentric Ecliptic Spherical:       "
-        << aaplus.TrueGeocentricEclipticalLatitude << ","
-        << aaplus.TrueGeocentricEclipticalLongitude << ","
-        << aaplus.TrueGeocentricDistance << std::endl;
-
-    std::cout << " True Geocentric Equatorial Spherical:     "
-        << aaplus.TrueGeocentricDeclination << ","
-        << aaplus.TrueGeocentricRA << ","
-        << aaplus.TrueGeocentricDistance << std::endl;
-
-    std::cout << " Apparent Geocentric Ecliptic Spherical:   "
-        << aaplus.ApparentGeocentricEclipticalLatitude << ","
-        << aaplus.ApparentGeocentricEclipticalLongitude << ","
-        << aaplus.ApparentGeocentricDistance << std::endl;
-
-    std::cout << " Apparent Geocentric Equatorial Spherical: "
-        << aaplus.ApparentGeocentricDeclination << ","
-        << aaplus.ApparentGeocentricRA << ","
-        << aaplus.ApparentGeocentricDistance << std::endl;
-
-    // Sun - 2024-04-08 12:00 UTC
-
-    // Astronomy::planetaryDetails() - M.D.Olsen
-    std::cout << "\n\nSUN " << astro->timestr << " - MDO Library" << std::endl;
-    details = astro->planetaryDetails(astro->getJD_TT(), A_SUN, VSOP87_FULL);
-    details.print();
-    std::cout << std::endl;
-
-    // AA+ - P.J.Naughter
-    std::cout << "SUN - AA+ v2.49 - P.J.Naughter" << std::endl;
-    aaplus = CAAElliptical::Calculate(astro->getJD_TT(), CAAElliptical::Object::SUN, true);
-    std::cout << " True Heliocentric Ecliptic Spherical:     "
-        << aaplus.TrueHeliocentricEclipticalLatitude << ","
-        << aaplus.TrueHeliocentricEclipticalLongitude << ","
-        << aaplus.TrueHeliocentricDistance << std::endl;
-
-    std::cout << " True Geocentric Ecliptic Rectangular:     "
-        << aaplus.TrueGeocentricRectangularEcliptical.X << ","
-        << aaplus.TrueGeocentricRectangularEcliptical.Y << ","
-        << aaplus.TrueGeocentricRectangularEcliptical.Z << std::endl;
-
-    std::cout << " True Geocentric Ecliptic Spherical:       "
-        << aaplus.TrueGeocentricEclipticalLatitude << ","
-        << aaplus.TrueGeocentricEclipticalLongitude << ","
-        << aaplus.TrueGeocentricDistance << std::endl;
-
-    std::cout << " True Geocentric Equatorial Spherical:     "
-        << aaplus.TrueGeocentricDeclination << ","
-        << aaplus.TrueGeocentricRA << ","
-        << aaplus.TrueGeocentricDistance << std::endl;
-
-    std::cout << " Apparent Geocentric Ecliptic Spherical:   "
-        << aaplus.ApparentGeocentricEclipticalLatitude << ","
-        << aaplus.ApparentGeocentricEclipticalLongitude << ","
-        << aaplus.ApparentGeocentricDistance << std::endl;
-
-    std::cout << " Apparent Geocentric Equatorial Spherical: "
-        << aaplus.ApparentGeocentricDeclination << ","
-        << aaplus.ApparentGeocentricRA << ","
-        << aaplus.ApparentGeocentricDistance << std::endl;
-
-
-    //// Time the two functions to verify cost of the refactor
-    //auto start = std::chrono::high_resolution_clock::now();
-    //auto stop = std::chrono::high_resolution_clock::now();
-    //CelestialDetailFull old1;
-    //CAAEllipticalPlanetaryDetails old2;
-    //double count = 10000; // 100'000;
-    //double i = 0;
-    //
-    //// AA+ v2.49
-    //start = std::chrono::high_resolution_clock::now();
-    //for (i = 0; i < count; i++) {
-    //    old2 = CAAElliptical::Calculate(astro->getJD_TT(), CAAElliptical::Object::MARS, true);
-    //}
-    //stop = std::chrono::high_resolution_clock::now();
-    //std::cout << "CAAElliptical::Calculate() Time in us:  " << std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count() << '\n';
-    //
-    //// Astronomy (MDO)
-    //start = std::chrono::high_resolution_clock::now();
-    //for (i = 0; i < count; i++) {
-    //    old1 = astro->planetaryDetails(astro->getJD_TT(), A_MARS, VSOP87_FULL);
-    //}
-    //stop = std::chrono::high_resolution_clock::now();
-    //std::cout << "Astronomy::planetaryDetail() Time in us:  " << std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count() << '\n';
-}
-
-#include "astronomy/amoon.h"
-#include "astronomy/astars.h"  // for precession 
-#include "AAplus/AAMoon.h"
-#include "AAplus/AAELP2000.h"
-#include "AAplus/AAELPMPP02.h"
+//  #include "astronomy/amoon.h"
+//#include "AAplus/AAMoon.h"
+//#include "AAplus/AAELP2000.h"
+//#include "AAplus/AAELPMPP02.h"
 
 void testLunarPosition(Application& app) {
     // Moon - 2024-04-08 12:00 UTC
@@ -226,9 +97,9 @@ void testLunarPosition(Application& app) {
     Astronomy* astro = app.newAstronomy();
     //astro->setTime(2024, 4, 8.0, 12.0, 0.0, 0.0);
     //astro->setTime(1992, 4, 12.0, 0.0, 0.0, 0.0);
-    astro->setJD_UTC(2448724.5);
+    astro->setJD_UTC(2448724.5); // same as astro->setTime(1992, 4, 12.0, 0.0, 0.0, 0.0);
     double jd_tt = astro->getJD_TT();
-    //double jd_tt = 2448724.5;
+    jd_tt = 2448724.5;
 
     // True Geocentric Ecliptic Spherical coordinates
     LLD meeusa1 = AMoon::EclipticCoordinates(jd_tt, MEEUS_SHORT);
@@ -236,47 +107,57 @@ void testLunarPosition(Application& app) {
     LLD elp2ka1 = AMoon::EclipticCoordinates(jd_tt, ELP2000_82);
     LLD elp2kb1 = astro->MoonTrueEcliptic(jd_tt, ELP2000_82);
     LLD elp2kc1 = AELP2000::EclipticCoordinates(jd_tt);
+    LLD elp2kard = elp2kc1;
+    elp2kard += AEarth::EclipticAberration(elp2kard.lon, elp2kard.lat, jd_tt, EPH_VSOP87_SHORT);
+    elp2kard += FK5::CorrectionInLonLat(elp2kard, jd_tt);
+    elp2kard.lon += AEarth::NutationInLongitude(jd_tt);
+    const double epsilon = AEarth::TrueObliquityOfEcliptic(jd_tt); // Mean Obliquity + Nutation in Obliquity
+    //const double epsilon = AEarth::TrueObliquityOfEcliptic(JD_2000); // Mean Obliquity + Nutation in Obliquity
+    elp2kard = Spherical::Ecliptic2Equatorial(elp2kard, epsilon);
+    elp2kard = AEarth::PrecessEquatorialJ2000(elp2kard, jd_tt);
+
     LLD mpp02a1 = AMoon::EclipticCoordinates(jd_tt, ELP_MPP02);
     LLD mpp02b1 = astro->MoonTrueEcliptic(jd_tt, ELP_MPP02);
     glm::dvec3 mrect = AELP2000::EclipticRectangularCoordinates(jd_tt);
-    glm::dvec3 mrfk5 = AELP2000::EquatorialRectangularCoordinatesFK5(jd_tt);
+    glm::dvec3 mrfk5 = AELP2000::EquatorialRectangularCoordinatesFK5(jd_tt);  // In equinox of J2000
     LLD mfk5 = Spherical::Rectangular2Spherical(mrfk5);
-    LLD mdate = APrecession::PrecessEquatorialJ2000(mfk5, jd_tt);
+    LLD mdate = AEarth::PrecessEquatorialJ2000(mfk5, jd_tt);             // In equinox of date
 
     std::cout << "\n\nMOON " << astro->timestr << " -> jd_tt: " << jd_tt << " - MDO Library" << std::endl;
     std::cout << "Ephemeris coordinates: " << std::endl;
-    std::cout << " MDO Meeus Short: " << meeusa1.str_EC() << " - " << astro->angle2DMSstring(meeusa1.lat, true) << "," << astro->angle2uDMSstring(meeusa1.lon, true) << std::endl;
-    std::cout << " MDO ELP2000-82:  " << elp2ka1.str_EC() << " - " << astro->angle2DMSstring(elp2ka1.lat, true) << "," << astro->angle2uDMSstring(elp2ka1.lon, true) << std::endl;
-    std::cout << " LLD ELP2000-82:  " << elp2kc1.str_EC() << " - " << astro->angle2DMSstring(elp2kc1.lat, true) << "," << astro->angle2uDMSstring(elp2kc1.lon, true) << std::endl;
+    std::cout << " MDO Meeus Short: " << meeusa1.str_EC() << " - " << ACoord::angle2DMSstring(meeusa1.lat) << "," << ACoord::angle2uDMSstring(meeusa1.lon) << std::endl;
+    std::cout << " MDO ELP2000-82:  " << elp2ka1.str_EC() << " - " << ACoord::angle2DMSstring(elp2ka1.lat) << "," << ACoord::angle2uDMSstring(elp2ka1.lon) << std::endl;
+    std::cout << " LLD ELP2000-82:  " << elp2kc1.str_EC() << " - " << ACoord::angle2DMSstring(elp2kc1.lat) << "," << ACoord::angle2uDMSstring(elp2kc1.lon) << std::endl;
+    std::cout << " LLD elp2kard:    " << elp2kard.str_EC() << " - " << ACoord::angle2DMSstring(elp2kard.lat) << "," << ACoord::angle2uHMSstring(elp2kard.lon) << std::endl;
     std::cout << " MDO ELP2000-82 Rectangular:  " << mrect.x << "," << mrect.y << "," << mrect.z << std::endl;
     std::cout << " MDO ELP2000-82 EQ FK5@J2000: " << mrfk5.x << "," << mrfk5.y << "," << mrfk5.z << std::endl;
-    std::cout << " MDO ELP2000-82 FK5@J2000: " << mfk5.str_EC() << " - " << astro->angle2DMSstring(mfk5.lat, true) << "," << astro->angle2uHMSstring(mfk5.lon, true) << std::endl;
-    std::cout << " MDO ELP2000-82 FK5@date: " << mdate.str_EC() << " - " << astro->angle2DMSstring(mdate.lat, true) << "," << astro->angle2uHMSstring(mdate.lon, true) << std::endl;
-    std::cout << " MDO ELPMPP02:    " << mpp02a1.str_EC() << " - " << astro->angle2DMSstring(mpp02a1.lat, true) << "," << astro->angle2uDMSstring(mpp02a1.lon, true) << std::endl;
+    std::cout << " MDO ELP2000-82 FK5@J2000: " << mfk5.str_EC() << " - " << ACoord::angle2DMSstring(mfk5.lat) << "," << ACoord::angle2uHMSstring(mfk5.lon) << std::endl;
+    std::cout << " MDO ELP2000-82 FK5@date: " << mdate.str_EC() << " - " << ACoord::angle2DMSstring(mdate.lat) << "," << ACoord::angle2uHMSstring(mdate.lon) << std::endl;
+    std::cout << " MDO ELPMPP02:    " << mpp02a1.str_EC() << " - " << ACoord::angle2DMSstring(mpp02a1.lat) << "," << ACoord::angle2uDMSstring(mpp02a1.lon) << std::endl;
     std::cout << std::endl;
 
 
     // AA+ - P.J.Naughter
     std::cout << "MOON - AA+ v2.49 - P.J.Naughter" << std::endl;
     std::cout << "Ephemeris coordinates: " << std::endl;
-    std::cout << " AA+ Meeus Short: "
-        << CAAMoon::EclipticLatitude(jd_tt) << ","
-        << CAAMoon::EclipticLongitude(jd_tt) << ","
-        << CAAMoon::RadiusVector(jd_tt) << std::endl;
-    std::cout << " AA+ ELP2000-82:  "
-        << CAAELP2000::EclipticLatitude(jd_tt) << ","
-        << CAAELP2000::EclipticLongitude(jd_tt) << ","
-        << CAAELP2000::RadiusVector(jd_tt) << std::endl;
-    CAA3DCoordinate rect{ CAAELP2000::EclipticRectangularCoordinates(jd_tt) };
-    std::cout << " AA+ ELP2000-82 Rectangular: " << rect.X << "," << rect.Y << "," << rect.Z << std::endl;
-    CAA3DCoordinate rfk5{ CAAELP2000::EquatorialRectangularCoordinatesFK5(jd_tt) };
-    std::cout << " AA+ ELP2000-82 EQ Rect FK5: " << rfk5.X << "," << rfk5.Y << "," << rfk5.Z << std::endl;
-    LLD sfk5 = Spherical::Rectangular2Spherical({ rfk5.X, rfk5.Y, rfk5.Z });
-    std::cout << " LLD ELP2000-82 FK5: " << sfk5.str_EC() << " - " << astro->angle2DMSstring(sfk5.lat, true) << "," << astro->angle2uHMSstring(sfk5.lon, true) << std::endl;
-    std::cout << " AA+ ELPMPP02:    "
-        << CAAELPMPP02::EclipticLatitude(jd_tt) << ","
-        << CAAELPMPP02::EclipticLongitude(jd_tt) << ","
-        << CAAELPMPP02::RadiusVector(jd_tt) << std::endl;
+    //std::cout << " AA+ Meeus Short: "
+    //    << CAAMoon::EclipticLatitude(jd_tt) << ","
+    //    << CAAMoon::EclipticLongitude(jd_tt) << ","
+    //    << CAAMoon::RadiusVector(jd_tt) << std::endl;
+    //std::cout << " AA+ ELP2000-82:  "
+    //    << CAAELP2000::EclipticLatitude(jd_tt) << ","
+    //    << CAAELP2000::EclipticLongitude(jd_tt) << ","
+    //    << CAAELP2000::RadiusVector(jd_tt) << std::endl;
+    //CAA3DCoordinate rect{ CAAELP2000::EclipticRectangularCoordinates(jd_tt) };
+    //std::cout << " AA+ ELP2000-82 Rectangular: " << rect.X << "," << rect.Y << "," << rect.Z << std::endl;
+    //CAA3DCoordinate rfk5{ CAAELP2000::EquatorialRectangularCoordinatesFK5(jd_tt) };
+    //std::cout << " AA+ ELP2000-82 EQ Rect FK5: " << rfk5.X << "," << rfk5.Y << "," << rfk5.Z << std::endl;
+    //LLD sfk5 = Spherical::Rectangular2Spherical({ rfk5.X, rfk5.Y, rfk5.Z });
+    //std::cout << " LLD ELP2000-82 FK5: " << sfk5.str_EC() << " - " << astro->angle2DMSstring(sfk5.lat, true) << "," << astro->angle2uHMSstring(sfk5.lon, true) << std::endl;
+    //std::cout << " AA+ ELPMPP02:    "
+    //    << CAAELPMPP02::EclipticLatitude(jd_tt) << ","
+    //    << CAAELPMPP02::EclipticLongitude(jd_tt) << ","
+    //    << CAAELPMPP02::RadiusVector(jd_tt) << std::endl;
 
     // NOTE: When comparing the above to Stellarium, the following facts are important:
     //       1) Stellarium displays and takes JD in UTC!
@@ -285,8 +166,115 @@ void testLunarPosition(Application& app) {
     //       4) Switch off aberration.
     //       5) Meeus Short returns Ecliptic of date directly.
     //       6) ELP2000_82 returns FK5 @J2000 when using EquatorialRectangularCoordinatesFK5()
-    astro->setJD_UTC(JD_2000);
-    std::cout << "\n\n J2000.0 UTC: " << astro->getJD_UTC() << " TT: " << astro->getJD_TT() << std::endl;
+    //astro->setJD_UTC(JD_2000);
+    //std::cout << "\n\n J2000.0 UTC: " << astro->getJD_UTC() << " TT: " << astro->getJD_TT() << std::endl;
+
+    // Stellar Apparent Position by Name
+    //astro->setTime(2024, 5, 19.0, 12.0, 0.0, 0.0);
+    //LLD decra = astro->ApparentStellarPositionbyName("Sirius", NO_DOUBLE);
+    //std::cout << "\n\nSirius Apparent Position (Dec,RA): " << astro->formatDecRA(decra, true) << std::endl;
+    // Example from Meeus and forum post
+    astro->setTime(2028, 11 , 13.0, 3.0, 33.0, 35.0);
+    LLD decra = astro->ApparentStellarPositionbyName("* tet Per", NO_DOUBLE);
+    std::cout << "\n\nTheta Persei Apparent Position (Dec,RA): " << ACoord::formatDecRA(decra) << "\n\n" << std::endl;
+
+    astro->explainApparentStellarPositionbyName("* tet Per");
+    astro->explainApparentStellarPositionbyName("Sirius");
+    astro->explainApparentStellarPositionbyName("Polaris");
+
+}
+
+void testMoonPhases(Application& app) {
+    EDateTime datestrK{ 1977, 2, 1.0, 0.0, 0.0, 0.0 };
+    EDateTime datestr{ 1977, 2, 1.0, 0.0, 0.0, 0.0 };
+    //EDateTime datestr{ 2000, 1, 1.0, 0.0, 0.0, 0.0 };
+    double moonjd = datestr.jd_tt();
+    std::cout << "moonjd: " << moonjd << "  K: " << AMoon::Phase_K((moonjd - JD_0000) / JD_YEAR) << std::endl;
+
+    datestrK.setJD_TT(AMoon::TruePhaseK(-283.0));
+    std::cout << "A First New Moon February 1977: " << datestrK.string() << std::endl;    // MEEUS98 example 49.a
+    datestr.setJD_TT(AMoon::TruePhase(moonjd, NEW_MOON));
+    std::cout << "M First New Moon February 1977: " << datestr.string() << std::endl;     // MEEUS98 example 49.a
+
+    datestrK.setJD_TT(AMoon::TruePhaseK(-282.75));
+    std::cout << "A First Qua Moon February 1977: " << datestrK.string() << std::endl;
+    datestr.setJD_TT(AMoon::TruePhase(moonjd, FIRST_QUARTER_MOON));
+    std::cout << "M First Qua Moon February 1977: " << datestr.string() << std::endl;
+
+    datestrK.setJD_TT(AMoon::TruePhaseK(-283.50));
+    std::cout << "A First Ful Moon February 1977: " << datestrK.string() << std::endl;
+    datestr.setJD_TT(AMoon::TruePhase(moonjd, FULL_MOON));
+    std::cout << "M First Ful Moon February 1977: " << datestr.string() << std::endl;
+
+    datestrK.setJD_TT(AMoon::TruePhaseK(-283.25));
+    std::cout << "A Third Qua Moon February 1977: " << datestrK.string() << std::endl;
+    datestr.setJD_TT(AMoon::TruePhase(moonjd, THIRD_QUARTER_MOON));
+    std::cout << "M Third Qua Moon February 1977: " << datestr.string() << std::endl;
+
+    std::cout << std::endl;
+    EDateTime ex49b{ 2044, 1, 1.0, 0.0, 0.0, 0.0 };
+    double ex49b_jd = ex49b.jd_tt();
+    std::cout << "First Last Quarter Moon 2044: " << AMoon::TruePhaseK(544.75) << std::endl;                // MEEUS98 example 49.b
+    std::cout << "First Last Quarter Moon 2044: " << AMoon::TruePhase(ex49b_jd, THIRD_QUARTER_MOON) << std::endl;  // MEEUS98 example 49.b
+    std::cout << "First New Moon 2044: " << AMoon::TruePhaseK(545.0) << std::endl;
+    std::cout << "First New Moon 2044: " << AMoon::TruePhase(ex49b_jd, NEW_MOON) << std::endl;
+    std::cout << "First First Quarter Moon 2044: " << AMoon::TruePhaseK(544.25) << std::endl;
+    std::cout << "First First Quarter Moon 2044: " << AMoon::TruePhase(ex49b_jd, FIRST_QUARTER_MOON) << std::endl;
+    std::cout << "First Full Moon 2044: " << AMoon::TruePhaseK(544.50) << std::endl;
+    std::cout << "First Full Moon 2044: " << AMoon::TruePhase(ex49b_jd, FULL_MOON) << std::endl;
+
+    EDateTime jd_zero{ JD_0000, true };
+    std::cout << "DateTime: " << jd_zero.stringms() << " jd_tt: " << jd_zero.jd_tt() << " jd_utc: " << jd_zero.jd_utc() << std::endl;
+}
+
+void testLuarNodes(Application& app) {
+    EDateTime datestrK{ 1987, 5, 1.0, 0.0, 0.0, 0.0 };
+    EDateTime datestr{ 1987, 5, 1.0, 0.0, 0.0, 0.0 };
+    double moonjd = datestr.jd_tt();
+    std::cout << "moonjd: " << moonjd << "  K: " << AMoon::Node_K((moonjd - JD_0000) / JD_YEAR) << std::endl;
+
+    datestrK.setJD_TT(AMoon::PassageThroNodeK(-170.0));
+    std::cout << "A Ascending Node May 1987:  " << datestrK.string() << std::endl;    // MEEUS98 example 51.a
+    datestr.setJD_TT(AMoon::PassageThroNode(moonjd, ASCENDING));
+    std::cout << "M Ascending Node May 1987:  " << datestr.string() << std::endl;     // MEEUS98 example 51.a
+
+    datestrK.setJD_TT(AMoon::PassageThroNodeK(-170.5));
+    std::cout << "A Descending Node May 1987: " << datestrK.string() << std::endl;
+    datestr.setJD_TT(AMoon::PassageThroNode(moonjd, DESCENDING));
+    std::cout << "M Descending Node May 1987: " << datestr.string() << std::endl;
+}
+
+
+//#include "AAplus/AAElliptical.h"
+//  #include "astronomy/aelliptical.h"
+//  #include "astronomy/amars.h"
+void testAElliptical(Application& app) {
+    EDateTime marsdate{ 2024, 5, 19.0, 12.0, 0.0, 0.0 };
+
+    // MDO implementation
+    APlanetaryDetails marsdetm = AElliptical::getPlanetaryDetails(marsdate.jd_tt(), A_MARS, EPH_VSOP87_FULL);
+    std::cout << "MDO Mars: " << ACoord::formatDecRA(marsdetm.ageqs) << std::endl;
+    // PJN implementation
+    //CAAEllipticalPlanetaryDetails marsdeta = CAAElliptical::Calculate(marsdate.jd_tt(), CAAElliptical::Object::MARS, true);
+    //std::cout << "AA+ Mars: " << Astronomy::formatDecRA({ marsdeta.ApparentGeocentricDeclination, marsdeta.ApparentGeocentricRA * 15, marsdeta.ApparentGeocentricDistance }, false) << std::endl;
+    // Output:
+    // MDO Mars: 004°33'35.789" / 000h55m04.054s
+    // AA+ Mars: 004°33'35.789" / 000h55m04.054s
+    // Matches Stellarium 23.1 exactly to the accuracy of Stellarium output (0.1") with Atmosphere and Topocentric turned off
+
+    // Meeus98 example 33.a
+    // Venus at 1992 Dec 20 0:00:00 tt, jde 2448976.5
+    //EDateTime venusdate{ 1992, 12, 20.0, 0.0, 0.0, 0.0 };   // No, because Meeus gives the date in dynamical time (TT)
+    EDateTime venusdate{ 2448976.5 , true }; // Set JD_TT
+    APlanetaryDetails venusdetm = AElliptical::getPlanetaryDetails(venusdate.jd_tt(), A_VENUS, EPH_VSOP87_SHORT);
+    std::cout << "MDO Venus (short VSOP87): " << ACoord::formatDecRA(venusdetm.ageqs) << std::endl;
+    // Output: MDO Venus (short VSOP87): -18°53'16.909" / 021h04m41.488s
+    // MEEUS98:                          -18°53'16.8"   / 021h04m41.50s
+
+    //Physical Mars
+    EDateTime pmarsdate{ 1992, 11, 9.0, 0.0, 0.0, 0.0 };
+    APhysicalMarsDetails physmars{ AMars::calcPhysicalMarsDetails(pmarsdate.jd_tt(), EPH_VSOP87_FULL) };
+    physmars.print();
 }
 
 
@@ -340,8 +328,273 @@ void testDetailedEarth(Application& app) {
 
 
 
-// Application is a global container for all the rest
-Application app = Application();  // New global after refactor
+void testDetailedSky(Application& app) {
+    Astronomy* astro = app.newAstronomy();
+    astro->setTime(2024, 4, 8.0, 18.0, 40.0, 0.0);
+    //std::cout << astro.getTimeString() << std::endl;
+    Scene* scene = app.newScene();
+    scene->astro = astro;
+    Camera* cam = scene->w_camera; // Pick up default camera
+    app.currentCam = cam;          // Bind camera to keyboard updates
+    RenderLayer3D* layer = app.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, nullptr);
+    text->setFont(app.m_font2);
+    text->setAstronomy(astro);
+    RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    gui->addLayer3D(layer, "SkyView");
+
+    DetailedSky* sky = new DetailedSky(scene, nullptr, "NSAE", 180, 90, 1.0f);
+    app.currentEarth2 = sky;
+
+    sky->addStars(5.0);
+    sky->addGridEquatorial();
+    sky->addPrecessionPath();
+
+    while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
+    {
+        if (app.anim) {
+            //astro->setTimeNow();
+            astro->addTime(0.0, 0.0, 4.0, 0.0);
+            //astro->addTime(0.0, 0.0, 0.0, 31558149.504); // Sidereal year in seconds
+        }
+
+        //app.anim = false; // Nice for single step action. <space> will set app.anim in app.render, and we get back here one frame later.
+        app.render();
+    }
+
+}
+
+
+
+
+void LunarData(Application& app) {
+    Astronomy* astro = app.newAstronomy();
+
+    astro->setJD_UTC(JD_2000);
+    std::cout << JD_2000 << " " << astro->getJD_TT() << "\n";
+
+    // Trying to match J.Meus 1992 Astronomical Algorithms SE, example 47.a (page 342)
+    astro->setTime(1992, 4, 12.0, 0.0, 0.0, 0.0);  // Meus example 47.a
+
+    double currentJD = astro->getJD_UTC();         // Should probably be JD_TT. But JD_UTC gives the exact result of Meus example 47.a
+    double elon = AMoon::EclipticLongitude(currentJD);  // lambda
+    double elat = AMoon::EclipticLatitude(currentJD);   // beta
+    double Epsilon = AEarth::TrueObliquityOfEcliptic(currentJD);
+    LLD equa = Spherical::Ecliptic2Equatorial2(elon, elat, Epsilon);
+    double moonDist = AMoon::RadiusVector(currentJD); // RadiusVector() returns in km
+    double moonRA = hrs2rad * equa.lon;
+    double moonDec = deg2rad * equa.lat;
+    // precessing the epoch is needed below when matching NASAs 2023 lunar table (see below), not with Meus' example.
+    // CAA2DCoordinate j2k = CAAPrecession::PrecessEquatorial(equa.X, equa.Y, astro->getJD_UTC(), JD_2000);
+
+    //std::cout << astro->getTimeString() << " " << astro->radecFormat(astro->rangezero2tau(moonRA), astro->rangepi2pi(moonDec), true) << "\n";
+    std::cout << astro->getTimeString() << " " << equa.lon << " / " << equa.lat << "\n";
+    std::cout << astro->getJD_UTC() - astro->getJD_TT() << "  " << elon << "," << elat << " | " << moonDist << ", True Obliq: " << Epsilon << "\n\n\n";
+    // Above is completely accurate as per Meus example 47.a
+
+    // Trying to match https://svs.gsfc.nasa.gov/vis/a000000/a005000/a005048/mooninfo_2023.txt
+    // Which is a data dump of this: https://svs.gsfc.nasa.gov/5048
+    // (Moon phases and libration 2023)
+    LLD j2k{};
+    for (double i = 0; i < 30; i++) {
+        astro->setTime(2023, 1, 1.0, i, 0.0, 0.0);
+        currentJD = astro->getJD_TT();
+        elon = AMoon::EclipticLongitude(currentJD);  // lambda
+        elat = AMoon::EclipticLatitude(currentJD);   // beta
+        Epsilon = AEarth::TrueObliquityOfEcliptic(currentJD);
+        equa = Spherical::Ecliptic2Equatorial2(elon, elat, Epsilon);
+        moonDist = AMoon::RadiusVector(currentJD); // RadiusVector() returns in km - seems consistently 40km low for Jan 2023.
+        //moonRA = hrs2rad * equa.X;
+        //moonDec = deg2rad * equa.Y;
+        // Above NASA datadump appears to list RA/Dec in J2000.0 epoch, we calculated to epoch of date.
+        j2k = AEarth::PrecessEquatorial(equa.lon, equa.lat, astro->getJD_TT(), 2451545.00074287); // latter is JD2000, but in TT);
+        //std::cout << astro->getTimeString() << " " << astro->radecFormat(astro->rangezero2tau(moonRA), astro->rangepi2pi(moonDec), true) << "\n";
+        //std::cout << astro->getTimeString() << " " << equa.X << " / " << equa.Y << "\n";
+
+        // Selenographic position of the Sun (use for rendering terminator)
+        ASelenographicMoonDetails selsun = AMoon::CalculateSelenographicPositionOfSun(astro->getJD_TT(), ELP2000_82);
+
+        // Geocentric libration and position angle of lunar axis
+        APhysicalMoonDetails libration = AMoon::CalculateGeocentric(astro->getJD_TT());
+
+        std::cout << "J2000: " << astro->getTimeString() << " " << moonDist << " " << j2k.lon << " " << j2k.lat;
+        std::cout << " " << selsun.l0 << " " << selsun.b0 << "\n";
+        std::cout << "       " << libration.l << " " << libration.b << " " << ACoord::rangezero2threesixty(libration.P) << "\n";
+    }
+
+
+    // Test new DetailedMoon object
+    //astro->setTimeNow();
+    //astro->setTime(2020, 1, 27.0, 16.0, 0.0, 0.0);
+    astro->setTime(2023, 7, 1.0, 0.0, 0.0, 0.0);
+    Scene* scene = app.newScene();
+    Camera* cam = scene->w_camera; // Pick up default camera
+    app.currentCam = cam;          // Bind camera to keyboard updates
+    RenderLayer3D* layer = app.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, nullptr);
+    text->setFont(app.m_font2);
+    text->setAstronomy(astro);
+    RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    gui->addLayer3D(layer, "LunarView");
+
+    //RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, nullptr);
+    //text->setFont(app.m_font2);
+    //text->setAstronomy(astro);
+    //RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    //gui->addLayer3D(layer, "GlobalView");
+
+
+    // FoV to Moon's greatest angular diameter (0.56833 degrees)
+    // Distance: Moon's real diameter is 3474.8km, internal rep is 2 units. Moon's closest distance ~360000km. So 2*360000/3474.8 fills screen
+    //           Dist is dynamically updated in DetailedMoon::update() to simulate Earth Moon distance
+    cam->setLatLonFovDist(0.0f, 0.0f, 0.56833f, 210.0f);
+    // With such as small FoV and high distance, the Near Clipping Plane has to be around 5.0f or more to avoid rendering issues.
+    cam->camNear = 5.0f;
+    //cam->setCamLightPos()
+
+    DetailedMoon* moon = new DetailedMoon(scene, nullptr, "NSER", 180, 90, 1.0f);
+    app.currentEarth2 = moon;
+    moon->addSunGP();
+    moon->addEarthGP();
+    moon->addLibrationTrail();
+    //moon->setTopocentric(l_ams.lat, l_ams.lon);
+    // NOTE: These can all expose their various confguration settings directly via the object link.
+    moon->addEquator();
+    moon->equator->setColor(LIGHT_RED);
+    moon->equator->setWidth(0.003f);
+    moon->addPrimeMeridian();
+    moon->primem->setColor(LIGHT_RED);
+    moon->primem->setWidth(0.003f);
+    //moon->addGrid(10.0);
+
+    //DetailedEarth* erf = scene->newDetailedEarth("NS", 180, 90, 1.0f);
+    //erf->addEquator();
+    //erf->addPrimeMeridian();
+    //app.currentEarth2 = erf;
+    //DetailedSky* sky = scene->newDetailedSky("NS", 90, 45, 1.2f);
+    //sky->setTexture(true);
+
+    //scene->scenetree->printSceneTree();
+
+    while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
+    {
+        if (app.anim) {
+            astro->addTime(0.0, 0.0, 30.0, 0.0);
+            //astro->setTimeNow();
+            //app.anim = false; // Nice for single step action. <space> will set app.anim in app.render, and we get back here one frame later.
+        }
+        app.render();
+
+    }
+}
+
+
+void stellarTest(Application& app) {
+
+    Astronomy* astro = app.newAstronomy();
+
+    astro->setTime(2024, 5, 19.0, 12.0, 0.0, 0.0);
+    LLD sirius = astro->ApparentStellarPositionbyName("Sirius");
+    astro->explainApparentStellarPositionbyName("Sirius");
+    std::cout << ACoord::formatDecRA(sirius) << "\n";
+
+}
+
+
+void planetaryTest(Application& app) {
+    
+    Astronomy astro{ };
+
+    //CelestialDetail celdet1 = astro.getDetails(JD_UNIX, MARS, ECGEO);
+    CelestialDetail celdet2 = astro.getDetails(JD_UNIX, A_MARS, EPH_VSOP87_SHORT, ECGEO);
+    //celdet1.print();
+    celdet2.print();
+
+    auto start = std::chrono::high_resolution_clock::now();
+    auto stop = std::chrono::high_resolution_clock::now();
+    CelestialDetail old;
+    double count = 1000; // 100'000;
+    double i = 0;
+
+    //old = astro.getDetails(JD_UNIX, MARS, ECGEO);
+    //start = std::chrono::high_resolution_clock::now();
+    //for (i = 0; i < count; i++) {
+    //    old = astro.getDetails(JD_UNIX, MARS, ECGEO);
+    //}
+    //stop = std::chrono::high_resolution_clock::now();
+    //std::cout << "getDetails() Time in us:  " << std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count() << '\n';
+    //std::cout << "getDetails() RA/Dec: " << rad2hrs * old.geq.lon << ", " << rad2deg * old.geq.lat << "\n";
+ 
+    old = astro.getDetails(JD_UNIX, A_MARS, EPH_VSOP87_SHORT, ECGEO);
+    start = std::chrono::high_resolution_clock::now();
+    for (i = 0; i < count; i++) {
+        old = astro.getDetails(JD_UNIX, A_MARS, EPH_VSOP87_SHORT, ECGEO);
+    }
+    stop = std::chrono::high_resolution_clock::now();
+    std::cout << "getDetails() Time in us:  " << std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count() << '\n';
+    std::cout << "getDetails() RA/Dec: " << rad2hrs * old.geq.lon << ", " << rad2deg * old.geq.lat << "\n";
+
+    //double equinox = AEarth::NorthwardEquinox(2024, VSOP87_FULL);  // JD_UTC of vernal equinox 2024
+    EDateTime eqn{ 2463871.5 };
+    std::cout << eqn.string() << "\n";
+
+}
+
+
+//  #include "astronomy/asun.h"
+//  #include "astronomy/aellipsoids.h"
+
+void UnionGlacierSun(Application& app) {
+    LLD observerloc = { deg2rad * ACoord::dms2deg(-79.0,46.0,0.0), deg2rad * ACoord::dms2deg(-82.0,52.0,0.0), 0.0 };
+    //LLD observerloc = { deg2rad * ACoord::dms2deg(55,43,0.1), deg2rad * ACoord::dms2deg(12,27,0), 0.0 };  // Copenhagen 12d27m00.0sE, 55d43m00.1sN 
+    EDateTime utctime{ 2000, 12, 15.0, 0.0, 0.0, 0.0 };
+    for (int i = 0; i < 24; i++) {
+        std::cout << utctime.string() << "  ";
+        // Ecliptic coordinates
+        APlanetaryDetails details = AElliptical::getPlanetaryDetails(utctime.jd_tt(), A_SUN, EPH_VSOP87_FULL);
+        //details.agecs.lat = ASun::ApparentEclipticLatitude(utctime.jd_tt());
+        //details.agecs.lon = ASun::ApparentEclipticLongitude(utctime.jd_tt());
+        // std::cout << i << ": ";
+        //std::cout << i << ": sunlat=" << Astronomy::angle2DMSstring(details.agecs.lat) << " sunlon=" << Astronomy::angle2DMSstring(details.agecs.lon) << "\n";
+        //std::cout << i << ": sunlat=" << (details.agecs.lat) << " sunlon=" << (details.agecs.lon) << "\n";
+        double obliquity = AEarth::TrueObliquityOfEcliptic(utctime.jd_tt());
+        //std::cout << "obliquity=" << Astronomy::angle2DMSstring(obliquity) << " ";
+        //std::cout << "jd_tt=" << utctime.jd_tt() << " jd_utc=" << utctime.jd_utc() << "\t";
+        LLD equatorial = Spherical::Ecliptic2Equatorial(details.agecs, obliquity);  // already calculated in details.ageqs
+        double agst = AEarth::ApparentGreenwichSiderealTime(utctime.jd_utc());
+        //std::cout << "agst=" << Astronomy::angle2uHMSstring(agst) << " ";
+        //std::cout << "mlst=" << Astronomy::angle2uHMSstring(AEarth::MeanGreenwichSiderealTime(utctime.jd_utc()) + observerloc.lon) << " ";
+        //std::cout << "alst=" << Astronomy::angle2uHMSstring(agst + observerloc.lon) << " ";
+        equatorial = AEarth::Equatorial2Topocentric(equatorial, observerloc, agst);
+        std::cout << ACoord::angle2uHMSstring(equatorial.lon) << "," << ACoord::angle2DMSstring(equatorial.lat) << "  ";
+        std::cout << ACoord::angle2uHMSstring(details.ageqs.lon) << "," << ACoord::angle2DMSstring(details.ageqs.lat) << "  ";
+        //std::cout << "Dec/RA=" << Astronomy::formatDecRA(equatorial) << "\n";
+        //equatorial.print();
+        double lha = ACoord::rangezero2tau(agst - equatorial.lon + observerloc.lon);
+        //std::cout << " lha=" << Astronomy::angle2uHMSstring(lha) << " ";
+        LLD horizontal = Spherical::Equatorial2Horizontal(lha, equatorial.lat, observerloc.lat);
+        //horizontal.print();
+        horizontal.lon = ACoord::rangezero2tau(horizontal.lon + pi); // convert southern azimuth to northern
+        //std::cout << Astronomy::angle2DMSstring(horizontal.lon) << ", " << Astronomy::angle2DMSstring(horizontal.lat) << "\n";
+        std::cout << (rad2deg * horizontal.lon) << ", " << (rad2deg * horizontal.lat) << "\n";
+        // !!! FIX: These are within 0.01 degrees (36 arc seconds!!) of JPL ehpemeris, maybe it can be improved a bit
+        utctime.addTime(0, 0, 0.0, 1.0, 0.0, 0.0); // add 1 hour
+    }
+    std::cout << "\n\n earthlon=" << AEarth::EclipticLongitudeJ2000(utctime.jd_utc()) << " ,earthlat=" << AEarth::EclipticLatitudeJ2000(utctime.jd_utc()) << "\n";
+
+    Ellipsoid_2axis my_ellipsoid { 1.0 / 298.25642, 6378.1366, 6378.1366 * (1 - 1.0 / 298.25642), sqrt(2 * (1.0 / 298.25642) - (1.0 / 298.25642) * (1.0 / 298.25642)) };
+//	// Something indicating the orientation of planetocentric and planetographic coordinates
+//};
+
+    LLD iau76_loc{};
+    iau76_loc.lat = deg2rad * 45.0;
+    double iau76_lat = AEllipsoid::Planetocentric2Planetographic(iau76_loc, my_ellipsoid).lat;
+    iau76_loc.lat = iau76_lat;
+    double cen_lat = AEllipsoid::Planetographic2Planetocentric(iau76_loc, my_ellipsoid).lat;
+    std::cout << "IAU76: " << rad2deg * iau76_lat << " CEN: " << rad2deg * cen_lat;
+}
+
+
 
 // ----------------------
 //  Idle Area for python
@@ -370,309 +623,10 @@ void IdleArea(Application& myapp) {
     }
 }
 
+// Application is a global container for all the rest
+//Application app = Application();  // New global after refactor
+Application app{};  // New global after refactor
 
-
-// -------------------------------------
-//  Python scripting module definitions
-// -------------------------------------
-Application* getApplication() {
-    // Since the allocated Application instance is currently a global, this function allows the python module to access it
-    // Application then has hooks to access all the other items via getXXXX() or newXXXX() depending on whether more than one is allowed
-    //  (getXXXX() when all need to share the same instance, newXXXX() when multiple can be used)
-    return &app;
-}
-PYBIND11_EMBEDDED_MODULE(eartharium, m) {
-    // FIX: !!! Should probably be moved into a separate translation unit (*.h/*.cpp) !!!
-    // IMPORTANT: Define things in order of dependencies. If not, loading the module will hang with no errors. Very annoying!
-    m.doc() = "Eartharium Module";
-    m.def("getApplication", &getApplication, py::return_value_policy::reference);
-    py::class_<LLD>(m, "LLH")
-        .def(py::init<double, double, double>())
-        .def_readwrite("lat", &LLD::lat)
-        .def_readwrite("lon", &LLD::lon)
-        .def_readwrite("dst", &LLD::dst)
-        ;
-    py::class_<glm::vec3>(m, "vec3") // Mostly from: https://github.com/xzfn/vmath/blob/master/src/wrap_vmath.cpp
-        .def("__repr__", [](glm::vec3& self) { return glm::to_string(self); })
-        .def(py::init([]() { return glm::vec3(0.0f, 0.0f, 0.0f); }))
-        .def(py::init<float, float, float>())
-        .def_readwrite("x", &glm::vec3::x)
-        .def_readwrite("y", &glm::vec3::y)
-        .def_readwrite("z", &glm::vec3::z)
-        ;
-    py::class_<glm::vec4>(m, "vec4") // Must be before classes that use it. No errors are generated, but it crashes at runtime.
-        .def("__repr__", [](glm::vec4& self) { return glm::to_string(self); })
-        .def(py::init([]() { /* std::cout << "C++ creating vec4!\n"; */ return glm::vec4(0.0f, 0.0f, 0.0f, 0.0f); }))
-        .def(py::init<float, float, float, float>())
-        .def_readwrite("x", &glm::vec4::x)
-        .def_readwrite("y", &glm::vec4::y)
-        .def_readwrite("z", &glm::vec4::z)
-        .def_readwrite("w", &glm::vec4::w)
-        ;
-    py::class_<ImFont>(m, "Font") // From https://toscode.gitee.com/lilingTG/bimpy/blob/master/bimpy.cpp it has lots of ImGui .def's
-        .def(py::init())
-        ;
-    py::class_<EDateTime>(m, "EDateTime")
-        .def(py::init<>())
-        .def(py::init<double>())
-        .def(py::init<long, long, double, double, double, double>())
-        .def(py::init<long>())
-        .def("year", &EDateTime::year, "Obtains the year of current date time.")
-        .def("month", &EDateTime::month, "Obtains the month of current date time.")
-        .def("day", &EDateTime::day, "Obtains the day of current date time.")
-        .def("hour", &EDateTime::hour, "Obtains the hour of current date time.")
-        .def("minute", &EDateTime::minute, "Obtains the minute of current date time.")
-        .def("second", &EDateTime::second, "Obtains the second of current date time.")
-        .def("jd_tt", &EDateTime::jd_tt, "Obtains the JD of current date time in TT (dynamical time).")
-        .def("jd_utc", &EDateTime::jd_utc, "Obtains the JD of current date time in (astrnomical) UTC.")
-        .def("isLeap", &EDateTime::isLeap, "Returns True if current year is leap, false otherwise (year 1 BCE is year 0).")
-        .def("weekday", &EDateTime::weekday, "Returns day of week; Sunday = 0, Monday = 1, etc.")
-        .def("jd_utc", &EDateTime::jd_utc, "Obtains the JD of current date time in (astrnomical) UTC.")
-        .def("string", &EDateTime::string, "Obtains date time string in UTC.")
-        .def("unixTime", &EDateTime::unixTime, "Obtains current date time in (integer) Unix timestamp format.")
-        // setTime(long year, long month, double day, double hour, double minute, double second)
-        .def("setTime", &EDateTime::setTime,
-            "Sets current date time in integer year, month, float day, hour, minute, second.",
-            py::arg("year"), py::arg("month"), py::arg("day"), py::arg("hour"), py::arg("minute"), py::arg("second")
-        )
-        .def("setTimeNow", &EDateTime::setTimeNow,
-            "Sets EDateTime to current system date time in UTC."
-        )
-        .def("setJD_UTC", &EDateTime::setJD_UTC,
-            "Sets current date time to JD in UTC.",
-            py::arg("jd_utc")
-        )
-        .def("setJD_TT", &EDateTime::setJD_TT,
-            "Sets current date time to JD in TT (dynamical time).",
-            py::arg("jd_tt")
-        )
-        .def("addTime", &EDateTime::setTime,
-            "Adds int year, month, float day, hour, minute, second to current date time.",
-            py::arg("year"), py::arg("month"), py::arg("day"), py::arg("hour"), py::arg("minute"), py::arg("second")
-        )
-        // static void normalizeDateTime(long& yr, long& mo, double& da, double& hr, double& mi, double& se)
-        // FIX: !!! The above modified parameters will not be passed back to Python I think !!!
-        // static int myDivQuotient(const int a, const int b)
-        .def_static("myDivQuotient", &EDateTime::myDivQuotient,
-            "This and myDivRemainder are required for some JD conversions.",
-            py::arg("int1"), py::arg("int2")
-        )
-        // static int myDivRemainder(const int a, const int b)
-        .def_static("myDivRemiander", &EDateTime::myDivRemainder,
-            "This and myDivQuotient are required for some JD conversions.",
-            py::arg("int1"), py::arg("int2")
-        )
-        // static double getDateTime2JD_UTC(const long year, const long month, const double day, const double hour, const double minute, const double second)
-        .def_static("getDateTime2JD_UTC", &EDateTime::getDateTime2JD_UTC,
-            "Convert int year, month, float day, hour, minute, second to JD in UTC.",
-            py::arg("year"), py::arg("month"), py::arg("day"), py::arg("hour"), py::arg("minute"), py::arg("second")
-        )
-        // static double getDateTime2JD_TT(const long year, const long month, const double day, const double hour, const double minute, const double second)
-        .def_static("getDateTime2JD_TT", &EDateTime::getDateTime2JD_TT,
-            "Convert int year, month, float day, hour, minute, second to JD in TT (dynamical time).",
-            py::arg("year"), py::arg("month"), py::arg("day"), py::arg("hour"), py::arg("minute"), py::arg("second")
-        )
-        // static double getUnixTime2JD_UTC(const long unixtime)
-        .def_static("getUnixTime2JD_UTC", &EDateTime::getUnixTime2JD_UTC,
-            "Convert Unix timestamp (in UTC) to JD in UTC.",
-            py::arg("unixTime")
-        )
-        // static double getUnixTime2JD_TT(const long unixtime)
-        .def_static("getUnixTime2JD_TT", &EDateTime::getUnixTime2JD_TT,
-            "Convert Unix timestamp (in UTC) to JD in TT (dynamical time).",
-            py::arg("unixTime")
-        )
-        // static long getDateTime2UnixTime(const long year, const long month, const double day, const double hour, const double minute, const double second)
-        .def_static("getDateTime2UnixTime", &EDateTime::getDateTime2UnixTime,
-            "Convert int year, month, float day, hour, minute, second to Unix timestamp in UTC.",
-            py::arg("year"), py::arg("month"), py::arg("day"), py::arg("hour"), py::arg("minute"), py::arg("second")
-        )
-        // static double getJD2MJD(const double jd)
-        .def_static("getJD2MJD", &EDateTime::getJD2MJD,
-            "Convert a JD (in TT or UTC) to Modified Julian Date (also in TT or UTC).",
-            py::arg("jd")
-        )
-        // static double getMJD2JD(const double mjd)
-        .def_static("getMJD2JD", &EDateTime::getMJD2JD,
-            "Convert a Modified Julian Date (in TT or UTC) to JD (also in TT or UTC).",
-            py::arg("mjd")
-        )
-        // static double getJDUTC2TT(const double jd)
-        .def_static("getJDUTC2TT", &EDateTime::getJDUTC2TT,
-            "Convert a JD in UTC to JD in TT (dynamic time).",
-            py::arg("jd_utc")
-        )
-        // static double getJDTT2UTC(const double jd)
-        .def_static("getJDTT2UTC", &EDateTime::getJDTT2UTC,
-            "Convert a JD in TT (dynamic time) to JD in UTC.",
-            py::arg("jd_tt")
-        )
-        // static long calcUnixTimeYearDay(const long year, const long month, const double day)
-        .def_static("calcUnixTimeYearDay", &EDateTime::calcUnixTimeYearDay,
-            "Calculate Unix time of a date in UTC. Used internally in EDateTime.",
-            py::arg("year"), py::arg("month"), py::arg("day")
-        )
-        // static bool isLeapYear(const long year)
-        .def_static("isLeapYear", &EDateTime::isLeapYear,
-            "Returns true if provided year is a leap year, false otherwise. Note: year 1 BCE = year 0.",
-            py::arg("year")
-        )
-        ;
-    // -----------------
-    //  Astronomy class
-    // -----------------
-    py::class_<Astronomy>(m, "Astronomy")
-        .def("setTime", &Astronomy::setTime, "Sets time in (Y,M,D,h,m,s.ss)",
-            py::arg("yr"), py::arg("mo"), py::arg("da"), py::arg("hr"), py::arg("mi"), py::arg("se")
-        )
-        .def("setTimeNow", &Astronomy::setTimeNow, "Sets time to system clock in UTC")
-        .def("setJD_TT", &Astronomy::setJD_TT, "Sets time to Julian Day",
-            py::arg("jd")
-        )
-        .def("setJD_UTC", &Astronomy::setJD_UTC, "Sets time to Julian Day",
-            py::arg("jd")
-        )
-        .def("getJD_TT", &Astronomy::getJD_TT, "Returns the current JD in TT (dynamical time)")
-        .def("getJD_UTC", &Astronomy::getJD_UTC, "Returns the current JD in UTC")
-        .def("addTime", &Astronomy::addTime, "Adjusts current time by provided amount",
-            py::arg("d"), py::arg("h"), py::arg("min"), py::arg("sec"), py::arg("eot")
-        )
-        // FIX: !!! Do we need both of these exposed to Python? !!!
-        .def("ApparentGreenwichSiderealTime", &Astronomy::ApparentGreenwichSiderealTime, "Returns Greenwich Sidereal Time for provided JD (in UTC)",
-            py::arg("jd_utc"), py::arg("rad")
-        )
-        .def("MeanGreenwichSiderealTime", &Astronomy::MeanGreenwichSiderealTime, "Returns Greenwich Sidereal Time for provided JD (in UTC), or for current JD if omitted",
-            py::arg("jd_utc"), py::arg("rad")
-        )
-        .def("getTimeString", &Astronomy::getTimeString, "Returns current time & date in string format YYYY-MM-DD HH:MM:SS UTC")
-        ;
-    // --------------
-    //  Camera class
-    // --------------
-    py::class_<Camera>(m, "Camera")
-        .def_readwrite("camFoV", &Camera::camFoV)
-        .def_readwrite("camLat", &Camera::camLat)
-        .def_readwrite("camLon", &Camera::camLon)
-        .def_readwrite("camDst", &Camera::camDst)
-        .def("CamUpdate", &Camera::update, "Updates the Camera settings from Application etc")
-        ;
-    // -------------
-    //  Scene class
-    // -------------
-    py::class_<Scene>(m, "Scene")
-        .def("newEarth", &Scene::newEarth, "Adds a new Earth object to the Scene",
-            py::arg("mode"),
-            py::arg("meshU") = 90,
-            py::arg("meshV") = 45
-        )
-        .def_readwrite("w_camera", &Scene::w_camera, "Stores the default Camera for the Scene. Do not write to this.",
-            py::return_value_policy::reference)
-        ;
-    py::class_<RenderLayerTextLines>(m, "RenderLayerTextLines")
-        .def("addLine", &RenderLayerTextLines::addLine, "Adds a line of text to the renderlayer",
-            py::arg("line")
-        )
-        ;
-    py::class_<RenderLayerText>(m, "RenderLayerText")
-        .def("setAstronomy", &RenderLayerText::setAstronomy, "Sets the Astronomy keeping time, if synchronized UTC display is desired.",
-            py::arg("astro")
-        )
-        .def("setFont", &RenderLayerText::setFont, "Set the predefined font to use for the text in the layer",
-            py::arg("font")
-        )
-        ;
-    py::class_<RenderLayer3D>(m, "RenderLayer3D")
-        .def("updateView", &RenderLayer3D::updateView, "Updates the width and height of the view. Called automatically when window size changes.",
-            py::arg("w"), py::arg("h")
-        )
-        ;
-    py::class_<Application>(m, "Application")
-        //.def("getRenderChain", &Application::getRenderChain, py::return_value_policy::reference)
-        .def("newScene", &Application::newScene, py::return_value_policy::reference)
-        .def("newAstronomy", &Application::newAstronomy, py::return_value_policy::reference)
-        .def("update", &Application::update)
-        // RenderLayer3D* newLayer3D(float vpx1, float vpy1, float vpx2, float vpy2, Scene* scene, Astronomy* astro, Camera* cam = nullptr, bool overlay = true);
-        .def("newLayer3D", &Application::newLayer3D, "Creates a new 3D Render Layer",
-            py::arg("vpx1"), py::arg("vpy1"), py::arg("vpx2"), py::arg("vpy2"),
-            py::arg("scene"), py::arg("astro"), py::arg("cam") = (Camera*) nullptr,
-            py::arg("overlay") = true,
-            py::return_value_policy::reference
-        )
-        // RenderLayerText* newLayerText(float vpx1, float vpy1, float vpx2, float vpy2, RenderLayerTextLines* lines = nullptr);
-        .def("newLayerText", &Application::newLayerText, "Creates a new Text Render Layer",
-            py::arg("vpx1"), py::arg("vpy1"), py::arg("vpx2"), py::arg("vpy2"),
-            py::arg("lines") = (RenderLayerTextLines*) nullptr,
-            py::return_value_policy::reference
-        )
-        // FIX: !!! Clean up the following, they are not logical (do_render & render in particular) !!!
-        .def("do_render", &Application::render)
-        .def("shouldClose", &Application::shouldClose)
-        .def_readwrite("interactive", &Application::interactive)
-        .def_readwrite("render", &Application::renderoutput)
-        .def_readwrite("currentCam", &Application::currentCam)
-        .def_readwrite("currentEarth", &Application::currentEarth)
-        .def_readwrite("m_font2", &Application::m_font2)
-        ;
-    py::class_<Location>(m, "Location")
-        .def("addLocDot", &Location::addLocDot, "Adds an icosphere dot to the Location at height 0.",
-            py::arg("size") = locdotsize,
-            py::arg("color") = DEFAULT_LOCDOT_COLOR)
-        ;
-    py::class_<LocGroup>(m, "LocGroup")
-        .def("clear", &LocGroup::clear, "Clears all Locations from group.")
-        .def("size", &LocGroup::size, "Returns current count of Locations.")
-        .def("addLocation", &LocGroup::addLocation, "Creates and adds a new Location to the group.",
-            py::arg("lat"), py::arg("lon"), py::arg("rad") = true,
-            py::arg("rsky") = 0.02f)
-        .def("trimLocation", &LocGroup::trimLocation, "Discards the last Location in the group.")
-        ;
-    py::class_<Earth>(m, "Earth")
-        .def_readwrite("flatsunheight", &Earth::flatsunheight)
-        .def_readwrite("param", &Earth::param)
-        .def_readwrite("tropicsoverlay", &Earth::tropicsoverlay)
-        .def_readwrite("arcticsoverlay", &Earth::arcticsoverlay)
-        .def("getSubsolarXYZ", &Earth::getSubsolarXYZ, py::return_value_policy::reference)
-        .def("addSubsolarPoint", &Earth::addSubsolarPoint, "Adds a subsolar marker, really a flat earth Sun",
-            py::arg("size") = 0.03f)
-        .def("addGrid", &Earth::addGrid, "Enables the typical lat lon grid",
-            py::arg("deg") = 15.0f,
-            py::arg("size") = 0.002f,
-            py::arg("color") = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
-            py::arg("type") = "LALO",
-            py::arg("rad") = false,
-            py::arg("eq") = true,
-            py::arg("pm") = true)
-        .def("addEquator", &Earth::addEquator, "Adds equator curve.",
-            py::arg("size") = 0.002f,
-            py::arg("color") = RED)
-        .def("addTropics", &Earth::addTropics, "Adds tropics curves.",
-            py::arg("size") = 0.002f,
-            py::arg("color") = YELLOW)
-        .def("addArcticCirles", &Earth::addArcticCirles, "Adds arctics curves.",
-            py::arg("size") = 0.002f,
-            py::arg("color") = AQUA)
-        .def("addPrimeMeridian", &Earth::addPrimeMeridian, "Adds prime meridian curve.",
-            py::arg("size") = 0.002f,
-            py::arg("color") = RED)
-        .def("addLocGroup", &Earth::addLocGroup, "Adds new empty LocGroup to Earth. Locations are added using LocGroup::addLocation().")
-        .def_readwrite("locgroups", &Earth::locgroups)
-        .def("addGreatArc", &Earth::addGreatArc, "Great circle segment between two points.",
-            py::arg("llh1"), py::arg("llh2"),
-            py::arg("color") = LIGHT_YELLOW,
-            py::arg("width") = 0.003f,
-            py::arg("rad") = false)
-        .def("addLerpArc", &Earth::addLerpArc, "Naive lerped segment between two points.",
-            py::arg("llh1"), py::arg("llh2"),
-            py::arg("color") = LIGHT_YELLOW,
-            py::arg("width") = 0.003f,
-            py::arg("rad") = false)
-        .def("addFlatArc", &Earth::addFlatArc, "AE shortest segment between two points.",
-            py::arg("llh1"), py::arg("llh2"),
-            py::arg("color") = LIGHT_YELLOW,
-            py::arg("width") = 0.003f,
-            py::arg("rad") = false)
-        ;
-}
 
 
 int main(int argc, char** argv) {
@@ -688,15 +642,14 @@ int main(int argc, char** argv) {
     if (argc > 1) {
         pythonscript = "c:\\Coding\\Eartharium\\Eartharium\\";
         pythonscript += +argv[1];
+        // Do path/file validation here
     }
-    if (pythonscript.size() > 0) { // Set to true to run a python script and drop into an idle interactive
+    if (pythonscript.size() > 0) {  // If there is a python file, execute it
         // if (std::filesystem::exists("helloworld.txt"))
         std::cout << "Running Python script: " << pythonscript << '\n';
-        app.interactive = true;
-        py::scoped_interpreter guard{};
-        py::object scope = py::module_::import("__main__").attr("__dict__");
-        py::eval_file(pythonscript.c_str(), scope);
-        //IdleArea(app);
+        PyIface pyiface{};
+        pyiface.runscript(pythonscript);
+        if (app.interactive) IdleArea(app);
         glfwTerminate();
         return 0; // FIX: !!! Letting the OS deal with all the memory leaks, Not all destructors are up to date currently !!!
     }
@@ -707,8 +660,17 @@ int main(int argc, char** argv) {
     // Call scenario
     //TimeGetDetails(app);
     //testPlanetaryDetail(app);
-    testLunarPosition(app);
+    //testLunarPosition(app);
+    //testMoonPhases(app);
+    //testLuarNodes(app);
+    //testAElliptical(app);
     //testDetailedEarth(app);
+    //LunarData(app);
+    //planetaryTest(app);
+    //stellarTest(app);
+    //testDetailedSky(app);
+    UnionGlacierSun(app);
+
 
     // Cleanup - Move this to cleanup function in Application.
     glfwTerminate();

@@ -1,0 +1,216 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="config.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vsop87\aearth_vsop87_full.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vsop87\aearth_vsop87_short.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vsop87\ajupiter_vsop87_full.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vsop87\ajupiter_vsop87_short.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vsop87\amars_vsop87_full.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vsop87\amars_vsop87_short.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vsop87\amercury_vsop87_full.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vsop87\amercury_vsop87_short.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vsop87\aneptune_vsop87_full.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vsop87\aneptune_vsop87_short.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vsop87\asaturn_vsop87_full.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vsop87\asaturn_vsop87_short.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vsop87\asun_vsop87_full.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vsop87\auranus_vsop87_full.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vsop87\auranus_vsop87_short.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vsop87\avenus_vsop87_full.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vsop87\avenus_vsop87_short.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vsop87\vsop87.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="aasteroids.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="aconfig.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="acoordinates.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="aearth.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="aearth_aberration_table.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="aearth_nutation_table.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="aearth_precession_tables.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="aellipsoids.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="aelliptical.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ajupiter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="amars.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="amercury.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="amoon.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="amoon_eph_elp2000.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="amoon_eph_elpmpp02.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="amoon_eph_short.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="aneptune.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="aorbits.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="apluto.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="apluto_eph_short.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="asaturn.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="astars.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="asun.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="auranus.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="avenus.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="datetime.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="datetime_tables.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="all.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="vsop87\vsop87.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="aasteroids.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="acoordinates.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="aearth.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="aellipsoids.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="aelliptical.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ajupiter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="amars.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="amercury.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="amoon.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="aneptune.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="apluto.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="asaturn.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="astars.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="asun.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="auranus.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="avenus.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="datetime.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

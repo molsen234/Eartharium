@@ -1,13 +1,16 @@
 #pragma once
 
-#include "Primitives.h"
+//  #include "astronomy/acoordinates.h"
+
 #include "Astronomy.h"
+#include "Utilities.h"    // For ShapeFile
+#include "Primitives.h"
+#include "Renderer.h"  // -> SceneObjects
 
 // Protos - Allows classes to use pointers when they are defined above the class they want to point to.
 class Location;
 class SubStellarPoint;
 class SunGP;
-
 
 class LocGroup {
 public:
@@ -355,7 +358,7 @@ private:
 // --------------
 class SmallCircle : public SceneObject {
 private:
-    LLD location{ 0.0,0.0,0.0 };
+    LLD location{ };
     double radius = 0.0;
     bglocPos locpos = &BodyGeometry::getLoc3D;
     BodyGeometry* locref{ nullptr };
@@ -374,9 +377,9 @@ public:
 // ------------------
 class GreatCircleArc : public SceneObject {
 private:
-    LLD start_point{ 0.0, 0.0, 0.0 };
-    LLD split_point{ 0.0, 0.0, 0.0 };
-    LLD end_point{ 0.0, 0.0, 0.0 };
+    LLD start_point{ };
+    LLD split_point{ };
+    LLD end_point{ };
     double steps{ 0.0 };
     double steps2{ 0.0 }; // for second sub-arc if needed
     GenericPath* path{ nullptr };
@@ -611,8 +614,8 @@ class DetailedSky : public BodyGeometry {
     struct SkyDotDef {
         size_t unique_id = 0;    // stellarobject database index
         glm::vec4 color{0.0f};
-        LLD coordinates{ 0.0,0.0, 0.0 }; // Dec, RA, height(0.0);
-        LLD propermotion{ 0.0,0.0, 0.0 };
+        LLD coordinates{ }; // Dec, RA, height(0.0);
+        LLD propermotion{ };
         float size = 0.0f;
         size_t dot_index = 0;    // SkyDots index (GPU table)
     };
@@ -685,8 +688,8 @@ class DetailedEarth : public BodyGeometry {
     // Would like the following options for insolation: day, hard, twilight, soft, night
     float m_alpha = 1.0f;
 public:
-    LLD subsolar{ 0.0, 0.0, 0.0 };
-    LLD sublunar{ 0.0, 0.0, 0.0 };
+    LLD subsolar{ };
+    LLD sublunar{ };
     bool insolation = true;
     bool w_refract = true;
     bool w_twilight = true;
@@ -772,7 +775,6 @@ public:
 
 
 
-
 // -------
 //  Earth
 // -------
@@ -780,8 +782,8 @@ typedef LLD(Earth::* calcFunc)(LLD, LLD, double, double, bool);
 class Earth {
 public:
     struct Intersection {
-        LLD point1 = { 0.0, 0.0, 0.0 };
-        LLD point2 = { 0.0, 0.0, 0.0 };
+        LLD point1 = { };
+        LLD point2 = { };
     };
     struct polycache {               // PathTracker needs this, it only references path and path2
         PolyCurve* path = nullptr;
@@ -790,11 +792,11 @@ public:
         float width = 0.0f;
         unsigned int type = NONE;    // Allows Earth update() to call the right update function
         glm::vec4 color = NO_COLOR;
-        LLD lld1 = { 0.0, 0.0, 0.0 };
-        LLD lld2 = { 0.0, 0.0, 0.0 };
+        LLD lld1 = { };
+        LLD lld2 = { };
         double refraction = 0.0;
         double fend = 0.0;           // 1.0 or tau depending on calculation function
-        calcFunc ca = nullptr;                 // calculation function
+        calcFunc ca;                 // calculation function
         bool closed = false;
     };
 
@@ -886,8 +888,8 @@ private:
     glm::vec4 m_arctics = BLACK; // Earth geometry when colors are same and morph has not changed.
 
     // Astronomy positions
-    LLD subsolar = { 0.0, 0.0, 0.0 };     // Subsolar point in Geocentric coordinates
-    //LLD sublunar = { 0.0, 0.0, 0.0 };     // Sublunar point in Geocentric coordinates
+    LLD subsolar = { };     // Subsolar point in Geocentric coordinates
+    //LLD sublunar = { };     // Sublunar point in Geocentric coordinates
     glm::vec3 solarGP = glm::vec3(0.0f);  // Subsolar point in Cartesian coordinates
     glm::vec3 flatSun = glm::vec3(0.0f);  // Flat Sun in Cartesian coordinates (solarGP at m_flatsunheight / earthradius from GUI)
     Planetoid* m_subsolar = nullptr;
@@ -970,9 +972,9 @@ public:
     glm::vec3 getLoc3D_E7(double lat, double lon, double height = 0.0);
     glm::vec3 getNml3D_E7(double lat, double lon, double height = 0.0);
     // Astronomy calculations
-    LLD calcHADec2LatLon(LLD radec, bool rad = true);
+    LLD calcHADec2LatLon(LLD radec);
     glm::vec3 calcHADec2Dir(LLD radec);
-    LLD calcRADec2LatLon(LLD radec, double jd_utc = NO_DOUBLE, bool rad = true);
+    LLD calcRADec2LatLon(LLD radec, double jd_utc = NO_DOUBLE);
     LLD getXYZtoLLD_NS(glm::vec3 pos);
     LLD getXYZtoLLD_AE(glm::vec3 pos);
     double calcHorizonDip(double height);
@@ -985,8 +987,8 @@ public:
     Intersection calcSumnerIntersection(double lat1, double lon1, double rad1, double lat2, double lon2, double rad2, bool rad = true);
     LLD getSextantLoc(size_t index);
     LLD getSun(double jd = NO_DOUBLE);
-    LLD getSubsolar(double jd = 0.0, bool rad = true);
-    LLD getPlanet(size_t planet, double jd = 0.0, bool rad = true);
+    LLD getSubsolar(double jd = 0.0);
+    LLD getPlanet(Planet planet, double jd = 0.0);
     LLD getMoon(double jd_utc = 0.0);
     void CalcMoon();
     LLD CalcMoonJD(double jd_utc);
@@ -1093,8 +1095,8 @@ private:
 // ==========================================================
 
 struct Intersection {
-    LLD point1 = { 0.0, 0.0, 0.0 };
-    LLD point2 = { 0.0, 0.0, 0.0 };
+    LLD point1 = { };
+    LLD point2 = { };
 };
 
 // REFACTOR? Could SubStellarPoint, SubPlanetaryPoint, SubSolarPoint, SubLunarPoint, SubSatellitePoint, etc share a common parent?
@@ -1185,8 +1187,8 @@ public:
         friend class SubStellarPoint;
     };
     glm::vec3 m_pos = glm::vec3(0.0f); // XYZ in World
-    LLD m_loc = { 0.0, 0.0, 0.0 };     // Lat, Lon
-    LLD m_decra = { 0.0, 0.0, 0.0 };   // Declination & right ascension Equatorial Earth Centered - kept in radians
+    LLD m_loc = { };     // Lat, Lon
+    LLD m_decra = { };   // Declination & right ascension Equatorial Earth Centered - kept in radians
     double m_dist_lat = 0.0;
     bool locked = false;               // Freeze in time, for sextant measurements etc
     std::string name;
@@ -1341,8 +1343,8 @@ public:
         size_t m_eleangle = maxuint;
         TextString* m_eleangtext = nullptr;
         TextString* m_aziangtext = nullptr;
-        LLD sun = { 0.0, 0.0, 0.0 };       // geocentric Sun Dec, GHA, Distance
-        LLD localsun = { 0.0, 0.0, 0.0 };  // topocentric Sun xEle, GHA, Distance
+        LLD sun = { };       // geocentric Sun Dec, GHA, Distance
+        LLD localsun = { };  // topocentric Sun xEle, GHA, Distance
         glm::vec3 sundir = NO_VEC3;        // Cartesian Sun direction in world coordinates
         void update(bool time, bool geometry);
         void draw();
@@ -1400,8 +1402,8 @@ public:
         TextString* m_eleangtext = nullptr;
         TextString* m_aziangtext = nullptr;
         PolyCurve* m_path24 = nullptr;
-        LLD sun = { 0.0, 0.0, 0.0 };       // geocentric Sun GHA, Dec, Distance
-        LLD localsun = { 0.0, 0.0, 0.0 };  // topocentric Sun Azi, Ele, Distance
+        LLD sun = { };       // geocentric Sun GHA, Dec, Distance
+        LLD localsun = { };  // topocentric Sun Azi, Ele, Distance
         glm::vec3 sundir = NO_VEC3;        // Cartesian Sun direction in world coordinates
         void update(bool time, bool geometry);
         void draw();
@@ -1479,17 +1481,17 @@ private:
         double bracket;
         double stepsize;
     };
-    std::array<sidyearparm, 8> sidyearparms // Move to config object ? Or Astronomy.h ? !!!
+    std::array<sidyearparm, 9> sidyearparms // Move to config object ? Or Astronomy.h ? !!!
     { {                                     // Also check similar table in SolarSystem::m_planetinfos
-        { 183.0, 1.0 },    // Sun
-        { 190.0, 1.0 },    // Mercury
-        { 205.0, 1.0 },    // Venus
-        { 300.0, 1.0 },    // Mars
-        { 2150.0, 5.0 },   // Jupiter
-        { 5500.0, 20.0 },  // Saturn
-        { 15500.0, 50.0},  // Uranus
-        { 60000.0, 200.0 } // Neptune
-        // Earth would be here, inconveniently in an odd position in the enum
+        { 190.0, 1.0 },     // Mercury
+        { 205.0, 1.0 },     // Venus
+        { 250.0, 1.0 },     // Earth - parameters not tested, so might need tweaking
+        { 300.0, 1.0 },     // Mars
+        { 2150.0, 5.0 },    // Jupiter
+        { 5500.0, 20.0 },   // Saturn
+        { 15500.0, 50.0},   // Uranus
+        { 60000.0, 200.0 }, // Neptune
+        { 183.0, 1.0 }      // Sun
     } };
     Earth* m_earth = nullptr;
     Scene* m_scene = nullptr;
@@ -1508,7 +1510,7 @@ private:
     glm::vec3 m_east;
     glm::vec3 m_north;
     glm::vec3 m_zenith;
-    LLD localsun = { 0.0, 0.0, 0.0 };
+    LLD localsun = { };
     std::vector<arrowcache> m_arrowcache;
     std::vector<dotcache> m_dotcache;
     std::vector<planecache> m_planecache;
@@ -1590,7 +1592,7 @@ public:
     void changeLocDot(float size = -1.0f, glm::vec4 color = NO_COLOR);
     void deleteLocDot();
     void updateLocDot(dotcache& d);
-    void addTruePlanetDot(size_t planet, float size, glm::vec4 color, bool checkit);
+    void addTruePlanetDot(Planet planet, float size, glm::vec4 color, bool checkit);
     void updateTruePlanetDot(dotcache& dc);
 
     // Arrows
@@ -1600,7 +1602,7 @@ public:
     void addArrow3DTrueMoon(float length = 0.2f, float width = 0.003f, glm::vec4 color = glm::vec4(0.4f, 0.4f, 0.4f, 1.0f), bool checkit = false);
     void updateArrow3DTrueMoon(arrowcache& ar);
 
-    void addArrow3DTruePlanet(size_t planet, float length = 0.2f, glm::vec4 color = NO_COLOR, bool checkit = false);
+    void addArrow3DTruePlanet(Planet planet, float length = 0.2f, glm::vec4 color = NO_COLOR, bool checkit = false);
     void updateArrow3DTruePlanet(arrowcache& ar);
 
     // Lines
@@ -1611,14 +1613,14 @@ public:
     // TODO: Add rays/lines to an arbitrary point to illustrate view cone angles, horizons, parallelity of incoming light rays etc. !!!
 
     // Paths
-    void addPlanetaryPath(size_t planet, double startoffset, double endoffset, unsigned int steps, unsigned int type = ECGEO, glm::vec4 color = NO_COLOR, float width = 0.003f);
+    void addPlanetaryPath(Planet planet, double startoffset, double endoffset, unsigned int steps, unsigned int type = ECGEO, glm::vec4 color = NO_COLOR, float width = 0.003f);
     void updatePlanetaryPath(polycache& pa);
     void deletePlanetaryPath(unsigned int type, size_t unique);
 
-    void addPlanetTruePath24(size_t planet, glm::vec4 color = NO_COLOR, float width = locpathwidth);
-    void deletePlanetTruePath24(size_t planet);
-    void addPlanetTruePathSidYear(size_t planet, glm::vec4 color = NO_COLOR, float width = locpathwidth);
-    void deletePlanetTruePathSidYear(size_t planet);
+    void addPlanetTruePath24(Planet planet, glm::vec4 color = NO_COLOR, float width = locpathwidth);
+    void deletePlanetTruePath24(Planet planet);
+    void addPlanetTruePathSidYear(Planet planet, glm::vec4 color = NO_COLOR, float width = locpathwidth);
+    void deletePlanetTruePathSidYear(Planet planet);
 
     void addPath3DFlatSun(glm::vec4 color = LIGHT_GREEN, float width = locsunpathwidth);
     void updatePath3DFlatSun(PolyCurve* path, glm::vec4 color = LIGHT_GREEN, float width = locsunpathwidth);
@@ -1645,8 +1647,8 @@ class SolarSystem {
 public:
     struct distline {
         size_t index;
-        size_t planet1;
-        size_t planet2;
+        Planet planet1;
+        Planet planet2;
         glm::vec4 color;
         float width;
     };
@@ -1662,15 +1664,15 @@ private:
         glm::vec4 color = NO_COLOR;
     };
     std::array<planetinfo, 9> m_planetinfos = {{  // sidereal years are a bit long to allow orbits to close
-        { 368,   SUNCOLOR },     // Sun
         { 88,    MERCURYCOLOR }, // Mercury
         { 226,   VENUSCOLOR },   // Venus
+        { 368,   EARTHCOLOR },   // Earth
         { 688,   MARSCOLOR },    // Mars
         { 4336,  JUPITERCOLOR }, // Jupiter
         { 10776, SATURNCOLOR },  // Saturn
         { 30688, URANUSCOLOR },  // Uranus
         { 60182, NEPTUNECOLOR }, // Neptune
-        { 368,   EARTHCOLOR }    // Earth
+        { 368,   SUNCOLOR }      // Sun
     }};
     bool m_geocentric = false;
     bool m_orbits = false;
@@ -1705,17 +1707,17 @@ public:
     void Draw();
     void addTrails(int traillen);
     void clearTrails();
-    void PlanetPos(size_t planet, bool update);
-    glm::vec3 CalcPlanet(size_t planet, double jd = 0.0);
-    void PlanetOrbit(size_t planet);
+    void PlanetPos(Planet planet, bool update);
+    glm::vec3 CalcPlanet(Planet planet, double jd = 0.0);
+    void PlanetOrbit(Planet planet);
     void SunPos(bool update = false);
     void SunOrbit(bool update = true);
     glm::vec3 CalcSun(double jd = 0.0);
     void EarthPos(bool update = false);
     glm::vec3 CalcEarth(double jd = 0.0);
     glm::vec3 Ecliptic2Cartesian(double lat, double lon, double dst);
-    glm::vec3 GetPlanetPos(size_t planet);
-    void AddDistLine(size_t planet1, size_t planet2, glm::vec4 color, float width);
+    glm::vec3 GetPlanetPos(Planet planet);
+    void AddDistLine(Planet planet1, Planet planet2, glm::vec4 color, float width);
     void UpdateDistLines();
     void changeCentricity();
     void changeOrbits();
@@ -1759,8 +1761,8 @@ private:
         float width = 0.0f;
         unsigned int type = NONE;
         glm::vec4 color = NO_COLOR;
-        LLD lld1 = { 0.0, 0.0, 0.0 };  // params specific to user func
-        LLD lld2 = { 0.0, 0.0, 0.0 };
+        LLD lld1 = { };  // params specific to user func
+        LLD lld2 = { };
         double refraction = 0.0;
         double fend = 0.0;           // 1.0 or tau depending on calculation function
         calcFuncSS ca;                 // calculation function
@@ -1815,6 +1817,134 @@ private:
     void genGeom();
     float getMagnitude2Radius(const double magnitude) const;
 };
+
+
+
+// ------------
+//  Time Zones
+// ------------
+class TimeZones {
+public:
+    // For the time zone shapes
+    struct TimeZoneName {
+        size_t index = 0;
+        std::string searchname;
+        //std::string displayname;
+    };
+    struct timezonepartcache {
+        size_t timezone_id = 0;
+        ShapeFile::ShapePart* part = nullptr;
+        PolyLine* polyline = nullptr;
+        Earth* earth = nullptr;
+    };
+    // IANA timezone db
+    tzFile::iana_tz timezonedb;
+private:
+    Scene* m_scene = nullptr;
+    // For the ESRI data
+    std::vector<ShapeFile::ShapeRecord*> records;
+    uint32_t bytecnt = 0;
+    // For country names and index
+    std::vector<TimeZoneName> timezonenames;
+    // For drawn borders
+    std::vector<timezonepartcache*> timezoneparts;
+public:
+    // Functions for timezone outlines
+    TimeZones(Scene* scene, const std::string& shapefile = "C:\\Coding\\combined-shapefile-with-oceans");
+    void addTimeZone(Earth& earth, const std::string timezonename);
+    void addTimeZone(Earth& earth, size_t rindex);
+    void update();
+    void draw();
+    int parseNames(const std::string& namefile);
+    // Functions for IANA timezone db
+    std::string getLocalTime(const std::string& timezone, const DateTime& datetime);
+    std::string getLocalTime(const std::string& timezone, long year, long month, double day, double hour, double minute, double second);
+    void dumpTimeZoneDetails(const std::string& timezone);
+};
+
+
+// -----------------
+//  Country Borders
+// -----------------
+struct CountryName {
+    size_t index = 0;
+    std::string searchname;
+    std::string displayname;
+};
+struct borderpartcache {
+    size_t country_id = 0;
+    ShapeFile::ShapePart* part = nullptr;
+    PolyLine* polyline = nullptr;
+    Earth* earth = nullptr;
+};
+class CountryBorders {
+public:
+    unsigned int fileversion = 0;
+private:
+    Scene* m_scene = nullptr;
+    // For the ESRI data
+    std::vector<ShapeFile::ShapeRecord*> records;
+    uint32_t bytecnt = 0;
+    // For country names and index
+    std::vector<CountryName> countrynames;
+    // For drawn borders
+    std::vector<borderpartcache*> borderparts;
+public:
+    CountryBorders(Scene* scene, const std::string& shapefile = "C:\\Coding\\ne_10m_admin_0_countries");
+    void addBorder(Earth& earth, const std::string countryname);
+    void addBorder(Earth& earth, size_t rindex);
+    void update();
+    void draw();
+    int parseNames(const std::string& namefile);
+};
+
+
+// -----------------
+//  Constellations2 (ShapeFile based, but the shapefile I use has antimeridian issues)
+// -----------------
+// !!! FIX: This does not have facilities for removing objects once added !!!
+struct ConstellationName {
+    size_t index = 0;
+    std::string searchname;  // 3 letter abbreviation
+    std::string displayname; // Canonical Latin name
+};
+struct bordeconstellationpartcache {
+    size_t country_id = 0;
+    ShapeFile::ShapePart* part = nullptr;
+    PolyLine* polyline = nullptr;
+    BodyGeometry* geom = nullptr;
+};
+class Constellations2 {
+    // A Constellation is a region of the celestial sphere containing the asterism it is named after.
+    // it works pretty much like country borders on Earth, hence I have simply copied the implementation.
+public:
+    unsigned int fileversion = 0;
+    // For the ESRI data
+    std::vector<ShapeFile::ShapeRecord*> records;
+private:
+    Scene* m_scene = nullptr;
+    uint32_t bytecnt = 0;
+    // For constellation names and index
+    std::vector<ConstellationName> constellationnames;
+    // For drawn borders
+    std::vector<bordeconstellationpartcache*> constellationparts;
+public:
+    Constellations2(Scene* scene, const std::string& shapefile = "C:\\Coding\\Eartharium\\constellations\\constell");
+    void addBorder(BodyGeometry& geom, const std::string constellationname);
+    void addBorder(BodyGeometry& geom, size_t rindex);
+    void update();
+    void draw();
+    int parseNames(const std::string& namefile);
+};
+
+
+// ----------------
+//  Constellations   - based on better datafiles than above
+// ----------------
+class Constellations {
+
+};
+
 
 
 // -------------

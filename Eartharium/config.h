@@ -13,6 +13,8 @@
 // AA+
 //#include "AAplus/AAElliptical.h" // For the Enums - UPD: still using same enums, but not using AA+ anymore.
 
+// EAstronomy
+#include "../EAstronomy/config.h"
 
 const unsigned int maxuint = 4294967295;     // pow(2,32)-1 used to represent 'none' for various indices
 enum itemtype {
@@ -141,7 +143,7 @@ enum itemtype {
 // No care values - Used to indicate that no value is provided. Used to keep existing values whatever they are in functions that receive multiple values
 #define NO_UINT maxuint
 #define NO_FLOAT maxfloat
-#define NO_DOUBLE maxdouble
+// #define NO_DOUBLE maxdouble
 #define NO_VEC2 glm::vec2(maxfloat)
 #define NO_VEC3 glm::vec3(maxfloat)
 #define NO_VEC4 glm::vec4(maxfloat)
@@ -185,54 +187,59 @@ const size_t polycurvereserve = 5000; // default number of points in a path to r
 const float surface_offset = 0.0001f;
 
 // Mathematical constants
-const double pi = 3.1415926535897932384626433832795;
+// const double pi = 3.1415926535897932384626433832795;
 const float pif = 3.1415926535897932384626433832795f;
-const double tau = 2.0 * pi;
+// const double tau = 2.0 * pi;
 const float tauf = 2.0f * pif;
-const double pi2 = pi / 2.0;
+// const double pi2 = pi / 2.0;
 const float pi2f = pif / 2.0f;
-const double pi4 = pi / 4.0;
+// const double pi4 = pi / 4.0;
 const float pi4f = pif / 4.0f;
 const double twopi = 2.0 / pi;
-const double deg2rad = tau / 360.0;          // 0.017453292519943295769236907684886
+// const double deg2rad = tau / 360.0;          // 0.017453292519943295769236907684886
 const float deg2radf = tauf / 360.0f;
-const double rad2deg = 360.0 / tau;          // 57.295779513082320876798154814105
+// const double rad2deg = 360.0 / tau;          // 57.295779513082320876798154814105
 const float rad2degf = 360.0f / tauf;
-const double hrs2deg = 15.0;
-const double deg2hrs = 1.0 / 15.0;
-const double rad2hrs = 24.0 / tau;           // 3.8197186342054880584532103209403
-const double hrs2rad = tau / 24.0;           // 0.26179938779914943653855361527329
+// const double hrs2deg = 15.0;
+// const double deg2hrs = 1.0 / 15.0;
+// const double rad2hrs = 24.0 / tau;           // 3.8197186342054880584532103209403
+// const double hrs2rad = tau / 24.0;           // 0.26179938779914943653855361527329
 const double ninety = deg2rad * 89.99999;    // Used to avoid singularity at poles
 const double tiny = 0.00001;                 // Used to determine practically zero
 const double verytiny = 0.0000001;           // even closer to zero
 const float maxfloat = FLT_MAX;
-const double maxdouble = DBL_MAX;
+// const double maxdouble = DBL_MAX;
 
 // Astronomical constants
-// For FK5
-const double JD_2000 = 2451545.0;             // Standard Epoch J2000 in Julian Day
-// For FK4
-const double JD_B1950 = 2415020.3135;
-const double JD_TROPICAL_CENTURY = 36524.2199;
-// For period calculations
-const double JD_CENTURY = 36525.0;
-const double JD_MILLENNIUM = 365250.0;
-// For deltaT lookups
-const double FIRST_LEAP_SECOND_JD = 2437300.5; // 1961 Jan 1, first entry in Leap Second Table
-const double LAST_LEAP_SECOND_JD = 2457754.5;  // 2017, currently last entry in Leap Second Table
-// UNIX epoch, used when converting timestamps
-const double JD_UNIX = 2440587.5;             // Unix epoch 1970-01-01 00:00:00
+//// For FK5
+//const double JD_2000 = 2'451'545.0;               // Standard Epoch J2000 in Julian Day
+//// For FK4
+//const double JD_B1950 = 2'415'020.3135;           // Besselian Epoch in Julian Day
+//const double JD_TROPICAL_CENTURY = 36524.2199;    // Duration of a Besselian (Tropical) Century in Julian Days
+//// For Moon Phase K calculations
+//const double JD_0000 = 1'721'045.0;               // JD of epoch 0000-01-01 0:00:00 = JD_2000 - (JD_YEAR * 2000.0)
+//// For period calculations
+//const double JD_YEAR = 365.25;                    // Julian year
+//const double JD_CENTURY = 36'525.0;               // Julian century
+//const double JD_MILLENNIUM = 365'250.0;           // Julian millennium
+//// For deltaT lookups
+//const double FIRST_LEAP_SECOND_JD = 2'437'300.5;  // 1961 Jan 1, first entry in Leap Second Table
+//const double LAST_LEAP_SECOND_JD = 2'457'754.5;   // 2017, currently last entry in Leap Second Table
+//// For Modified Julian Day calculations
+//const double MJD_BASE = 2'400'000.5;
+//// UNIX epoch, used when converting timestamps
+//const double JD_UNIX = 2'440'587.5;               // Unix epoch 1970-01-01 00:00:00
 // Earth parameters
-const double earthradius = 6371.008;           // Earth average radius in kilometers
-const double earthradiusm = 6371008;           // Earth average radius in meters
-//const double earthaxialtilt = 23.439281;     // degrees (2007 wikipedia). Value changes over time, as Earth axis wobbles
-//const double earthtropics = 23.4365;         // degrees (DMS: 23°26'11.4"). Value fixed by convention - No !!! Is defined as obliquity of ecliptic
-//const double eartharctics = 66.5635;         // NOTE: Actually changes over time, but set here to align with tropics
-const double astronomicalunit = 149597870.7; // 1 AU in km, from https://en.wikipedia.org/wiki/Astronomical_unit
-const double sunradius = 696340.0;           // Some uncertainty around this number: https://academic.oup.com/mnras/article/276/2/476/998827
+const double earthradius = 6371.008;              // Earth average radius in kilometers
+const double earthradiusm = 6'371'008;            // Earth average radius in meters
+//const double earthaxialtilt = 23.439281;        // degrees (2007 wikipedia). Value changes over time, as Earth axis wobbles
+//const double earthtropics = 23.4365;            // degrees (DMS: 23°26'11.4"). Value fixed by convention - No !!! Is defined as obliquity of ecliptic
+//const double eartharctics = 66.5635;            // NOTE: Actually changes over time, but set here to align with tropics
+const double astronomicalunit = 149'597'870.7;    // 1 AU in km, from https://en.wikipedia.org/wiki/Astronomical_unit
+const double sunradius = 696'340.0;               // Some uncertainty around this number: https://academic.oup.com/mnras/article/276/2/476/998827
 const double moonradius = 1737.3;
-const double sidereals = 86164.09053083288;  // Seconds in 1 sidereal day
-const double sidereald = sidereals / 86400.0;// Sidereal day as fraction of calendar day
+const double sidereals = 86'164.09053083288;      // Seconds in 1 sidereal day
+const double sidereald = sidereals / 86400.0;     // Sidereal day as fraction of calendar day
 const double lunalemmad = 1.035028;
 const double km2au = astronomicalunit;
 const double au2km = 1.0 / astronomicalunit;
@@ -245,22 +252,7 @@ const double flatteningWGS84 = (majorAxisWGS84 - minorAxisWGS84) / majorAxisWGS8
 const double eSquaredWGS84 = ((majorAxisWGS84 * majorAxisWGS84) - (minorAxisWGS84 * minorAxisWGS84)) / (majorAxisWGS84 * majorAxisWGS84);
 const double ePrimeSquaredWGS84 = ((majorAxisWGS84 * majorAxisWGS84) - (minorAxisWGS84 * minorAxisWGS84)) / (minorAxisWGS84 * minorAxisWGS84);
 
-static double dms2rad(double d, double m, double s) {
-	if (d >= 0.0) return deg2rad * (d + m / 60.0 + s / 3600.0);
-	return deg2rad * (d - m / 60.0 - s / 3600.0);
-}
-static double dms2deg(double d, double m, double s) {
-	if (d >= 0.0) return d + m / 60.0 + s / 3600.0;
-	return d - m / 60.0 - s / 3600.0;
-}
-static double hms2rad(double h, double m, double s) {
-	if (h >= 0.0) return deg2rad * (h * 15.0 + m / 60.0 + s / 3600.0);
-	return deg2rad * (h * 15.0 - m / 60.0 - s / 3600.0);
-}
-static double hms2deg(double h, double m, double s) {
-	if (h >= 0.0) return h * 15.0 + m / 60.0 + s / 3600.0;
-	return h * 15.0 - m / 60.0 - s / 3600.0;
-}
+
 // String helper functions
 // Source: https://stackoverflow.com/questions/216823/how-to-trim-a-stdstring
 static const char* whitespace = " \t\n\r\f\v";
@@ -278,19 +270,21 @@ static std::string& trim(std::string& s, const char* t = whitespace) {
 	// trim from both ends of string (right then left)
 	return ltrim(rtrim(s, t), t);
 }
-static void  to_upper(std::string& str)
-{
+static void to_upper(std::string& str) {
     std::transform(str.begin(), str.end(), str.begin(), ::toupper);
 }
+static void stringreplace(std::string& subject, const std::string& search, const std::string& replace) {
+    size_t pos = 0;
+    while ((pos = subject.find(search, pos)) != std::string::npos) {
+        subject.replace(pos, search.length(), replace);
+        pos += replace.length();
+    }
+}
+
 // Math helper functions
 static glm::vec3 projectVector2Plane(glm::vec3 vector, glm::vec3 normal) {
 	// Projects vector onto the plane defined by the normal
 	return vector - normal * glm::dot(vector, normal) / (float)pow(glm::length(normal), 2);
-}
-static double clampmPitoPi(double radians) {
-	while (radians < -pi) radians += tau;
-	while (radians > pi) radians -= tau;
-	return radians;
 }
 
 
