@@ -101,7 +101,7 @@
 //#define NO_VEC2 glm::vec2(maxfloat)
 //#define NO_VEC3 glm::vec3(maxfloat)
 //#define NO_VEC4 glm::vec4(maxfloat)
-//#define NO_COLOR glm::vec4(maxfloat)  // Used to mark nocare values in method calls
+//#define NO_COLOR glm::vec4(maxfloat)
 //
 //// Initial reservation values - Not hard limits, simply prevents a lot of vector re-allocations
 //#define DOTS_RESERVE 50000

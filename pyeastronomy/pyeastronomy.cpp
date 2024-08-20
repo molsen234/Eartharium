@@ -21,10 +21,10 @@ namespace py = pybind11;
 #include <glm/gtx/string_cast.hpp>
 
 // base astronomy functions
-#include "astronomy/acoordinates.h"
-#include "astronomy/datetime.h"
-#include "astronomy/aearth.h"
-#include "astronomy/aelliptical.h"
+#include "acoordinates.h"
+#include "datetime.h"
+#include "aearth.h"
+#include "aelliptical.h"
 
 
 // !!! FIX: Might split the below up into includes that live next to the relevant code.
@@ -51,23 +51,23 @@ PYBIND11_MODULE(pyeastronomy, m) {
         .def_readwrite("lon", &LLD::lon)
         .def_readwrite("dst", &LLD::dst)
         ;
-    //py::class_<glm::vec3>(m, "vec3") // Mostly from: https://github.com/xzfn/vmath/blob/master/src/wrap_vmath.cpp
-    //    .def("__repr__", [](glm::vec3& self) { return glm::to_string(self); })
-    //    .def(py::init([]() { return glm::vec3(0.0f, 0.0f, 0.0f); }))
-    //    .def(py::init<float, float, float>())
-    //    .def_readwrite("x", &glm::vec3::x)
-    //    .def_readwrite("y", &glm::vec3::y)
-    //    .def_readwrite("z", &glm::vec3::z)
-    //    ;
-    //py::class_<glm::vec4>(m, "vec4") // Must be before classes that use it. No errors are generated, but it crashes at runtime.
-    //    .def("__repr__", [](glm::vec4& self) { return glm::to_string(self); })
-    //    .def(py::init([]() { /* std::cout << "C++ creating vec4!\n"; */ return glm::vec4(0.0f, 0.0f, 0.0f, 0.0f); }))
-    //    .def(py::init<float, float, float, float>())
-    //    .def_readwrite("x", &glm::vec4::x)
-    //    .def_readwrite("y", &glm::vec4::y)
-    //    .def_readwrite("z", &glm::vec4::z)
-    //    .def_readwrite("w", &glm::vec4::w)
-    //    ;
+    py::class_<glm::vec3>(m, "vec3") // Mostly from: https://github.com/xzfn/vmath/blob/master/src/wrap_vmath.cpp
+        .def("__repr__", [](glm::vec3& self) { return glm::to_string(self); })
+        .def(py::init([]() { return glm::vec3(0.0f, 0.0f, 0.0f); }))
+        .def(py::init<float, float, float>())
+        .def_readwrite("x", &glm::vec3::x)
+        .def_readwrite("y", &glm::vec3::y)
+        .def_readwrite("z", &glm::vec3::z)
+        ;
+    py::class_<glm::vec4>(m, "vec4") // Must be before classes that use it. No errors are generated, but it crashes at runtime.
+        .def("__repr__", [](glm::vec4& self) { return glm::to_string(self); })
+        .def(py::init([]() { /* std::cout << "C++ creating vec4!\n"; */ return glm::vec4(0.0f, 0.0f, 0.0f, 0.0f); }))
+        .def(py::init<float, float, float, float>())
+        .def_readwrite("x", &glm::vec4::x)
+        .def_readwrite("y", &glm::vec4::y)
+        .def_readwrite("z", &glm::vec4::z)
+        .def_readwrite("w", &glm::vec4::w)
+        ;
     py::class_<glm::dvec3>(m, "dvec3") // Mostly from: https://github.com/xzfn/vmath/blob/master/src/wrap_vmath.cpp
         .def("__repr__", [](glm::dvec3& self) { return glm::to_string(self); })
         .def(py::init([]() { return glm::dvec3(0.0, 0.0, 0.0); }))
