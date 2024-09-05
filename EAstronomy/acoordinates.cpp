@@ -91,9 +91,9 @@ std::string ACoord::angle2DMSstring(double angle) {
 	int d = (int)dg;
 	int m = (int)mi;
 	char buff[100];
-	snprintf(buff, sizeof(buff), "%s%03d\xF8%02d\'%06.3f\"", angle < 0 ? "-" :"+", d, m, sec);
+	snprintf(buff, sizeof(buff), "%s%03d\xF8%02d\'%06.3f\"", angle < 0 ? "-" :"+", abs(d), m, sec);
 	dstring = buff;
-	std::cout << " string=" << dstring << std::endl;
+	//std::cout << " string=" << dstring << std::endl;
 	return dstring;
 }
 std::string ACoord::angle2DMSstringPython(double angle) {

@@ -43,11 +43,12 @@ public:
 
     // APrecession_Model::MEEUS
     // MDO
+    static LLD PrecessEquatorial(LLD decra, double JD0, double JD) noexcept;
     static LLD PrecessEquatorialJ2000(LLD decra, double jd_tt);
     static LLD PrecessEquatorialFK5(LLD decra, double JD0, double jd_tt);
 
     // Based directly on AA+ v2.49
-    static LLD PrecessEquatorial(double Alpha, double Delta, double JD0, double JD) noexcept;
+    static LLD PrecessEquatorial2(double Alpha, double Delta, double JD0, double JD) noexcept;
     static LLD PrecessEquatorialFK4(double Alpha, double Delta, double JD0, double JD) noexcept;
     static LLD PrecessEcliptic(double Lambda, double Beta, double JD0, double JD) noexcept;
 
@@ -84,17 +85,14 @@ public:
     static glm::dvec3 EarthVelocity(double jd_tt, Planetary_Ephemeris eph) noexcept;
     static LLD EquatorialAberration(double Alpha, double Delta, double jd_tt, Planetary_Ephemeris eph) noexcept;
     static LLD EclipticAberration(double Lambda, double Beta, double jd_tt, Planetary_Ephemeris eph) noexcept;
-
-    // Vondrak-Ron Aberration
-    static LLD Vondrak_Ron_Aberration(double jd_tt);
-
+\
     // Refraction
     static double RefractionFromApparent(double Altitude, double Pressure = 1010, double Temperature = 10) noexcept;
     static double RefractionFromTrue(double Altitude, double Pressure = 1010, double Temperature = 10) noexcept;
 
     // Figure of Earth (CAAGlobe)
-    static double RhoSinThetaPrime(double GeographicalLatitude, double Height) noexcept;
-    static double RhoCosThetaPrime(double GeographicalLatitude, double Height) noexcept;
+    static double RhoSinPhiPrime(double GeographicalLatitude, double Height) noexcept;
+    static double RhoCosPhiPrime(double GeographicalLatitude, double Height) noexcept;
     static double RadiusOfParallelOfLatitude(double GeographicalLatitude) noexcept;
     static double RadiusOfCurvature(double GeographicalLatitude) noexcept;
     static double DistanceBetweenPoints(double GeographicalLatitude1, double GeographicalLongitude1, double GeographicalLatitude2, double GeographicalLongitude2) noexcept;

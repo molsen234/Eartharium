@@ -176,6 +176,7 @@ protected:
 
 class AELPMPP02 {
 public:
+	static LLD EclipticCoordinates(double jd_tt, ELPMPP02_Correction correction = ELPMPP02_LLR, double* pDerivative = nullptr) noexcept;
 	static double EclipticLongitude(double JD, ELPMPP02_Correction correction = ELPMPP02_LLR, double* pDerivative = nullptr) noexcept;
 	static double EclipticLatitude(double JD, ELPMPP02_Correction correction = ELPMPP02_LLR, double* pDerivative = nullptr) noexcept;
 	static double RadiusVector(double JD, ELPMPP02_Correction correction = ELPMPP02_LLR, double* pDerivative = nullptr) noexcept;

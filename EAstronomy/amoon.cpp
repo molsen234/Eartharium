@@ -782,8 +782,8 @@ double AMoon::TopocentricMoonSemidiameter(double DistanceDelta, double Delta, do
     const double cosDelta{ cos(Delta) };
     const double A{ cosDelta * sin(H) };
     const double sinPi{ sin(pi_) };
-    const double B{ (cosDelta * cos(H)) - (AEarth::RhoCosThetaPrime(Latitude, Height) * sinPi) };
-    const double C{ sin(Delta) - (AEarth::RhoSinThetaPrime(Latitude, Height) * sinPi) };
+    const double B{ (cosDelta * cos(H)) - (AEarth::RhoCosPhiPrime(Latitude, Height) * sinPi) };
+    const double C{ sin(Delta) - (AEarth::RhoSinPhiPrime(Latitude, Height) * sinPi) };
     const double q{ sqrt((A * A) + (B * B) + (C * C)) };
 
     const double s{ GeocentricMoonSemidiameter(DistanceDelta) };
@@ -1523,6 +1523,20 @@ double AELP2000::RadiusVector(const double* pT, int nTSize) noexcept
 
 // ELP MPP02 - From AA+ v2.49 (P.J.Naughter)
 
+LLD AELPMPP02::EclipticCoordinates(double jd_tt, ELPMPP02_Correction correction, double* pDerivative) noexcept {
+    LLD moonpos{};
+    std::array<double, 5> t{ 0.0 };
+    t[0] = 1;
+    t[1] = (jd_tt - JD_2000) / JD_CENTURY;
+    t[2] = t[1] * t[1];
+    t[3] = t[2] * t[1];
+    t[4] = t[3] * t[1];
+
+    moonpos.lon = deg2rad * EclipticLongitude(t.data(), 5, correction, pDerivative);
+    moonpos.lat = deg2rad * EclipticLatitude(t.data(), 5, correction, pDerivative);
+    moonpos.dst = RadiusVector(t.data(), 5, correction, pDerivative);  // km
+    return moonpos;
+}
 double AELPMPP02::EclipticLongitude(double JD, ELPMPP02_Correction correction, double* pDerivative) noexcept {
     std::array<double, 5> t{ 0.0 };
     t[0] = 1;

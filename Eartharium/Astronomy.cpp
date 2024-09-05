@@ -983,7 +983,7 @@ void Astronomy::explainApparentStellarPositionbyName(const std::string starname,
 }
 
 
-// Lunar calculations
+// Lunar calculations - Geocentric
 LLD Astronomy::MoonTrueEcliptic(double jd_tt, Lunar_Ephemeris eph) {
     // !!! FIX: Maybe make JD optional, defaulting to current, and cache result
     return AMoon::EclipticCoordinates(jd_tt, eph);
@@ -991,10 +991,11 @@ LLD Astronomy::MoonTrueEcliptic(double jd_tt, Lunar_Ephemeris eph) {
 LLD Astronomy::MoonApparentEcliptic(double jd_tt, Lunar_Ephemeris eph) {
     // !!! FIX: Maybe make JD optional, defaulting to current, and cache result
     LLD moonpos = AMoon::EclipticCoordinates(jd_tt, eph);
-    //moonpos += AEarth::EclipticAberration(moonpos.lon, moonpos.lat, jd_tt, VSOP87_FULL);
-    //moonpos += FK5::CorrectionInLonLat(moonpos, jd_tt);  // Convert to the FK5 system
-    moonpos.lon += AEarth::NutationInLongitude(jd_tt);
-    // According to Meeus, nutation is all that is required for MEEUS_SHORT, which is simply a short ELP2000, so same should apply to all?
+    if (eph != MEEUS_SHORT) { // According to MEEUS98, nutation is all that is required for MEEUS_SHORT, and that is already included in AMoon::Ecliptic_Meeus_Short()
+        moonpos += AEarth::EclipticAberration(moonpos.lon, moonpos.lat, jd_tt, EPH_VSOP87_FULL);
+        moonpos += FK5::CorrectionInLonLat(moonpos, jd_tt);  // Convert to the FK5 system
+        moonpos.lon += AEarth::NutationInLongitude(jd_tt);
+    }
     return moonpos;
 }
 LLD Astronomy::MoonTrueEquatorial(double jd_tt, Lunar_Ephemeris eph) {

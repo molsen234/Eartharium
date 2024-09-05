@@ -66,12 +66,13 @@ static Ellipsoid_2axis Earth_WGS84{ Earth_WGS84_f, Earth_WGS84_a , Earth_WGS84_b
 class AEllipsoid {
 public:
 	// Figure of 2-axis ellipsoid - Adapted from MEEUS98 Chapter 11
-	//static double RhoSinThetaPrime(double GeographicalLatitude, double Height) noexcept;
-	//static double RhoCosThetaPrime(double GeographicalLatitude, double Height) noexcept;
+	static LLD Planetocentric2Planetographic(LLD planetocentric, Ellipsoid_2axis& ellipsoid);
+	static LLD Planetographic2Planetocentric(LLD planetographic, Ellipsoid_2axis& ellipsoid);
+	static double RhoSinPhiPrime(double GeographicalLatitude, double Height, Ellipsoid_2axis& ellipsoid) noexcept;
+	static double RhoCosPhiPrime(double GeographicalLatitude, double Height, Ellipsoid_2axis& ellipsoid) noexcept;
 	//static double RadiusOfParallelOfLatitude(double GeographicalLatitude) noexcept;
 	//static double RadiusOfCurvature(double GeographicalLatitude) noexcept;
 	//static double DistanceBetweenPoints(double GeographicalLatitude1, double GeographicalLongitude1, double GeographicalLatitude2, double GeographicalLongitude2) noexcept;
 	//static double GeographicLatitude2rho(double geolat);
-	static LLD Planetocentric2Planetographic(LLD planetocentric, Ellipsoid_2axis& ellipsoid);
-	static LLD Planetographic2Planetocentric(LLD planetographic, Ellipsoid_2axis& ellipsoid);
+
 };

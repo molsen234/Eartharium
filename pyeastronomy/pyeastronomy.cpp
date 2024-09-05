@@ -24,6 +24,7 @@ namespace py = pybind11;
 #include "acoordinates.h"
 #include "datetime.h"
 #include "aearth.h"
+#include "amoon.h"
 #include "aelliptical.h"
 
 
@@ -622,6 +623,8 @@ PYBIND11_MODULE(pyeastronomy, m) {
             py::arg("jd_tt")
         )
         ;
+    py::class_<AMoon>(m, "AMoon")
+        .def_static("")
     // aelliptical.h
     py::class_<APlanetaryDetails>(m, "APlanetaryDetails")
         .def_readwrite("thecs", &APlanetaryDetails::thecs)  // LLD True Heliocentric ECliptical Spherical coordinates

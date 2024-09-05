@@ -1653,8 +1653,7 @@ glm::vec3 DetailedEarth::getMoonGPLocation() {
 }
 
 LLD DetailedEarth::calcMoon() {  // Gives same results as the previous AA+ v2.49 based function
-    double currentJD = scene->astro->getJD_TT();
-    LLD qmoon = scene->astro->MoonTrueEquatorial(currentJD, ELP_MPP02);
+    LLD qmoon = scene->astro->MoonTrueEquatorial(scene->astro->getJD_TT(), ELP_MPP02);
     double sidtime = scene->astro->ApparentGreenwichSiderealTime(NO_DOUBLE, true);
     double moonHour = -qmoon.lon + sidtime;
     double w = cos(qmoon.lat);

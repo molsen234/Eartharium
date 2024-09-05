@@ -279,8 +279,10 @@ void testAElliptical(Application& app) {
 
 
 void testDetailedEarth(Application& app) {
+    const float radius_gp = 0.01f;
     Astronomy* astro = app.newAstronomy();
-    astro->setTime(2024, 4, 8.0, 18.0, 40.0, 0.0);
+    //astro->setTime(2024, 9, 18.0, 2.0, 44.0, 14.1); // https://www.eclipsewise.com/lunar/LEorth/2001-2100/LE2024Sep18P.gif
+    astro->setTime(2024, 9, 18.0, 2.0, 44.0, 14);
     //std::cout << astro.getTimeString() << std::endl;
     Scene* scene = app.newScene();
     scene->astro = astro;
@@ -302,7 +304,7 @@ void testDetailedEarth(Application& app) {
     //erf->removeArcticCircles();
     //erf->addTropicCircles();
     erf->addSunGP();
-    erf->sungp->setRadius(0.1f);
+    erf->sungp->setRadius(radius_gp);
     //erf->position = { 0.0f, 0.5f, 0.0f };
     //erf->addGrid(15.0);
     //erf->addCelestialSphere();
@@ -310,7 +312,44 @@ void testDetailedEarth(Application& app) {
     //erf->gridOb->setColor(LIGHT_GREY);
     //erf->addEcliptic();
     erf->addMoonGP();
-    erf->moongp->setRadius(0.1f);
+    erf->moongp->setRadius(radius_gp);
+
+    //std::cout << ACoord::formatLatLon(astro->MoonApparentEcliptic(astro->getJD_TT(), MEEUS_SHORT)) << std::endl;
+
+    double jd_tt = astro->getJD_TT();
+    LLD moonpos{};
+    //moonpos = AELP2000::EclipticCoordinates(jd_tt);
+    //std::cout << "ELP2000-82 ecliptic position:     " << ACoord::formatLatLon(moonpos) << "\n";
+    moonpos = AELPMPP02::EclipticCoordinates(jd_tt);
+    std::cout << "ELPMPP02 ecliptic position:     " << ACoord::formatLatLon(moonpos) << "\n";
+    double moondst = moonpos.dst;
+    LLD fk5 = FK5::CorrectionInLonLat(moonpos, jd_tt);
+    LLD aberration = AEarth::EclipticAberration(moonpos.lon, moonpos.lat, jd_tt, EPH_VSOP87_FULL);
+    moonpos += fk5;
+    moonpos += aberration;
+    std::cout << "Astrometric ecliptic position:    " << ACoord::formatLatLon(moonpos) << "\n";
+    moonpos.lon += AEarth::NutationInLongitude(jd_tt);
+    std::cout << "Nutated ecliptic position:        " << ACoord::formatLatLon(moonpos) << "\n";
+
+    const double epsilon = AEarth::TrueObliquityOfEcliptic(jd_tt);
+    const double agst = AEarth::ApparentGreenwichSiderealTime(astro->getJD_UTC());
+
+    // Precession
+    moonpos = AEarth::PrecessEcliptic(moonpos.lon, moonpos.lat, EDateTime::getJDUTC2TT(JD_2000), jd_tt);
+    moonpos.dst = moondst;
+    std::cout << "Precessed ecliptic position:      " << ACoord::formatDecRA(moonpos) << "\n";
+    moonpos = Spherical::Ecliptic2Equatorial(moonpos, epsilon);
+    //moonpos = AEarth::PrecessEquatorial(moonpos, EDateTime::getJDUTC2TT(JD_2000), jd_tt);
+    std::cout << "Precessed equatorial position:    " << ACoord::formatDecRA(moonpos) << "\n";
+    moonpos = AEarth::Equatorial2Topocentric(moonpos, {deg2rad * 55.6761, deg2rad * 12.5683, 0.0}, agst);
+
+    // Topocentric
+    std::cout << "Topocentric equatorial position:  " << ACoord::formatDecRA(moonpos) << "\n";
+    
+    std::cout << "Geocentric Distance (km / AU):    " << moonpos.dst << " / " << moonpos.dst * km2au << "\n";
+    std::cout << "Geocentric Distance (km / AU):    " << moonpos.dst << " / " << moonpos.dst * km2au << "\n";
+    std::cout << "Obliquity of Ecliptic:            " << epsilon << "\n";
+    std::cout << "Apparent Greenwich Sidereal Time: " << agst << "\n";
 
     while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
     {
@@ -407,7 +446,7 @@ void LunarData(Application& app) {
         //moonRA = hrs2rad * equa.X;
         //moonDec = deg2rad * equa.Y;
         // Above NASA datadump appears to list RA/Dec in J2000.0 epoch, we calculated to epoch of date.
-        j2k = AEarth::PrecessEquatorial(equa.lon, equa.lat, astro->getJD_TT(), 2451545.00074287); // latter is JD2000, but in TT);
+        j2k = AEarth::PrecessEquatorial2(equa.lon, equa.lat, astro->getJD_TT(), 2451545.00074287); // latter is JD2000, but in TT);
         //std::cout << astro->getTimeString() << " " << astro->radecFormat(astro->rangezero2tau(moonRA), astro->rangepi2pi(moonDec), true) << "\n";
         //std::cout << astro->getTimeString() << " " << equa.X << " / " << equa.Y << "\n";
 
@@ -669,8 +708,8 @@ int main(int argc, char** argv) {
     //planetaryTest(app);
     //stellarTest(app);
     //testDetailedSky(app);
-    UnionGlacierSun(app);
-
+    //UnionGlacierSun(app);
+    testDetailedEarth(app);
 
     // Cleanup - Move this to cleanup function in Application.
     glfwTerminate();

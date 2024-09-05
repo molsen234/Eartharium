@@ -235,14 +235,14 @@ const double earthradiusm = 6'371'008;            // Earth average radius in met
 //const double earthaxialtilt = 23.439281;        // degrees (2007 wikipedia). Value changes over time, as Earth axis wobbles
 //const double earthtropics = 23.4365;            // degrees (DMS: 23°26'11.4"). Value fixed by convention - No !!! Is defined as obliquity of ecliptic
 //const double eartharctics = 66.5635;            // NOTE: Actually changes over time, but set here to align with tropics
-const double astronomicalunit = 149'597'870.7;    // 1 AU in km, from https://en.wikipedia.org/wiki/Astronomical_unit
+//const double astronomicalunit = 149'597'870.7;    // 1 AU in km, from https://en.wikipedia.org/wiki/Astronomical_unit
 const double sunradius = 696'340.0;               // Some uncertainty around this number: https://academic.oup.com/mnras/article/276/2/476/998827
 const double moonradius = 1737.3;
 const double sidereals = 86'164.09053083288;      // Seconds in 1 sidereal day
 const double sidereald = sidereals / 86400.0;     // Sidereal day as fraction of calendar day
 const double lunalemmad = 1.035028;
-const double km2au = astronomicalunit;
-const double au2km = 1.0 / astronomicalunit;
+//const double km2au = astronomicalunit;
+//const double au2km = 1.0 / astronomicalunit;
 
 // WGS84 geometry
 // Source: https://www.osti.gov/servlets/purl/231228

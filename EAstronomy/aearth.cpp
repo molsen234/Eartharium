@@ -135,6 +135,31 @@ LLD AEarth::EclipticCoordinatesJ2000(double jd_tt, Planetary_Ephemeris eph) noex
 
 // Precession - !!! FIX: add IAU2006 and TEST Vondrak precession
 
+LLD AEarth::PrecessEquatorial(LLD decra, double JD0, double jd_tt) noexcept {
+    // From AA+ CAAPrecession, modified to accept and return radians
+    // See https://articles.adsabs.harvard.edu/cgi-bin/nph-iarticle_query?1977A%26A....58....1L&defaultprint=YES&filetype=.pdf
+    LLD value{};
+    const double T{ (JD0 - JD_2000) / JD_CENTURY };
+    const double Tsquared{ T * T };
+    const double t{ (jd_tt - JD0) / JD_CENTURY };
+    const double tsquared{ t * t };
+    const double tcubed{ tsquared * t };
+    const double cosDelta{ cos(decra.lat) };
+    const double sinDelta{ sin(decra.lat) };
+    const double sigma{ deg2rad * (ACoord::dms2deg(0, 0, ((2306.2181 + (1.39656 * T) - (0.000139 * Tsquared)) * t) + ((0.30188 - (0.000344 * T)) * tsquared) + (0.017998 * tcubed))) };
+    const double zeta{ deg2rad * (ACoord::dms2deg(0, 0, ((2306.2181 + (1.39656 * T) - (0.000139 * Tsquared)) * t) + ((1.09468 + (0.000066 * T)) * tsquared) + (0.018203 * tcubed))) };
+    const double phi{ deg2rad * (ACoord::dms2deg(0, 0, ((2004.3109 - (0.8533 * T) - (0.000217 * Tsquared)) * t) - ((0.42665 + (0.000217 * T)) * tsquared) - (0.041833 * tcubed))) };
+    const double cosphi{ cos(phi) };
+    const double sinphi{ sin(phi) };
+    const double cosAlphaplussigma{ cos(decra.lon + sigma) };
+    const double A{ cosDelta * sin(decra.lon + sigma) };
+    const double B{ (cosphi * cosDelta * cosAlphaplussigma) - (sinphi * sinDelta) };
+    const double C{ (sinphi * cosDelta * cosAlphaplussigma) + (cosphi * sinDelta) };
+    value.lon = ACoord::rangezero2tau(atan2(A, B) + zeta);
+    value.lat = asin(C);
+    value.dst = decra.dst;
+    return value;  // radians
+}
 LLD AEarth::PrecessEquatorialJ2000(LLD decra, double jd_tt) {
     // From PrecessEquatorial() by taking JD0 = JD_2000
     LLD retval{};
@@ -153,9 +178,9 @@ LLD AEarth::PrecessEquatorialJ2000(LLD decra, double jd_tt) {
     return retval;
 }
 LLD AEarth::PrecessEquatorialFK5(LLD decra, double JD0, double jd_tt) {
-    return PrecessEquatorial(decra.lon, decra.lat, JD0, jd_tt);
+    return PrecessEquatorial2(decra.lon, decra.lat, JD0, jd_tt);
 }
-LLD AEarth::PrecessEquatorial(double Alpha, double Delta, double JD0, double jd_tt) noexcept {
+LLD AEarth::PrecessEquatorial2(double Alpha, double Delta, double JD0, double jd_tt) noexcept {
     // From AA+ CAAPrecession, modified to accept and return radians
     // See https://articles.adsabs.harvard.edu/cgi-bin/nph-iarticle_query?1977A%26A....58....1L&defaultprint=YES&filetype=.pdf
     LLD value{};
@@ -612,17 +637,15 @@ LLD AEarth::EquatorialAberration(double Alpha, double Delta, double jd_tt, Plane
 }
 
 LLD AEarth::EclipticAberration(const double Lambda, const double Beta, const double jd_tt, const Planetary_Ephemeris eph) noexcept {
+    LLD aberration;
     const double T{ (jd_tt - JD_2000) / JD_CENTURY };
     const double Tsquared{ T * T };
     const double e{ 0.016708634 - (0.000042037 * T) - (0.0000001267 * Tsquared) };
     const double Pi{ deg2rad * (102.93735 + (1.71946 * T) + (0.00046 * Tsquared)) };
     const double k{ 20.49552 };
     const double SunLongitude{ ASun::GeometricEclipticLongitude(jd_tt, eph) }; // radians
-
-    LLD aberration;
     aberration.lon = deg2rad * ((-k * cos(SunLongitude - Lambda) + e * k * cos(Pi - Lambda)) / cos(Beta)) / 3600;
     aberration.lat = deg2rad * (-k * sin(Beta) * (sin(SunLongitude - Lambda) - e * sin(Pi - Lambda))) / 3600;
-
     return aberration;
 }
 
@@ -691,13 +714,13 @@ double AEarth::RefractionFromTrue(double Altitude, double Pressure, double Tempe
 // semiminor axis b = a(1-f) = 6356.755
 // b/a = (1-f) = 0.996'647'19
 // eccentricity of meridian e = sqrt(2f-f^2) = 0.081'829'22
-double AEarth::RhoSinThetaPrime(double GeographicalLatitude, double Height) noexcept {
+double AEarth::RhoSinPhiPrime(double GeographicalLatitude, double Height) noexcept {
     // used for diurnal parallaxes, eclipses and occultations where a precise observer location is essential
     // height in meters, latitude in radians
     const double U{ atan(0.99664719 * tan(GeographicalLatitude)) };
     return (0.99664719 * sin(U)) + (Height / 6378140.0 * sin(GeographicalLatitude));
 }
-double AEarth::RhoCosThetaPrime(double GeographicalLatitude, double Height) noexcept {
+double AEarth::RhoCosPhiPrime(double GeographicalLatitude, double Height) noexcept {
     // used for diurnal parallaxes, eclipses and occultations where a precise observer location is essential
     // height in meters, latitude in radians
     const double U{ atan(0.99664719 * tan(GeographicalLatitude)) };
@@ -794,8 +817,8 @@ double AEarth::ParallaxToDistance(double Parallax) noexcept {
 }
 
 LLD AEarth::Equatorial2TopocentricDelta(double Alpha, double Delta, double Distance, double Longitude, double Latitude, double Height, double jd_utc) noexcept {
-    const double rhoSinThetaPrime{ RhoSinThetaPrime(Latitude, Height) };
-    const double rhoCosThetaPrime{ RhoCosThetaPrime(Latitude, Height) };
+    const double rhoSinThetaPrime{ RhoSinPhiPrime(Latitude, Height) };
+    const double rhoCosThetaPrime{ RhoCosPhiPrime(Latitude, Height) };
 
     //Calculate the Sidereal time
     const double theta{ ApparentGreenwichSiderealTime(jd_utc) };
@@ -824,8 +847,8 @@ LLD AEarth::Equatorial2Topocentric2(double Alpha, double Delta, double Distance,
     // Longitude,Latitude, height is observer location
     // jd_utc is UTC date time in JD (only used for AGST calculation, perhaps pass AGST directly instead)
     LLD Topocentric;
-    const double rhoSinThetaPrime{ RhoSinThetaPrime(Latitude, Height) };
-    const double rhoCosThetaPrime{ RhoCosThetaPrime(Latitude, Height) };
+    const double rhoSinPhiPrime{ RhoSinPhiPrime(Latitude, Height) };
+    const double rhoCosPhiPrime{ RhoCosPhiPrime(Latitude, Height) };
     //Calculate the Sidereal time
     // !!! FIX: Better to pass AGST in instead of jd_utc, it is likely to be available already,
     // or can be calculated by caller at no additional cost
@@ -838,9 +861,9 @@ LLD AEarth::Equatorial2Topocentric2(double Alpha, double Delta, double Distance,
     const double H{ theta + Longitude - Alpha };  // Hour angle
     const double cosH{ cos(H) };
     const double sinH{ sin(H) };
-    const double DeltaAlpha{ atan2(-rhoCosThetaPrime * sinpi * sinH, cosDelta - (rhoCosThetaPrime * sinpi * cosH)) };
+    const double DeltaAlpha{ atan2(-rhoCosPhiPrime * sinpi * sinH, cosDelta - (rhoCosPhiPrime * sinpi * cosH)) };
     Topocentric.lon = ACoord::rangezero2tau(Alpha + DeltaAlpha);
-    Topocentric.lat = (atan2((sin(Delta) - (rhoSinThetaPrime * sinpi)) * cos(DeltaAlpha), cosDelta - (rhoCosThetaPrime * sinpi * cosH)));
+    Topocentric.lat = (atan2((sin(Delta) - (rhoSinPhiPrime * sinpi)) * cos(DeltaAlpha), cosDelta - (rhoCosPhiPrime * sinpi * cosH)));
     return Topocentric;  // Spherical Topocentric Equatorial coordinates in radians
 }
 LLD AEarth::Ecliptic2Topocentric2(double Lambda, double Beta, double Semidiameter, double Distance, double Epsilon, double Latitude, double Height, double jd_utc) noexcept {
@@ -850,8 +873,8 @@ LLD AEarth::Ecliptic2Topocentric2(double Lambda, double Beta, double Semidiamete
     // Latitude, Height of observer location
     // note the .dst value in the returned LLD holds the semidiameter of the object in radians
     LLD Topocentric;
-    const double S{ RhoSinThetaPrime(Latitude, Height) };
-    const double C{ RhoCosThetaPrime(Latitude, Height) };
+    const double S{ RhoSinPhiPrime(Latitude, Height) };
+    const double C{ RhoCosPhiPrime(Latitude, Height) };
     const double sine{ sin(Epsilon) };
     const double cose{ cos(Epsilon) };
     const double cosBeta{ cos(Beta) };
@@ -874,10 +897,10 @@ LLD AEarth::Equatorial2Topocentric(LLD decradst, LLD latlonhgt, double agst) noe
     // latlonhgt is observer location, incl height above MSL
     // agst is Apparent Greenwich Sidereal Time
     LLD Topocentric;
-    const double rhoSinThetaPrime{ RhoSinThetaPrime(latlonhgt.lat, latlonhgt.dst) };
-    const double rhoCosThetaPrime{ RhoCosThetaPrime(latlonhgt.lat, latlonhgt.dst) };
+    const double rhoSinThetaPrime{ RhoSinPhiPrime(latlonhgt.lat, latlonhgt.dst) };
+    const double rhoCosThetaPrime{ RhoCosPhiPrime(latlonhgt.lat, latlonhgt.dst) };
     const double cosDelta{ cos(decradst.lat) };
-    const double sinpi{ g_AAParallax_C1 / decradst.dst };   // Parallax
+    const double sinpi{ g_AAParallax_C1 / (decradst.dst / astronomicalunit) };   // Parallax from distance in AU
     // If west longitudes are considered positive, use this:
     // const double H{ agst - latlonhgt.lon - decradst.lon };  // Hour angle
     // East longitudes are considered positive:
@@ -888,6 +911,7 @@ LLD AEarth::Equatorial2Topocentric(LLD decradst, LLD latlonhgt, double agst) noe
     const double DeltaAlpha{ atan2(-rhoCosThetaPrime * sinpi * sinH, cosDelta - (rhoCosThetaPrime * sinpi * cosH)) };
     Topocentric.lon = ACoord::rangezero2tau(decradst.lon + DeltaAlpha);
     Topocentric.lat = (atan2((sin(decradst.lat) - (rhoSinThetaPrime * sinpi)) * cos(DeltaAlpha), cosDelta - (rhoCosThetaPrime * sinpi * cosH)));
+    Topocentric.dst = decradst.dst;
     return Topocentric;  // Spherical Topocentric Equatorial coordinates in radians
 }
 LLD AEarth::Ecliptic2Topocentric(LLD latlondst, double Semidiameter, double Latitude, double Height, double Epsilon, double agst) noexcept {
@@ -896,8 +920,8 @@ LLD AEarth::Ecliptic2Topocentric(LLD latlondst, double Semidiameter, double Lati
     // Epsilon is (True?) Obliquity of Ecliptic, agst is Apparent Greemwich Sidereal Time
     // NOTE: the .dst value in the returned LLD holds the semidiameter of the object in radians
     LLD Topocentric;
-    const double S{ RhoSinThetaPrime(Latitude, Height) };
-    const double C{ RhoCosThetaPrime(Latitude, Height) };
+    const double S{ RhoSinPhiPrime(Latitude, Height) };
+    const double C{ RhoCosPhiPrime(Latitude, Height) };
     const double sine{ sin(Epsilon) };
     const double cose{ cos(Epsilon) };
     const double cosBeta{ cos(latlondst.lat) };
