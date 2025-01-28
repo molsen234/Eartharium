@@ -165,10 +165,10 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Astronomy.cpp" />
-    <ClCompile Include="Earth.cpp" />
-    <ClCompile Include="Eartharium.cpp" />
-    <ClCompile Include="glad.c" />
+    <ClCompile Include="source\Astronomy.cpp" />
+    <ClCompile Include="source\Earth.cpp" />
+    <ClCompile Include="source\Eartharium.cpp" />
+    <ClCompile Include="source\glad.c" />
     <ClCompile Include="ImGUI\imgui.cpp" />
     <ClCompile Include="ImGUI\imgui_demo.cpp" />
     <ClCompile Include="ImGUI\imgui_draw.cpp" />
@@ -179,17 +179,17 @@
     <ClCompile Include="ImGUI\implot.cpp" />
     <ClCompile Include="ImGUI\implot_demo.cpp" />
     <ClCompile Include="ImGUI\implot_items.cpp" />
-    <ClCompile Include="OpenGL.cpp" />
-    <ClCompile Include="Primitives.cpp" />
-    <ClCompile Include="pythoninterface.cpp" />
-    <ClCompile Include="Renderer.cpp" />
-    <ClCompile Include="Utilities.cpp" />
-    <ClCompile Include="FigureGeometry.cpp" />
+    <ClCompile Include="source\OldObjects.cpp" />
+    <ClCompile Include="source\OpenGL.cpp" />
+    <ClCompile Include="source\Primitives.cpp" />
+    <ClCompile Include="source\pythoninterface.cpp" />
+    <ClCompile Include="source\Renderer.cpp" />
+    <ClCompile Include="source\Geometry.cpp" />
+    <ClCompile Include="source\Utilities.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Astronomy.h" />
-    <ClInclude Include="Earth.h" />
-    <ClInclude Include="geometry.h" />
+    <ClInclude Include="source\Astronomy.h" />
+    <ClInclude Include="source\Earth.h" />
     <ClInclude Include="ImGUI\imconfig.h" />
     <ClInclude Include="ImGUI\imgui.h" />
     <ClInclude Include="ImGUI\imgui_impl_glfw.h" />
@@ -200,20 +200,19 @@
     <ClInclude Include="ImGUI\imstb_rectpack.h" />
     <ClInclude Include="ImGUI\imstb_textedit.h" />
     <ClInclude Include="ImGUI\imstb_truetype.h" />
-    <ClInclude Include="OpenGL.h" />
-    <ClInclude Include="Primitives.h" />
-    <ClInclude Include="config.h" />
-    <ClInclude Include="pythoninterface.h" />
-    <ClInclude Include="Renderer.h" />
+    <ClInclude Include="source\Geometry.h" />
+    <ClInclude Include="source\OldObjects.h" />
+    <ClInclude Include="source\OpenGL.h" />
+    <ClInclude Include="source\Primitives.h" />
+    <ClInclude Include="source\config.h" />
+    <ClInclude Include="source\pythoninterface.h" />
+    <ClInclude Include="source\Renderer.h" />
     <ClInclude Include="shaders\line.glsl" />
-    <ClInclude Include="Utilities.h" />
-    <ClInclude Include="FigureGeometry.h" />
+    <ClInclude Include="source\Utilities.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\cpp.hint" />
-    <None Include="hello.py" />
     <None Include="ImGUI\cpp.hint" />
-    <None Include="mdo-test.py" />
     <None Include="shaders\earth-elliptic.glsl" />
     <None Include="shaders\blit.glsl" />
     <None Include="shaders\earth.glsl" />
@@ -229,7 +228,6 @@
     <None Include="shaders\primitiveshadow.glsl" />
     <None Include="shaders\shadowearth.glsl" />
     <None Include="shaders\skysphere.glsl" />
-    <None Include="Lesson001.py" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

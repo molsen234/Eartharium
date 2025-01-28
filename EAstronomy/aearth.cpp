@@ -284,19 +284,20 @@ LLD AEarth::PrecessionVondrak_QP(const double jd_tt) {
     LLD PAQA{};
     double T = (jd_tt - JD_2000) * (1.0 / JD_CENTURY);
     double T2pi = T * tau;   // Julian centuries from J2000.0, premultiplied by 2Pi
-    for (const auto& p : Vondrak_PQ_table) {
-        double invP = p.inv_Pn;  // Table value is 1/Pn, so can be multiplied instead of dividing
-        double sin2piT_P, cos2piT_P;
-        double phase = T2pi * invP;
+    double sin2piT_P, cos2piT_P, phase;
+    for (auto& p : Vondrak_PQ_table) {
+        //double invP = p.inv_Pn;  // Table value is 1/Pn, so can be multiplied instead of dividing
+        phase = T2pi * p.inv_Pn;
         sin2piT_P = sin(phase);
         cos2piT_P = cos(phase);
         PAQA.lon += p.A1_Cn * cos2piT_P + p.A1_Sn * sin2piT_P;
         PAQA.lat += p.A2_Cn * cos2piT_P + p.A2_Sn * sin2piT_P;
     }
     // Now the polynomial terms in T. Horner's scheme is best again.
-    PAQA.lon += ((110.e-9 * T - 0.00028913) * T - 0.1189000) * T + 5851.607687;
-    PAQA.lat += ((-437.e-9 * T - 0.00000020) * T + 1.1689818) * T - 1600.886300;
+    PAQA.lon += (( 0.000000101 * T - 0.00028913) * T - 0.1189000) * T + 5851.607687;
+    PAQA.lat += ((-0.000000437 * T - 0.00000020) * T + 1.1689818) * T - 1600.886300;
     PAQA *= deg2rad / 3600.0;  // arcsec to rad
+    //PAQA *= 4.848136811095359935899141e-6;  // arcsec to rad
     return PAQA;  // In radians
 }
 LLD AEarth::PrecessionVondrak_XY(const double jd_tt) {
@@ -337,10 +338,10 @@ double AEarth::PrecessionVondrak_epsilon(double jd_tt) {
     return epsilon * deg2rad / 3600.0;
 }
 glm::dvec3 AEarth::EclipticPoleVondrak(double jd_tt) {
-    const double epsilon0{ deg2rad * 23.4392803055555555555556 };
-    // returns the ecliptic pole vector referenced to the mean equator and equinox of J2000.0
-    // See https://www.aanda.org/articles/aa/pdf/2011/10/aa17274-11.pdf A.1
     glm::dvec3 retval{ 0.0 };
+    const double epsilon0{ deg2rad * 23.4392803055555555555556 };  // obliquity at J2000.0
+    // returns the ecliptic pole vector referenced to the mean equator and equinox of J2000.0
+    // Source: https://www.aanda.org/articles/aa/pdf/2011/10/aa17274-11.pdf A.1
     LLD PAQA = PrecessionVondrak_QP(jd_tt);
     const double z = sqrt(std::max(1.0 - PAQA.lon * PAQA.lon - PAQA.lat * PAQA.lat, 0.0));
     const double s = sin(epsilon0);
@@ -803,9 +804,9 @@ LLD AEarth::Geographic2Geocentric(LLD geographic) {
 
 // !!! FIX: Decide where to put this, and how to define it
 // MEEUS98 value
-//constexpr double g_AAParallax_C1 = 4.2634515103856459e-05; //sin(CAACoordinateTransformation::DegreesToRadians(CAACoordinateTransformation::DMSToDegrees(0, 0, 8.794)));
+//constexpr double g_AAParallax_C1 = 4.2634515103856459e-05;  //sin(ACoord::dms2rad(0, 0, 8.794));
 // IAU77 value (changed in AA+ v2.52)
-constexpr double g_AAParallax_C1 = 4.2635232628103847e-05; //sin(CAACoordinateTransformation::DegreesToRadians(CAACoordinateTransformation::DMSToDegrees(0, 0, 8.794148)));
+constexpr double g_AAParallax_C1 = 4.2635232628103847e-05;  //sin(ACoord::dms2rad(0, 0, 8.794148));
 
 double AEarth::DistanceToParallax(double Distance) noexcept {
     // Distance in Astronomical Units (AU) -> Parallax angle in radians
@@ -817,8 +818,8 @@ double AEarth::ParallaxToDistance(double Parallax) noexcept {
 }
 
 LLD AEarth::Equatorial2TopocentricDelta(double Alpha, double Delta, double Distance, double Longitude, double Latitude, double Height, double jd_utc) noexcept {
-    const double rhoSinThetaPrime{ RhoSinPhiPrime(Latitude, Height) };
-    const double rhoCosThetaPrime{ RhoCosPhiPrime(Latitude, Height) };
+    const double rhoSinPhiPrime{ RhoSinPhiPrime(Latitude, Height) };
+    const double rhoCosPhiPrime{ RhoCosPhiPrime(Latitude, Height) };
 
     //Calculate the Sidereal time
     const double theta{ ApparentGreenwichSiderealTime(jd_utc) };
@@ -837,8 +838,8 @@ LLD AEarth::Equatorial2TopocentricDelta(double Alpha, double Delta, double Dista
     const double sinH{ sin(H) };
 
     LLD DeltaTopocentric;
-    DeltaTopocentric.lon = -Pi * rhoCosThetaPrime * sinH / cosDelta;
-    DeltaTopocentric.lat = -Pi * ((rhoSinThetaPrime * cosDelta) - (rhoCosThetaPrime * cosH * sin(Delta)));
+    DeltaTopocentric.lon = -Pi * rhoCosPhiPrime * sinH / cosDelta;
+    DeltaTopocentric.lat = -Pi * ((rhoSinPhiPrime * cosDelta) - (rhoCosPhiPrime * cosH * sin(Delta)));
     return DeltaTopocentric;  // difference between Spherical Geocentric Equatorial and Spherical Topocentric Equatorial in radians
 }
 
@@ -897,10 +898,10 @@ LLD AEarth::Equatorial2Topocentric(LLD decradst, LLD latlonhgt, double agst) noe
     // latlonhgt is observer location, incl height above MSL
     // agst is Apparent Greenwich Sidereal Time
     LLD Topocentric;
-    const double rhoSinThetaPrime{ RhoSinPhiPrime(latlonhgt.lat, latlonhgt.dst) };
-    const double rhoCosThetaPrime{ RhoCosPhiPrime(latlonhgt.lat, latlonhgt.dst) };
+    const double rhoSinPhiPrime{ RhoSinPhiPrime(latlonhgt.lat, latlonhgt.dst) };
+    const double rhoCosPhiPrime{ RhoCosPhiPrime(latlonhgt.lat, latlonhgt.dst) };
     const double cosDelta{ cos(decradst.lat) };
-    const double sinpi{ g_AAParallax_C1 / (decradst.dst / astronomicalunit) };   // Parallax from distance in AU
+    const double sinpi{ g_AAParallax_C1 / decradst.dst };   // Parallax from distance in AU
     // If west longitudes are considered positive, use this:
     // const double H{ agst - latlonhgt.lon - decradst.lon };  // Hour angle
     // East longitudes are considered positive:
@@ -908,9 +909,9 @@ LLD AEarth::Equatorial2Topocentric(LLD decradst, LLD latlonhgt, double agst) noe
     //std::cout << "agst=" << agst << " lon=" << latlonhgt.lon << " RA=" << decradst.lon << " H=" << H << "\n";
     const double cosH{ cos(H) };
     const double sinH{ sin(H) };
-    const double DeltaAlpha{ atan2(-rhoCosThetaPrime * sinpi * sinH, cosDelta - (rhoCosThetaPrime * sinpi * cosH)) };
+    const double DeltaAlpha{ atan2(-(rhoCosPhiPrime * sinpi * sinH), cosDelta - (rhoCosPhiPrime * sinpi * cosH)) };
     Topocentric.lon = ACoord::rangezero2tau(decradst.lon + DeltaAlpha);
-    Topocentric.lat = (atan2((sin(decradst.lat) - (rhoSinThetaPrime * sinpi)) * cos(DeltaAlpha), cosDelta - (rhoCosThetaPrime * sinpi * cosH)));
+    Topocentric.lat = (atan2((sin(decradst.lat) - (rhoSinPhiPrime * sinpi)) * cos(DeltaAlpha), cosDelta - (rhoCosPhiPrime * sinpi * cosH)));
     Topocentric.dst = decradst.dst;
     return Topocentric;  // Spherical Topocentric Equatorial coordinates in radians
 }

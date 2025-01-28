@@ -1,5 +1,8 @@
 
 #include <cstddef>
+#include <array>
+#include <cassert>
+#include "aconfig.h"
 #include "acoordinates.h"
 #include "amoon.h"
 #include "amoon_eph_short.h"
@@ -238,11 +241,11 @@ double AMoon::EclipticLatitude(double jd_tt) noexcept {
 
     return deg2rad * SigmaB / 1'000'000;  // radians
 }
-double AMoon::RadiusVectorToHorizontalParallax(double RadiusVector) noexcept {
-    return asin(6378.14 / RadiusVector);  // parallax in radians
+double AMoon::RadiusVectorToHorizontalParallax(double distance) noexcept {
+    return asin(6378.14 / distance);  // parallax in radians
 }
-double AMoon::HorizontalParallaxToRadiusVector(double Parallax) noexcept {
-    return 6378.14 / sin(Parallax);  // distance in km
+double AMoon::HorizontalParallaxToRadiusVector(double parallax) noexcept {
+    return 6378.14 / sin(parallax);  // distance in km
 }
 double AMoon::MeanLongitudeAscendingNode(double jd_tt) noexcept {
     const double T{ (jd_tt - JD_2000) / JD_CENTURY };
@@ -471,7 +474,7 @@ double AMoon::PassageThroNode(double jd_tt, Node node) {
     K += node * 0.5;
     double jde = PassageThroNodeK(K);   // If this is outside the desired lunation, recalculate K and try again
     if (jde < jd_tt) {
-        std::cout << " *> ";
+        //std::cout << " *> ";
         return PassageThroNodeK(K + 1.0);
     }
     return jde;
@@ -553,17 +556,12 @@ void AMoon::CalculateOpticalLibration(double JD, double Lambda, double Beta, dou
     //Calculate the physical librations
     const double T{ (JD - 2451545) / 36525 };
     double K1{ deg2rad * (119.75 + (131.849 * T)) };
-    //K1 = CAACoordinateTransformation::DegreesToRadians(K1);
     double K2{ deg2rad * (72.56 + (20.186 * T)) };
-    //K2 = CAACoordinateTransformation::DegreesToRadians(K2);
 
     double M{ AEarth::SunMeanAnomaly(JD) };
-    //M = CAACoordinateTransformation::DegreesToRadians(M);
     double Mdash{ AMoon::MeanAnomaly(JD) };
-    //Mdash = CAACoordinateTransformation::DegreesToRadians(Mdash);
     const double twoMdash{ 2 * Mdash };
     double D{ AMoon::MeanElongation(JD) };
-    //D = CAACoordinateTransformation::DegreesToRadians(D);
     const double twoD{ 2 * D };
     const double E{ AEarth::Eccentricity(JD) };
 
@@ -613,7 +611,6 @@ void AMoon::CalculateOpticalLibration(double JD, double Lambda, double Beta, dou
                      (0.00011 * sin(twoMdash - 2 * M - twoD)) };
 
     ldash2 = deg2rad * ( -tau_m + (rho * cosA) + (sigma * sinA * tan(bdash)));
-    //bdash = CAACoordinateTransformation::RadiansToDegrees(bdash);
     bdash2 = (sigma * cosA) - (rho * sinA);
 }
 
@@ -633,12 +630,10 @@ APhysicalMoonDetails AMoon::CalculateHelper(double JD, double& Lambda, double& B
     double I{ 0 };
     double rho{ 0 };
     CalculateOpticalLibration(JD, Lambda, Beta, details.ldash, details.bdash, details.ldash2, details.bdash2, epsilon, omega, DeltaU, sigma, I, rho);
-    //const double epsilonrad{ CAACoordinateTransformation::DegreesToRadians(epsilon) };
 
     //Calculate the total libration
     details.l = details.ldash + details.ldash2;
     details.b = details.bdash + details.bdash2;
-    //const double b{ CAACoordinateTransformation::DegreesToRadians(details.b) };
 
     //Calculate the position angle
     const double V{ omega + DeltaU + sigma / sin(I) };
@@ -653,19 +648,16 @@ APhysicalMoonDetails AMoon::CalculateHelper(double JD, double& Lambda, double& B
     return details;
 }
 
-APhysicalMoonDetails AMoon::CalculateGeocentric(double JD) noexcept {
+APhysicalMoonDetails AMoon::CalculateGeocentric(double jd_tt) noexcept {
     double Lambda{ 0 };
     double Beta{ 0 };
     double epsilon{ 0 };
     LLD Equatorial;
-    return CalculateHelper(JD, Lambda, Beta, epsilon, Equatorial);
+    return CalculateHelper(jd_tt, Lambda, Beta, epsilon, Equatorial);
 }
 
-APhysicalMoonDetails AMoon::CalculateTopocentric(double JD, double Longitude, double Latitude) noexcept
+APhysicalMoonDetails AMoon::CalculateTopocentric(double jd_tt, double Longitude, double Latitude) noexcept
 {
-    //First convert to radians
-    //Longitude = CAACoordinateTransformation::DegreesToRadians(Longitude);
-    //Latitude = CAACoordinateTransformation::DegreesToRadians(Latitude);
     const double cosLatitude{ cos(Latitude) };
     const double sinLatitude{ sin(Latitude) };
 
@@ -673,16 +665,16 @@ APhysicalMoonDetails AMoon::CalculateTopocentric(double JD, double Longitude, do
     double Beta{ 0 };
     double epsilon{ 0 };
     LLD Equatorial;
-    APhysicalMoonDetails details{ CalculateHelper(JD, Lambda, Beta, epsilon, Equatorial) };
+    APhysicalMoonDetails details{ CalculateHelper(jd_tt, Lambda, Beta, epsilon, Equatorial) };
 
-    const double R{ AMoon::RadiusVector(JD) };
+    const double R{ AMoon::RadiusVector(jd_tt) };
     const double pi_m{ AMoon::RadiusVectorToHorizontalParallax(R) };
     const double Alpha{ Equatorial.lon };
     const double Delta{ Equatorial.lat };
     const double cosDelta{ cos(Delta) };
     const double sinDelta{ sin(Delta) };
-
-    const double AST{ AEarth::ApparentGreenwichSiderealTime(JD) };
+    // !!! FIX: Should use jd_utc
+    const double AST{ AEarth::ApparentGreenwichSiderealTime(jd_tt) };
     const double H{ AST - Longitude - Alpha };
     const double cosH{ cos(H) };
 
@@ -699,21 +691,19 @@ APhysicalMoonDetails AMoon::CalculateTopocentric(double JD, double Longitude, do
     return details;
 }
 
-ASelenographicMoonDetails AMoon::CalculateSelenographicPositionOfSun(double JD, Lunar_Ephemeris eph) noexcept
-{
-    //What will be the return value
+ASelenographicMoonDetails AMoon::CalculateSelenographicPositionOfSun(double jd_tt, Lunar_Ephemeris eph) noexcept {
     ASelenographicMoonDetails details;
 
     Planetary_Ephemeris eph2{ EPH_VSOP87_FULL };
     if (eph == MEEUS_SHORT) eph2 = EPH_VSOP87_SHORT;
 
-    const double R{ AEarth::EclipticDistance(JD, eph2) * 149597970 };
-    const double Delta{ AMoon::RadiusVector(JD) };
-    const double lambda0{ ASun::ApparentEclipticLongitude(JD, eph2) };
-    const double lambda{ AMoon::EclipticLongitude(JD) };
-    const double beta{ AMoon::EclipticLatitude(JD) };
+    const double R{ AEarth::EclipticDistance(jd_tt, eph2) * 149597970.0 };
+    const double Delta{ AMoon::RadiusVector(jd_tt) };
+    const double lambda0{ ASun::ApparentEclipticLongitude(jd_tt, eph2) };
+    const double lambda{ AMoon::EclipticLongitude(jd_tt) };
+    const double beta{ AMoon::EclipticLatitude(jd_tt) };
 
-    const double lambdah{ ACoord::rangezero2threesixty(lambda0 + 180 + (Delta / R * 57.296 * cos(beta) * sin(lambda0 - lambda))) };
+    const double lambdah{ ACoord::rangezero2threesixty(lambda0 + 180.0 + (Delta / R * 57.296 * cos(beta) * sin(lambda0 - lambda))) };
     const double betah{ Delta / R * beta };
 
     //Calculate the optical libration
@@ -727,11 +717,11 @@ ASelenographicMoonDetails AMoon::CalculateSelenographicPositionOfSun(double JD, 
     double ldash20{ 0 };
     double bdash20{ 0 };
     double epsilon{ 0 };
-    CalculateOpticalLibration(JD, lambdah, betah, ldash0, bdash0, ldash20, bdash20, epsilon, omega, DeltaU, sigma, I, rho);
+    CalculateOpticalLibration(jd_tt, lambdah, betah, ldash0, bdash0, ldash20, bdash20, epsilon, omega, DeltaU, sigma, I, rho);
 
     details.l0 = ldash0 + ldash20;
     details.b0 = bdash0 + bdash20;
-    details.c0 = ACoord::rangezero2tau((deg2rad * 450) - details.l0);
+    details.c0 = ACoord::rangezero2tau((deg2rad * 450) - details.l0); // For use, see: https://articles.adsabs.harvard.edu/pdf/1958StAst..12...80H
     return details;
 }
 
@@ -739,8 +729,6 @@ double AMoon::AltitudeOfSun(double JD, double Longitude, double Latitude, Lunar_
 {
     //Calculate the selenographic details
     ASelenographicMoonDetails selenographicDetails{ CalculateSelenographicPositionOfSun(JD, eph) };
-    //selenographicDetails.b0 = CAACoordinateTransformation::DegreesToRadians(selenographicDetails.b0);
-    //selenographicDetails.c0 = CAACoordinateTransformation::DegreesToRadians(selenographicDetails.c0);
 
     // Buggy! Fixed to below in AA+ v2.52
     //return asin(sin((selenographicDetails.b0) * sin(Latitude)) + (cos(selenographicDetails.b0) * cos(Latitude) * sin(selenographicDetails.c0 + Longitude)));
@@ -774,10 +762,15 @@ double AMoon::TimeOfSunset(double JD, double Longitude, double Latitude, Lunar_E
 // updated the "k" constant used in this method from 0.272481 (MEEUS98) to the more modern value of k = 0.2725076.
 // See section "1.9 Mean Lunar Radius" of https://umbra.nascom.nasa.gov/eclipse/20060329/text/chapter_1.html
 // for the reason why the new value was adopted in 1982
-double AMoon::GeocentricMoonSemidiameter(double Delta) noexcept {
-    return asin(0.2725076 * 6378.14 / Delta);
+double AMoon::GeocentricMoonSemidiameter(double distance) noexcept {
+    // takes geocentric distance in km, returns semidiameter in arc seconds
+    return asin(0.2725076 * 6378.14 / distance);
 }
 double AMoon::TopocentricMoonSemidiameter(double DistanceDelta, double Delta, double H, double Latitude, double Height) noexcept {
+    // DistanceDelta = distance to Moon centre in km
+    // Delta = Moon's geocentric declination
+    // H = Moon's geocentric hour angle
+    // Latitude, Height = observer latitude (radians) and height above MSL (meters) on Earth
     const double pi_{ asin(6378.14 / DistanceDelta) };
     const double cosDelta{ cos(Delta) };
     const double A{ cosDelta * sin(H) };

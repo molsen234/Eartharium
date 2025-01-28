@@ -6,20 +6,18 @@
 class APhysicalMoonDetails
 {
 public:
-	//Member variables
-	double ldash{ 0 };
-	double bdash{ 0 };
-	double ldash2{ 0 };
-	double bdash2{ 0 };
-	double l{ 0 };
-	double b{ 0 };
-	double P{ 0 };
+	double ldash{ 0 };   // The optical libration in longitude in radians
+	double bdash{ 0 };	 // The optical libration in latitude in radians
+	double ldash2{ 0 };	 // The physical libration in longitude in radians
+	double bdash2{ 0 };	 // The physical libration in latitude in radians
+	double l{ 0 };		 // The total libration in longitude in radians
+	double b{ 0 };		 // The total libration in latitude in radians
+	double P{ 0 };		 // The position angle in radians of the Moon's axis of rotation
 };
 
 class ASelenographicMoonDetails
 {
 public:
-	//Member variables
 	double l0{ 0 };
 	double b0{ 0 };
 	double c0{ 0 };
@@ -42,10 +40,10 @@ public:
 	static double EclipticLongitude(double jd_tt) noexcept;
 	static double EclipticLatitude(double jd_tt) noexcept;
 	static double RadiusVector(double jd_tt) noexcept;
-	static LLD EclipticCoordinates(double jd_tt, Planetary_Ephemeris eph = EPH_VSOP87_FULL);
+	//static LLD EclipticCoordinates(double jd_tt, Planetary_Ephemeris eph = EPH_VSOP87_FULL);
 
-	static double RadiusVectorToHorizontalParallax(double RadiusVector) noexcept;
-	static double HorizontalParallaxToRadiusVector(double Parallax) noexcept;
+	static double RadiusVectorToHorizontalParallax(double distance) noexcept;
+	static double HorizontalParallaxToRadiusVector(double parallax) noexcept;
 
 	// Moon Illuminated Fraction
 	static double GeocentricElongation(double ObjectAlpha, double ObjectDelta, double SunAlpha, double SunDelta) noexcept;
@@ -54,36 +52,36 @@ public:
 	static double PositionAngle(double Alpha0, double Delta0, double Alpha, double Delta) noexcept;
 
 	// Moon Phases
-	constexpr static double Phase_K(double Year) noexcept { return 12.3685 * (Year - 2000); }
-	static double MeanPhase(double k) noexcept {
+	constexpr static double Phase_K(double year) noexcept { return 12.3685 * (year - 2000); }
+	static double MeanPhase(double K) noexcept {
 		//convert from K to T
-		const double T{ k / 1236.85 };
+		const double T{ K / 1236.85 };
 		const double T2{ T * T };
 		const double T3{ T2 * T };
 		const double T4{ T3 * T };
-		return 2451550.09766 + (29.530588861 * k) + (0.00015437 * T2) - (0.000000150 * T3) + (0.00000000073 * T4);
+		return 2451550.09766 + (29.530588861 * K) + (0.00015437 * T2) - (0.000000150 * T3) + (0.00000000073 * T4);
 	}
 	static double TruePhase(double jd_tt, Lunar_Phase phase);
 	static double TruePhaseK(double K) noexcept;
 
 	// Lunar Nodes
-	constexpr static double Node_K(double Year) noexcept {
+	constexpr static double Node_K(double year) noexcept {
 		// MEEUS98 chapter 51
-		return 13.4223 * (Year - 2000.05);
+		return 13.4223 * (year - 2000.05);
 	}
 	static double PassageThroNode(double jd_tt, Node node);
 	static double PassageThroNodeK(double k) noexcept;
 
 	// Physical Moon
-	static APhysicalMoonDetails CalculateGeocentric(double JD) noexcept;
-	static APhysicalMoonDetails CalculateTopocentric(double JD, double Longitude, double Latitude) noexcept;
-	static ASelenographicMoonDetails CalculateSelenographicPositionOfSun(double JD, Lunar_Ephemeris eph) noexcept;
+	static APhysicalMoonDetails CalculateGeocentric(double jd_tt) noexcept;
+	static APhysicalMoonDetails CalculateTopocentric(double jd_tt, double Longitude, double Latitude) noexcept;
+	static ASelenographicMoonDetails CalculateSelenographicPositionOfSun(double jd_tt, Lunar_Ephemeris eph) noexcept;
 	static double AltitudeOfSun(double JD, double Longitude, double Latitude, Lunar_Ephemeris eph) noexcept;
 	static double TimeOfSunrise(double JD, double Longitude, double Latitude, Lunar_Ephemeris eph) noexcept;
 	static double TimeOfSunset(double JD, double Longitude, double Latitude, Lunar_Ephemeris eph) noexcept;
 
 	// Diameter
-	static double GeocentricMoonSemidiameter(double Delta) noexcept;
+	static double GeocentricMoonSemidiameter(double distance) noexcept;
 	static double TopocentricMoonSemidiameter(double DistanceDelta, double Delta, double H, double Latitude, double Height) noexcept;
 
 
@@ -92,7 +90,6 @@ protected:
 	static double SunriseSunsetHelper(double JD, double Longitude, double Latitude, bool bSunrise, Lunar_Ephemeris eph) noexcept;
 	static APhysicalMoonDetails CalculateHelper(double JD, double& Lambda, double& Beta, double& epsilon, LLD& Equatorial) noexcept;
 	static void CalculateOpticalLibration(double JD, double Lambda, double Beta, double& ldash, double& bdash, double& ldash2, double& bdash2, double& epsilon, double& omega, double& DeltaU, double& sigma, double& I, double& rho) noexcept;
-
 
 };
 
@@ -160,7 +157,7 @@ private:
 	static double SaturnMeanLongitude(double T) noexcept;
 	static double UranusMeanLongitude(double T) noexcept;
 	static double NeptuneMeanLongitude(double T) noexcept;
-protected:
+//protected:  // Do friends need to touch these? Should probably just be private.
 	static double Accumulate(const A_ELP2000MainProblemCoefficient* pCoefficients, size_t nCoefficients, double fD, double fldash, double fl, double fF) noexcept;
 	static double Accumulate_2(const A_ELP2000MainProblemCoefficient* pCoefficients, size_t nCoefficients, double fD, double fldash, double fl, double fF) noexcept;
 	static double Accumulate(const double* pT, int nTSize, const A_ELP2000EarthTidalMoonRelativisticSolarEccentricityCoefficient* pCoefficients, size_t nCoefficients, double fD, double fldash, double fl, double fF, bool bI1isZero) noexcept;

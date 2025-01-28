@@ -387,7 +387,7 @@ LLD Spherical::Equatorial2Ecliptic2(double Alpha, double Delta, double Epsilon) 
 	return retval;
 }
 LLD Spherical::Ecliptic2Equatorial(LLD latlon, double trueobliq) noexcept {
-	// AA+: CAACoordinateTransformation::Equatorial2Ecliptic()
+	// AA+: CAACoordinateTransformation::Ecliptic2Equatorial()
 	// MEEUS98: This refers to algorithm 13.3 and 13.4 on page 93
 	LLD retval{};
 	const double cosEpsilon{ cos(trueobliq) };
@@ -399,7 +399,7 @@ LLD Spherical::Ecliptic2Equatorial(LLD latlon, double trueobliq) noexcept {
 	return retval;
 }
 LLD Spherical::Ecliptic2Equatorial2(double Lambda, double Beta, double Epsilon) noexcept {
-	// AA+: CAACoordinateTransformation::Equatorial2Ecliptic()
+	// AA+: CAACoordinateTransformation::Ecliptic2Equatorial()
 	// MEEUS98: This refers to algorithm 13.3 and 13.4 on page 93
 	LLD retval{};
 	const double cosEpsilon = cos(Epsilon);
@@ -416,7 +416,7 @@ LLD Spherical::Equatorial2Horizontal(double LocalHourAngle, double Delta, double
 	const double cosLatitude = cos(Latitude);
 	const double sinLatitude = sin(Latitude);
 	retval.lat = asin((sinLatitude * sin(Delta)) + (cosLatitude * cos(Delta) * cosLocalHourAngle));
-	// Use this is reckoning Azimuth from the south
+	// Use this if reckoning Azimuth from the south
 	//retval.lon = ACoord::rangezero2tau(atan2(sin(LocalHourAngle), (cosLocalHourAngle * sinLatitude) - (tan(Delta) * cosLatitude)));
 	// Reckon Azimuth from the North (by adding pi before ranging):
 	retval.lon = ACoord::rangezero2tau(pi + atan2(sin(LocalHourAngle), (cosLocalHourAngle * sinLatitude) - (tan(Delta) * cosLatitude)));

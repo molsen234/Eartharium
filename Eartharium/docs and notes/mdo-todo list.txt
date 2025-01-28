@@ -28,6 +28,8 @@ Anyway, you got me to change my model, so I had to do the math. I thought I migh
 
 IMPORTANT
 ---------
+- AEAstronomy amoon uses pointers to pass parameters instead of references
+- AEAstronomy aconfig.h uses enum instead of enum class for enums
 - MUST make Path3D multisegment to accomodate redrawing of split arcs across seams of Earth
   o It can only split once, so having two segments will suffice
   o !! BUT for time dependent paths, they may move to have the split in a different place !!

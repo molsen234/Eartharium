@@ -6,7 +6,7 @@
 
 //#include <pybind11/embed.h>
 #include <pybind11/pybind11.h>
-
+#include <pybind11/operators.h>  // For py::self operator overload
 //#include <pybind11/stl.h>
 namespace py = pybind11;
 
@@ -23,13 +23,12 @@ namespace py = pybind11;
 // base astronomy functions
 #include "acoordinates.h"
 #include "datetime.h"
+#include "aellipsoids.h"
 #include "aearth.h"
 #include "amoon.h"
+#include "avenus.h"
 #include "aelliptical.h"
 
-
-// !!! FIX: Might split the below up into includes that live next to the relevant code.
-//          That makes it easier to e.g. split off eastronomy into a separate library / module
 
 // -------------------------------------
 //  Python scripting module definitions
@@ -37,10 +36,6 @@ namespace py = pybind11;
 PYBIND11_MODULE(pyeastronomy, m) {
     // IMPORTANT: Define things in order of dependencies. If not, loading the module will hang with no errors. Very annoying!
     m.doc() = "Eartharium Astronomy Module for python";
-    //py::class_<Calc>(m, "Calc")
-    //    .def_static("Add", &Calc::Add, "Adds two doubles.") //, py::arg("a"), py::arg("b"))
-    //    .def_static("Sub", &Calc::Sub, "Subtracts two doubles.", py::arg("a"), py::arg("b"))
-    //    ;
     //m.def("getApplication", &PyIface::getApplication, py::return_value_policy::reference)
     //    ;
     py::class_<LLD>(m, "LLD")
@@ -48,6 +43,9 @@ PYBIND11_MODULE(pyeastronomy, m) {
         .def("str", &LLD::str, "Output in raw units (radians and whichever unit distance is in).")
         .def("str_EQ", &LLD::str_EQ, "Output in Equatorial format.")
         .def("str_EC", &LLD::str_EC, "Output in Ecliptic format.")
+        // operator overloads from https://pybind11.readthedocs.io/en/stable/advanced/classes.html#operator-overloading
+        .def(py::self *= double())
+        .def(py::self += py::self)
         .def_readwrite("lat", &LLD::lat)
         .def_readwrite("lon", &LLD::lon)
         .def_readwrite("dst", &LLD::dst)
@@ -87,20 +85,20 @@ PYBIND11_MODULE(pyeastronomy, m) {
         //othertime2 = EDateTime(2460449.5)  # default = False, i.e.UTC
         //print(othertime2.string())  # 2024-05-19 00:00:00 UTC
         .def(py::init<long>())
-        .def("year", &EDateTime::year, "Obtains the year of current date time.")
-        .def("month", &EDateTime::month, "Obtains the month of current date time.")
-        .def("day", &EDateTime::day, "Obtains the day of current date time.")
-        .def("hour", &EDateTime::hour, "Obtains the hour of current date time.")
-        .def("minute", &EDateTime::minute, "Obtains the minute of current date time.")
-        .def("second", &EDateTime::second, "Obtains the second of current date time.")
-        .def("jd_tt", &EDateTime::jd_tt, "Obtains the JD of current date time in TT (dynamical time).")
-        .def("jd_utc", &EDateTime::jd_utc, "Obtains the JD of current date time in (astrnomical) UTC.")
+        .def("year", &EDateTime::year, "Returns the year of current date time.")
+        .def("month", &EDateTime::month, "Returns the month of current date time.")
+        .def("day", &EDateTime::day, "Returns the day of current date time.")
+        .def("hour", &EDateTime::hour, "Returns the hour of current date time.")
+        .def("minute", &EDateTime::minute, "Returns the minute of current date time.")
+        .def("second", &EDateTime::second, "Returns the second of current date time.")
+        .def("jd_tt", &EDateTime::jd_tt, "Returns the JD of current date time in TT (dynamical time).")
+        .def("jd_utc", &EDateTime::jd_utc, "Returns the JD of current date time in (astrnomical) UTC.")
         .def("isLeap", &EDateTime::isLeap, "Returns True if current year is leap, false otherwise (year 1 BCE is year 0).")
         .def("weekday", &EDateTime::weekday, "Returns day of week; Sunday = 0, Monday = 1, etc.")
         .def("dayofyear", &EDateTime::dayofyear, "Returns the number of the day within the year")
-        .def("string", &EDateTime::string, "Obtains date time string in UTC.")
-        .def("stringms", &EDateTime::stringms, "Obtains date time string in UTC with seconds given to 3 decimal places.")
-        .def("unixTime", &EDateTime::unixTime, "Obtains current date time in (integer) Unix timestamp format.")
+        .def("string", &EDateTime::string, "Returns date time string in UTC with nearest whole second.")
+        .def("stringms", &EDateTime::stringms, "Returns date time string in UTC with seconds given to 3 decimal places.")
+        .def("unixTime", &EDateTime::unixTime, "Returns current date time in (integer) Unix timestamp format.")
         .def("setTime", &EDateTime::setTime,  "Sets current date time in integer year, month, float day, hour, minute, second.",
             py::arg("year"), py::arg("month"), py::arg("day"), py::arg("hour"), py::arg("minute"), py::arg("second")
         )
@@ -350,6 +348,57 @@ PYBIND11_MODULE(pyeastronomy, m) {
             py::arg("r"), py::arg("R"), py::arg("Delta")
         )
         ;
+    // aellipsoids.[h/cpp]
+    py::class_<Ellipsoid_2axis>(m, "Ellipsoid_2axis")
+        .def_readwrite("flattening", &Ellipsoid_2axis::flattening)
+        .def_readwrite("semimajor_axis", &Ellipsoid_2axis::semimajor_axis)
+        .def_readwrite("semiminor_axis", &Ellipsoid_2axis::semiminor_axis)
+        .def_readwrite("eccentricity", &Ellipsoid_2axis::eccentricity)
+        //.def(py::init<double, double, double, double>())
+        .def(py::init<>())
+        .def("fromSemimajorSemiminor", &Ellipsoid_2axis::fromSemimajorSemiminor, "Initialize from semimajor and semiminor axes.",
+            py::arg("semimajor"), py::arg("semiminor")
+        )
+        .def("fromSemimajorFlattening", &Ellipsoid_2axis::fromSemimajorFlattening, "Initialize from semimajor axis and flattening.",
+            py::arg("semimajor"), py::arg("flattening")
+        )
+        .def("fromSemimajorEccentricity", &Ellipsoid_2axis::fromSemimajorEccentricity, "Initialize from semimajor axis and  eccentricity.",
+            py::arg("semimajor"), py::arg("eccentricity")
+        )
+        ;
+    py::class_<AEllipsoid>(m, "AEllipsoid")
+        .def_static("Planetocentric2Planetographic", &AEllipsoid::Planetocentric2Planetographic, "",
+            py::arg("planetocentric"), py::arg("ellipsoid")
+            )
+        .def_static("Planetographic2Planetocentric", &AEllipsoid::Planetographic2Planetocentric, "",
+            py::arg("planetographic"), py::arg("ellipsoid")
+        )
+        .def_static("RhoSinPhiPrime", &AEllipsoid::RhoSinPhiPrime, "",
+            py::arg("GeographicalLatitude"), py::arg("Height"), py::arg("ellipsoid")
+            )
+        .def_static("RhoCosPhiPrime", &AEllipsoid::RhoCosPhiPrime, "",
+            py::arg("GeographicalLatitude"), py::arg("Height"), py::arg("ellipsoid")
+        )
+        .def_static("RadiusOfParallelOfLatitude", &AEllipsoid::RadiusOfParallelOfLatitude, "Returns the radius of the parallel of latitude in same units as ellipsoid semimajor axis (km).",
+            py::arg("GeographicalLatitude"), py::arg("ellipsoid")
+        )
+        .def_static("RadiusOfCurvature", &AEllipsoid::RadiusOfCurvature, "Returns the meridional (north-south) radius of curvature in same units as ellipsoid semimajor axis (km).",
+            py::arg("GeographicalLatitude"), py::arg("ellipsoid")
+        )
+        .def_static("RadiusOfPrimeVertical", &AEllipsoid::RadiusOfPrimeVertical, "Returns the radius of curvature along the prime vertical (east-west) in same units as ellipsoid semimajor axis (km).",
+            py::arg("GeographicalLatitude"), py::arg("ellipsoid")
+        )
+        .def_static("DistanceBetweenPoints", &AEllipsoid::DistanceBetweenPoints, "Returns ellipsoid distance between the given two points, in same units as ellipsoid semimajor axis (km).",
+            py::arg("GeographicalLatitude1"),
+            py::arg("GeographicalLongitude1"),
+            py::arg("GeographicalLatitude2"),
+            py::arg("GeographicalLongitude2"),
+            py::arg("ellipsoid")
+            )
+        .def_readonly_static("Earth_IAU76", &AEllipsoid::Earth_IAU76)
+        .def_readonly_static("Earth_WGS84", &AEllipsoid::Earth_WGS84)
+        ;
+
     // aearth.[h/cpp]
     py::class_<AEarth>(m, "AEarth")
         // Position
@@ -425,7 +474,7 @@ PYBIND11_MODULE(pyeastronomy, m) {
             py::arg("ra"), py::arg("obliq"), py::arg("nut_lon"), py::arg("nut_obl")
         )
         // Time
-        .def_static("EquationOfTime", &AEarth::EquationOfTime, " Calculate Equation of Time.",
+        .def_static("EquationOfTime", &AEarth::EquationOfTime, " Calculate Equation of Time in Minutes.",
             py::arg("jd_tt"), py::arg("eph")
         )
         .def_static("MeanGreenwichSiderealTime", &AEarth::MeanGreenwichSiderealTime, "Calculate Mean Greenwich Sidereal Time.",
@@ -455,10 +504,10 @@ PYBIND11_MODULE(pyeastronomy, m) {
             py::arg("Altitude"), py::arg("Pressure") = 1010, py::arg("Temperature") = 10
         )
         // Figure of Earth
-        .def_static("RhoSinThetaPrime", &AEarth::RhoSinThetaPrime, "Calculate parallax parameter.",
+        .def_static("RhoSinPhiPrime", &AEarth::RhoSinPhiPrime, "Calculate parallax parameter.",
             py::arg("GeographicalLatitude"), py::arg("Height")
         )
-        .def_static("RhoCosThetaPrime", &AEarth::RhoCosThetaPrime, "Calculate parallax parameter.",
+        .def_static("RhoCosPhiPrime", &AEarth::RhoCosPhiPrime, "Calculate parallax parameter.",
             py::arg("GeographicalLatitude"), py::arg("Height")
         )
         .def_static("RadiusOfParallelOfLatitude", &AEarth::RadiusOfParallelOfLatitude, "Calculate the radius (in kilometers) of a Parallel of Latitude.",
@@ -623,8 +672,107 @@ PYBIND11_MODULE(pyeastronomy, m) {
             py::arg("jd_tt")
         )
         ;
+    // amoon.h
+    py::enum_<Lunar_Ephemeris>(m, "Lunar_Ephemeris")
+        .value("MEEUS_SHORT", Lunar_Ephemeris::MEEUS_SHORT)
+        .value("ELP2000_82", Lunar_Ephemeris::ELP2000_82)
+        .value("ELP_MPP02", Lunar_Ephemeris::ELP_MPP02)
+        .export_values()
+        ;
+    py::enum_<Lunar_Phase>(m, "Lunar_Phase")
+        .value("NEW_MOON", Lunar_Phase::NEW_MOON)
+        .value("FIRST_QUARTER_MOON", Lunar_Phase::FIRST_QUARTER_MOON)
+        .value("FULL_MOON", Lunar_Phase::FULL_MOON)
+        .value("THIRD_QUARTER_MOON", Lunar_Phase::THIRD_QUARTER_MOON)
+        .export_values()
+        ;
+    py::enum_<ELPMPP02_Correction>(m, "ELPMPP02_Correction")
+        .value("ELPMPP02_Nominal", ELPMPP02_Correction::ELPMPP02_Nominal)
+        .value("ELPMPP02_LLR", ELPMPP02_Correction::ELPMPP02_LLR)
+        .value("ELPMPP02_DE405", ELPMPP02_Correction::ELPMPP02_DE405)
+        .value("ELPMPP02_DE406", ELPMPP02_Correction::ELPMPP02_DE406)
+        .export_values()
+        ;
+    py::class_<APhysicalMoonDetails>(m, "APhysicalMoonDetails")
+        .def_readwrite("ldash", &APhysicalMoonDetails::ldash)    // The optical libration in longitude in radians
+        .def_readwrite("bdash", &APhysicalMoonDetails::bdash)    // The optical libration in latitude in radians
+        .def_readwrite("ldash2", &APhysicalMoonDetails::ldash2)  // The physical libration in longitude in radians
+        .def_readwrite("bdash2", &APhysicalMoonDetails::bdash2)  // The physical libration in latitude in radians
+        .def_readwrite("l", &APhysicalMoonDetails::l)            // The total libration in longitude in radians
+        .def_readwrite("b", &APhysicalMoonDetails::b)            // The total libration in latitude in radians
+        .def_readwrite("P", &APhysicalMoonDetails::P)            // The position angle in radians of the Moon's axis of rotation
+        ;
+    py::class_< ASelenographicMoonDetails>(m, "ASelenographicMoonDetails")
+        .def_readwrite("l0", &ASelenographicMoonDetails::l0)
+        .def_readwrite("b0", &ASelenographicMoonDetails::b0)
+        .def_readwrite("c0", &ASelenographicMoonDetails::c0)
+        ;
     py::class_<AMoon>(m, "AMoon")
-        .def_static("")
+        .def_static("EclipticCoordinates", &AMoon::EclipticCoordinates, "Geocentric Ecliptic Moon coordinates",
+            py::arg("jd_tt"), py::arg("eph") = Lunar_Ephemeris::ELP2000_82
+        )
+        .def_static("RadiusVectorToHorizontalParallax", &AMoon::RadiusVectorToHorizontalParallax, "Takes distance in km, returns parallax in radians",
+            py::arg("distance")
+        )
+        .def_static("HorizontalParallaxToRadiusVector", &AMoon::HorizontalParallaxToRadiusVector, "Takes parallax in radians, returns distance in km",
+            py::arg("parallax")
+        )
+        // !!! FIX: Moon Illuminated Fraction functions go here, unless they are moved to a more generic location (they work for planets too?)
+        .def_static("Phase_K", &AMoon::Phase_K, "Takes decimal year, returns the K value used to calculate the mean Moon phase",
+            py::arg("year")
+        )
+        .def_static("MeanPhase", &AMoon::MeanPhase, "Takes K value from AMoon.Phase_K(), returns the mean phase of the Moon",
+            py::arg("K")
+        )
+        .def_static("TruePhase", &AMoon::TruePhase, "Takes jd_tt and desired quarter phase, returns nearest following jd_tt of the speficied Moon phase",
+            py::arg("jd_tt"), py::arg("phase")
+        )
+        .def_static("TruePhaseK", &AMoon::TruePhaseK, "Takes K from AMoon.Phase_K(), returns nearest following jd_tt of the speficied Moon phase",
+            py::arg("K")
+        )
+        // !!! FIX: Lunar Node calculations should be amended to ensure K value is always half integer before exporting to python, see phase calculations
+        //.def_static("Node_K", &AMoon::Node_K, "Takes decimal year, returns K value for node passage calculation",
+        //    py::arg("year")
+        //)
+        .def_static("CalculateGeocentric", &AMoon::CalculateGeocentric, "Geocentric lunar optical, physical, total libration and axis angle",
+            py::arg("jd_tt")
+        )
+        .def_static("CalculateTopocentric", &AMoon::CalculateTopocentric, "Topocentric lunar optical, physical, total libration and axis angle",
+            py::arg("jd_tt"), py::arg("Longitude"), py::arg("Latitude")
+        )
+        .def_static("CalculateSelenographicPositionOfSun", &AMoon::CalculateSelenographicPositionOfSun, "Selenograpic position of Sun",
+            py::arg("jd_tt"), py::arg("eph")
+        )
+        .def_static("AltitudeOfSun", &AMoon::AltitudeOfSun, "Altitude of Sun at given location on Moon",
+            py::arg("jd_tt"), py::arg("Longitude"), py::arg("Latitude"), py::arg("eph")
+        )
+        .def_static("TimeOfSunrise", &AMoon::TimeOfSunrise, "Time of next sunrise at given location on Moon",
+            py::arg("jd_tt"), py::arg("Longitude"), py::arg("Latitude"), py::arg("eph")
+        )
+        .def_static("TimeOfSunset", &AMoon::TimeOfSunset, "Time of next sunset at given location on Moon",
+            py::arg("jd_tt"), py::arg("Longitude"), py::arg("Latitude"), py::arg("eph")
+        )
+        .def_static("GeocentricMoonSemidiameter", &AMoon::GeocentricMoonSemidiameter, "takes geocentric distance in km, returns Moon demidiameter in radians",
+            py::arg("distance")
+        )
+        .def_static("TopocentricMoonSemidiameter", &AMoon::TopocentricMoonSemidiameter, "Returns topocentric Moon semidiameter in radians",
+            py::arg("DistanceDelta"), py::arg("Delta"), py::arg("H"), py::arg("Latitude"), py::arg("Height")
+        )
+        ;
+    py::class_<AVenus>(m, "AVenus")
+        .def_static("EclipticLongitude", &AVenus::EclipticLongitude, "True Ecliptic Longitude in radians.",
+            py::arg("jd_tt"), py::arg("eph")
+        )
+        .def_static("EclipticLatitude", &AVenus::EclipticLatitude, "True Ecliptic Latitude in radians.",
+            py::arg("jd_tt"), py::arg("eph")
+        )
+        .def_static("EclipticDistance", &AVenus::EclipticDistance, "True Ecliptic Distance in VSOP87 AU.",
+            py::arg("jd_tt"), py::arg("eph")
+        )
+        .def_static("EclipticCoordinates", &AVenus::EclipticCoordinates, "True Ecliptic coordinates (in radians and VSOP87 AU).",
+            py::arg("jd_tt"), py::arg("eph") = Planetary_Ephemeris::EPH_VSOP87_FULL
+        )
+        ;
     // aelliptical.h
     py::class_<APlanetaryDetails>(m, "APlanetaryDetails")
         .def_readwrite("thecs", &APlanetaryDetails::thecs)  // LLD True Heliocentric ECliptical Spherical coordinates
@@ -672,7 +820,7 @@ PYBIND11_MODULE(pyeastronomy, m) {
             py::arg("H"), py::arg("delta"), py::arg("G"), py::arg("r"), py::arg("PhaseAngle")
         )
         ;
-        m.attr("__version__") = "dev";
+        m.attr("__version__") = "dev2";
 
 };
 

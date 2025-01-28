@@ -90,7 +90,7 @@ public:
     static double RefractionFromApparent(double Altitude, double Pressure = 1010, double Temperature = 10) noexcept;
     static double RefractionFromTrue(double Altitude, double Pressure = 1010, double Temperature = 10) noexcept;
 
-    // Figure of Earth (CAAGlobe)
+    // Figure of Earth (CAAGlobe) - Based on IAU76 ellipsoid
     static double RhoSinPhiPrime(double GeographicalLatitude, double Height) noexcept;
     static double RhoCosPhiPrime(double GeographicalLatitude, double Height) noexcept;
     static double RadiusOfParallelOfLatitude(double GeographicalLatitude) noexcept;

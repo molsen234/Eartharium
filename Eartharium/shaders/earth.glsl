@@ -75,6 +75,32 @@ vec3 perturbNormalArb( vec3 surf_pos, vec3 surf_norm, vec2 dHdxy ) {
 	return normalize( abs( fDet ) * surf_norm - vGrad );
 }
 
+vec4 blendScreen(vec4 base, vec4 blend) {
+    // Blend mode Screen commonly used in photo editing software
+    vec4 result;
+    result.r = (1.0 - ((1.0 - base.r) * (1.0 - blend.r)));
+    result.g = (1.0 - ((1.0 - base.g) * (1.0 - blend.g)));
+    result.b = (1.0 - ((1.0 - base.b) * (1.0 - blend.b)));
+    return result;
+}
+
+vec4 blendOverlay(vec4 base, vec4 blend) {
+    // Blend mode Overlay commonly used in photo editing software
+    vec4 result;
+    result.r = (base.r < 0.5 ? (2.0 * base.r * blend.r) : (1.0 - 2.0 * (1.0 - base.r) * (1.0 - blend.r)));
+    result.g = (base.g < 0.5 ? (2.0 * base.g * blend.g) : (1.0 - 2.0 * (1.0 - base.g) * (1.0 - blend.g)));
+    result.b = (base.b < 0.5 ? (2.0 * base.b * blend.b) : (1.0 - 2.0 * (1.0 - base.b) * (1.0 - blend.b)));
+    return result;
+}
+
+vec4 blendMultiply(vec4 base, vec4 blend) {
+    // Blend mode Multiply commonly used in photo editing software
+    vec4 result;
+    result.r = (base.r * blend.r);
+    result.g = (base.g * blend.g);
+    result.b = (base.b * blend.b);
+    return result;
+}
 
 void main() {
     float y_band = 2.0 / 180.0; // Triangles at edge are degenerate, so dFdx & dFdy give odd values
@@ -85,13 +111,13 @@ void main() {
     } else {
         my_sNormal = normalize(sNormal);
     }
-    //float dotsun = dot(sunDir, sNormal);
     float dotsun = dot(sunDir, my_sNormal);
     float dotmoon = dot(moonDir, sNormal); // Non-perturbed Moon "shadow", since it is actually just a visibility area.
-    vec4 nCol = texture(texture2, TexCoord); // Night
     vec4 dCol = texture(texture1, TexCoord); // Day
+    vec4 nCol = texture(texture2, TexCoord); // Night
     // -= Calculate insolation and inlunation =-
     FragColor = dCol; // By default, assume dayTexture. The below will modify that if certain conditions are met.
+
     // -0.01454... is the cosine of 90 + 50/60 degrees (i.e. refraction is 50 arc minutes).
     // Of course this only works for spherical normals to show true insolation.
     // But it can show defective insolation if needed, and works well on ellipsoids.
@@ -101,30 +127,30 @@ void main() {
     // -0.012 is an ad hoc value that makes the unrefracted terminator align better with calculated set times
     float refcos = refraction * -0.014543897652f - 0.0145f;
     // Simplest case, if no twilight bands should be rendered, and the location is outside the insolation
-    if (dotsun < refcos && twilight == 0.0f) FragColor = nCol +0.05;
+    if (dotsun < refcos && twilight == 0.0f) FragColor = nCol + 0.05f;
     // If twilight bands are enabled, full darkness is 18 degrees (so use cos(72)) from terminator
-    else if (dotsun < -0.309016994375f) FragColor = nCol + 0.05;
+    else if (dotsun < -0.309016994375f) FragColor = nCol + 0.05f;
     // If twilight bands are enabled, darkest twilight band is 12-18 degrees (so use cos(78) from terminator (astronomical twilight)
-    else if (dotsun < -0.207911690818f && twilight == 1.0f) FragColor = 0.75f * (nCol + 0.1) + 0.25f * dCol;
+    else if (dotsun < -0.207911690818f && twilight == 1.0f) FragColor = 0.75f * (nCol + 0.1f) + 0.25f * dCol;
     // If twilight bands are enabled, middle twilight band is 6-12 degrees (so use cos(84) from terminator (nautical twilight)
-    else if (dotsun < -0.104528463268f && twilight == 1.0f) FragColor = 0.50f * (nCol + 0.1) + 0.50f * dCol;
+    else if (dotsun < -0.104528463268f && twilight == 1.0f) FragColor = 0.50f * (nCol + 0.1f) + 0.50f * dCol;
     // If twilight bands are enabled, lightest twilight band is from refraction or 0 to 6 degrees.
-    else if (dotsun < refcos && twilight == 1.0f) FragColor = 0.25f * (nCol + 0.1) + 0.75f * dCol;
+    else if (dotsun < refcos && twilight == 1.0f) FragColor = 0.25f * (nCol + 0.1f) + 0.75f * dCol;
 
-    // Make unrefracted insolation greyscale to illustrate the sliver of difference between refracted and unrefracted
-    // I would probably make it red or another unnatuaral color, greyscale is used for inlunation below.
-    //if (dotprod > 0.0f) {
-    //    float avg = FragColor.r * 0.2126 + FragColor.g * 0.7152 + FragColor.b * 0.0722;
-    //    FragColor = vec4(avg, avg, avg, 1.0);
+    // Highlight band of difference between using solar refraction and not
+    //if (dotsun > refcos && dotsun < 0.0f) {  // 
+    //    //float avg = FragColor.r * 0.2126 + FragColor.g * 0.7152 + FragColor.b * 0.0722;
+    //    //FragColor = vec4(avg, 0.5f, 0.5f, 1.0);
+    //    FragColor = blendScreen(FragColor, vec4(1.0f, 0.0f, 0.0f, 1.0f));
     //};
 
-    // (Above greyscale also served as a test for lunar insolation considerations,
-    // and dot with that instead of sunDir. Optionally, apply lunar "refraction" model
+    // Apply lunar insolation
+    // Optionally, apply lunar "refraction" model
     // due to the moon being so close it is visible from less of the surface.
-    // UPD: Should probably do a proper parallax calculation on CPU.
+    // UPD: Should probably do a proper parallax calculation on CPU and pass in the angle.
     if (dotmoon > -0.00539595f && dotmoon != 0.0f) { //Moon ang size varies from 29.4' to 33.5', avg is 31.45', so cos(90+((50-31.45)/60))
-        float avg = FragColor.r * 0.2126 + FragColor.g * 0.7152 + FragColor.b * 0.0722;
-        FragColor = vec4(avg, avg, avg, 1.0);
+        float avg = FragColor.r * 0.2126f + FragColor.g * 0.7152f + FragColor.b * 0.0722f;
+        FragColor = vec4(avg, avg, avg, 1.0f);
     }
 
     // -= Calculate shading, deliberately toonish =-
@@ -145,33 +171,16 @@ void main() {
         if (TexCoord.y < obliquity) geographictint = tintarctics;
         if (TexCoord.y < 0.5 + obliquity && TexCoord.y > 0.5 - obliquity) geographictint = tinttropics;
         vec4 base = FragColor;
-        FragColor.r = (1.0 - ((1.0 - base.r) * (1.0 - geographictint.r)));
-        FragColor.g = (1.0 - ((1.0 - base.g) * (1.0 - geographictint.g)));
-        FragColor.b = (1.0 - ((1.0 - base.b) * (1.0 - geographictint.b)));
+        FragColor = blendScreen(base, geographictint);
     }
 
     // -= Calculate tinting if tint color is speficied (from vertex shader, interpolated per fragment based on vertex colors)
     //vec4 bTint = vec4(0.211, 0.173, 0.0, 1.0); // Override vertex color for testing (using tropics color)
     vec4 base = FragColor;
     vec4 blend = bTint;
-    // Blend mode Overlay commonly used in photo editing software
-    //if (bTint != vec4(0.0f, 0.0f, 0.0f, 1.0f)) {
-    //    FragColor.r = (base.r < 0.5 ? (2.0 * base.r * blend.r) : (1.0 - 2.0 * (1.0 - base.r) * (1.0 - blend.r)));
-    //    FragColor.g = (base.g < 0.5 ? (2.0 * base.g * blend.g) : (1.0 - 2.0 * (1.0 - base.g) * (1.0 - blend.g)));
-    //    FragColor.b = (base.b < 0.5 ? (2.0 * base.b * blend.b) : (1.0 - 2.0 * (1.0 - base.b) * (1.0 - blend.b)));
-    //}
-    // Blend mode Screen commonly used in photo editing software
     if (bTint != vec4(0.0f, 0.0f, 0.0f, 1.0f)) {
-        FragColor.r = (1.0 - ((1.0 - base.r) * (1.0 - blend.r)));
-        FragColor.g = (1.0 - ((1.0 - base.g) * (1.0 - blend.g)));
-        FragColor.b = (1.0 - ((1.0 - base.b) * (1.0 - blend.b)));
+        FragColor = blendScreen(base, blend);
     }
-    // Blend mode Multiply commonly used in photo editing software
-    //if (bTint != vec4(0.0f, 0.0f, 0.0f, 1.0f)) {
-    //    FragColor.r = (base.r * blend.r);
-    //    FragColor.g = (base.g * blend.g);
-    //    FragColor.b = (base.b * blend.b);
-    //}
 
     // After tinting, finally set requested alpha blending.
     // Note that this simply overrides any alpha value set in vertex color 4-tuple as well as any alpha in the texture(s)

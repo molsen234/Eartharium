@@ -21,16 +21,16 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Eartharium.cpp">
+    <ClCompile Include="source\Eartharium.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="glad.c">
+    <ClCompile Include="source\glad.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="OpenGL.cpp">
+    <ClCompile Include="source\OpenGL.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Primitives.cpp">
+    <ClCompile Include="source\Primitives.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ImGUI\imgui_impl_glfw.cpp">
@@ -54,10 +54,10 @@
     <ClCompile Include="ImGUI\imgui_demo.cpp">
       <Filter>ImGUI</Filter>
     </ClCompile>
-    <ClCompile Include="Earth.cpp">
+    <ClCompile Include="source\Earth.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Astronomy.cpp">
+    <ClCompile Include="source\Astronomy.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ImGUI\implot.cpp">
@@ -69,24 +69,27 @@
     <ClCompile Include="ImGUI\implot_items.cpp">
       <Filter>ImGUI</Filter>
     </ClCompile>
-    <ClCompile Include="Utilities.cpp">
+    <ClCompile Include="source\Utilities.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="FigureGeometry.cpp">
+    <ClCompile Include="source\pythoninterface.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="pythoninterface.cpp">
+    <ClCompile Include="source\Renderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Renderer.cpp">
+    <ClCompile Include="source\OldObjects.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Geometry.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="OpenGL.h">
+    <ClInclude Include="source\OpenGL.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Primitives.h">
+    <ClInclude Include="source\Primitives.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ImGUI\imgui_impl_glfw.h">
@@ -110,13 +113,13 @@
     <ClInclude Include="ImGUI\imstb_truetype.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="config.h">
+    <ClInclude Include="source\config.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="Earth.h">
+    <ClInclude Include="source\Earth.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Astronomy.h">
+    <ClInclude Include="source\Astronomy.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ImGUI\implot.h">
@@ -128,22 +131,22 @@
     <ClInclude Include="shaders\line.glsl">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Utilities.h">
+    <ClInclude Include="source\Utilities.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="geometry.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="FigureGeometry.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Renderer.h">
+    <ClInclude Include="source\Renderer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ImGUI\imstb_rectpack.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="pythoninterface.h">
+    <ClInclude Include="source\pythoninterface.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\OldObjects.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\Geometry.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -174,9 +177,6 @@
     <None Include="shaders\sdwboxearth.glsl">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="hello.py">
-      <Filter>Source Files</Filter>
-    </None>
     <None Include="shaders\skysphere.glsl">
       <Filter>Shaders</Filter>
     </None>
@@ -184,11 +184,7 @@
       <Filter>Shaders</Filter>
     </None>
     <None Include="shaders\earth-elliptic.glsl" />
-    <None Include="Lesson001.py">
-      <Filter>Source Files</Filter>
-    </None>
     <None Include="shaders\glyph.glsl" />
-    <None Include="mdo-test.py" />
     <None Include="shaders\moon.glsl" />
     <None Include="shaders\sky.glsl" />
     <None Include="shaders\primitiveSO.glsl" />
