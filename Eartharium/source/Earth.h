@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #include <glm/gtx/rotate_vector.hpp>
 
 #include "Astronomy.h"
@@ -24,6 +26,175 @@ class Grid;
 class SmallCircle;
 class BodyGeometry;
 class LocationSO;
+
+
+
+
+// ------------
+//  Image Quad
+// ------------
+// Loads two pictures and layers them one atop the other
+// Allows to transform both pictures (translation, scaling, rotation)
+// Allows to swap which is on top, i.e. "blink" the images
+// Allows to add transparency
+class Quad : public SceneObject {
+    struct QuadTri {
+        QuadTri(const glm::vec3 pos, const glm::vec2 tex) : position(pos), uv(tex) {}
+        glm::vec3 position = glm::vec3(0.0f);
+        glm::vec2 uv = glm::vec2(0.0f);
+    };
+public:
+    Quad(Scene* scene, SceneObject* parent, const std::string& image, TextureType textype) : SceneObject(scene, parent), textype(textype) {
+        shdr = scene->m_app->getShaderLib()->getShader(BLINK_SHADER);
+        vbl = new VertexBufferLayout();
+        vbl->Push<float>(3);   // Vertex pos
+        vbl->Push<float>(2);   // Vertex UV
+        // Load both images into textures, create quads for each
+        glm::vec3 p_a{ 0.0f, -1.0f,  1.0f }; // top right
+        glm::vec3 p_b{ 0.0f,  1.0f,  1.0f }; // top left
+        glm::vec3 p_c{ 0.0f,  1.0f, -1.0f }; // bottom left
+        glm::vec3 p_d{ 0.0f, -1.0f, -1.0f }; // bottom right
+        glm::vec2 a_a{ 0.0f, 0.0f };  // Y coordinates are flipped here instead of in SOIL2.
+        glm::vec2 a_b{ 1.0f, 0.0f };
+        glm::vec2 a_c{ 1.0f, 1.0f };
+        glm::vec2 a_d{ 0.0f, 1.0f };
+        quad.emplace_back(p_a, a_a);  // First triangle
+        quad.emplace_back(p_b, a_b);
+        quad.emplace_back(p_c, a_c);
+        quad.emplace_back(p_a, a_a);  // Second triangle
+        quad.emplace_back(p_c, a_c);
+        quad.emplace_back(p_d, a_d);
+        vb = new VertexBuffer(&quad[0], (unsigned int)quad.size() * sizeof(QuadTri));
+        vb->LoadData(&quad[0], (unsigned int)quad.size() * sizeof(QuadTri));
+        va = new VertexArray;
+        va->AddBuffer(*vb, *vbl, true);
+        texture = scene->m_app->getTextureLib()->getTexture(textype);
+        if (image.size() != 0) {  // Filename provided
+            texture->ChangeTextureFile(image);
+        }
+    }
+    ~Quad() {
+        // destroy all allocated objects
+    }
+    void loadImage(std::string image) {
+        texture->ChangeTextureFile(image);
+    }
+    bool update() override {
+        rotations.x = deg2radf * rotation;  // Set rotation from GUI
+        return false;  // false = Allow SceneObject to build the worldmatrix
+    }
+    void draw(Camera* cam) override {
+        //std::cout << "Started drawing quad: " << quad.size() << "\n";
+        //for (auto pt : quad) {
+        //    std::cout << "Point: " << pt.position.x << "," << pt.position.y << "," << pt.position.z << "\n";
+        //}
+        if (quad.size() == 0) return; // Not sure that loading empty data to OpenGL would be good
+        shdr->Bind();
+        shdr->SetUniformMatrix4f("projview", cam->getProjMat() * cam->getViewMat());
+        shdr->SetUniformMatrix4f("world", worldmatrix);
+        alpha_on ? shdr->SetUniform1f("alpha", alpha) : shdr->SetUniform1f("alpha", 1.0f);
+        shdr->SetUniform1i("tex", texture->GetTextureSlot());
+        va->Bind();
+        //glFrontFace(GL_CW);  // We are already clockwise
+        glDisable(GL_DEPTH_TEST);
+        glDrawArrays(GL_TRIANGLES, 0, (GLsizei)quad.size());
+        glEnable(GL_DEPTH_TEST);
+        //std::cout << "Finished drawing quad.\n";
+    }
+    //friend BlinkTester;
+public:
+    bool alpha_on{ false };
+    float alpha{ 1.0f };
+    float rotation{ 0.0f };
+private:
+    VertexArray* va{ nullptr };
+    VertexBuffer* vb{ nullptr };
+    VertexBufferLayout* vbl{ nullptr };
+    Shader* shdr{ nullptr };
+    Texture* texture{ nullptr };
+    TextureType textype = DUMMY;
+    float transparancy = 1.0f;  // Opaque by default
+    glm::vec3 translate{};
+    glm::vec3 rotate{};
+    std::vector<QuadTri> quad;
+
+};
+
+// --------------
+//  Blink tester
+// --------------
+// Loads two pictures and layers them one atop the other
+// Allows to transform both pictures (translation, scaling, rotation)
+// Allows to swap which is on top, i.e. "blink" the images
+// Allows to add transparency
+class BlinkTester : public SceneObject {
+struct QuadTri {
+    QuadTri(const glm::vec3 pos, const glm::vec2 tex) : position(pos), uv(tex) {}
+    glm::vec3 position = glm::vec3(0.0f);
+    glm::vec2 uv = glm::vec2(0.0f);
+};
+public:
+    BlinkTester(Scene* scene, SceneObject* parent, const std::string& image1, const std::string& image2) : SceneObject(scene, parent) {
+        hasgui = true;
+        name = "Blink Tester";
+        blink1 = new Quad(scene, this, image1, BLINKTEST_1);
+        blink1->name = "Image 1";
+        blink2 = new Quad(scene, this, image2, BLINKTEST_2);
+        blink2->name = "Image 2";
+    }
+    ~BlinkTester() {
+        // destroy all allocated objects
+    }
+    void loadImage1(std::string image) {
+        blink1->loadImage(image);
+    }
+    void loadImage2(std::string image) {
+        blink2->loadImage(image);
+    }
+    bool update() override {
+        return false;  // !!! FIX: Should build world matrices for both quads and return true
+    }
+    void draw(Camera* cam) override {
+        return;  // Quads draw themselves
+    }
+    void myGUI() {
+        if (ImGui::CollapsingHeader(name.c_str())) {
+            if (ImGui::TreeNode("Image 1")) {
+                if (blink1) {
+                    ImGui::Checkbox("Use alpha", &blink1->alpha_on);
+                    ImGui::SameLine();
+                    ImGui::SliderFloat("Alpha", &blink1->alpha, 0.0f, 1.0f);
+                    ImGui::SliderFloat("Rotate", &blink1->rotation, 0.0f, 360.0f);
+                    ImGui::SliderFloat("Scale X", &blink1->scale.y, 0.0f, 2.0f);
+                    ImGui::SliderFloat("Scale Y", &blink1->scale.z, 0.0f, 2.0f);
+                    ImGui::SliderFloat("Offset X", &blink1->position.y, -0.5f, 0.5f);
+                    ImGui::SliderFloat("Offset Y", &blink1->position.z, -0.5f, 0.5f);
+                }
+                ImGui::TreePop();
+            }
+            if (ImGui::TreeNode("Image 2")) {
+                if (blink2) {
+                    ImGui::Checkbox("Use alpha", &blink2->alpha_on);
+                    ImGui::SameLine();
+                    ImGui::SliderFloat("Alpha", &blink2->alpha, 0.0f, 1.0f);
+                    ImGui::SliderFloat("Rotate", &blink2->rotation, 0.0f, 360.0f);
+                    ImGui::SliderFloat("Scale X", &blink2->scale.y, 0.0f, 2.0f);
+                    ImGui::SliderFloat("Scale Y", &blink2->scale.z, 0.0f, 2.0f);
+                    ImGui::SliderFloat("Offset X", &blink2->position.y, -0.5f, 0.5f);
+                    ImGui::SliderFloat("Offset Y", &blink2->position.z, -0.5f, 0.5f);
+                }
+                ImGui::TreePop();
+            }
+
+            // Add bumpmap controls. Perhaps those should also ideally be in BodyGeometry
+            ImGui::TreePop(); // Only pop tree at end of TreeNode sequence, not for each of them.
+        }
+
+    }
+private:
+    Quad* blink1{ nullptr };
+    Quad* blink2{ nullptr };
+};
 
 
 // =========================
@@ -974,7 +1145,7 @@ private:
 class DetailedSky : public BodyGeometry {
     struct SkyDotDef {
         size_t unique_id = 0;    // stellarobject database index
-        glm::vec4 color{0.0f};
+        glm::vec4 color{ 0.0f };
         LLD coordinates{ }; // Dec, RA, height(0.0);
         LLD propermotion{ };
         float size = 0.0f;
@@ -987,13 +1158,14 @@ class DetailedSky : public BodyGeometry {
     std::vector<SkyDotDef> skydotDefs;
 
 public:
-    bool siderealtime = true;
-    bool propermotion = true;
-    bool precession = true;
-    Grid* equatorialgrid = nullptr;
-    Grid* eclipticgrid = nullptr;
-    Ecliptic* ecliptic = nullptr;
-    PrecessionPath* precessionpath = nullptr;
+    bool siderealtime{ true };
+    bool propermotion{ true };
+    bool precession{ true };
+    Grid* equatorialgrid{ nullptr };
+    Grid* eclipticgrid{ nullptr };
+    Ecliptic* ecliptic{ nullptr };
+    PrecessionPath* precessionpath{ nullptr };
+    PlanetoidGP* sundot{ nullptr };
     DetailedSky(Scene* scene, SceneObject* parent, std::string mode, unsigned int meshU, unsigned int meshV, float radius = 1.0f);
     ~DetailedSky();
     void setTexture(bool tex);
@@ -1001,6 +1173,8 @@ public:
     void addGridEcliptic();
     void addEcliptic();
     void addPrecessionPath();
+    void addSun();
+    glm::vec3 getSunLocation();
     void addStars(double magnitude = 6.0);
     void addStar(size_t unique, Astronomy::stellarobject& star);
     void addDotDecRA(size_t unique, double dec, double ra, glm::vec4 color, float size, bool rad = false);
@@ -1135,7 +1309,7 @@ public:
 private:
     float m_camDist = 384400;       // km
     glm::vec3 earthDir{ 0.0f, 0.0f, 0.0f };
-    glm::vec4 sunDir{ 0.0f, 0.0f, 0.0f, 1.0f };
+    glm::vec4 sunDir{ 0.0f, 0.0f, 0.0f, 1.0f };  // passed to shader, so using vec4 for homogeneous coordinates
     glm::vec3 SunLightDir{ 0.0f, 1.0f, 0.0f };
     glm::vec3 nullpos{ 0.0f, 0.0f, 0.0f }; // 3D position of null island, used for librationtrail
     double topoLat = NO_DOUBLE;            // NO_DOUBLE when Geocentric rather than Topocentric (e.g. to match NASAs yearly Moon videos)

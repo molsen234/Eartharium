@@ -188,5 +188,6 @@
     <None Include="shaders\moon.glsl" />
     <None Include="shaders\sky.glsl" />
     <None Include="shaders\primitiveSO.glsl" />
+    <None Include="shaders\blink.glsl" />
   </ItemGroup>
 </Project>

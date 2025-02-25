@@ -164,11 +164,30 @@ Texture::~Texture() {
 }
 void Texture::LoadTextureFile() {
 	// NOTE: SOIL2 chokes on large image files when asked to flip_y, so flip images before loading them.
-	i_image = SOIL_load_image(m_FilePath.c_str(), &i_width, &i_height, &i_channels, 0);
+
+    // NOTE: This forces SOIL2 to load RGB and discard Alpha. Handy when loading PNG, unless you need A channel!
+	//i_image = SOIL_load_image(m_FilePath.c_str(), &i_width, &i_height, &i_channels, SOIL_LOAD_RGB);
+	i_image = SOIL_load_image(m_FilePath.c_str(), &i_width, &i_height, &i_channels, 0); // no force_channels
 	if (!i_image) { std::cout << "FAILED LOADING TEXTURE IMAGE FROM DISC! " << m_FilePath.c_str() << std::endl; }
 	//else { std::cout << "Texture slot "<< m_TextureSlot <<  " loaded: " << m_FilePath.c_str() << ", " << &i_image << ", " << i_width << ", " << i_height << std::endl; }
 	return;
 }
+void Texture::ChangeTextureFile(const std::string& imagefile) {
+    //std::cout << "Texture::ChangeTextureFile():\n";
+    m_FilePath = imagefile;
+    LoadTextureFile();
+    glActiveTexture(m_TextureSlot);
+    glBindTexture(GL_TEXTURE_2D, m_RenderID);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, i_width, i_height, 0, GL_RGB, GL_UNSIGNED_BYTE, i_image);
+    //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, i_width, i_height, GL_RGB, GL_UNSIGNED_BYTE, i_image);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    SOIL_free_image_data(i_image);
+    std::cout << "Image: " << i_width << "x" << i_height << " in " << i_channels << " channels.\n";
+    return;
+}
+
 void Texture::Bind() {
 	glActiveTexture(m_TextureSlot);
 	glBindTexture(GL_TEXTURE_2D, m_RenderID);

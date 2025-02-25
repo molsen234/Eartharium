@@ -557,7 +557,7 @@ private:
     struct dotcache {
         unsigned int unique;
         glm::vec4 color;
-        double lat;
+        double lat;  // !!! FIX: Use LLD ?
         double lon;
         double height;
         float size;
@@ -565,8 +565,6 @@ private:
     };
     struct pathcache {
         GenericPath* path = nullptr;
-        //PolyCurve* path = nullptr;
-        //PolyCurve* path2 = nullptr;
         float width = 0.0f;
         unsigned int type = NONE;
         glm::vec4 color = NO_COLOR;

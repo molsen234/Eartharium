@@ -24,6 +24,7 @@ namespace py = pybind11;
 #include "acoordinates.h"
 #include "datetime.h"
 #include "aellipsoids.h"
+#include "asun.h"
 #include "aearth.h"
 #include "amoon.h"
 #include "avenus.h"
@@ -46,6 +47,8 @@ PYBIND11_MODULE(pyeastronomy, m) {
         // operator overloads from https://pybind11.readthedocs.io/en/stable/advanced/classes.html#operator-overloading
         .def(py::self *= double())
         .def(py::self += py::self)
+        .def(py::self + py::self)
+        .def(py::self * double())
         .def_readwrite("lat", &LLD::lat)
         .def_readwrite("lon", &LLD::lon)
         .def_readwrite("dst", &LLD::dst)
@@ -398,7 +401,84 @@ PYBIND11_MODULE(pyeastronomy, m) {
         .def_readonly_static("Earth_IAU76", &AEllipsoid::Earth_IAU76)
         .def_readonly_static("Earth_WGS84", &AEllipsoid::Earth_WGS84)
         ;
-
+    // asun.[h/cpp]
+    py::class_<PhysicalSunDetails>(m, "PhysicalSunDetails")
+        .def_readwrite("P", &PhysicalSunDetails::P)
+        .def_readwrite("B0", &PhysicalSunDetails::B0)
+        .def_readwrite("L0", &PhysicalSunDetails::L0)
+        ;
+    py::class_<ASun>(m, "ASun")
+        // Position
+        .def_static("GeometricEclipticLongitude", &ASun::GeometricEclipticLongitude, "",
+            py::arg("jd_tt"), py::arg("eph") = Planetary_Ephemeris::EPH_VSOP87_FULL
+        )
+        .def_static("GeometricEclipticLatitude", &ASun::GeometricEclipticLatitude, "",
+            py::arg("jd_tt"), py::arg("eph") = Planetary_Ephemeris::EPH_VSOP87_FULL
+        )
+        .def_static("GeometricEclipticLongitudeJ2000", &ASun::GeometricEclipticLongitudeJ2000, "",
+            py::arg("jd_tt"), py::arg("eph") = Planetary_Ephemeris::EPH_VSOP87_FULL
+        )
+        .def_static("GeometricEclipticLatitudeJ2000", &ASun::GeometricEclipticLatitudeJ2000, "",
+            py::arg("jd_tt"), py::arg("eph") = Planetary_Ephemeris::EPH_VSOP87_FULL
+        )
+        .def_static("GeometricFK5EclipticLongitude", &ASun::GeometricFK5EclipticLongitude, "",
+            py::arg("jd_tt"), py::arg("eph") = Planetary_Ephemeris::EPH_VSOP87_FULL
+        )
+        .def_static("GeometricFK5EclipticLatitude", &ASun::GeometricFK5EclipticLatitude, "",
+            py::arg("jd_tt"), py::arg("eph") = Planetary_Ephemeris::EPH_VSOP87_FULL
+        )
+        .def_static("ApparentEclipticLongitude", &ASun::GeometricEclipticLongitude, "",
+            py::arg("jd_tt"), py::arg("eph") = Planetary_Ephemeris::EPH_VSOP87_FULL
+        )
+        .def_static("ApparentEclipticLatitude", &ASun::GeometricEclipticLatitude, "",
+            py::arg("jd_tt"), py::arg("eph") = Planetary_Ephemeris::EPH_VSOP87_FULL
+        )
+        .def_static("VariationGeometricEclipticLongitude", &ASun::VariationGeometricEclipticLongitude, "",
+            py::arg("jd_tt")
+        )
+        .def_static("EquatorialRectangularCoordinatesMeanEquinox", &ASun::EquatorialRectangularCoordinatesMeanEquinox, "",
+            py::arg("jd_tt")
+        )
+        .def_static("EclipticRectangularCoordinatesJ2000", &ASun::EclipticRectangularCoordinatesJ2000, "",
+            py::arg("jd_tt")
+        )
+        .def_static("EquatorialRectangularCoordinatesJ2000", &ASun::EquatorialRectangularCoordinatesJ2000, "",
+            py::arg("jd_tt")
+        )
+        .def_static("EquatorialRectangularCoordinatesB1950", &ASun::EquatorialRectangularCoordinatesB1950, "",
+            py::arg("jd_tt")
+        )
+        .def_static("EquatorialRectangularCoordinatesAnyEquinox", &ASun::EquatorialRectangularCoordinatesAnyEquinox, "",
+            py::arg("jd_tt"), py::arg("JDEquinox")
+        )
+        .def_static("VSOP87_E_X", &ASun::VSOP87_E_X, "",
+            py::arg("jd_tt")
+        )
+        .def_static("VSOP87_E_Y", &ASun::VSOP87_E_Y, "",
+            py::arg("jd_tt")
+        )
+        .def_static("VSOP87_E_Z", &ASun::VSOP87_E_Z, "",
+            py::arg("jd_tt")
+        )
+        .def_static("VSOP87_E_dX", &ASun::VSOP87_E_dX, "",
+            py::arg("jd_tt")
+        )
+        .def_static("VSOP87_E_dY", &ASun::VSOP87_E_dY, "",
+            py::arg("jd_tt")
+        )
+        .def_static("VSOP87_E_dZ", &ASun::VSOP87_E_dZ, "",
+            py::arg("jd_tt")
+        )
+        .def_static("SunSemidiameterA", &ASun::SunSemidiameterA, "",
+            py::arg("Delta")
+        )
+        .def_static("CalculatePhysicalSun", &ASun::CalculatePhysicalSun, "",
+            py::arg("jd_tt"), py::arg("eph") = Planetary_Ephemeris::EPH_VSOP87_FULL
+        )
+        .def_static("TimeOfStartOfRotation", &ASun::TimeOfStartOfRotation, "",
+            py::arg("C")
+        )
+        ;
     // aearth.[h/cpp]
     py::class_<AEarth>(m, "AEarth")
         // Position

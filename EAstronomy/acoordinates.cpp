@@ -107,7 +107,7 @@ std::string ACoord::angle2DMSstringPython(double angle) {
 	int d = (int)dg;
 	int m = (int)mi;
 	char buff[100];
-	snprintf(buff, sizeof(buff), "%s%03d\xC2\xB0%02d\'%06.3f\"", angle < 0 ? "-" : "+", d, m, sec);  // Python wants UTF-8 unicode
+	snprintf(buff, sizeof(buff), "%s%03d\xC2\xB0%02d\'%06.3f\"", angle < 0 ? "-" : "+", abs(d), m, sec);  // Python wants UTF-8 unicode
 	dstring = buff;
 	return dstring;
 }

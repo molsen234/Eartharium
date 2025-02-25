@@ -1,0 +1,30 @@
+Celestial Navigation
+====================
+
+Sight Reduction
+---------------
+When sighting celestial objects using a sextant there are a number of corrections which must be applied. These are, in order:
+
+Hs is the sighted height.
+
+Instrument Error
+Caused by inaccuracies in the sextant itself. There are procedures to assess and minimize instrument error via adjustments, but it can rarely be eliminated.
+
+Height of Eye / Dip Correction
+The instrument height above sea level affects where the visible horizon will appear. Dip Correction adjusts for this, resulting in an observation as if made at sea level.
+Dip Correction is performed using the appropriate table in the Nautical Almanac.
+
+Ha is the apparent height, after applying the above two corrections.
+
+Limb Correction - Altitude Correction 1
+Stars and planets can be considered point-like, and require no limb correction.
+The Sun and Moon are sighted using either their upper or lower limb, but astronomical tables always give the center position.
+AC1 corrects from upper/lower limb to the center. The table for the Sun is entered with measured altitude (corrected for Instrument Error and Dip).
+Since the Sun's apparent semidiameter varies with the distance to the Sun, there are actually two tables; OCT-MAR and APR-SEP.
+The first is when Earth is closer to perihelion, the second when closer to aphelion.
+
+Refraction - Altitude Correction 2
+This corrects for refraction, depending on local temperature, pressure and the apparent altitude.
+
+H0 is the height value after applying the above two corrections, and is suitable for lookups in astronomical tables.
+

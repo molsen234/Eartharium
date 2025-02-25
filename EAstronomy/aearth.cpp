@@ -500,7 +500,7 @@ double AEarth::NutationInDeclination(double ra, double obliq, double nut_lon, do
     // All the deg2rad and rad2deg and multiply or divide by 3600.0 seem to cancel out.
 }
 LLD AEarth::EquatorialNutation(LLD decra, double obliq, LLD ecnut) {
-    // Converts nutation in longitude and obliquity to nutaion in rightascension and declination
+    // Converts nutation in longitude and obliquity to nutation in right ascension and declination
     LLD eqnut{ 0.0, 0.0, 0.0 };
     eqnut.lat = (sin(obliq) * cos(decra.lon) * ecnut.lon) + (sin(decra.lon) * ecnut.lat);
     eqnut.lon = ((cos(obliq) + (sin(obliq) * sin(decra.lon) * tan(decra.lat))) * ecnut.lon) - (cos(decra.lon) * tan(decra.lat) * ecnut.lat);
@@ -519,13 +519,15 @@ double AEarth::EquationOfTime(double jd_tt, Planetary_Ephemeris eph) noexcept {
     const double rho5{ rho4 * rho };
     //Calculate the Suns mean longitude in degrees
     const double L0{ ACoord::rangezero2threesixty(280.4664567 + (360007.6982779 * rho) + (0.03032028 * rhosquared) +
-                                                                  (rhocubed / 49931) - (rho4 / 15300) - (rho5 / 2000000)) }; // Eqn 28.2
+                                                     (rhocubed / 49931) - (rho4 / 15300) - (rho5 / 2000000)) }; // Eqn 28.2
     //Calculate the Suns apparent right ascension
-    const double SunLong{ ASun::ApparentEclipticLongitude(jd_tt, eph) }; // radians
-    const double SunLat{ ASun::ApparentEclipticLatitude(jd_tt, eph) };   // radians
-    double epsilon{ TrueObliquityOfEcliptic(jd_tt)};                     // radians
+    // First calculate the ecliptic coordinates
+    const double SunLong{ ASun::ApparentEclipticLongitude(jd_tt, eph) };                // radians
+    const double SunLat{ ASun::ApparentEclipticLatitude(jd_tt, eph) };                  // radians
 
-    const LLD Equatorial{ Spherical::Ecliptic2Equatorial2(SunLong, SunLat, epsilon) }; // radians
+    // Then convert to equatorial coordinates
+    double epsilon{ TrueObliquityOfEcliptic(jd_tt)};                                    // radians
+    const LLD Equatorial{ Spherical::Ecliptic2Equatorial2(SunLong, SunLat, epsilon) };  // radians
 
     double E{ L0 - 0.0057183 - (rad2deg * Equatorial.lon) + (rad2deg * AEarth::NutationInLongitude(jd_tt)) * cos(epsilon) }; // degrees Eqn 28.1
 

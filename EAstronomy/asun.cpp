@@ -149,3 +149,42 @@ double ASun::VSOP87_E_dY(double jd_tt) {
 double ASun::VSOP87_E_dZ(double jd_tt) {
     return VSOP87::Calculate_Dash(jd_tt, g_VSOP87E_Z_SUN.data(), g_VSOP87E_Z_SUN.size());
 }
+
+
+// Physical - directly from AA+, should be cleaned up a bit for efficiency
+
+PhysicalSunDetails ASun::CalculatePhysicalSun(double jd_tt, Planetary_Ephemeris eph) noexcept {
+    PhysicalSunDetails details;
+
+    double theta{ ACoord::rangezero2threesixty((jd_tt - 2398220) * 360 / 25.38) * deg2rad };
+    double I{ 7.25 * deg2rad };
+    double K{ (73.6667 + (1.3958333 * (jd_tt - 2396758) / 36525)) * deg2rad };
+
+    //Calculate the apparent longitude of the sun (excluding the effect of nutation)
+    const double L{ AEarth::EclipticLongitude(jd_tt, eph) };
+    const double R{ AEarth::EclipticDistance(jd_tt, eph) };
+    double SunLong{ L + pi - ACoord::dms2rad(0, 0, 20.4898 / R) };
+
+    double epsilon{ AEarth::TrueObliquityOfEcliptic(jd_tt) };
+
+    const double x{ atan(-cos(SunLong) * tan(epsilon)) };
+    const double y{ atan(-cos(SunLong - K) * tan(I)) };
+
+    details.P = x + y;
+    details.B0 = asin(sin(SunLong - K) * sin(I));
+    const double SunLongMinusK{ SunLong - K };
+    const double eta{ atan2(-sin(SunLongMinusK) * cos(I), -cos(SunLongMinusK)) };
+    details.L0 = ACoord::rangezero2tau(eta - theta);
+
+    return details;
+}
+
+double ASun::TimeOfStartOfRotation(long C) noexcept {
+    // C is the carrington count
+    double JED{ 2398140.2270 + (27.2752316 * C) };
+    double M{ ACoord::rangezero2threesixty(281.96 + (26.882476 * C)) };
+    M *= deg2rad;
+    const double twoM{ 2 * M };
+    JED += ((0.1454 * sin(M)) - (0.0085 * sin(twoM)) - (0.0141 * cos(twoM)));
+    return JED;
+}

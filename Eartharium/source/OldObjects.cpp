@@ -4650,7 +4650,7 @@ void SkySphere::updateDotDecRA(dotcache& dot) {
     //      RA/Dec only needs recalculation when the time changes, not when the observer location changes.
     //      So half of this function can be skipped if time is frozen.
     //      Might want to update when time since last update is more than 1 year.
-    LLD mydecra = m_scene->astro->PrecessDecRA({ dot.lat,dot.lon }); // , m_scene->astro->getJD_UTC());
+    LLD mydecra = m_scene->astro->PrecessDecRA({ dot.lat,dot.lon, 0.0 }); // , m_scene->astro->getJD_UTC());
     glm::vec3 pos = getDecRA2Pos3D(mydecra.lat, mydecra.lon);
     m_dots->changeXYZ(dot.index, pos, dot.color, dot.size);
     //std::cout << "updateDotDecRA(): " << dot.lat << "," << dot.lon << "\n";

@@ -669,6 +669,7 @@ void ellipsoidDetailedEarth(Application& app) {
     //astro->setJD_TT(astro->getJD_UTC()); // Ex 47.a
     astro->setTime(2024, 12, 12.0, 0.0, 0.0, 0.0);
     astro->setTime(2024, 12, 15.0, 9.0, 50.0, 0.0);
+    astro->setTime(2025, 1, 19.0, 21.0, 45.0, 0.0);
 
     //std::cout << astro->getTimeString() << std::endl;
     Scene* scene = app.newScene();
@@ -690,10 +691,10 @@ void ellipsoidDetailedEarth(Application& app) {
     erf->setEllipoid(my_ellipsoid);  //  Default is WGS84
 
     app.currentEarth2 = erf;
-    erf->inlunation = true;
+    erf->inlunation = false;
     erf->w_twilight = false;
     
-    erf->addMoonTerminator();
+    //erf->addMoonTerminator();
 
     float locdotsize = 0.005f;
     LocationGroup* locgroup = erf->addLocationGroup("LocGroup01");
@@ -724,9 +725,12 @@ void ellipsoidDetailedEarth(Application& app) {
     //erf->celestialgrid->setSpacing(24);
     //erf->gridOb->setColor(LIGHT_GREY);
     erf->addEcliptic();
-    erf->addMoonGP();
-    erf->moongp->setRadius(radius_gp);
+    //erf->addMoonGP();
+    //erf->moongp->setRadius(radius_gp);
 
+    DetailedSky* sky = new DetailedSky(scene, nullptr, "NS", 180, 90, 3.0f);
+    sky->addGridEcliptic();
+    sky->addSun();
     
     //for (double lat{ 0.0 }; lat < pi2; lat += deg2rad * 1.0) {
     //    std::cout << "Lat: " << lat * rad2deg << "   " << AEllipsoid::RadiusOfParallelOfLatitude(lat, my_ellipsoid) / my_ellipsoid.semimajor_axis << "  " << AEllipsoid::RhoCosPhiPrime(lat, 0.0, my_ellipsoid) << "\n";
@@ -745,9 +749,52 @@ void ellipsoidDetailedEarth(Application& app) {
         //app.anim = false; // Nice for single step action. <space> will set app.anim in app.render, and we get back here one frame later.
         app.render();
     }
-
 }
 
+
+// -----------
+//  BlinkTest
+// -----------
+void blinkTest(Application& app) {
+    const float radius_gp = 0.03f;
+    Astronomy* astro = app.newAstronomy();
+    astro->setTime(2025, 1, 19.0, 21.0, 45.0, 0.0);
+    std::cout << astro->getTimeString() << std::endl;
+
+    Scene* scene = app.newScene();
+    scene->astro = astro;
+    Camera* cam = scene->w_camera; // Pick up default camera
+    app.currentCam = cam;          // Bind camera to keyboard updates
+    RenderLayer3D* layer = app.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, nullptr);
+    text->setFont(app.m_font2);
+    text->setAstronomy(astro);
+    RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    gui->addLayer3D(layer, "EarthView");
+
+    //BlinkTester* blink = new BlinkTester(scene, nullptr, "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\Screenshot 2025-02-19 143022.jpg", "");
+    BlinkTester* blink = new BlinkTester(
+        scene,
+        nullptr,
+        "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_111500_1024_HMIIF.jpg",
+        "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\cropped circular.png"
+    );
+    //blink->loadImage2("C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\Screenshot 2025-02-19 142913.jpg");
+    //blink->loadImage2("C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\cropped circular.png");
+    //Quad* blink1 = new Quad(scene, nullptr, "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_120000_1024_HMIIF.jpg", BLINKTEST_1);
+
+    while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
+    {
+        if (app.anim) {
+            //astro->setTimeNow();
+            astro->addTime(0.0, 0.0, 4.0, 0.0);
+            //astro->addTime(0.0, 0.0, 0.0, 31558149.504); // Sidereal year in seconds
+        }
+
+        //app.anim = false; // Nice for single step action. <space> will set app.anim in app.render, and we get back here one frame later.
+        app.render();
+    }
+}
 
 
 // -------------------
@@ -902,7 +949,9 @@ int main(int argc, char** argv) {
     //testDetailedEarth(app);
     //ellipsoidDetailedEarth(app);
     //testEarthMoonSun(app);
-    testGeometry(app);
+    //testGeometry(app);
+
+    blinkTest(app);
 
     // Cleanup - Move this to cleanup function in Application.
     glfwTerminate();
@@ -921,7 +970,6 @@ void keyboard_callback(GLFWwindow*, int key, int scancode, int action, int mods)
     if (action == GLFW_RELEASE || action == GLFW_REPEAT) {
         // ESC - End application - may move to end animation when timeline edits have been implemented
         if (key == GLFW_KEY_ESCAPE) { glfwSetWindowShouldClose(app.window, true); }
-        //if (key == GLFW_KEY_L) toggle = !toggle;  // Was once able to toggle between filled triangles and wireframe mode. Shaders no longer support that.
         // SPACE - Toggle Time Animation
         if (key == GLFW_KEY_SPACE) { app.anim = !app.anim; }
         // G - Toggle GUI

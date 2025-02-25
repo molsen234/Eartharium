@@ -3,6 +3,13 @@
 #include "config.h" // to get glm::dvec3
 #include "aconfig.h"   // to get Ephemeris enum
 
+class PhysicalSunDetails {
+public:
+	double P{ 0 };
+	double B0{ 0 };
+	double L0{ 0 };
+};
+
 class ASun {
 public:
 	static double GeometricEclipticLongitude(double jd_tt, Planetary_Ephemeris eph = EPH_VSOP87_FULL) noexcept;
@@ -35,5 +42,9 @@ public:
 	static double VSOP87_E_dZ(double jd_tt);
 
 	// From AA+ v2.55 CAADiameters
-	constexpr static double SunSemidiameterA(double Delta) { return 3600.0 * deg2rad * 959.63 / Delta; }
+	constexpr static double SunSemidiameterA(double Delta) { return deg2rad * (959.63 / Delta) / 3600.0; }
+
+	// Physical
+	static PhysicalSunDetails CalculatePhysicalSun(double jd_tt, Planetary_Ephemeris eph) noexcept;
+	static double TimeOfStartOfRotation(long C) noexcept;
 };

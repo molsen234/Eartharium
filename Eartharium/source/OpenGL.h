@@ -157,7 +157,9 @@ enum TextureType {
 	MOON_BUMP,
 	EARTH_BUMP,
 	SKY_FULL,
-	PLANETOID_ATLAS
+	PLANETOID_ATLAS,
+	BLINKTEST_1,
+	BLINKTEST_2
 };
 class TextureLibrary {
 	struct TextureEntry {
@@ -168,7 +170,7 @@ class TextureLibrary {
 		unsigned int count = 0;
 		std::string file;
 	};
-	std::array<TextureEntry, 14> textures = { {
+	std::array<TextureEntry, 16> textures = { {
 		{ DUMMY, NO_UINT, DUMMY, nullptr, 0, "" },       // Dummy entry until I decide how to handle GL_TEXTUREx allocation
 		{ SHADOWS, NO_UINT, GL_TEXTURE1, nullptr, 0, "" },       // Not loaded from file
 		{ SKYBOX, NO_UINT, GL_TEXTURE2, nullptr, 0, "" },        // Not loaded from file
@@ -185,7 +187,9 @@ class TextureLibrary {
 		//{ EARTH_BUMP, NO_UINT, GL_TEXTURE11, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\us_nga_egm96_15arcmin.png" }
 		{ EARTH_BUMP, NO_UINT, GL_TEXTURE11, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\earth height 8192x4096.png" },
 		{ SKY_FULL, NO_UINT, GL_TEXTURE12, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\starmap-gimp_8k (8192x4096 celestial coords).png" },
-		{ PLANETOID_ATLAS, NO_UINT, GL_TEXTURE13, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\planetoid-atlas2 4096x2048.png" }
+		{ PLANETOID_ATLAS, NO_UINT, GL_TEXTURE13, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\textures\\planetoid-atlas2 4096x2048.png" },
+		{ BLINKTEST_1, NO_UINT, GL_TEXTURE14, nullptr, 0, "" },
+		{ BLINKTEST_2, NO_UINT, GL_TEXTURE15, nullptr, 0, "" }
 	} };
 public:
 	Texture* getTexture(unsigned int texture);
@@ -211,6 +215,7 @@ public:
 	void Unbind();
 	unsigned int GetRenderID();
 	unsigned int GetTextureSlot();
+	void ChangeTextureFile(const std::string& imagefile);
 private:
 	void LoadTextureFile();
 };
@@ -269,7 +274,8 @@ enum ShaderType {
 	SKY_BOX_SHADER,
 	SKY_SPHERE_SHADER,
 	MOON_SHADER,
-	SKY_SHADER
+	SKY_SHADER,
+	BLINK_SHADER
 };
 class ShaderLibrary {
 	//World* m_world = nullptr;
@@ -280,7 +286,7 @@ class ShaderLibrary {
 		unsigned int count = 0;
 		std::string file;
 	};
-	std::array<ShaderEntry, 15> shaders = { {
+	std::array<ShaderEntry, 16> shaders = { {
 		{ EARTH_SHADER, NO_UINT, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\earth.glsl" },
 		{ EARTH_SHADOW_MAP_SHADER, NO_UINT, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitiveshadow.glsl" },
 		{ EARTH_SHADOW_BOX_SHADER, NO_UINT, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\primitivesdwbox.glsl" },
@@ -295,7 +301,8 @@ class ShaderLibrary {
 		{ SKY_BOX_SHADER, NO_UINT, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\skybox.glsl" },
 		{ SKY_SPHERE_SHADER, NO_UINT, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\skysphere.glsl" },
 		{ MOON_SHADER, NO_UINT, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\moon.glsl" },
-		{ SKY_SHADER, NO_UINT, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\sky.glsl" }
+		{ SKY_SHADER, NO_UINT, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\sky.glsl" },
+		{ BLINK_SHADER, NO_UINT, nullptr, 0, "C:\\Coding\\Eartharium\\Eartharium\\shaders\\blink.glsl" }
 	} };
 public:
 	//ShaderLibrary() = default;

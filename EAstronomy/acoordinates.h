@@ -5,13 +5,8 @@
 
 struct LLD {
 public:
-    double lat{ 0.0 };
-    double lon{ 0.0 };
-    double dst{ 0.0 };
-    // Uncomment these two constructors to test if there is any code defining an LLD with { val, val, val }
-    // in preparation to swap lat and lon
-    //LLD(double lat, double lon, double dst) = delete;
-    //LLD() {}
+    LLD() {}
+    LLD(double latitude, double longitude, double distance) : lat(latitude), lon(longitude), dst(distance) {}
     void print() const {
         std::cout << "lat=" << lat << ", lon=" << lon << ", dst=" << dst << '\n';
     }
@@ -44,28 +39,31 @@ public:
         dst += other.dst;
         return *this;
     }
-    //LLD& operator+=(LLD other) {
-    //    lat += other.lat;
-    //    lon += other.lon;
-    //    dst += other.dst;
-    //    return *this;
-    //}
-    LLD& operator*=(double other) {
+    LLD& operator*=(const double other) {
         lat *= other;
         lon *= other;
         //dst *= other.dst;
         return *this;
     }
-    LLD& operator*(double other) {
-        lat *= other;
-        lon *= other;
-        //dst *= other.dst;
-        return *this;
+    //LLD operator*(double other) {
+    //    lat *= other;
+    //    lon *= other;
+    //    //dst *= other.dst;
+    //    return *this;
+    //}
+    LLD operator*(const double other) const {
+        return LLD(lat * other, lon * other, dst);
+    }
+    LLD operator+(const LLD& other) const {
+        return LLD(lat + other.lat, lon + other.lon, dst + other.dst);
     }
     friend std::ostream& operator<<(std::ostream& os, LLD& lld) {
         os << "Lat,Lon,Dst: " << lld.lat << "," << lld.lon << "," << lld.dst;
         return os;
     }
+    double lat{ 0.0 };
+    double lon{ 0.0 };
+    double dst{ 0.0 };
 };
 
 //using XYZ = glm::dvec3;

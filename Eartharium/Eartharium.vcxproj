@@ -213,6 +213,7 @@
   <ItemGroup>
     <None Include="..\cpp.hint" />
     <None Include="ImGUI\cpp.hint" />
+    <None Include="shaders\blink.glsl" />
     <None Include="shaders\earth-elliptic.glsl" />
     <None Include="shaders\blit.glsl" />
     <None Include="shaders\earth.glsl" />

@@ -1385,6 +1385,16 @@ void DetailedSky::addEcliptic() {
 void DetailedSky::addPrecessionPath() {
     precessionpath = new PrecessionPath(scene, this, this, NO_FLOAT, NO_COLOR);
 }
+void DetailedSky::addSun() {
+    sundot = new PlanetoidGP(scene, this, SUN, "SunGP", getSunLocation());
+}
+glm::vec3 DetailedSky::getSunLocation() {
+    glm::vec3 sunloc;
+    LLD sunpos = scene->astro->getDecRA(A_SUN, NO_DOUBLE);
+    sunpos.dst = radius;
+    sunloc = Spherical::Spherical2Rectangular(sunpos);
+    return sunloc;
+}
 void DetailedSky::addStars(double magnitude) {
     size_t i = skydotDefs.size();
     for (auto& s : Astronomy::stellarobjects) {
@@ -1394,7 +1404,7 @@ void DetailedSky::addStars(double magnitude) {
 }
 void DetailedSky::addStar(size_t unique, Astronomy::stellarobject& star) {
     //std::cout << star.dec << "," << star.ra << " | " << star.pm_dec << "," << star.pm_ra << '\n';
-    star.dec *= deg2rad;
+    star.dec *= deg2rad;  // FIX!!! Bruh, these were passed by reference, don't change them!!
     star.ra *= deg2rad;
     star.pm_dec *= deg2rad;
     star.pm_ra *= deg2rad;
@@ -1470,6 +1480,8 @@ bool DetailedSky::update() {
     if (ecliptic)  ecliptic->generate();
 
     if (precessionpath) precessionpath->generate();
+
+    if (sundot) sundot->setPosition(getSunLocation());
 
     // Run through skydotDefs and update SkyDots
     // !!! FIX:
@@ -1822,8 +1834,8 @@ bool DetailedMoon::update() {
     m_camDist = (float)moonDist * radius / (float)moonradius;
     // Selenographic position of the Sun (use for rendering terminator in shader)
     ASelenographicMoonDetails selsun = AMoon::CalculateSelenographicPositionOfSun(currentJD, ELP2000_82);
-    SunLightDir = getNml3D_NS({ selsun.b0, selsun.l0 });   // Used for insolation in shader
-    sunDir = { getLoc3D({ selsun.b0, selsun.l0 }), 1.0f }; // Used for Sun location dot, which is morph dependent
+    SunLightDir = getNml3D_NS({ selsun.b0, selsun.l0, 0.0 });   // Used for insolation in shader
+    sunDir = { getLoc3D({ selsun.b0, selsun.l0, 0.0 }), 1.0f }; // Used for Sun location dot, which is morph dependent
 
     //worldmatrix = glm::rotate(worldmatrix, (float)rotX, glm::vec3(1.0f, 0.0f, 0.0f));
     //worldmatrix = glm::rotate(worldmatrix, (float)rotY, glm::vec3(0.0f, 1.0f, 0.0f));
