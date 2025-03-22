@@ -430,7 +430,6 @@ double AEarth::NutationInLongitude(double jd_tt) {
     double value = 0;
     for (const auto& coeff : g_NutationCoefficients) {
         const double argument = (coeff.D * D) + (coeff.M * M) + (coeff.Mprime * Mprime) + (coeff.F * F) + (coeff.omega * omega);
-        //const double radargument = CAACoordinateTransformation::DegreesToRadians(argument);
         value += (coeff.sincoeff1 + (coeff.sincoeff2 * T)) * sin(deg2rad * argument) * 0.0001;
     }
     return deg2rad * value / 3600.0;
@@ -800,6 +799,23 @@ LLD AEarth::Geographic2Geocentric(LLD geographic) {
     return geocentric;
 }
 
+
+// Parallactic
+double AEarth::ParallacticAngle(double HourAngle, double Latitude, double delta) noexcept {
+    return atan2(sin(HourAngle), (tan(Latitude) * cos(delta)) - (sin(delta) * cos(HourAngle)));
+}
+
+double AEarth::EclipticLongitudeOnHorizon(double LocalSiderealTime, double ObliquityOfEcliptic, double Latitude) noexcept {
+    return ACoord::rangezero2threesixty(atan2(-cos(LocalSiderealTime), (sin(ObliquityOfEcliptic) * tan(Latitude)) + (cos(ObliquityOfEcliptic) * sin(LocalSiderealTime))));
+}
+
+double AEarth::AngleBetweenEclipticAndHorizon(double LocalSiderealTime, double ObliquityOfEcliptic, double Latitude) noexcept {
+    return ACoord::rangezero2threesixty(acos((cos(ObliquityOfEcliptic) * sin(Latitude)) - (sin(ObliquityOfEcliptic) * cos(Latitude) * sin(LocalSiderealTime))));
+}
+
+double AEarth::AngleBetweenNorthCelestialPoleAndNorthPoleOfEcliptic(double Lambda, double Beta, double ObliquityOfEcliptic) noexcept {
+    return ACoord::rangezero2threesixty(atan2(cos(Lambda) * tan(ObliquityOfEcliptic), (sin(Beta) * sin(Lambda) * tan(ObliquityOfEcliptic)) - cos(Beta)));
+}
 
 
 // Parallax - Meeus98 chapter 40

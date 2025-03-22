@@ -151,30 +151,29 @@ double ASun::VSOP87_E_dZ(double jd_tt) {
 }
 
 
-// Physical - directly from AA+, should be cleaned up a bit for efficiency
+// Physical - should be cleaned up a bit for efficiency
 
 PhysicalSunDetails ASun::CalculatePhysicalSun(double jd_tt, Planetary_Ephemeris eph) noexcept {
+    // From MEEUS98 Chapter 29
     PhysicalSunDetails details;
 
-    double theta{ ACoord::rangezero2threesixty((jd_tt - 2398220) * 360 / 25.38) * deg2rad };
-    double I{ 7.25 * deg2rad };
-    double K{ (73.6667 + (1.3958333 * (jd_tt - 2396758) / 36525)) * deg2rad };
+    const double theta{ ACoord::rangezero2threesixty((jd_tt - 2398220) * 360 / 25.38) * deg2rad };
+    const double I{ 7.25 * deg2rad };  // Sun axis angle in ecliptic
+    const double K{ (73.6667 + (1.3958333 * (jd_tt - 2396758) / 36525)) * deg2rad };
 
     //Calculate the apparent longitude of the sun (excluding the effect of nutation)
-    const double L{ AEarth::EclipticLongitude(jd_tt, eph) };
+    const double L{ AEarth::EclipticLongitude(jd_tt, eph) };  // Fold these two into SunLong below?
     const double R{ AEarth::EclipticDistance(jd_tt, eph) };
-    double SunLong{ L + pi - ACoord::dms2rad(0, 0, 20.4898 / R) };
+    // Sun's longitude including aberration but without nutation
+    const double SunLong{ L + pi - ACoord::dms2rad(0, 0, 20.4898 / R) };  // 20.4898" / R = correction for aberration
+    const double SunLongMinusK{ SunLong - K };
 
-    double epsilon{ AEarth::TrueObliquityOfEcliptic(jd_tt) };
-
-    const double x{ atan(-cos(SunLong) * tan(epsilon)) };
-    const double y{ atan(-cos(SunLong - K) * tan(I)) };
+    const double x{ atan(-cos(SunLong) * tan(AEarth::TrueObliquityOfEcliptic(jd_tt))) };
+    const double y{ atan(-cos(SunLongMinusK) * tan(I)) };
 
     details.P = x + y;
-    details.B0 = asin(sin(SunLong - K) * sin(I));
-    const double SunLongMinusK{ SunLong - K };
-    const double eta{ atan2(-sin(SunLongMinusK) * cos(I), -cos(SunLongMinusK)) };
-    details.L0 = ACoord::rangezero2tau(eta - theta);
+    details.B0 = asin(sin(SunLongMinusK) * sin(I));
+    details.L0 = ACoord::rangezero2tau(atan2(-sin(SunLongMinusK) * cos(I), -cos(SunLongMinusK)) - theta);
 
     return details;
 }

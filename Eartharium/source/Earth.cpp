@@ -3,10 +3,179 @@
 
 #include <glm/gtx/rotate_vector.hpp>     // Rotation matrices for glm
 
+#include "Renderer.h"  // -> SceneObjects
 #include "Earth.h"
 
 #include "../../EAstronomy/aearth.h"
 #include "../../EAstronomy/amoon.h"
+
+
+// ------------
+//  Image Quad
+// ------------
+Quad::Quad(Scene* scene, SceneObject* parent, const std::string& image, TextureType textype) : SceneObject(scene, parent), textype(textype) {
+    shdr = scene->m_app->getShaderLib()->getShader(BLINK_SHADER);
+    vbl = new VertexBufferLayout();
+    vbl->Push<float>(3);   // Vertex pos
+    vbl->Push<float>(2);   // Vertex UV
+    // Load both images into textures, create quads for each
+    glm::vec3 p_a{ 0.0f, -1.0f,  1.0f }; // top right
+    glm::vec3 p_b{ 0.0f,  1.0f,  1.0f }; // top left
+    glm::vec3 p_c{ 0.0f,  1.0f, -1.0f }; // bottom left
+    glm::vec3 p_d{ 0.0f, -1.0f, -1.0f }; // bottom right
+    glm::vec2 a_a{ 0.0f, 0.0f };  // Y coordinates are flipped here instead of in SOIL2.
+    glm::vec2 a_b{ 1.0f, 0.0f };
+    glm::vec2 a_c{ 1.0f, 1.0f };
+    glm::vec2 a_d{ 0.0f, 1.0f };
+    quad.emplace_back(p_a, a_a);  // First triangle
+    quad.emplace_back(p_b, a_b);
+    quad.emplace_back(p_c, a_c);
+    quad.emplace_back(p_a, a_a);  // Second triangle
+    quad.emplace_back(p_c, a_c);
+    quad.emplace_back(p_d, a_d);
+    vb = new VertexBuffer(&quad[0], (unsigned int)quad.size() * sizeof(QuadTri));
+    vb->LoadData(&quad[0], (unsigned int)quad.size() * sizeof(QuadTri));
+    va = new VertexArray;
+    va->AddBuffer(*vb, *vbl, true);
+    texture = scene->m_app->getTextureLib()->getTexture(textype);
+    if (image.size() != 0) {  // Filename provided
+        texture->ChangeTextureFile(image);
+    }
+}
+Quad::~Quad() {
+    // destroy all allocated objects
+    delete va;
+    delete vb;
+    delete vbl;
+
+}
+void Quad::loadImage(std::string& image) {
+    filename = &image;
+    texture->ChangeTextureFile(image);
+}
+bool Quad::update() {
+    //rotations.x = deg2radf * rotation;  // Set rotation from GUI
+
+    worldmatrix = glm::mat4{ 1.0f };
+    worldmatrix = glm::rotate(worldmatrix, deg2radf * rotation, glm::vec3(1.0f, 0.0f, 0.0f));
+    worldmatrix = glm::translate(worldmatrix, position);
+    worldmatrix = glm::scale(worldmatrix, scale);
+
+    return true;  // false = Allow SceneObject to build the worldmatrix
+}
+void Quad::draw(Camera* cam) {
+    //std::cout << "Started drawing quad: " << quad.size() << "\n";
+    //for (auto pt : quad) {
+    //    std::cout << "Point: " << pt.position.x << "," << pt.position.y << "," << pt.position.z << "\n";
+    //}
+    if (quad.size() == 0) return; // Not sure that loading empty data to OpenGL would be good
+    shdr->Bind();
+    shdr->SetUniformMatrix4f("projview", cam->getProjMat() * cam->getViewMat());
+    shdr->SetUniformMatrix4f("world", worldmatrix);
+    alpha_on ? shdr->SetUniform1f("alpha", alpha) : shdr->SetUniform1f("alpha", 1.0f);
+    shdr->SetUniform1f("invert", 1.0f * invert);
+    shdr->SetUniform1i("tex", texture->GetTextureSlot());
+    va->Bind();
+    //glFrontFace(GL_CW);  // We are already clockwise
+    glDisable(GL_DEPTH_TEST);  // Avoid Z fighting
+    // Defaults:
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glDrawArrays(GL_TRIANGLES, 0, (GLsizei)quad.size());
+    glEnable(GL_DEPTH_TEST);
+    //std::cout << "Finished drawing quad.\n";
+}
+
+BlinkTester::BlinkTester(Scene* scene, SceneObject* parent, std::vector<Blink_Entry>* image1, std::vector<Blink_Entry>* image2) : SceneObject(scene, parent) {
+    hasgui = true;
+    name = "Blink Tester";
+    blink1_list = image1;
+    blink1 = new Quad(scene, this, image1->at(0).filename, BLINKTEST_1);
+    if (NO_DOUBLE != blink1_list->at(0).jd) scene->astro->setJD_TT(blink1_list->at(0).jd);
+    blink1_num = 0;
+    blink1->name = "Image 1";
+    blink2_list = image2;
+    blink2 = new Quad(scene, this, image2->at(0).filename, BLINKTEST_2);
+    blink2_num = 0;
+    blink2->name = "Image 2";
+}
+BlinkTester::~BlinkTester() {
+    // destroy all allocated objects
+    delete blink2;
+    delete blink1;
+}
+void BlinkTester::setImage1(size_t index) {
+    if (index < blink1_list->size()) {
+        blink1->loadImage(blink1_list->at(index).filename);
+    }
+}
+void BlinkTester::setImage2(size_t index) {
+    if (index < blink2_list->size()) {
+        blink2->loadImage(blink2_list->at(index).filename);
+    }
+}
+bool BlinkTester::update() {
+    if (gui_blink1_num != blink1_num && gui_blink1_num < blink1_list->size()) {
+        blink1_num = gui_blink1_num;
+        blink1->loadImage(blink1_list->at(blink1_num).filename);
+        if (NO_DOUBLE != blink1_list->at(blink1_num).jd) scene->astro->setJD_TT(blink1_list->at(blink1_num).jd);
+    }
+    //if (gui_blink2_num != blink2_num) {
+    //    blink2_num = gui_blink2_num;
+    //    blink2->loadImage(blink2_list->at(blink2_num).filename);
+    //    //scene->astro->setJD_TT(blink2_list->at(blink2_num).jd);  // Shouldn't set astro time from both blinks!!
+    //}
+    return false;  // !!! FIX: Should build world matrices for both quads and return true
+}
+void BlinkTester::draw(Camera* cam) {
+    return;  // Quads draw themselves
+}
+void BlinkTester::myGUI() {
+    if (ImGui::CollapsingHeader(name.c_str())) {
+        //ImGui::SliderFloat("Timeshift", &timeshift, -15.0f, 15.0f);
+        ImGui::SliderFloat("Pos. Ang.", &pos_ang, -180.0f, 180.0f);
+        ImGui::SliderFloat("Parallactic", &par_ang, -180.0f, 180.0f);
+        ImGui::SliderFloat("Latitude", &lat_ang, -180.0f, 180.0f);
+
+        if (ImGui::TreeNode("Image 1")) {
+            if (blink1) {
+                //std::cout << blink1_list->size() << '\n';
+                ImGui::SliderInt("Picture #", &gui_blink1_num, 0, (int)blink1_list->size() - 1);
+                ImGui::Checkbox("Use alpha", &blink1->alpha_on);
+                ImGui::SameLine();
+                ImGui::SliderFloat("Alpha", &blink1->alpha, 0.0f, 1.0f);
+                ImGui::SliderFloat("Rotate", &blink1->rotation, -180.0f, 180.0f);
+                ImGui::SliderFloat("Scale X", &blink1->scale.y, 0.0f, 2.0f);
+                ImGui::SliderFloat("Scale Y", &blink1->scale.z, 0.0f, 2.0f);
+                ImGui::SliderFloat("Offset X", &blink1->position.y, -0.5f, 0.5f);
+                ImGui::SliderFloat("Offset Y", &blink1->position.z, -0.5f, 0.5f);
+            }
+            ImGui::TreePop();
+        }
+        if (ImGui::TreeNode("Image 2")) {
+            if (blink2) {
+                //ImGui::SliderInt("Picture #", &gui_blink2_num, 0, (int)blink2_list->size() - 1);
+                ImGui::Checkbox("Invert", &blink2->invert);
+                ImGui::Checkbox("Use alpha", &blink2->alpha_on);
+                ImGui::SameLine();
+                ImGui::SliderFloat("Alpha", &blink2->alpha, 0.0f, 1.0f);
+                ImGui::SliderFloat("Rotate", &blink2->rotation, -180.0f, 180.0f);
+                ImGui::SliderFloat("Scale X", &blink2->scale.y, 0.0f, 2.0f);
+                ImGui::SliderFloat("Scale Y", &blink2->scale.z, 0.0f, 2.0f);
+                ImGui::SliderFloat("Offset X", &blink2->position.y, -0.5f, 0.5f);
+                ImGui::SliderFloat("Offset Y", &blink2->position.z, -0.5f, 0.5f);
+            }
+            ImGui::TreePop();
+        }
+        //ImGui::TreePop();  // Don't do this one, it breaks the treeview in objects following it.
+    }
+
+}
+
+
+
+
+
 
 // =========================
 //  Location Specific Items
@@ -642,6 +811,10 @@ void Latitude::setColor(glm::vec4 color) {
 }
 void Latitude::setWidth(float width) {
     path->setWidth(width);
+}
+void Latitude::setLatitude(double latitude) {
+    lat = latitude;
+    generate();
 }
 void Latitude::generate() {
     glm::vec3 pos{ 0.0f };
@@ -1670,6 +1843,7 @@ bool DetailedEarth::drawSpecific(Camera* cam, Shader* shdr) {
     //if (primem != nullptr) primem->draw(cam);
     return false; // Didn't actually draw yet.
 }
+
 void DetailedEarth::myGUI() {
     if (ImGui::CollapsingHeader(name.c_str())) {
         // Texture alignment. Note: Adjusts texture coordinates in mesh, so applies equally to all textures in the same material.
@@ -1716,8 +1890,9 @@ void DetailedEarth::myGUI() {
             ImGui::TreePop();
         }
         // Add bumpmap controls. Perhaps those should also ideally be in BodyGeometry
-        ImGui::TreePop(); // Only pop tree at end of TreeNode sequence, not for each of them.
+        //ImGui::TreePop();
     }
+    //ImGui::TreePop();
 }
 
 // ---------------

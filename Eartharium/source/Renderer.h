@@ -38,6 +38,80 @@ class SceneObject;
 class SceneTreeRoot;
 class Camera;
 
+
+// ------------------------------
+//  Minimal SceneObject template
+// ------------------------------
+//class SceneObjectTemplate : public SceneObject {
+//public:
+//    // Get rotation axis from parent Planetoid or DetailedX body?
+//    SceneObjectTemplate() = delete;
+//    SceneObjectTemplate(Scene* scene, SceneObject* parent) : SceneObject(scene, parent) {
+//        name = "SceneObjectTemplate";
+//        // Create required items
+//        // Initialize to safe values
+//    }
+//    ~SceneObjectTemplate() {
+//        // Destroy allocated items
+//    }
+//    bool update() override {
+//        // returns true when world matrix has been built here,
+//        // false if it should be built automatically via inheritance
+//        //worldmatrix = glm::mat4{ 1.0f }; // identity matrix
+//        return false;
+//    };
+//    void draw(Camera* cam) override {
+//        // If this object contains non-primitive drawables,
+//        // they must be drawn here.
+//        // If there is a need to defer drawing to further derived objects,
+//        // use the same mechanism as BodyGeometry, i.e.:
+//        // virtual [rettype] drawSpecific(Camera* cam, others) = 0;
+//        // and override it in the derived object.
+//    };
+//    void myGUI() {
+//        // Don't forget to set BodyGeometry::hasgui in the ctor, it is false by default!
+//        //if (ImGui::CollapsingHeader(name.c_str())) {
+//        //    if (ImGui::Button("Reset Camera")) {
+//        //        scene->w_camera->setLatLonFovDist(0.0f, 0.0f, 0.56833f, 210.0f); // See constructor for notes on these values
+//        //    }
+//        //    if (ImGui::TreeNode("Libration")) {
+//        //        //ImGui::Checkbox("Enable", &gui_libration); // Not implemented yet, although gui_libration variable was added
+//        //        ImGui::Checkbox("Libration in Longitude", &gui_librationlongitude);
+//        //        ImGui::Checkbox("Libration in Latitude", &gui_librationlatitude);
+//        //        ImGui::Checkbox("Axial Position Angle", &gui_positionangle);
+//        //        if (ImGui::RadioButton("Geocentric", gui_geocentric)) gui_geocentric = true;
+//        //        ImGui::SameLine();
+//        //        if (ImGui::RadioButton("Topocentric", !gui_geocentric)) gui_geocentric = false;
+//        //        if (!gui_geocentric) {
+//        //            // Work around the odd way of marking topocentric vs geocentric
+//        //            if (topoLat == NO_DOUBLE) gui_topoLat = 0.0f;
+//        //            else gui_topoLat = (float)(topoLat * rad2deg);
+//        //            if (topoLon == NO_DOUBLE) gui_topoLon = 0.0f;
+//        //            else gui_topoLon = (float)(topoLon * rad2deg);
+//        //            ImGui::SliderFloat("Latitude", &gui_topoLat, -89.9999f, 89.9999f);
+//        //            ImGui::SliderFloat("Longitude", &gui_topoLon, -179.9999f, 180.0f);
+//        //            if (gui_geocentric) topoLat = NO_DOUBLE;
+//        //            else topoLat = (double)gui_topoLat * deg2rad;
+//        //            if (gui_geocentric) topoLon = NO_DOUBLE;
+//        //            else topoLon = (double)gui_topoLon * deg2rad;
+//        //        }
+//        //        ImGui::TreePop(); // Libration
+//        //        // Do TreeNode for SunGP, EarthGP, ParticleTrail (give them GUIs and call those here in TreeNode for each of them,
+//        //        //                                                set their hasgui = false so they are only shown once)
+//        //    }
+//        //    if (ImGui::TreeNode("Bumpmapping (surface detail)")) {
+//        //        ImGui::SliderFloat("Sunbump", &sunBumpmapScale, 0.0000f, 0.01f, "%.5f");
+//        //        ImGui::SliderFloat("Lightbump", &lightBumpmapScale, 0.0f, 0.1f, "%.5f");
+//        //        ImGui::TreePop();
+//        //    }
+//        //    ImGui::TreePop();
+//        //}
+//    }
+//private:
+//    // Any state variables and allocated objects - prefer getters & setters to direct access
+//};
+
+
 // -------------
 //  SceneObject
 // -------------
@@ -107,6 +181,7 @@ private:
     std::vector<PolyLine*> m_polylines;
     std::vector<ThreePointSolver*> m_threepointsolvers;
     float m_aspect = 1.0f;
+    // Primitive factories
     Minifigs* m_minifigsOb = nullptr;
     Dots* m_dotsOb = nullptr;
     SkyDots* m_skydotsOb = nullptr;

@@ -10,7 +10,6 @@ out vec2 TexCoord;
 void main()
 {   
     gl_Position = projview * world * vec4(aPos, 1.0); // projview = projection * view (from CPU)
-    //gl_Position = projview * vec4(aPos, 1.0); // projview = projection * view (from CPU)
     TexCoord = aUV;
 };
 
@@ -22,13 +21,14 @@ in vec2 TexCoord;
 
 uniform sampler2D tex;
 uniform float alpha;
-
+uniform float invert;
 out vec4 FragColor;
 
-void main()
-{
-    //FragColor = vec4(1.0,1.0,1.0, 1.0);
+void main() {
     vec3 tx = texture(tex, TexCoord).rgb;
-    FragColor = vec4(tx.rgb, alpha);
-    //FragColor = vec4(1.0-tx.r, 1.0-tx.g, 1.0-tx.b, alpha);
+    if (invert == 0.0) {
+        FragColor = vec4(tx.rgb, alpha);
+    } else {
+        FragColor = vec4(1.0-tx.r, 1.0-tx.g, 1.0-tx.b, alpha);
+    }
 };

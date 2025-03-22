@@ -29,7 +29,6 @@ class LocationSO;
 
 
 
-
 // ------------
 //  Image Quad
 // ------------
@@ -44,68 +43,17 @@ class Quad : public SceneObject {
         glm::vec2 uv = glm::vec2(0.0f);
     };
 public:
-    Quad(Scene* scene, SceneObject* parent, const std::string& image, TextureType textype) : SceneObject(scene, parent), textype(textype) {
-        shdr = scene->m_app->getShaderLib()->getShader(BLINK_SHADER);
-        vbl = new VertexBufferLayout();
-        vbl->Push<float>(3);   // Vertex pos
-        vbl->Push<float>(2);   // Vertex UV
-        // Load both images into textures, create quads for each
-        glm::vec3 p_a{ 0.0f, -1.0f,  1.0f }; // top right
-        glm::vec3 p_b{ 0.0f,  1.0f,  1.0f }; // top left
-        glm::vec3 p_c{ 0.0f,  1.0f, -1.0f }; // bottom left
-        glm::vec3 p_d{ 0.0f, -1.0f, -1.0f }; // bottom right
-        glm::vec2 a_a{ 0.0f, 0.0f };  // Y coordinates are flipped here instead of in SOIL2.
-        glm::vec2 a_b{ 1.0f, 0.0f };
-        glm::vec2 a_c{ 1.0f, 1.0f };
-        glm::vec2 a_d{ 0.0f, 1.0f };
-        quad.emplace_back(p_a, a_a);  // First triangle
-        quad.emplace_back(p_b, a_b);
-        quad.emplace_back(p_c, a_c);
-        quad.emplace_back(p_a, a_a);  // Second triangle
-        quad.emplace_back(p_c, a_c);
-        quad.emplace_back(p_d, a_d);
-        vb = new VertexBuffer(&quad[0], (unsigned int)quad.size() * sizeof(QuadTri));
-        vb->LoadData(&quad[0], (unsigned int)quad.size() * sizeof(QuadTri));
-        va = new VertexArray;
-        va->AddBuffer(*vb, *vbl, true);
-        texture = scene->m_app->getTextureLib()->getTexture(textype);
-        if (image.size() != 0) {  // Filename provided
-            texture->ChangeTextureFile(image);
-        }
-    }
-    ~Quad() {
-        // destroy all allocated objects
-    }
-    void loadImage(std::string image) {
-        texture->ChangeTextureFile(image);
-    }
-    bool update() override {
-        rotations.x = deg2radf * rotation;  // Set rotation from GUI
-        return false;  // false = Allow SceneObject to build the worldmatrix
-    }
-    void draw(Camera* cam) override {
-        //std::cout << "Started drawing quad: " << quad.size() << "\n";
-        //for (auto pt : quad) {
-        //    std::cout << "Point: " << pt.position.x << "," << pt.position.y << "," << pt.position.z << "\n";
-        //}
-        if (quad.size() == 0) return; // Not sure that loading empty data to OpenGL would be good
-        shdr->Bind();
-        shdr->SetUniformMatrix4f("projview", cam->getProjMat() * cam->getViewMat());
-        shdr->SetUniformMatrix4f("world", worldmatrix);
-        alpha_on ? shdr->SetUniform1f("alpha", alpha) : shdr->SetUniform1f("alpha", 1.0f);
-        shdr->SetUniform1i("tex", texture->GetTextureSlot());
-        va->Bind();
-        //glFrontFace(GL_CW);  // We are already clockwise
-        glDisable(GL_DEPTH_TEST);
-        glDrawArrays(GL_TRIANGLES, 0, (GLsizei)quad.size());
-        glEnable(GL_DEPTH_TEST);
-        //std::cout << "Finished drawing quad.\n";
-    }
-    //friend BlinkTester;
+    Quad(Scene* scene, SceneObject* parent, const std::string& image, TextureType textype);
+    ~Quad();
+    void loadImage(std::string& image);
+    bool update() override;
+    void draw(Camera* cam) override;
 public:
+    bool invert{ false };
     bool alpha_on{ false };
     float alpha{ 1.0f };
     float rotation{ 0.0f };
+    std::string* filename{ nullptr };
 private:
     VertexArray* va{ nullptr };
     VertexBuffer* vb{ nullptr };
@@ -117,8 +65,8 @@ private:
     glm::vec3 translate{};
     glm::vec3 rotate{};
     std::vector<QuadTri> quad;
-
 };
+
 
 // --------------
 //  Blink tester
@@ -128,72 +76,40 @@ private:
 // Allows to swap which is on top, i.e. "blink" the images
 // Allows to add transparency
 class BlinkTester : public SceneObject {
-struct QuadTri {
-    QuadTri(const glm::vec3 pos, const glm::vec2 tex) : position(pos), uv(tex) {}
-    glm::vec3 position = glm::vec3(0.0f);
-    glm::vec2 uv = glm::vec2(0.0f);
-};
+    struct QuadTri {
+        QuadTri(const glm::vec3 pos, const glm::vec2 tex) : position(pos), uv(tex) {}
+        glm::vec3 position = glm::vec3(0.0f);
+        glm::vec2 uv = glm::vec2(0.0f);
+    };
 public:
-    BlinkTester(Scene* scene, SceneObject* parent, const std::string& image1, const std::string& image2) : SceneObject(scene, parent) {
-        hasgui = true;
-        name = "Blink Tester";
-        blink1 = new Quad(scene, this, image1, BLINKTEST_1);
-        blink1->name = "Image 1";
-        blink2 = new Quad(scene, this, image2, BLINKTEST_2);
-        blink2->name = "Image 2";
-    }
-    ~BlinkTester() {
-        // destroy all allocated objects
-    }
-    void loadImage1(std::string image) {
-        blink1->loadImage(image);
-    }
-    void loadImage2(std::string image) {
-        blink2->loadImage(image);
-    }
-    bool update() override {
-        return false;  // !!! FIX: Should build world matrices for both quads and return true
-    }
-    void draw(Camera* cam) override {
-        return;  // Quads draw themselves
-    }
-    void myGUI() {
-        if (ImGui::CollapsingHeader(name.c_str())) {
-            if (ImGui::TreeNode("Image 1")) {
-                if (blink1) {
-                    ImGui::Checkbox("Use alpha", &blink1->alpha_on);
-                    ImGui::SameLine();
-                    ImGui::SliderFloat("Alpha", &blink1->alpha, 0.0f, 1.0f);
-                    ImGui::SliderFloat("Rotate", &blink1->rotation, 0.0f, 360.0f);
-                    ImGui::SliderFloat("Scale X", &blink1->scale.y, 0.0f, 2.0f);
-                    ImGui::SliderFloat("Scale Y", &blink1->scale.z, 0.0f, 2.0f);
-                    ImGui::SliderFloat("Offset X", &blink1->position.y, -0.5f, 0.5f);
-                    ImGui::SliderFloat("Offset Y", &blink1->position.z, -0.5f, 0.5f);
-                }
-                ImGui::TreePop();
-            }
-            if (ImGui::TreeNode("Image 2")) {
-                if (blink2) {
-                    ImGui::Checkbox("Use alpha", &blink2->alpha_on);
-                    ImGui::SameLine();
-                    ImGui::SliderFloat("Alpha", &blink2->alpha, 0.0f, 1.0f);
-                    ImGui::SliderFloat("Rotate", &blink2->rotation, 0.0f, 360.0f);
-                    ImGui::SliderFloat("Scale X", &blink2->scale.y, 0.0f, 2.0f);
-                    ImGui::SliderFloat("Scale Y", &blink2->scale.z, 0.0f, 2.0f);
-                    ImGui::SliderFloat("Offset X", &blink2->position.y, -0.5f, 0.5f);
-                    ImGui::SliderFloat("Offset Y", &blink2->position.z, -0.5f, 0.5f);
-                }
-                ImGui::TreePop();
-            }
-
-            // Add bumpmap controls. Perhaps those should also ideally be in BodyGeometry
-            ImGui::TreePop(); // Only pop tree at end of TreeNode sequence, not for each of them.
-        }
-
-    }
-private:
+    struct Blink_Entry {
+        // Use NO_DOUBLE for jd if time is unknown or irrelevant
+        double jd;
+        std::string filename;
+    };
+    BlinkTester(Scene* scene, SceneObject* parent, std::vector<Blink_Entry>* image1, std::vector<Blink_Entry>* image2);
+    ~BlinkTester();
+    void setImage1(size_t index);
+    void setImage2(size_t index);
+    bool update() override;
+    void draw(Camera* cam) override;
+    void myGUI();
+public:
+    float timeshift{ 0.0f };
+    float pos_ang{ 0.0f };
+    float par_ang{ 0.0f };
+    float lat_ang{ 0.0f };
     Quad* blink1{ nullptr };
     Quad* blink2{ nullptr };
+private:
+    // Blink1
+    size_t blink1_num{ 0 };
+    int gui_blink1_num{ 0 };
+    std::vector<Blink_Entry>* blink1_list{ nullptr };
+    // Blink2
+    size_t blink2_num{ 0 };
+    int gui_blink2_num{ 0 };
+    std::vector<Blink_Entry>* blink2_list{ nullptr };
 };
 
 
@@ -807,6 +723,7 @@ public:
     ~Latitude();
     void setColor(glm::vec4 color);
     void setWidth(float width);
+    void setLatitude(double lat);
     void generate();
     bool update() override;
     void draw(Camera* cam) override;
@@ -839,7 +756,7 @@ public:
 // ------
 class Grid : public SceneObject {
 public:
-    Grid(Scene* scene, SceneObject* parent, BodyGeometry* geometry, std::string objname = "NO_NAME");
+    Grid(Scene* scene, SceneObject* parent, BodyGeometry* geometry, std::string objname = "Grid");
     ~Grid();
     void setName(std::string name);
     void setColor(glm::vec4 color, bool skip_pm_eq = true);
@@ -1411,4 +1328,255 @@ private:
     Planetoid* sun{ nullptr };
     size_t earthaxis{ NO_UINT };
     
+};
+
+
+//  Body Rotation Axis
+class RotationAxis : public SceneObject {
+    // Get rotation axis from parent Planetoid or DetailedX body?
+    RotationAxis() = delete;
+    RotationAxis(Scene* scene, SceneObject* parent) : SceneObject(scene, parent) {
+        name = "Rotation Axis";
+        // Check if parent has required parameters
+        // Create arrow primitive
+        arrow_factory = scene->getArrowsFactory();
+        float half_len = 1.2f * parent->scale.z;
+        glm::vec3 my_start = { parent->position.x, parent->position.y, parent->position.z - half_len };
+        glm::vec3 my_end = { parent->position.x, parent->position.y, parent->position.z + half_len };
+        //arrow = arrow_factory->addStartEnd
+    }
+    ~RotationAxis() {
+        // destroy arrow primitive
+        if (NO_UINT != arrow) arrow_factory->removeArrow(arrow);
+    }
+
+    bool update() override { return false; }
+    void draw(Camera* cam) override {}  // using arrow primitive, it draws itself.
+private:
+    // Arrow primitive
+    Arrows* arrow_factory{ nullptr };
+    size_t arrow{ NO_UINT };
+};
+
+
+// -----------
+//  SimpleArc
+// -----------
+class SimpleArc : public SceneObject {
+public:
+
+};
+
+// ------------------
+//  Simple Longitude
+// ------------------
+class SimpleLongitude : public SceneObject {
+public:
+    // Get rotation axis from parent Planetoid or DetailedX body?
+    SimpleLongitude() = delete;
+    SimpleLongitude(Scene* scene, SceneObject* parent, double longitude) : SceneObject(scene, parent) {
+        name = "Lon";
+        lon = longitude;
+        path = new SmartPath(scene, this);
+        generate();
+    }
+    ~SimpleLongitude() {
+        if (path) delete path;
+    }
+    void setWidthColor(float width, glm::vec4 color) {
+        path->setWidth(width);
+        path->setColor(color);
+    }
+    void generate() {
+        glm::vec3 pos{ 0.0f };
+        path->clearPoints();
+        LLD latlon{};
+        latlon.lon = lon;
+        latlon.dst = 1.0;
+        for (double lat = -pi2; lat <= pi2; lat += deg2rad) {
+            latlon.lat = lat;
+            pos = Spherical::Spherical2Rectangular(latlon);
+            path->addPoint((glm::vec3)pos);
+        }
+    }
+    bool update() override {
+        return false;
+    };
+    void draw(Camera* cam) override {};
+public:
+    SmartPath* path{ nullptr };
+    double lon{ 0.0 };
+};
+
+// ----------------
+//  SimpleLatitude
+// ----------------
+class SimpleLatitude : public SceneObject {
+public:
+    SimpleLatitude(Scene* scene, SceneObject* parent, double latitude) : SceneObject(scene, parent) {
+        name = "Lat";
+        lat = latitude;
+        path = new SmartPath(scene, this);
+        generate();
+    }
+    void setWidthColor(float width, glm::vec4 color) {
+        path->setWidth(width);
+        path->setColor(color);
+    }
+    void generate() {
+        glm::vec3 pos{ 0.0f };
+        path->clearPoints();
+        LLD latlon{};
+        latlon.lat = lat;
+        latlon.dst = 1.0;
+        for (double lon = -pi; lon <= pi; lon += deg2rad) {
+            latlon.lon = lon;
+            pos = Spherical::Spherical2Rectangular(latlon) ;
+            path->addPoint((glm::vec3)pos);
+        }
+    }
+    ~SimpleLatitude() {
+        if (path) delete path;
+    }
+    void draw(Camera* cam) override {};
+    bool update() override { return false; }; // Allow world matrix inheritance
+public:
+    SmartPath* path{ nullptr };
+    double lat;
+};
+
+// -----------------------
+//  EquatorialCoordinates
+// -----------------------
+class EquatorialCoordinates : public SceneObject {
+public:
+    EquatorialCoordinates(Scene* scene, SceneObject* parent, unsigned int divisions)
+    : SceneObject(scene, parent), divs(divisions) {
+        name = "EQ_Coord";
+        generate();
+    }
+    ~EquatorialCoordinates() {
+        for (auto lat : latitudes) { delete lat; };
+        for (auto lon : longitudes) { delete lon; };
+    }
+    void setWidthColor(float width, glm::vec4 color) {
+        for (auto lat : latitudes) {
+            lat->setWidthColor(width, color);
+        }
+        for (auto lon : longitudes) {
+            lon->setWidthColor(width, color);
+        }
+    }
+    void generate() {
+        // create latitudes and longitudes
+        double latstep = tau / (double)divs;
+        for (double lati = -pi2; lati < pi2; lati += latstep ) {
+            latitudes.emplace_back(new SimpleLatitude(scene, this, lati));
+        }
+        double lonstep = tau / (double)divs;
+        for (double lngi = -pi; lngi < pi; lngi += lonstep) {
+            longitudes.emplace_back(new SimpleLongitude(scene, this, lngi));
+        }
+    }
+    void draw(Camera* cam) override {};
+    bool update() override { return false; }; // Allow world matrix inheritance
+
+public:
+    unsigned int divs{ 24 };
+    std::vector<SimpleLatitude*> latitudes;
+    std::vector<SimpleLongitude*> longitudes;
+};
+
+// -----------
+//  SightLine
+// -----------
+class SightLine : public SceneObject {
+public:
+    SightLine(Scene* scene, SceneObject* parent, glm::vec3 p1, glm::vec3 p2, float width = 0.003f, glm::vec4 color = LIGHT_YELLOW)
+    : SceneObject(scene, parent) {
+        cylinder = scene->getCylindersFactory()->addStartEnd(p1, p2, width, color);
+        this->width = width;
+        this->color = color;
+    }
+    ~SightLine() {
+        scene->getCylindersFactory()->removeCylinder(cylinder);
+    }
+    void setStartEnd(glm::vec3 p1, glm::vec3 p2) {
+        scene->getCylindersFactory()->changeStartEnd(cylinder, p1, p2, width, color);
+    }
+    bool update() override { return true; };
+    void draw(Camera* cam) override {};
+private:
+    glm::vec3 p1{ 0.0f };
+    glm::vec3 p2{ 0.0f };
+    float width;
+    glm::vec4 color;
+    size_t cylinder{ NO_UINT };
+};
+
+// ----------
+//  EarthSun
+// ----------
+class EarthSun : public SceneObject {
+    // Natural orientation is Equatorial Celestial coordinates
+public:
+    EarthSun() = delete;
+    EarthSun(Scene* scene, SceneObject* parent) : SceneObject(scene, parent) {
+        // Create Planetoids
+        earth = new Planetoid(scene, this, EARTH, 40, 20, 0.08f);
+        earth->name = "Earth";
+        sun = new Planetoid(scene, this, SUN, 40, 20, 0.16f);
+        sun->name = "Sun";
+        update();
+    }
+    // Will these be handy to have?
+    void addEarthSunLine() {}
+    void addEarthAxis() {}
+    void addSunAxis() {}
+
+    bool update() {
+        // X axis is Equinox of Date, Z towards celestial north pole (Y to form right handed system)
+        double jd_tt = scene->astro->getJD_TT();
+        // Earth position
+        earthloc = AEarth::EclipticCoordinates(jd_tt, EPH_VSOP87_FULL);
+        earthloc = Spherical::Ecliptic2Equatorial(earthloc, AEarth::TrueObliquityOfEcliptic(jd_tt));
+        earthpos = Spherical::Spherical2Rectangular(earthloc);
+        earth->setPosition(earthpos);  // equatorial coordinates
+
+        // Earth orientation - Axis of Rotation
+        glm::vec3 equatorialpole = (glm::vec3)AEarth::EquatorialPoleVondrak(jd_tt);
+        equatorialpole.x = -equatorialpole.x;
+        equatorialpole.y = -equatorialpole.y;
+        //VPRINT(equatorialpole) << "\n";
+        equatorialpole *= 0.15f;
+        glm::vec3 earthaxis1 = earthpos + equatorialpole;
+        glm::vec3 earthaxis2 = earthpos - equatorialpole;
+        if (earthaxis == NO_UINT) earthaxis = scene->getCylindersFactory()->addStartEnd(earthaxis1, earthaxis2, 0.003f, WHITE);
+        else scene->getCylindersFactory()->changeStartEnd(earthaxis, earthaxis1, earthaxis2, 0.003f, WHITE);
+
+        // Sun orientation - Axis of Rotation
+        LLD s_pole{ deg2rad * 63.87, deg2rad * 286.13 , 1.0 };  // Solar North Pole
+        glm::vec3 sunpole = (glm::vec3)Spherical::Spherical2Rectangular(s_pole);
+        //sunpole.x = -sunpole.x;
+        //sunpole.y = -sunpole.y;
+        //VPRINT(equatorialpole) << "\n";
+        sunpole *= 0.25f;
+        sunaxis1 = sunpos + sunpole;
+        glm::vec3 sunaxis2 = sunpos - sunpole;
+        if (sunaxis == NO_UINT) sunaxis = scene->getCylindersFactory()->addStartEnd(sunaxis1, sunaxis2, 0.003f, WHITE);
+        else scene->getCylindersFactory()->changeStartEnd(sunaxis, sunaxis1, sunaxis2, 0.003f, WHITE);
+        return false;
+    }
+    void draw(Camera* cam) { return; };
+public:
+    glm::vec3 earthpos{ 0.0f, 0.0f, 1.0f };
+    glm::vec3 sunpos{ 0.0f, 0.0f, 0.0f };
+    glm::vec3 sunaxis1{ 0.0f };
+    LLD earthloc{ 0.0, 0.0, 0.0 };
+    Planetoid* earth{ nullptr };
+    Planetoid* sun{ nullptr };
+private:
+    // Primitives
+    size_t earthaxis{ NO_UINT };
+    size_t sunaxis{ NO_UINT };
 };

@@ -599,6 +599,19 @@ PYBIND11_MODULE(pyeastronomy, m) {
         .def_static("DistanceBetweenPoints", &AEarth::DistanceBetweenPoints, "Calculate the distance between two points on Earth.",
             py::arg("GeographicalLatitude1"), py::arg("GeographicalLongitude1"), py::arg("GeographicalLatitude2"), py::arg("GeographicalLongitude2")
         )
+        // Parallactic
+        .def_static("ParallacticAngle", &AEarth::ParallacticAngle, "",
+            py::arg("HourAngle"), py::arg("Latitude"), py::arg("delta")
+        )
+        .def_static("EclipticLongitudeOnHorizon", &AEarth::EclipticLongitudeOnHorizon, "",
+            py::arg("LocalSiderealTime"), py::arg("ObliquityOfEcliptic"), py::arg("Latitude")
+        )
+        .def_static("AngleBetweenEclipticAndHorizon", &AEarth::AngleBetweenEclipticAndHorizon, "",
+            py::arg("LocalSiderealTime"), py::arg("ObliquityOfEcliptic"), py::arg("Latitude")
+        )
+        .def_static("AngleBetweenNorthCelestialPoleAndNorthPoleOfEcliptic", &AEarth::AngleBetweenNorthCelestialPoleAndNorthPoleOfEcliptic, "",
+            py::arg("Lambda"), py::arg("Beta"), py::arg("ObliquityOfEcliptic")
+        )
         // Parallax
         .def_static("DistanceToParallax", &AEarth::DistanceToParallax, "Convert Distance in AU to Parallax in radians.",
             py::arg("Distance")

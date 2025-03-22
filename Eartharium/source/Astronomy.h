@@ -168,8 +168,8 @@ public:
 	static bool constellations_loaded;
 	static std::vector<ConstellationBoundary> constellations;
 	static void loadConstellations();
-private:
 	EDateTime m_datetime;    // Default constructor initializes to current system time in UTC
+private:
 	double eot{ 0.0 };
 
 	// -= Time dependent calc cache =-

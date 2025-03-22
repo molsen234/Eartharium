@@ -475,6 +475,8 @@ void Camera::setPosXYZ(glm::vec3 position) {
     Recalc();
 }
 void Camera::setPosLLH(LLD llh) {
+    camLat = (float)llh.lat;
+    camLon = (float)llh.lon;
     while (camLon > 180.0) camLon -= 360.0;
     while (camLon < -180.0) camLon += 360.0;
     // How to normalize latitude properly? Not practical as 100 should go to 80 and longitude should change 180 whereas 360 should simply go to 0.
@@ -521,6 +523,8 @@ void Camera::Recalc() {
     ViewMat = glm::lookAt(position, m_target, cameraUp);
     ProjMat = glm::perspective(glm::radians(camFoV), scene->getAspect(), camNear, camFar);
     updateLight();
+    //std::cout << "Camera::position: ";
+    //VPRINT(position) << "\n";
 }
 
 

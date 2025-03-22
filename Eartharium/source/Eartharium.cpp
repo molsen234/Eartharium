@@ -755,11 +755,259 @@ void ellipsoidDetailedEarth(Application& app) {
 // -----------
 //  BlinkTest
 // -----------
+
+std::vector<BlinkTester::Blink_Entry> SDO_List{
+    { 2460693.500800231  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_000000_1024_HMIIF.jpg" },
+    { 2460693.5112168975 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_001500_1024_HMIIF.jpg" },
+    { 2460693.5216335645 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_003000_1024_HMIIF.jpg" },
+    { 2460693.532050231  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_004500_1024_HMIIF.jpg" },
+    { 2460693.5424668975 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_010000_1024_HMIIF.jpg" },
+    { 2460693.5528835645 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_011500_1024_HMIIF.jpg" },
+    { 2460693.563300231  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_013000_1024_HMIIF.jpg" },
+    { 2460693.5737168975 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_014500_1024_HMIIF.jpg" },
+    { 2460693.5841335645 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_020000_1024_HMIIF.jpg" },
+    { 2460693.5945502315 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_021500_1024_HMIIF.jpg" },
+    { 2460693.604966898  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_023000_1024_HMIIF.jpg" },
+    { 2460693.615383565  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_024500_1024_HMIIF.jpg" },
+    { 2460693.6258002315 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_030000_1024_HMIIF.jpg" },
+    { 2460693.636216898  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_031500_1024_HMIIF.jpg" },
+    { 2460693.646633565  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_033000_1024_HMIIF.jpg" },
+    { 2460693.6570502315 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_034500_1024_HMIIF.jpg" },
+    { 2460693.667466898  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_040000_1024_HMIIF.jpg" },
+    { 2460693.677883565  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_041500_1024_HMIIF.jpg" },
+    { 2460693.6883002315 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_043000_1024_HMIIF.jpg" },
+    { 2460693.698716898  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_044500_1024_HMIIF.jpg" },
+    { 2460693.709133565  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_050000_1024_HMIIF.jpg" },
+    { 2460693.7195502315 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_051500_1024_HMIIF.jpg" },
+    { 2460693.7299668984 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_053000_1024_HMIIF.jpg" },
+    { 2460693.7403835654 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_054500_1024_HMIIF.jpg" },
+    { 2460693.750800232  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_060000_1024_HMIIF.jpg" },
+    { 2460693.7612168984 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_061500_1024_HMIIF.jpg" },
+    { 2460693.7716335654 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_063000_1024_HMIIF.jpg" },
+    { 2460693.782050232  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_064500_1024_HMIIF.jpg" },
+    { 2460693.8549668984 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_083000_1024_HMIIF.jpg" },
+    { 2460693.865383566  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_084500_1024_HMIIF.jpg" },
+    { 2460693.886216899  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_091500_1024_HMIIF.jpg" },
+    { 2460693.896633566  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_093000_1024_HMIIF.jpg" },
+    { 2460693.917466899  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_100000_1024_HMIIF.jpg" },
+    { 2460693.927883566  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_101500_1024_HMIIF.jpg" },
+    { 2460693.9383002324 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_103000_1024_HMIIF.jpg" },
+    { 2460693.948716899  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_104500_1024_HMIIF.jpg" },
+    { 2460693.959133566  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_110000_1024_HMIIF.jpg" },
+    { 2460693.9695502324 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_111500_1024_HMIIF.jpg" },
+    { 2460693.979966899  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_113000_1024_HMIIF.jpg" },
+    { 2460693.990383566  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_114500_1024_HMIIF.jpg" },
+    { 2460694.000800233  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_120000_1024_HMIIF.jpg" },
+    { 2460694.0112168994 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_121500_1024_HMIIF.jpg" },
+    { 2460694.0216335664 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_123000_1024_HMIIF.jpg" },
+    { 2460694.032050233  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_124500_1024_HMIIF.jpg" },
+    { 2460694.0424668994 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_130000_1024_HMIIF.jpg" },
+    { 2460694.0528835664 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_131500_1024_HMIIF.jpg" },
+    { 2460694.063300233  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_133000_1024_HMIIF.jpg" },
+    { 2460694.0737168994 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_134500_1024_HMIIF.jpg" },
+    { 2460694.0841335664 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_140000_1024_HMIIF.jpg" },
+    { 2460694.094550233  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_141500_1024_HMIIF.jpg" },
+    { 2460694.1049668994 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_143000_1024_HMIIF.jpg" },
+    { 2460694.1153835664 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_144500_1024_HMIIF.jpg" },
+    { 2460694.125800233  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_150000_1024_HMIIF.jpg" },
+    { 2460694.1362169    , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_151500_1024_HMIIF.jpg" },
+    { 2460694.146633567  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_153000_1024_HMIIF.jpg" },
+    { 2460694.1570502333 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_154500_1024_HMIIF.jpg" },
+    { 2460694.1674669    , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_160000_1024_HMIIF.jpg" },
+    { 2460694.177883567  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_161500_1024_HMIIF.jpg" },
+    { 2460694.1883002333 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_163000_1024_HMIIF.jpg" },
+    { 2460694.1987169    , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_164500_1024_HMIIF.jpg" },
+    { 2460694.209133567  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_170000_1024_HMIIF.jpg" },
+    { 2460694.2195502333 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_171500_1024_HMIIF.jpg" },
+    { 2460694.2299669    , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_173000_1024_HMIIF.jpg" },
+    { 2460694.240383567  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_174500_1024_HMIIF.jpg" },
+    { 2460694.2508002333 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_180000_1024_HMIIF.jpg" },
+    { 2460694.2612169    , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_181500_1024_HMIIF.jpg" },
+    { 2460694.2716335673 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_183000_1024_HMIIF.jpg" },
+    { 2460694.282050234  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_184500_1024_HMIIF.jpg" },
+    { 2460694.2924669003 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_190000_1024_HMIIF.jpg" },
+    { 2460694.3028835673 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_191500_1024_HMIIF.jpg" },
+    { 2460694.313300234  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_193000_1024_HMIIF.jpg" },
+    { 2460694.3237169003 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_194500_1024_HMIIF.jpg" },
+    { 2460694.3341335673 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_200000_1024_HMIIF.jpg" },
+    { 2460694.344550234  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_201500_1024_HMIIF.jpg" },
+    { 2460694.3549669003 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_203000_1024_HMIIF.jpg" },
+    { 2460694.3653835673 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_204500_1024_HMIIF.jpg" },
+    { 2460694.375800234  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_210000_1024_HMIIF.jpg" },
+    { 2460694.3862169003 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_211500_1024_HMIIF.jpg" },
+    { 2460694.3966335673 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_213000_1024_HMIIF.jpg" },
+    { 2460694.4070502343 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_214500_1024_HMIIF.jpg" },
+    { 2460694.417466901  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_220000_1024_HMIIF.jpg" },
+    { 2460694.4278835678 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_221500_1024_HMIIF.jpg" },
+    { 2460694.4383002343 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_223000_1024_HMIIF.jpg" },
+    { 2460694.448716901  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_224500_1024_HMIIF.jpg" },
+    { 2460694.4591335678 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_230000_1024_HMIIF.jpg" },
+    { 2460694.4695502343 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_231500_1024_HMIIF.jpg" },
+    { 2460694.479966901  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_233000_1024_HMIIF.jpg" },
+    { 2460694.4903835678 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250118_234500_1024_HMIIF.jpg" },
+    { 2460694.5008002343 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_000000_1024_HMIIF.jpg" },
+    { 2460694.511216901  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_001500_1024_HMIIF.jpg" },
+    { 2460694.5216335678 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_003000_1024_HMIIF.jpg" },
+    { 2460694.5320502343 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_004500_1024_HMIIF.jpg" },
+    { 2460694.5424669012 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_010000_1024_HMIIF.jpg" },
+    { 2460694.552883568  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_011500_1024_HMIIF.jpg" },
+    { 2460694.5633002347 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_013000_1024_HMIIF.jpg" },
+    { 2460694.5737169012 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_014500_1024_HMIIF.jpg" },
+    { 2460694.584133568  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_020000_1024_HMIIF.jpg" },
+    { 2460694.5945502347 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_021500_1024_HMIIF.jpg" },
+    { 2460694.6049669012 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_023000_1024_HMIIF.jpg" },
+    { 2460694.615383568  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_024500_1024_HMIIF.jpg" },
+    { 2460694.6258002347 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_030000_1024_HMIIF.jpg" },
+    { 2460694.6362169012 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_031500_1024_HMIIF.jpg" },
+    { 2460694.646633568  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_033000_1024_HMIIF.jpg" },
+    { 2460694.6570502347 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_034500_1024_HMIIF.jpg" },
+    { 2460694.6674669012 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_040000_1024_HMIIF.jpg" },
+    { 2460694.6778835687 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_041500_1024_HMIIF.jpg" },
+    { 2460694.688300235  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_043000_1024_HMIIF.jpg" },
+    { 2460694.6987169017 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_044500_1024_HMIIF.jpg" },
+    { 2460694.7091335687 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_050000_1024_HMIIF.jpg" },
+    { 2460694.719550235  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_051500_1024_HMIIF.jpg" },
+    { 2460694.7299669017 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_053000_1024_HMIIF.jpg" },
+    { 2460694.7403835687 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_054500_1024_HMIIF.jpg" },
+    { 2460694.750800235  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_060000_1024_HMIIF.jpg" },
+    { 2460694.7612169017 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_061500_1024_HMIIF.jpg" },
+    { 2460694.7716335687 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_063000_1024_HMIIF.jpg" },
+    { 2460694.782050235  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_064500_1024_HMIIF.jpg" },
+    { 2460694.854966902  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_083000_1024_HMIIF.jpg" },
+    { 2460694.865383569  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_084500_1024_HMIIF.jpg" },
+    { 2460694.886216902  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_091500_1024_HMIIF.jpg" },
+    { 2460694.896633569  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_093000_1024_HMIIF.jpg" },
+    { 2460694.917466902  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_100000_1024_HMIIF.jpg" },
+    { 2460694.927883569  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_101500_1024_HMIIF.jpg" },
+    { 2460694.9383002357 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_103000_1024_HMIIF.jpg" },
+    { 2460694.9487169026 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_104500_1024_HMIIF.jpg" },
+    { 2460694.9591335696 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_110000_1024_HMIIF.jpg" },
+    { 2460694.969550236  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_111500_1024_HMIIF.jpg" },
+    { 2460694.9799669026 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_113000_1024_HMIIF.jpg" },
+    { 2460694.9903835696 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_114500_1024_HMIIF.jpg" },
+    { 2460695.000800236  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_120000_1024_HMIIF.jpg" },
+    { 2460695.0112169026 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_121500_1024_HMIIF.jpg" },
+    { 2460695.0216335696 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_123000_1024_HMIIF.jpg" },
+    { 2460695.032050236  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_124500_1024_HMIIF.jpg" },
+    { 2460695.0424669026 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_130000_1024_HMIIF.jpg" },
+    { 2460695.0528835696 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_131500_1024_HMIIF.jpg" },
+    { 2460695.063300236  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_133000_1024_HMIIF.jpg" },
+    { 2460695.0737169026 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_134500_1024_HMIIF.jpg" },
+    { 2460695.08413357   , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_140000_1024_HMIIF.jpg" },
+    { 2460695.0945502366 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_141500_1024_HMIIF.jpg" },
+    { 2460695.104966903  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_143000_1024_HMIIF.jpg" },
+    { 2460695.11538357   , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_144500_1024_HMIIF.jpg" },
+    { 2460695.1258002366 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_150000_1024_HMIIF.jpg" },
+    { 2460695.136216903  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_151500_1024_HMIIF.jpg" },
+    { 2460695.14663357   , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_153000_1024_HMIIF.jpg" },
+    { 2460695.1570502366 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_154500_1024_HMIIF.jpg" },
+    { 2460695.167466903  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_160000_1024_HMIIF.jpg" },
+    { 2460695.17788357   , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_161500_1024_HMIIF.jpg" },
+    { 2460695.1883002366 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_163000_1024_HMIIF.jpg" },
+    { 2460695.198716903  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_164500_1024_HMIIF.jpg" },
+    { 2460695.20913357   , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_170000_1024_HMIIF.jpg" },
+    { 2460695.219550237  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_171500_1024_HMIIF.jpg" },
+    { 2460695.2299669036 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_173000_1024_HMIIF.jpg" },
+    { 2460695.2403835705 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_174500_1024_HMIIF.jpg" },
+    { 2460695.250800237  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_180000_1024_HMIIF.jpg" },
+    { 2460695.2612169036 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_181500_1024_HMIIF.jpg" },
+    { 2460695.2716335705 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_183000_1024_HMIIF.jpg" },
+    { 2460695.282050237  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_184500_1024_HMIIF.jpg" },
+    { 2460695.2924669036 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_190000_1024_HMIIF.jpg" },
+    { 2460695.3028835705 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_191500_1024_HMIIF.jpg" },
+    { 2460695.313300237  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_193000_1024_HMIIF.jpg" },
+    { 2460695.3237169036 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_194500_1024_HMIIF.jpg" },
+    { 2460695.3341335705 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_200000_1024_HMIIF.jpg" },
+    { 2460695.344550237  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_201500_1024_HMIIF.jpg" },
+    { 2460695.354966904  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_203000_1024_HMIIF.jpg" },
+    { 2460695.365383571  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_204500_1024_HMIIF.jpg" },
+    { 2460695.3758002375 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_210000_1024_HMIIF.jpg" },
+    { 2460695.386216904  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_211500_1024_HMIIF.jpg" },
+    { 2460695.396633571  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_213000_1024_HMIIF.jpg" },
+    { 2460695.4070502375 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_214500_1024_HMIIF.jpg" },
+    { 2460695.417466904  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_220000_1024_HMIIF.jpg" },
+    { 2460695.427883571  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_221500_1024_HMIIF.jpg" },
+    { 2460695.4383002375 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_223000_1024_HMIIF.jpg" },
+    { 2460695.448716904  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_224500_1024_HMIIF.jpg" },
+    { 2460695.459133571  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_230000_1024_HMIIF.jpg" },
+    { 2460695.4695502375 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_231500_1024_HMIIF.jpg" },
+    { 2460695.479966904  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_233000_1024_HMIIF.jpg" },
+    { 2460695.4903835715 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_234500_1024_HMIIF.jpg" },
+    { 2460695.500800238  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_000000_1024_HMIIF.jpg" },
+    { 2460695.5112169045 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_001500_1024_HMIIF.jpg" },
+    { 2460695.5216335715 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_003000_1024_HMIIF.jpg" },
+    { 2460695.532050238  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_004500_1024_HMIIF.jpg" },
+    { 2460695.5424669045 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_010000_1024_HMIIF.jpg" },
+    { 2460695.5528835715 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_011500_1024_HMIIF.jpg" },
+    { 2460695.563300238  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_013000_1024_HMIIF.jpg" },
+    { 2460695.5737169045 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_014500_1024_HMIIF.jpg" },
+    { 2460695.5841335715 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_020000_1024_HMIIF.jpg" },
+    { 2460695.594550238  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_021500_1024_HMIIF.jpg" },
+    { 2460695.6049669045 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_023000_1024_HMIIF.jpg" },
+    { 2460695.6153835715 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_024500_1024_HMIIF.jpg" },
+    { 2460695.625800238  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_030000_1024_HMIIF.jpg" },
+    { 2460695.6362169045 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_031500_1024_HMIIF.jpg" },
+    { 2460695.646633572  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_033000_1024_HMIIF.jpg" },
+    { 2460695.6570502385 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_034500_1024_HMIIF.jpg" },
+    { 2460695.667466905  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_040000_1024_HMIIF.jpg" },
+    { 2460695.677883572  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_041500_1024_HMIIF.jpg" },
+    { 2460695.6883002385 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_043000_1024_HMIIF.jpg" },
+    { 2460695.698716905  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_044500_1024_HMIIF.jpg" },
+    { 2460695.709133572  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_050000_1024_HMIIF.jpg" },
+    { 2460695.7195502385 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_051500_1024_HMIIF.jpg" },
+    { 2460695.729966905  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_053000_1024_HMIIF.jpg" },
+    { 2460695.740383572  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_054500_1024_HMIIF.jpg" },
+    { 2460695.7508002385 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_060000_1024_HMIIF.jpg" },
+    { 2460695.761216905  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_061500_1024_HMIIF.jpg" },
+    { 2460695.771633572  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_063000_1024_HMIIF.jpg" },
+    { 2460695.7820502385 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_064500_1024_HMIIF.jpg" },
+    { 2460695.8549669054 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_083000_1024_HMIIF.jpg" },
+    { 2460695.8653835724 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_084500_1024_HMIIF.jpg" },
+    { 2460695.8862169054 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_091500_1024_HMIIF.jpg" },
+    { 2460695.8966335724 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_093000_1024_HMIIF.jpg" },
+    { 2460695.9174669054 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_100000_1024_HMIIF.jpg" },
+    { 2460695.9278835724 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_101500_1024_HMIIF.jpg" },
+    { 2460695.938300239  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_103000_1024_HMIIF.jpg" },
+    { 2460695.9487169054 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_104500_1024_HMIIF.jpg" },
+    { 2460695.9591335724 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_110000_1024_HMIIF.jpg" },
+    { 2460695.969550239  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_111500_1024_HMIIF.jpg" },
+    { 2460695.9799669054 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_113000_1024_HMIIF.jpg" },
+    { 2460695.990383573  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_114500_1024_HMIIF.jpg" },
+    { 2460696.0008002394 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_120000_1024_HMIIF.jpg" },
+    { 2460696.011216906  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_121500_1024_HMIIF.jpg" },
+    { 2460696.021633573  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_123000_1024_HMIIF.jpg" },
+    { 2460696.0320502394 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_124500_1024_HMIIF.jpg" },
+    { 2460696.042466906  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_130000_1024_HMIIF.jpg" },
+    { 2460696.052883573  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_131500_1024_HMIIF.jpg" },
+    { 2460696.0633002394 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_133000_1024_HMIIF.jpg" },
+    { 2460696.073716906  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_134500_1024_HMIIF.jpg" },
+    { 2460696.084133573  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_140000_1024_HMIIF.jpg" },
+    { 2460696.0945502394 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_141500_1024_HMIIF.jpg" },
+    { 2460696.104966906  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_143000_1024_HMIIF.jpg" },
+    { 2460696.115383573  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_144500_1024_HMIIF.jpg" },
+    { 2460696.1258002394 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_150000_1024_HMIIF.jpg" },
+    { 2460696.136216906  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_151500_1024_HMIIF.jpg" },
+    { 2460696.146633573  , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_153000_1024_HMIIF.jpg" },
+    { 2460696.15705024   , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_154500_1024_HMIIF.jpg" },
+    { 2460696.1674669064 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_160000_1024_HMIIF.jpg" },
+    { 2460696.1778835733 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_161500_1024_HMIIF.jpg" },
+    { 2460696.18830024   , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_163000_1024_HMIIF.jpg" },
+    { 2460696.1987169064 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_164500_1024_HMIIF.jpg" },
+    { 2460696.2091335733 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_170000_1024_HMIIF.jpg" },
+    { 2460696.21955024   , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_171500_1024_HMIIF.jpg" },
+    { 2460696.2299669064 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_173000_1024_HMIIF.jpg" },
+    { 2460696.2403835733 , "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250120_174500_1024_HMIIF.jpg" }
+};
+
+std::vector<BlinkTester::Blink_Entry> Photo_List{
+    {NO_DOUBLE, "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\cropped circular3.png"}
+};
+
 void blinkTest(Application& app) {
     const float radius_gp = 0.03f;
     Astronomy* astro = app.newAstronomy();
     astro->setTime(2025, 1, 19.0, 21.0, 45.0, 0.0);
-    std::cout << astro->getTimeString() << std::endl;
+    //std::cout << astro->getTimeString() << std::endl;
 
     Scene* scene = app.newScene();
     scene->astro = astro;
@@ -772,24 +1020,67 @@ void blinkTest(Application& app) {
     RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
     gui->addLayer3D(layer, "EarthView");
 
-    //BlinkTester* blink = new BlinkTester(scene, nullptr, "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\Screenshot 2025-02-19 143022.jpg", "");
+    DetailedEarth* erf = new DetailedEarth(scene, nullptr, "NSER", 180, 90, 1.0f);
+    app.currentEarth2 = erf;   // Bind Earth to keyboard updates
+    erf->inlunation = false;
+    erf->w_twilight = false;
+    erf->w_mrefract = true;    // Initially show refracted terminator
+    //erf->addLatitude();
+    Latitude* mylat = new Latitude(scene, erf, erf, 0.0);
+    mylat->setWidth(0.001f);
+
     BlinkTester* blink = new BlinkTester(
         scene,
         nullptr,
-        "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_111500_1024_HMIIF.jpg",
-        "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\cropped circular.png"
+        &SDO_List,
+        &Photo_List
     );
-    //blink->loadImage2("C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\Screenshot 2025-02-19 142913.jpg");
-    //blink->loadImage2("C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\cropped circular.png");
-    //Quad* blink1 = new Quad(scene, nullptr, "C:\\Users\\micha\\Desktop\\FEM Challenge 2025-02\\SDO HMI data\\20250119_120000_1024_HMIIF.jpg", BLINKTEST_1);
+    blink->blink2->alpha = 0.0f;        // start out just showing the SDO sequence
+    blink->blink2->alpha_on = true;
 
+    double pa{ 0 };  // For Position Angle of Sun
+    double full_angle{ 0 };  // pa + q
+    double lat{ 0 };
+    double decl{ 0 };
+    double ang_size{ 0 };
+    LLD sunpos{ 0.0, 0.0, 0.0 };
     while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
     {
-        if (app.anim) {
-            //astro->setTimeNow();
-            astro->addTime(0.0, 0.0, 4.0, 0.0);
-            //astro->addTime(0.0, 0.0, 0.0, 31558149.504); // Sidereal year in seconds
+        // Position angle of Sun
+        pa = ASun::CalculatePhysicalSun(astro->getJD_TT(), Planetary_Ephemeris::EPH_VSOP87_FULL).P;
+        blink->pos_ang = (float)pa * rad2degf;
+        //std::cout << "Sun Position Angle: " << ACoord::angle2DMSstring(pa) << "\n";
+        // blink2 is the top image which is being rotated
+        full_angle = (double)(blink->blink2->rotation * deg2radf) + pa;
+        //std::cout << "Sun Parallactic Angle: " << ACoord::angle2DMSstring(full_angle) << "\n";
+        blink->par_ang = (float)full_angle * rad2degf;
+        // Calculate Ecliptic Sun position
+        sunpos.lat = ASun::GeometricEclipticLatitude(astro->getJD_TT());
+        sunpos.lon = ASun::GeometricEclipticLongitude(astro->getJD_TT());
+        sunpos += AEarth::EclipticAberration(sunpos.lon, sunpos.lat, astro->getJD_TT(), Planetary_Ephemeris::EPH_VSOP87_FULL);
+        sunpos.lon += AEarth::NutationInLongitude(astro->getJD_TT());
+        // Convert to Equatorial Sun position
+        double obliq = AEarth::TrueObliquityOfEcliptic(astro->getJD_TT());
+        sunpos = Spherical::Ecliptic2Equatorial(sunpos, obliq);
+        
+        // Adjust the latitude band
+        lat = asin(cos(full_angle) * cos(sunpos.lat));  // Meeus p99  cos(parallactic angle) = sin(latitude) / cos(declination)
+        //std::cout << rad2deg * lat << " (" << ACoord::angle2DMSstring(lat) << ")\n";
+        mylat->setLatitude(lat);
+        blink->lat_ang = (float)lat * rad2degf;
+
+        ang_size = ASun::SunSemidiameterA(AEarth::EclipticDistance(astro->getJD_TT(), EPH_VSOP87_FULL));
+        
+        if (app.anim) {  // Spacebar gives output
+            std::cout << "\n" << astro->m_datetime.stringms() << " = JD_UTC: " << astro->getJD_UTC() << " = JD_TT: " << astro->getJD_TT() << "\n";
+            std::cout << "Position Angle: " << pa * rad2deg << "(" << ACoord::angle2DMSstring(pa) << ")\n";
+            std::cout << "Parallactic Angle: " << full_angle * rad2deg << "(" << ACoord::angle2DMSstring(full_angle) << ")\n";
+            std::cout << "LATITUDE: " << lat * rad2deg << "(" << ACoord::angle2DMSstring(lat) << ")\n";
+            std::cout << "Sun Angular Size: " << ACoord::angle2DMSstring(2.0 * ang_size) << "\n";
+
+            app.anim = false;
         }
+
 
         //app.anim = false; // Nice for single step action. <space> will set app.anim in app.render, and we get back here one frame later.
         app.render();
@@ -832,6 +1123,54 @@ void testEarthMoonSun(Application& app) {
     }
 }
 
+// -------------------
+//  Test EarthSun
+// -------------------
+void testEarthSun(Application& app) {
+    // Set up
+    Astronomy* astro = app.newAstronomy();
+    astro->setTime(2025, 1, 19.0, 11.0, 43.0, 0.0);  // Time of interest in FEM challenge
+    Scene* scene = app.newScene();
+    scene->astro = astro;
+    Camera* cam = scene->w_camera; // Pick up default camera
+    app.currentCam = cam;          // Bind camera to keyboard updates
+    RenderLayer3D* layer = app.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, nullptr);
+    text->setFont(app.m_font2);
+    text->setAstronomy(astro);
+    RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    gui->addLayer3D(layer, "Earth Sun Axes");
+
+    // Test object
+    EarthSun* es = new EarthSun(scene, nullptr);
+    //es->addEarthSunLine();
+
+    // Equatorial Coordinate sphere
+    EquatorialCoordinates* eq = new EquatorialCoordinates(scene, es->earth, 24);
+    eq->setWidthColor(0.002f, LIGHT_GREY);
+    // Line from center of Earth to center of Sun
+    SightLine* es_line = new SightLine(scene, es->earth, es->earthpos, es->sunpos, 0.003f, LIGHT_YELLOW);
+    // Line from center of Earth to north tip of Sun axis
+    SightLine* ee_line = new SightLine(scene, es->earth, es->earthpos, es->sunaxis1, 0.003f, LIGHT_YELLOW);
+
+
+    //scene->scenetree->printSceneTree();
+
+    while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
+    {
+        if (app.anim) {
+            //astro->setTimeNow();
+            astro->addTime(0.0, 2.0, 0.0, 0.0);
+        }
+        //cam->setPosLLH(es->earthloc * rad2deg);
+        //app.anim = false; // Nice for single step action. <space> will set app.anim in app.render, and we get back here one frame later.
+        
+        es_line->setStartEnd(es->earthpos, es->sunpos);
+        ee_line->setStartEnd(es->earthpos, es->sunaxis1);
+        
+        app.render();
+    }
+}
 
 
 // -----------------
@@ -951,7 +1290,10 @@ int main(int argc, char** argv) {
     //testEarthMoonSun(app);
     //testGeometry(app);
 
-    blinkTest(app);
+
+    //blinkTest(app);
+    testEarthSun(app);
+
 
     // Cleanup - Move this to cleanup function in Application.
     glfwTerminate();

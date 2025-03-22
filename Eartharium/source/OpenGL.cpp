@@ -167,6 +167,7 @@ void Texture::LoadTextureFile() {
 
     // NOTE: This forces SOIL2 to load RGB and discard Alpha. Handy when loading PNG, unless you need A channel!
 	//i_image = SOIL_load_image(m_FilePath.c_str(), &i_width, &i_height, &i_channels, SOIL_LOAD_RGB);
+    if (m_FilePath.empty()) return; // Bail if no texture file is specified
 	i_image = SOIL_load_image(m_FilePath.c_str(), &i_width, &i_height, &i_channels, 0); // no force_channels
 	if (!i_image) { std::cout << "FAILED LOADING TEXTURE IMAGE FROM DISC! " << m_FilePath.c_str() << std::endl; }
 	//else { std::cout << "Texture slot "<< m_TextureSlot <<  " loaded: " << m_FilePath.c_str() << ", " << &i_image << ", " << i_width << ", " << i_height << std::endl; }
@@ -184,7 +185,7 @@ void Texture::ChangeTextureFile(const std::string& imagefile) {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, 0);
     SOIL_free_image_data(i_image);
-    std::cout << "Image: " << i_width << "x" << i_height << " in " << i_channels << " channels.\n";
+    //std::cout << "Image: " << i_width << "x" << i_height << " in " << i_channels << " channels.\n";
     return;
 }
 

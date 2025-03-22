@@ -101,6 +101,12 @@ public:
     static LLD Geocentric2Geographic(LLD geocentric);
     static LLD Geographic2Geocentric(LLD geographic);
 
+    // Parallactic (CAAParallactic)
+    static double ParallacticAngle(double HourAngle, double Latitude, double delta) noexcept;
+    static double EclipticLongitudeOnHorizon(double LocalSiderealTime, double ObliquityOfEcliptic, double Latitude) noexcept;
+    static double AngleBetweenEclipticAndHorizon(double LocalSiderealTime, double ObliquityOfEcliptic, double Latitude) noexcept;
+    static double AngleBetweenNorthCelestialPoleAndNorthPoleOfEcliptic(double Lambda, double Beta, double ObliquityOfEcliptic) noexcept;
+
     // Parallax
     static double DistanceToParallax(double Distance) noexcept;
     static double ParallaxToDistance(double Parallax) noexcept;
