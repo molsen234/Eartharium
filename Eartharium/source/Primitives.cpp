@@ -1217,6 +1217,8 @@ void SphereUV::changeStartEnd(size_t index, glm::vec3 pos, glm::vec3 end, float 
     if (color == NO_COLOR) color = prim->color;
     if (width == NO_FLOAT) width = prim->scale.x;
     glm::vec3 dir = end - pos;
+    //std::cout << index << " ";
+    //VPRINT(pos) << "\n";
     update(index, { color, pos, glm::normalize(dir), glm::vec3(width, glm::length(dir), width), 0.0f });
 }
 void SphereUV::removeSphereUV(size_t index) { remove(index); }

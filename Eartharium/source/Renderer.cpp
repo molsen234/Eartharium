@@ -534,7 +534,7 @@ void Camera::Recalc() {
 // -----------
 PolyCurveSO::PolyCurveSO(Scene* scene, SceneObject* parent, glm::vec4 color, float width, size_t reserve)
     : SceneObject(scene, parent) {
-    name = "PolyCurve";
+    name = "PolyCurveSO";
     if (reserve == NO_UINT) reserve = polycurvereserve;
     m_color = color;
     m_width = width;

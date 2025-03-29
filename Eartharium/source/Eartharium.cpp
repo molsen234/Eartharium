@@ -1147,12 +1147,26 @@ void testEarthSun(Application& app) {
 
     // Equatorial Coordinate sphere
     EquatorialCoordinates* eq = new EquatorialCoordinates(scene, es->earth, 24);
+    double eq_radius = 0.5;
+    eq->scale = { eq_radius, eq_radius, eq_radius };
     eq->setWidthColor(0.002f, LIGHT_GREY);
+
+    EclipticCoordinates* ec = new EclipticCoordinates(scene, es->sun, 24);
+    ec->scale = { eq_radius, eq_radius, eq_radius };
+    ec->setWidthColor(0.002f, LIGHT_GREY);
+
     // Line from center of Earth to center of Sun
     SightLine* es_line = new SightLine(scene, es->earth, es->earthpos, es->sunpos, 0.003f, LIGHT_YELLOW);
     // Line from center of Earth to north tip of Sun axis
     SightLine* ee_line = new SightLine(scene, es->earth, es->earthpos, es->sunaxis1, 0.003f, LIGHT_YELLOW);
 
+    LLD p1 = { 0.0, 0.0, 1.0 };
+    LLD p2 = { 45.0, 45.0, 1.0 };
+    p1 *= deg2rad;
+    p2 *= deg2rad;
+    LLD ncp = { pi2, 0.0, 1.0 };
+    SimpleArc* sunaxis_arc = new SimpleArc(scene, eq, p1, p2);
+    SimpleArc* sunpos_arc = new SimpleArc(scene, eq, ncp, p1);
 
     //scene->scenetree->printSceneTree();
 
@@ -1168,6 +1182,20 @@ void testEarthSun(Application& app) {
         es_line->setStartEnd(es->earthpos, es->sunpos);
         ee_line->setStartEnd(es->earthpos, es->sunaxis1);
         
+        // Arc between sun center and north axis endpoint, projected onto EQ sphere
+        // Sun center projection
+        glm::dvec3 sunpoint = es->sunpos - es->earthpos;
+        sunpoint = glm::normalize(sunpoint) * eq_radius;
+        LLD sunpoint_eq = Spherical::Rectangular2Spherical(sunpoint);
+        // Sun axis endpoint projection
+        glm::dvec3 ee = es->sunaxis1 - es->earthpos;
+        ee = glm::normalize(ee) * eq_radius;
+        LLD ee_eq = Spherical::Rectangular2Spherical(ee);
+        // Adjust arc to be suncenter to sun axis north end
+        sunaxis_arc->setStartEnd(sunpoint_eq, ee_eq);
+
+        // Arc between Sun center and North Celestial Pole
+        sunpos_arc->setStartEnd(sunpoint_eq, ncp);
         app.render();
     }
 }

@@ -1364,7 +1364,62 @@ private:
 // -----------
 class SimpleArc : public SceneObject {
 public:
+    SimpleArc(Scene* scene, SceneObject* parent, LLD p1, LLD p2)
+    : SceneObject(scene, parent), p1(p1), p2(p2) {
+        name = "Arc";
+        path = new SmartPath(scene, this);
+        generate();
+    }
+    ~SimpleArc() {
+        if (path) delete path;
+    }
+    void setStartEnd(LLD p1, LLD p2) {
+        this->p1 = p1;
+        this->p2 = p2;
+        generate();
+    }
+    void generate() {
+        // Build arc path here
+        path->clearPoints();
+        double fstep = 1.0 / (rad2deg * calcArcDist(p1, p2));
+        for (double f = 0.0; f <= 1.0; f += fstep) {
+            path->addPoint(calcGreatArc(p1, p2, f));
+        }
+        path->addPoint(calcGreatArc(p1, p2, 1.0));  // Make sure we reach the "far" end point exactly.
+    }
+    double calcArcDist(LLD lld1, LLD lld2) {
+        double sin1 = sin(lld1.lat);
+        double sin2 = sin(lld2.lat);
+        double cos1 = cos(lld1.lat);
+        double cos2 = cos(lld2.lat);
+        double dlon = lld2.lon - lld1.lon;
+        double sind = sin(dlon);
+        double cosd = cos(dlon);
+        double a = sqrt(pow((cos2 * sind), 2) + pow((cos1 * sin2 - sin1 * cos2 * cosd), 2));
+        double b = sin1 * sin2 + cos1 * cos2 * cosd;
+        double dist = atan2(a, b);
+        return dist;  // Arc distance in radians
+    }
+    glm::vec3 calcGreatArc(LLD lld1, LLD lld2, double f) {
+        // calculate point on great circle arc between lld1 and lld2
+        // f is "lerp param" from 0.0 to 1.0
+        // LLD.dst is ignored and assumed to be 1.0 (i.e. on a unit sphere)
+        glm::vec3 ret;
+        double d = acos(sin(lld1.lat) * sin(lld2.lat) + cos(lld1.lat) * cos(lld2.lat) * cos(lld1.lon - lld2.lon));
+        double A = sin((1 - f) * d) / sin(d);
+        double B = sin(f * d) / sin(d);
+        ret.x = (float)(A * cos(lld1.lat) * cos(lld1.lon) + B * cos(lld2.lat) * cos(lld2.lon));
+        ret.y = (float)(A * cos(lld1.lat) * sin(lld1.lon) + B * cos(lld2.lat) * sin(lld2.lon));
+        ret.z = (float)(A * sin(lld1.lat) + B * sin(lld2.lat));
+        return ret;
+    }
+    void draw(Camera* cam) override {}
+    bool update() override { return false; }
 
+public:
+    SmartPath* path{ nullptr };
+    LLD p1;
+    LLD p2;
 };
 
 // ------------------
@@ -1393,16 +1448,16 @@ public:
         LLD latlon{};
         latlon.lon = lon;
         latlon.dst = 1.0;
-        for (double lat = -pi2; lat <= pi2; lat += deg2rad) {
+        for (double lat = -pi2; lat <= pi2 + verytiny; lat += deg2rad) {
             latlon.lat = lat;
             pos = Spherical::Spherical2Rectangular(latlon);
             path->addPoint((glm::vec3)pos);
         }
+        // added verytiny in loop above to (hopefully) avoid small gaps at the pole, so this is not needed now:
+        //path->addPoint((glm::vec3)Spherical::Spherical2Rectangular({ pi2, lon, 1.0 }));
     }
-    bool update() override {
-        return false;
-    };
-    void draw(Camera* cam) override {};
+    bool update() override { return false; }
+    void draw(Camera* cam) override {}
 public:
     SmartPath* path{ nullptr };
     double lon{ 0.0 };
@@ -1438,24 +1493,65 @@ public:
     ~SimpleLatitude() {
         if (path) delete path;
     }
-    void draw(Camera* cam) override {};
-    bool update() override { return false; }; // Allow world matrix inheritance
+    void draw(Camera* cam) override {}
+    bool update() override { return false; } // Allow world matrix inheritance
 public:
     SmartPath* path{ nullptr };
     double lat;
 };
 
-// -----------------------
-//  EquatorialCoordinates
-// -----------------------
-class EquatorialCoordinates : public SceneObject {
+// ----------
+//  UVSphere
+// ----------
+class UVSphere : public SceneObject {
 public:
-    EquatorialCoordinates(Scene* scene, SceneObject* parent, unsigned int divisions)
-    : SceneObject(scene, parent), divs(divisions) {
-        name = "EQ_Coord";
+    UVSphere(Scene* scene, SceneObject* parent, float radius, glm::vec4 color) : SceneObject(scene, parent), r(radius) {
+        name = "UVSphere";
+        this->color = color;
+        sphereuv = scene->getSphereUVFactory()->addStartEnd({ 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, r }, r, color);
+        //  generate();
+    }
+    void draw(Camera* cam) override {
+        //  Using SphereUV primitive, so nothing to draw here
+    }
+    bool update() override {
+        if (m_parent != nullptr) worldmatrix = m_parent->getWorldMat();
+        else worldmatrix = glm::mat4(1.0f);
+        worldmatrix = glm::scale(worldmatrix, scale);
+        if (rotationorder == XYZ) {
+            worldmatrix = glm::rotate(worldmatrix, rotations.x, glm::vec3(1.0f, 0.0f, 0.0f));
+            worldmatrix = glm::rotate(worldmatrix, rotations.y, glm::vec3(0.0f, 1.0f, 0.0f));
+            worldmatrix = glm::rotate(worldmatrix, rotations.z, glm::vec3(0.0f, 0.0f, 1.0f));
+        }
+        if (rotationorder == ZYX) {
+            worldmatrix = glm::rotate(worldmatrix, rotations.z, glm::vec3(0.0f, 0.0f, 1.0f));
+            worldmatrix = glm::rotate(worldmatrix, rotations.y, glm::vec3(0.0f, 1.0f, 0.0f));
+            worldmatrix = glm::rotate(worldmatrix, rotations.x, glm::vec3(1.0f, 0.0f, 0.0f));
+        }
+        worldmatrix = glm::translate(worldmatrix, position);
+        glm::vec3 pos = worldmatrix * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        glm::vec3 dir = worldmatrix * glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
+
+        scene->getSphereUVFactory()->changeStartEnd(sphereuv, pos, dir, r, NO_COLOR);
+        return true;  //  worldmatrix has been built already so don't inherit
+    }
+private:
+    size_t sphereuv{ NO_UINT };
+    float r{ 1.0f };  // radius
+};
+
+// ----------------------
+//  SphericalCoordinates
+// ----------------------
+class SphericalCoordinates : public SceneObject {
+public:
+    SphericalCoordinates(Scene* scene, SceneObject* parent, unsigned int divisions)
+        : SceneObject(scene, parent), divs(divisions) {
+        name = "Sphere_Coord";
+        sphere = new UVSphere(scene, this, 0.5f, { 0.0f, 0.0f, 0.0f, 0.4f });
         generate();
     }
-    ~EquatorialCoordinates() {
+    ~SphericalCoordinates() {
         for (auto lat : latitudes) { delete lat; };
         for (auto lon : longitudes) { delete lon; };
     }
@@ -1470,7 +1566,7 @@ public:
     void generate() {
         // create latitudes and longitudes
         double latstep = tau / (double)divs;
-        for (double lati = -pi2; lati < pi2; lati += latstep ) {
+        for (double lati = -pi2; lati < pi2; lati += latstep) {
             latitudes.emplace_back(new SimpleLatitude(scene, this, lati));
         }
         double lonstep = tau / (double)divs;
@@ -1478,13 +1574,45 @@ public:
             longitudes.emplace_back(new SimpleLongitude(scene, this, lngi));
         }
     }
-    void draw(Camera* cam) override {};
-    bool update() override { return false; }; // Allow world matrix inheritance
-
+    void draw(Camera* cam) override {}
+    bool update() override {
+        return false;
+    }
 public:
     unsigned int divs{ 24 };
+    UVSphere* sphere{ nullptr };
     std::vector<SimpleLatitude*> latitudes;
     std::vector<SimpleLongitude*> longitudes;
+};
+
+// -----------------------
+//  EquatorialCoordinates
+// -----------------------
+class EquatorialCoordinates : public SphericalCoordinates {
+public:
+    EquatorialCoordinates(Scene* scene, SceneObject* parent, unsigned int divisions)
+    : SphericalCoordinates(scene, parent, divisions) {
+        name = "EQ_Coord";
+    }
+    bool update() override {
+        return false;
+    }
+};
+
+// ---------------------
+//  EclipticCoordinates
+// ---------------------
+class EclipticCoordinates : public SphericalCoordinates {
+public:
+    EclipticCoordinates(Scene* scene, SceneObject* parent, unsigned int divisions)
+        : SphericalCoordinates(scene, parent, divisions) {
+        name = "EC_Coord";
+        rotations.x = deg2radf * 23.5f;
+    }
+    bool update() override {
+        rotations.x = (float)scene->astro->TrueObliquityOfEcliptic(scene->astro->getJD_TT(), true);
+        return false;
+    }
 };
 
 // -----------
@@ -1522,6 +1650,7 @@ class EarthSun : public SceneObject {
 public:
     EarthSun() = delete;
     EarthSun(Scene* scene, SceneObject* parent) : SceneObject(scene, parent) {
+        name = "EarthSun";
         // Create Planetoids
         earth = new Planetoid(scene, this, EARTH, 40, 20, 0.08f);
         earth->name = "Earth";
@@ -1542,7 +1671,6 @@ public:
         earthloc = Spherical::Ecliptic2Equatorial(earthloc, AEarth::TrueObliquityOfEcliptic(jd_tt));
         earthpos = Spherical::Spherical2Rectangular(earthloc);
         earth->setPosition(earthpos);  // equatorial coordinates
-
         // Earth orientation - Axis of Rotation
         glm::vec3 equatorialpole = (glm::vec3)AEarth::EquatorialPoleVondrak(jd_tt);
         equatorialpole.x = -equatorialpole.x;
