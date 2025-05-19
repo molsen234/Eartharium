@@ -3665,7 +3665,8 @@ void Location::FlatSun::updateAziAngText() {
     snprintf(dstring, sizeof(dstring), "%03.3f°", ACoord::rangezero2threesixty(rad2deg * localsun.lon - 180.0));
     std::string angle = dstring;
     m_aziangtext->updateText(angle);
-}void Location::FlatSun::enablePath24() {
+}
+void Location::FlatSun::enablePath24() {
     float width = 0.002f;
     m_path24 = m_location->m_scene->newPolyCurve(defaultcolor, width);
     doPath24();

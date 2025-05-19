@@ -1500,12 +1500,12 @@ public:
     double lat;
 };
 
-// ----------
-//  UVSphere
-// ----------
-class UVSphere : public SceneObject {
+// ----------------
+//  SimpleUVSphere
+// ----------------
+class SimpleUVSphere : public SceneObject {
 public:
-    UVSphere(Scene* scene, SceneObject* parent, float radius, glm::vec4 color) : SceneObject(scene, parent), r(radius) {
+    SimpleUVSphere(Scene* scene, SceneObject* parent, float radius, glm::vec4 color) : SceneObject(scene, parent), r(radius) {
         name = "UVSphere";
         this->color = color;
         sphereuv = scene->getSphereUVFactory()->addStartEnd({ 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, r }, r, color);
@@ -1548,7 +1548,7 @@ public:
     SphericalCoordinates(Scene* scene, SceneObject* parent, unsigned int divisions)
         : SceneObject(scene, parent), divs(divisions) {
         name = "Sphere_Coord";
-        sphere = new UVSphere(scene, this, 0.5f, { 0.0f, 0.0f, 0.0f, 0.4f });
+        sphere = new SimpleUVSphere(scene, this, 0.5f, { 0.0f, 0.0f, 0.0f, 0.4f });
         generate();
     }
     ~SphericalCoordinates() {
@@ -1580,7 +1580,7 @@ public:
     }
 public:
     unsigned int divs{ 24 };
-    UVSphere* sphere{ nullptr };
+    SimpleUVSphere* sphere{ nullptr };
     std::vector<SimpleLatitude*> latitudes;
     std::vector<SimpleLongitude*> longitudes;
 };

@@ -14,7 +14,7 @@ public:
 	EDateTime();
 	// - From date and time in UTC
 	EDateTime(long year, long month, double day, double hour, double minute, double second);
-	// - From Julian Date
+	// - From Julian Day
 	EDateTime(double jd_utc, bool is_tt = false);
 	// - From a Unix Time Stamp
 	EDateTime(long unixtime);
@@ -32,15 +32,18 @@ public:
 	long dayofyear() const;
 	std::string string() const;
 	std::string stringms() const;
+	std::string stringJulianDateTime() const;
 	long unixTime() const;
 	// Setters
 	// - Set with date and time in UTC
 	void setTime(long year, long month, double day, double hour, double minute, double second);
 	// - Set to current system time in UTC
 	void setTimeNow();
-	// - Set to specific astronomical Julian Date given in UTC
+	// - Set with date and time in Julian calendar
+	void setTimeJulianDate(long year, long month, double day, double hour, double minute, double second);
+	// - Set to specific astronomical Julian Day given in UTC
 	void setJD_UTC(double jd_utc);
-	// - Set to specific astronomical Julian Date given in TT (Dynamical Time)
+	// - Set to specific astronomical Julian Day given in TT (Dynamical Time)
 	void setJD_TT(double jd_tt);
 	// - Set from Unix timestamp (seconds since 1970-01-01 00:00:00)
 	void setUnixTime(long unixtime);
@@ -56,6 +59,7 @@ public:
 	EDateTime operator+(EDateTime& other);
 	// Static utility functions - can be used without instantiating
 	static void normalizeDateTime(long& yr, long& mo, double& da, double& hr, double& mi, double& se);
+	static void normalizeJulianDateTime(long& yr, long& mo, double& da, double& hr, double& mi, double& se);
 	static int myDivQuotient(const int a, const int b);
 	static int myDivRemainder(const int a, const int b);
 	static double getDateTime2JD_UTC(const long year, const long month, const double day, const double hour, const double minute, const double second);
@@ -73,7 +77,7 @@ public:
 	static double getJDTT2UTC(const double jd);
 	static long calcUnixTimeYearDay(const long year, const long month, const double day);
 	static bool isLeapYear(const long year);
-
+	static bool isJulianLeapYear(const long year);
 	static double FractionalYear(double jd_utc);
 
 	// From AA+ v2.49 CAADynamicalTime

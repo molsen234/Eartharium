@@ -1123,9 +1123,9 @@ void testEarthMoonSun(Application& app) {
     }
 }
 
-// -------------------
+// ---------------
 //  Test EarthSun
-// -------------------
+// ---------------
 void testEarthSun(Application& app) {
     // Set up
     Astronomy* astro = app.newAstronomy();
@@ -1151,9 +1151,9 @@ void testEarthSun(Application& app) {
     eq->scale = { eq_radius, eq_radius, eq_radius };
     eq->setWidthColor(0.002f, LIGHT_GREY);
 
-    EclipticCoordinates* ec = new EclipticCoordinates(scene, es->sun, 24);
-    ec->scale = { eq_radius, eq_radius, eq_radius };
-    ec->setWidthColor(0.002f, LIGHT_GREY);
+    //EclipticCoordinates* ec = new EclipticCoordinates(scene, es->sun, 24);
+    //ec->scale = { eq_radius, eq_radius, eq_radius };
+    //ec->setWidthColor(0.002f, LIGHT_GREY);
 
     // Line from center of Earth to center of Sun
     SightLine* es_line = new SightLine(scene, es->earth, es->earthpos, es->sunpos, 0.003f, LIGHT_YELLOW);
@@ -1284,7 +1284,8 @@ int main(int argc, char** argv) {
     std::string pythonscript;
     if (argc > 1) {
         pythonscript = "c:\\Coding\\Eartharium\\Eartharium\\";
-        pythonscript += +argv[1];
+        pythonscript += argv[1];
+        std::cout << pythonscript << '\n';
         // Do path/file validation here
     }
     if (pythonscript.size() > 0) {  // If there is a python file, execute it

@@ -1,6 +1,6 @@
 
 #include <chrono>
-
+#include <string>
 
 #include "datetime.h"
 #include "datetime_tables.h"  // Generated with python script build_datetime_tables.py
@@ -22,7 +22,7 @@ EDateTime::EDateTime(long year, long month, double day, double hour, double minu
     normalize();
     calcJDs();
 }
-// - From Julian Date
+// - From Julian Day
 EDateTime::EDateTime(double jd, bool is_tt) { // Expects JD in UTC
     // Optional bool tt is false by default, indicating a JD_UTC is expected.
     // If instead a JD_TT is supplied, set the bool to true for correct conversion.
@@ -49,8 +49,8 @@ double EDateTime::day() const { return m_day; }
 double EDateTime::hour() const { return m_hour; }
 double EDateTime::minute() const { return m_minute; }
 double EDateTime::second() const { return m_second; }
-double EDateTime::jd_tt() /* Astronomical Julian date */ const { return m_JD_TT; }
-double EDateTime::jd_utc() /* Astronomical Julian date */ const { return m_JD_UTC; }
+double EDateTime::jd_tt() /* Astronomical Julian day */ const { return m_JD_TT; }
+double EDateTime::jd_utc() /* Astronomical Julian day */ const { return m_JD_UTC; }
 bool EDateTime::isLeap() /* returns true if leap year, false otherwise */ const { return isLeapYear(m_year); }
 long EDateTime::weekday() /* Sun=0 Mon=1 Tue=2 Wed=3 Thu=4 Fri=5 Sat=6 */ const { return ((int)(m_JD_TT + 0.5) + 1) % 7; }
 long EDateTime::dayofyear() const {
@@ -74,12 +74,36 @@ std::string EDateTime::string() const /* Neatly formatted date time string */ {
 std::string EDateTime::stringms() const /* Neatly formatted date time string with milliseconds */ {
     //std::cout << dstring << '\n';
     char buff[100];
-    snprintf(buff, sizeof(buff), "%04d-%02d-%02d %02d:%02d:%02.3f UTC",
+    snprintf(buff, sizeof(buff), "%04d-%02d-%02d %02d:%02d:%06.3f UTC",
         m_year, m_month, (long)m_day, (long)m_hour, (long)m_minute, m_second);
     std::string dstring = buff;
     return dstring;
 }
-
+std::string EDateTime::stringJulianDateTime() const {
+    int s = (int)(m_JD_UTC + 0.5) - 1'721'118;
+    int a1 = myDivQuotient(4 * s + 3, 1461);
+    int w2 = myDivRemainder(4 * s + 3, 1461);
+    int d1 = w2 / 4;
+    int m1 = myDivQuotient(5 * d1 + 2, 153);
+    int w3 = myDivRemainder(5 * d1 + 2, 153);
+    int a2 = myDivQuotient(m1 + 2, 12);
+    int m0 = myDivRemainder(m1 + 2, 12);
+    int a = a1 + a2;
+    int m = m0 + 1;
+    int d = (w3 / 5) + 1;
+    double frac = (m_JD_UTC + 0.5) - floor((m_JD_UTC + 0.5));
+    frac *= 24.0;  // frac to hours
+    int h = (int)floor(frac);
+    frac -= h;
+    frac *= 60.0;  // remaining frac to minutes
+    int mi = (int)floor(frac);
+    frac -= mi;
+    frac *= 60.0;
+    char buff[100];
+    snprintf(buff, sizeof(buff), "%04d-%02d-%02d %02d:%02d:%06.3f", a, m, d, h, mi, frac);
+    std::string retval = buff;
+    return retval;
+}
 long EDateTime::unixTime() const { /* Returns Unix timestamp (in UTC?) of current time */
     return getDateTime2UnixTime(m_year, m_month, m_day, m_hour, m_minute, m_second);
 }
@@ -99,17 +123,33 @@ void EDateTime::setTime(long year, long month, double day, double hour, double m
 void EDateTime::setTimeNow() {
     time_t tt = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
     tm utc_tm;   // tm has a maximum resolution of 1 second, but includes leap seconds.
-    gmtime_s(&utc_tm, &tt);
+    gmtime_s(&utc_tm, &tt);  // !!! NOTE: WIN32 specific, Linux uses a different function.
     setTime((long)utc_tm.tm_year + 1900, (long)utc_tm.tm_mon + 1, (double)utc_tm.tm_mday,
         (double)utc_tm.tm_hour, (double)utc_tm.tm_min, (double)utc_tm.tm_sec);
 }
-// - Set to specific astronomical Julian Date given in UTC
+void EDateTime::setTimeJulianDate(long year, long month, double day, double hour, double minute, double second) {
+    // From: https://www.aa.quae.nl/en/reken/juliaansedag.html section 5.1 & 14.2.1
+    normalizeJulianDateTime(year, month, day, hour, minute, second);
+    double a1 = myDivQuotient(month - 3, 12) + year;
+    double m1 = myDivRemainder(month - 3, 12);
+    double d1 = floor((153.0 * m1 - 3) / 5) + day;
+    // Calculate fractional day and subtract 0.5 as day starts at noon not midnight.
+    d1 += (hour / 24.0) + (minute / 1440.0) + (second / 86'400.0) - 0.5;
+    double s = floor((1461 * a1) / 4) + d1;
+    double J = s + 1'721'118.0;
+    setJD_UTC(J);
+    // Verified against MEEUS92 example 7.b
+    // Verified against wikipedia ( https://en.wikipedia.org/wiki/Julian_calendar )
+    //  using current date and time (Gregorian 2025-04-30 = Julian 2025-04-17 at 12:21:00 = JD 2460796.0145833334
+    // Verified against the examples in https://www.aa.quae.nl/en/reken/juliaansedag.html section 5.1
+}
+// - Set to specific astronomical Julian Day given in UTC
 void EDateTime::setJD_UTC(double jd_utc) {
     m_JD_UTC = jd_utc;
     m_JD_TT = getJDUTC2TT(m_JD_UTC);
     getJD2DateTime(m_JD_UTC, m_year, m_month, m_day, m_hour, m_minute, m_second);
 }
-// - Set to specific astronomical Julian Date given in TT (Dynamical Time)
+// - Set to specific astronomical Julian Day given in TT (Dynamical Time)
 void EDateTime::setJD_TT(double jd_tt) {
     m_JD_TT = jd_tt;
     m_JD_UTC = getJDTT2UTC(m_JD_TT);
@@ -259,6 +299,48 @@ void EDateTime::normalizeDateTime(long& yr, long& mo, double& da, double& hr, do
     accDay -= mi;
     se = accDay * 60.0;  // Fractional seconds
 }
+void EDateTime::normalizeJulianDateTime(long& yr, long& mo, double& da, double& hr, double& mi, double& se) {
+    // FIX: !!! Should probably return a new EDateTime instead of modifying in place, otherwise it won't work with pybind11 !!!
+    static long months[] = { 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+    // Year (is allowed to be any integer)
+    // Month
+    while (mo <= 0) {
+        mo += 12;
+        yr -= 1;
+    }
+    while (mo > 12) {
+        mo -= 12;
+        yr += 1;
+    }
+    // Fractional day
+    double accDay = se / 86400.0 + mi / 1440.0 + hr / 24.0 + da;
+    // Make positive
+    while ((int)accDay <= 0.0) {
+        accDay += 365.0;
+        if (isJulianLeapYear(yr) && mo > 2) accDay += 1.0;
+        yr--;
+    }
+    // Normalize to length of month
+    while ((int)accDay > (isJulianLeapYear(yr) && mo == 2) * 1 + months[mo]) {
+        accDay -= months[mo];
+        if (mo == 2 && isJulianLeapYear(yr)) accDay -= 1.0;
+        mo++;
+        if (mo > 12) {
+            yr += 1;
+            mo = 1;
+        }
+    }
+    da = floor(accDay);
+    accDay -= da - 0.00000000001;
+    accDay *= 24.0; // Fractional hours
+    hr = floor(accDay);
+    accDay -= hr;
+    accDay *= 60.0; // Fractional minutes
+    mi = floor(accDay);
+    accDay -= mi;
+    se = accDay * 60.0;  // Fractional seconds
+}
+
 int EDateTime::myDivQuotient(const int a, const int b) {
     // Quotient of div as defined in https://www.aa.quae.nl/en/reken/juliaansedag.html section 2.3
     return (int)floor((double)a / b);
@@ -287,7 +369,7 @@ double EDateTime::getDateTime2JD_UTC(const long year, const long month, const do
     int J3 = myDivQuotient(153 * m1 + 2, 5);
     int J = J1 + J2 + J3 + (int)da + 1721119;
     double frac = (se + mi * 60.0 + hr * 3600.0) / 86400.0;
-    //std::cout << "Date time (YYYY-MM-DD hh:mm:ss) to Julian Date: " << yr << "/" << mo << "/" << da << " " << hr << ":" << mi << ":" << se << " : " << JD << '\n';
+    //std::cout << "Date time (YYYY-MM-DD hh:mm:ss) to Julian Day: " << yr << "/" << mo << "/" << da << " " << hr << ":" << mi << ":" << se << " : " << JD << '\n';
     return (double)J - 0.5 + frac;
 }
 double EDateTime::getDateTime2JD_TT(const long year, const long month, const double day, const double hour, const double minute, const double second) {
@@ -301,7 +383,7 @@ void EDateTime::getJD2DateTime(double jd, long& year, long& month, double& day, 
     //std::cout << J2k.string() << " detailed seconds: " << J2k.second() << '\n';
     // Output: 2000-01-01 11:58:56 UTC detailed seconds: 55.8159989118576
     //According to link above:
-    // The epoch designated "J2000.0" is specified as Julian date 2451545.0 TT, or 2000 January 1, 12h TT.
+    // The epoch designated "J2000.0" is specified as Julian day 2451545.0 TT, or 2000 January 1, 12h TT.
     // This epoch can also be expressed as 2000 January 1, 11:59:27.816 TAI or 2000 January 1, 11:58:55.816 UTC.
     //
     // source for JD to date time calculation: https://www.aa.quae.nl/en/reken/juliaansedag.html#4_2
@@ -391,6 +473,11 @@ long EDateTime::calcUnixTimeYearDay(const long year, const long month, const dou
 bool EDateTime::isLeapYear(const long year) {
     if (year % 400 == 0) return true;
     if (year % 100 == 0) return false;
+    if (year % 4 == 0) return true;
+    return false;
+}
+
+bool EDateTime::isJulianLeapYear(const long year) {
     if (year % 4 == 0) return true;
     return false;
 }

@@ -2,7 +2,7 @@
 // -----------------------
 //  Pybind11 requirements
 // -----------------------
-//#include <python310/Python.h>
+#include <python310/Python.h>  // Debug doesn't build without this, release is fine... Odd!
 
 //#include <pybind11/embed.h>
 #include <pybind11/pybind11.h>
@@ -101,11 +101,15 @@ PYBIND11_MODULE(pyeastronomy, m) {
         .def("dayofyear", &EDateTime::dayofyear, "Returns the number of the day within the year")
         .def("string", &EDateTime::string, "Returns date time string in UTC with nearest whole second.")
         .def("stringms", &EDateTime::stringms, "Returns date time string in UTC with seconds given to 3 decimal places.")
+        .def("stringJulianDateTime", &EDateTime::stringJulianDateTime, "Returns Julian calendar date time string in UTC with seconds given to 3 decimal places.")
         .def("unixTime", &EDateTime::unixTime, "Returns current date time in (integer) Unix timestamp format.")
         .def("setTime", &EDateTime::setTime,  "Sets current date time in integer year, month, float day, hour, minute, second.",
             py::arg("year"), py::arg("month"), py::arg("day"), py::arg("hour"), py::arg("minute"), py::arg("second")
         )
         .def("setTimeNow", &EDateTime::setTimeNow, "Sets EDateTime to current system date time in UTC."
+        )
+        .def("setTimeJulianDate", &EDateTime::setTimeJulianDate, "Set with date/time in Julan Calendar using integer year, month, float day, hour, minute, second.",
+            py::arg("year"), py::arg("month"), py::arg("day"), py::arg("hour"), py::arg("minute"), py::arg("second")
         )
         .def("setJD_UTC", &EDateTime::setJD_UTC, "Sets current date time to JD in UTC.",
             py::arg("jd_utc")
