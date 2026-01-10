@@ -1,7 +1,7 @@
 #pragma once
-#include "config.h"
-#include "aconfig.h"
-#include "acoordinates.h"
+
+struct LLD;
+enum Planetary_Ephemeris;
 
 class AJupiter {
 public:
@@ -68,8 +68,8 @@ public:
     static double MagnitudeMuller(double r, double Delta) noexcept;
 
     // Diameters from AA+ v2.55 CAADiameters
-    constexpr static double JupiterEquatorialSemidiameterA(double Delta) { return 3600.0 * deg2rad * 98.47 / Delta; }
-    constexpr static double JupiterEquatorialSemidiameterB(double Delta) { return 3600.0 * deg2rad * 98.44 / Delta; }
-    constexpr static double JupiterPolarSemidiameterA(double Delta) { return 3600.0 * deg2rad * 91.91 / Delta; }
-    constexpr static double JupiterPolarSemidiameterB(double Delta) { return 3600.0 * deg2rad * 92.06 / Delta; }
+    constexpr static double JupiterEquatorialSemidiameterA(double Delta);
+    constexpr static double JupiterEquatorialSemidiameterB(double Delta);
+    constexpr static double JupiterPolarSemidiameterA(double Delta);
+    constexpr static double JupiterPolarSemidiameterB(double Delta);
 };

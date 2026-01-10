@@ -1,5 +1,5 @@
 
-
+#include "config.h"
 #include "acoordinates.h"
 #include "apluto.h"
 #include "apluto_eph_short.h"
@@ -79,4 +79,9 @@ double APluto::MagnitudeAA(double r, double Delta) noexcept {
     // r = Pluto to Sun distance in AU
     // Delta = Pluto to Earth distance in AU
     return -1.00 + (5 * log10(r * Delta));
+}
+
+// Diameter - From AA+ v2.55 CAADiameters
+constexpr double APluto::PlutoSemidiameterB(double Delta) noexcept {
+    return 3600.0 * deg2rad * 2.07 / Delta;
 }

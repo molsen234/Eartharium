@@ -132,6 +132,19 @@ LLD AEarth::EclipticCoordinatesJ2000(double jd_tt, Planetary_Ephemeris eph) noex
     return retval;
 }
 
+double AEarth::SunMeanAnomaly(double jd_tt) noexcept {
+    const double T{ (jd_tt - JD_2000) / JD_CENTURY };
+    const double T2{ T * T };
+    const double T3{ T2 * T };
+    double value{ ACoord::rangezero2threesixty(357.529'1092 + (35'999.050'2909 * T) - (0.000'1536 * T2) + (T3 / 24'490'000)) };
+    return deg2rad * value;
+}
+
+double AEarth::Eccentricity(double jd_tt) noexcept {
+    const double T{ (jd_tt - JD_2000) / JD_CENTURY };
+    return 1 - (0.002516 * T) - (0.0000074 * T * T);  // not an angle
+}
+
 
 // Precession - !!! FIX: add IAU2006 and TEST Vondrak precession
 

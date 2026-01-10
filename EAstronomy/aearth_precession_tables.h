@@ -1,9 +1,6 @@
 #pragma once
 
-#include "aconfig.h"
-#include "acoordinates.h"
-
-#include <array>  // Only while working on Vondrak precession, tables will be moved out upon completion
+#include <array>
 
 // Vondrak long term precession (https://www.aanda.org/articles/aa/pdf/2011/10/aa17274-11.pdf)
 // Snipped tables from Stellarium 24.1 /src/code/planetsehpems/precession.c

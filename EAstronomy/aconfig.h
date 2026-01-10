@@ -10,6 +10,7 @@ enum Planet {
 	A_URANUS,
 	A_NEPTUNE,
 	A_SUN,
+	A_MOON,  // Not currently recognized by EAstronomy, but used in Earth.h for Planetoid textures
 	A_EMB,
 	A_NONE
 };

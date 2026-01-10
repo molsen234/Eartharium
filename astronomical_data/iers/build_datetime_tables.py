@@ -784,7 +784,7 @@ for l,line in enumerate(table):
     else: yr = yri + 2000
     dat.append(f"{yr:04}-{int(mo):02}-{int(da):02}")
 
-# Do https://cddis.nasa.gov/archive/products/iers/deltat.preds here (skip values already covered above) !!!
+# Do https://cddis.nasa.gov/archive/products/iers/deltat.preds here (skip values already covered above)
 
 with open("deltat.preds") as dtpred:
     table = dtpred.readlines()
@@ -831,7 +831,7 @@ for l in range(len(pdt)):
     else: print("    { " + f"{pjd[l]:.2f}, {pdt[l]:<10.2f}" + " },  // ", end='')
     print(f"{pyr[l]} {ip}")
 
-# output trailer for DeltaT here !!!
+# output trailer for DeltaT here
 
 print("}};")
 

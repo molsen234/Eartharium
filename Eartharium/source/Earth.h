@@ -430,7 +430,14 @@ public:
     void clearPoints();
     void generate();
     void draw(Camera* cam);
-    bool update() override { return false; } // Nothing to update, but making it explicit stops SceneObject from whining.
+    bool update() override {
+        //std::cout << "SmartPath(" << this << ")::update(): Setting hidden = " << hidden << "\n";
+        for (auto& curve : m_curves) {
+            curve->hidden = hidden;
+            //curve->setColor(LIGHT_RED);
+        }
+        return false;
+    }
 private:
     glm::vec4 m_color{ NO_COLOR };
     float m_width{ NO_FLOAT };
@@ -867,14 +874,14 @@ class Planetoid : public SceneObject {
         unsigned int texture2 = 0;
         unsigned int texture3 = 0;
     };
-    std::array<AtlasMaterial, 10> Materials = { {
+    std::array<AtlasMaterial, 10> Materials = { {  // Now ordered as per Planet enum in EAstronomy/aconfig.h
             // shader           texture file     day      ring     night
-            // 0 = Sun
-            { PLANETOID_SHADER, PLANETOID_ATLAS,       0, NO_UINT, NO_UINT },
-            // 1 = Mercury
+            // 0 = Mercury
             { PLANETOID_SHADER, PLANETOID_ATLAS,       1, NO_UINT, NO_UINT },
-            // 2 = Venus
+            // 1 = Venus
             { PLANETOID_SHADER, PLANETOID_ATLAS,       2, NO_UINT, NO_UINT },
+            // 2 = Earth
+            { PLANETOID_SHADER, PLANETOID_ATLAS,       3, NO_UINT,      10 },
             // 3 = Mars
             { PLANETOID_SHADER, PLANETOID_ATLAS,       4, NO_UINT, NO_UINT },
             // 4 = Jupiter
@@ -885,8 +892,8 @@ class Planetoid : public SceneObject {
             { PLANETOID_SHADER, PLANETOID_ATLAS,       7,      12, NO_UINT },
             // 7 = Neptune
             { PLANETOID_SHADER, PLANETOID_ATLAS,       8,      13, NO_UINT },
-            // 8 = Earth
-            { PLANETOID_SHADER, PLANETOID_ATLAS,       3, NO_UINT,      10 },
+            // 8 = Sun
+            { PLANETOID_SHADER, PLANETOID_ATLAS,       0, NO_UINT, NO_UINT },
             // 9 = Moon
             { PLANETOID_SHADER, PLANETOID_ATLAS,       9, NO_UINT, NO_UINT }
             // For last two atlas slots: asteroid and comet?, generic star and galaxy?, alternate Sun and Venus surface?
@@ -921,7 +928,7 @@ class Planetoid : public SceneObject {
     float texring_ly = 0.0f;    // atlas y offset to tile
 public:
     //glm::vec3 position = glm::vec3(0.0f);
-    Planetoid(Scene* scene, SceneObject* parent, size_t texturetile, unsigned int meshU, unsigned int meshV, float radius);
+    Planetoid(Scene* scene, SceneObject* parent, Planet texturetile, unsigned int meshU, unsigned int meshV, float radius);
     ~Planetoid();
     void setPosition(glm::vec3 pos);
     void setRadius(float radius);
@@ -1256,9 +1263,9 @@ public:
     EarthMoonSun() = delete;
     EarthMoonSun(Scene* scene, SceneObject* parent) : SceneObject(scene, parent) {
         // Create Planetoids
-        earth = new Planetoid(scene, this, EARTH, 40, 20, 0.04f);
-        moon = new Planetoid(scene, this, MOON, 40, 20, 0.02f);
-        sun = new Planetoid(scene, this, SUN, 40, 20, 0.08f);
+        earth = new Planetoid(scene, this, A_EARTH, 40, 20, 0.04f);
+        moon = new Planetoid(scene, this, A_MOON, 40, 20, 0.02f);
+        sun = new Planetoid(scene, this, A_SUN, 40, 20, 0.08f);
         update();
     }
     void addEclipticPlane() {
@@ -1327,11 +1334,302 @@ private:
     Planetoid* moon{ nullptr };
     Planetoid* sun{ nullptr };
     size_t earthaxis{ NO_UINT };
-    
+};
+// --------------
+//  Solar System
+// --------------
+#define planetoid_size 0.1f
+#define planetoid_U 90  // high, but needed for rings not to look shitty.
+#define planetoid_V 45
+#define orbit_width 0.01f
+#define orbit_steps 100
+class SolarSystem : public SceneObject {
+    // Uses geometric positions, no parallax / aberration / lightspeed / etc
+    struct planetinfo {
+        double sidyear = 0.0; // sidereal year of planet in Earth days
+        glm::vec4 color = NO_COLOR;
+    };
+    std::array<planetinfo, 9> m_planetinfos = { {  // sidereal years are a bit long to allow orbits to close
+        { 88,    MERCURYCOLOR }, // Mercury
+        { 226,   VENUSCOLOR },   // Venus
+        { 368,   EARTHCOLOR },   // Earth
+        { 688,   MARSCOLOR },    // Mars
+        { 4336,  JUPITERCOLOR }, // Jupiter
+        { 10776, SATURNCOLOR },  // Saturn
+        { 30688, URANUSCOLOR },  // Uranus
+        { 60182, NEPTUNECOLOR }, // Neptune
+        { 368,   SUNCOLOR }      // Sun
+    } };
+
+public:
+    SolarSystem() = delete;
+    SolarSystem(Scene* scene, SceneObject* parent) : SceneObject(scene, parent) {
+        name = "Solar System";
+        hasgui = true;
+
+        // create planets
+        for (unsigned int p = A_MERCURY; p <= A_SUN; p++) {
+            // Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, Neptune, Sun
+            planetoids.push_back(new Planetoid(scene, this, (Planet)p, planetoid_U, planetoid_V, planetoid_size));
+            planetpositions.emplace_back(0.0, 0.0, 0.0);
+            planetorbits.push_back(new SmartPath(scene, this, orbit_width));
+            planetorbits.back()->setColor(m_planetinfos[p].color);
+        }
+
+        // update positions etc to current moment
+        update();
+
+        //test = new Planetoid(scene, parent, (Planet)A_SATURN, planetoid_U, planetoid_V, planetoid_size);
+    }
+    ~SolarSystem() {
+
+    }
+    void clearTrails() {}
+    bool update() override {
+        updPlanets();
+        return false; }
+    void draw(Camera* cam) override { return; }
+    void myGUI() {
+        // Solar System object
+        if (ImGui::CollapsingHeader("Solar System")) {
+            ImGui::Checkbox("Geocentric", &geocentric);
+            ImGui::Checkbox("Orbits", &orbits);
+            ImGui::Checkbox("Trails", &trails);
+            ImGui::SameLine();
+            if (ImGui::Button("Clear")) { clearTrails(); }
+            ImGui::SliderInt("Trail length", &traillen, 2, 1000);
+        }
+    }
+private:
+    void updPlanets() {
+        LLD coord{};
+        glm::vec3 coord_rect{ 0.0f };
+        double jd_tt = scene->astro->getJD_TT();
+        double start, stop, step;
+        for (unsigned int p = A_MERCURY; p <= A_SUN; p++) {
+            // Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, Neptune, Sun
+            coord = scene->astro->EclipticCoordinates(jd_tt, (Planet)p, EPH_VSOP87_SHORT);
+            planetoids[p]->position = Spherical::Spherical2Rectangular(coord);
+            start = scene->astro->getJD_TT() - m_planetinfos[p].sidyear * 0.5;
+            stop = scene->astro->getJD_TT() + m_planetinfos[p].sidyear * 0.5;
+            step = (m_planetinfos[p].sidyear / orbit_steps);
+            // clear unconditionally, to get rid of orbits when being disabled.
+            //  Maybe there is no need to recalculate the orbits all the time, simply use hidden boolean on SmartPath instead
+            planetorbits[p]->clearPoints();
+            if (orbits) {
+                for (double jd_tt = start; jd_tt <= stop; jd_tt += step) {
+                    coord = scene->astro->EclipticCoordinates(jd_tt, (Planet)p, EPH_VSOP87_SHORT);
+                    coord_rect = (glm::vec3)Spherical::Spherical2Rectangular(coord);
+                    planetorbits[p]->addPoint(coord_rect);
+                }
+            }
+            //double siderealyear = m_planetinfos[p].sidyear;
+            //glm::vec4 color = m_planetinfos[p].color;
+            //color.a = 0.4f;
+            //planetorbits[p] = scene->astro->getCelestialPath(planet, -0.5 * siderealyear, 0.5 * siderealyear, orbitsteps, EC);
+        }
+    }
+public:
+    // For GUI
+    bool geocentric = false;
+    bool orbits = false;
+    bool trails = false;
+    int traillen = 400;
+    int orbitsteps = 100;
+
+private:
+    std::vector<Planetoid*> planetoids;
+    std::vector<glm::vec3> planetpositions;
+    std::vector<SmartPath*> planetorbits;
+
+};
+
+// ------------------
+//  Elliptical Orbit
+// ------------------
+#define eorbit_width 0.01f
+#define eorbit_steps 360
+
+class EllipticalOrbit : public SceneObject {
+    // Add name billboard
+    // Add GUI to play with the orbit parameters?
+public:
+    EllipticalOrbit() = delete;
+    EllipticalOrbit(Scene* scene, SceneObject* parent, AEllipticalObjectElements& orbel, std::string& name) : SceneObject(scene, parent) {
+        this->name = name;
+        hasgui = false;
+        updateOrbit(orbel, name);
+        //orbit = new AEllipticalOrbit{ orbel };
+        //orbitpath = new SmartPath(scene, this, eorbit_width, NO_COLOR);
+    }
+    ~EllipticalOrbit() {
+        //if (orbitpath) delete orbitpath;
+        //orbitpath = nullptr;
+        //if (orbit) delete orbit;
+        //orbit = nullptr;
+    }
+    void updateOrbit(AEllipticalObjectElements& orbel, std::string& name) {
+        // These cannot be empty, but maybe through future changes...
+        if (orbit) delete orbit;
+        if (orbitpath) delete orbitpath;
+        orbit = new AEllipticalOrbit{ orbel };
+        orbitpath = new SmartPath(scene, this, eorbit_width, NO_COLOR);
+        double P = tau / orbit->n;   // Orbital period in days
+        orbitpath->clearPoints();
+        for (double E = 0; E <= tau; E += tau / eorbit_steps) {
+            // Use equally spaced Eccentric Anomalies to directly plot the orbit
+            // Note: This does not correspond to physical reality, but it allows to plot the orbit at more evenly spaced points.
+            // This avoids widely spaced points at perihelion (where the object moves very fast)
+            // and very dense points at aphelion (where it moves slowly)
+            orbitpath->addPoint(orbit->UniformHeliocentricRectangular(E));
+        }
+    }
+    bool update() override {
+        orbitpath->hidden = hidden;
+        // No need to update orbit every frame, it only changes via updateOrbit()
+        return false;
+    }
+    void draw(Camera* cam) override { return; }
+private:
+    AEllipticalOrbit* orbit{ nullptr };
+    SmartPath* orbitpath{ nullptr };
 };
 
 
+// --------------
+//  Solar System
+// --------------
+#define planetoid_size 0.1f
+#define planetoid_U 90  // high, but needed for rings not to look shitty.
+#define planetoid_V 45
+#define orbit_width 0.01f
+#define orbit_steps 100
+#define comets_reserve 1000
+class SolarSystem : public SceneObject {
+    // Uses geometric positions, no parallax / aberration / lightspeed / etc
+    struct planetinfo {
+        double sidyear = 0.0; // sidereal year of planet in Earth days
+        glm::vec4 color = NO_COLOR;
+    };
+    std::array<planetinfo, 9> m_planetinfos = { {  // sidereal years are a bit long to allow orbits to close
+        { 88,    MERCURYCOLOR }, // Mercury
+        { 226,   VENUSCOLOR },   // Venus
+        { 368,   EARTHCOLOR },   // Earth
+        { 688,   MARSCOLOR },    // Mars
+        { 4336,  JUPITERCOLOR }, // Jupiter
+        { 10776, SATURNCOLOR },  // Saturn
+        { 30688, URANUSCOLOR },  // Uranus
+        { 60182, NEPTUNECOLOR }, // Neptune
+        { 368,   SUNCOLOR }      // Sun
+    } };
+
+public:
+    SolarSystem() = delete;
+    SolarSystem(Scene* scene, SceneObject* parent) : SceneObject(scene, parent) {
+        name = "Solar System";
+        hasgui = true;
+        planetorbits.reserve(A_SUN + 1);
+        cometorbits.reserve(comets_reserve);
+        // create planets
+        for (unsigned int p = A_MERCURY; p <= A_SUN; p++) {
+            // Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, Neptune, Sun
+            planetoids.push_back(new Planetoid(scene, this, (Planet)p, planetoid_U, planetoid_V, planetoid_size));
+            planetpositions.emplace_back(0.0, 0.0, 0.0);
+            planetorbits.push_back(new SmartPath(scene, this, orbit_width));
+            planetorbits.back()->setColor(m_planetinfos[p].color);
+        }
+
+        // update positions etc to current moment
+        update();
+
+        //test = new Planetoid(scene, parent, (Planet)A_SATURN, planetoid_U, planetoid_V, planetoid_size);
+    }
+    ~SolarSystem() {
+
+    }
+    void addComets() {
+        std::vector<std::string> comet_names{ "1P/Halley", "2P/Encke", "3D-A/Biela", "3D-B/Biela", "5D/Brorsen", "12P/Pons-Brooks", "15P/Finlay", "23P/Brorsen-Metcalf" };
+        AEllipticalObjectElements orbel{};
+        for (auto& name : comet_names) {
+            orbel = scene->astro->getCometOrbitByName(name);
+            //std::cout << name << ": " << &orbel << "\n";
+            //orbel.print();
+            cometorbits.push_back({ scene, this, orbel, name });
+            
+        }
+    }
+    void clearTrails() {}
+    bool update() override {
+        updPlanets();
+        updComets();
+        return false; }
+    void draw(Camera* cam) override { return; }
+    void myGUI() {
+        // Solar System object
+        if (ImGui::CollapsingHeader("Solar System")) {
+            ImGui::Checkbox("Geocentric", &geocentric);
+            ImGui::Checkbox("Orbits", &show_planet_orbits);
+            ImGui::Checkbox("Comet Orbits", &show_comet_orbits);
+            //ImGui::Checkbox("Trails", &trails);
+            //ImGui::SameLine();
+            //if (ImGui::Button("Clear")) { clearTrails(); }
+            //ImGui::SliderInt("Trail length", &traillen, 2, 1000);
+        }
+    }
+private:
+    void updPlanets() {
+        LLD coord{};
+        glm::vec3 coord_rect{ 0.0f };
+        double jd_tt = scene->astro->getJD_TT();
+        double start, stop, step;
+        for (unsigned int p = A_MERCURY; p <= A_SUN; p++) {
+            // Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, Neptune, Sun
+            coord = scene->astro->EclipticCoordinates(jd_tt, (Planet)p, EPH_VSOP87_SHORT);
+            planetoids[p]->position = Spherical::Spherical2Rectangular(coord);
+            start = scene->astro->getJD_TT() - m_planetinfos[p].sidyear * 0.5;
+            stop = scene->astro->getJD_TT() + m_planetinfos[p].sidyear * 0.5;
+            step = (m_planetinfos[p].sidyear / orbit_steps);
+            // clear unconditionally, to get rid of orbits when being disabled.
+            //  Maybe there is no need to recalculate the orbits all the time, simply use hidden boolean on SmartPath instead
+            planetorbits[p]->clearPoints();
+            if (show_planet_orbits) {
+                for (double jd_tt = start; jd_tt <= stop; jd_tt += step) {
+                    coord = scene->astro->EclipticCoordinates(jd_tt, (Planet)p, EPH_VSOP87_SHORT);
+                    coord_rect = (glm::vec3)Spherical::Spherical2Rectangular(coord);
+                    planetorbits[p]->addPoint(coord_rect);
+                }
+            }
+            // Astronomy cached planet paths
+            //double siderealyear = m_planetinfos[p].sidyear;
+            //glm::vec4 color = m_planetinfos[p].color;
+            //color.a = 0.4f;
+            //planetorbits[p] = scene->astro->getCelestialPath(planet, -0.5 * siderealyear, 0.5 * siderealyear, orbitsteps, EC);
+        }
+    }
+    void updComets() {
+        for (auto& comet : cometorbits) {
+            comet.hidden = !show_comet_orbits;
+        }
+    }
+public:
+    // For GUI
+    bool geocentric = false;
+    bool show_planet_orbits = false;
+    bool show_comet_orbits = false;
+    //bool trails = false;
+    //int traillen = 400;
+    int orbitsteps = orbit_steps;
+
+private:
+    std::vector<Planetoid*> planetoids;
+    std::vector<glm::vec3> planetpositions;
+    std::vector<SmartPath*> planetorbits;
+    std::vector<EllipticalOrbit> cometorbits;
+};
+
+// --------------------
 //  Body Rotation Axis
+// --------------------
 class RotationAxis : public SceneObject {
     // Get rotation axis from parent Planetoid or DetailedX body?
     RotationAxis() = delete;
@@ -1652,9 +1950,9 @@ public:
     EarthSun(Scene* scene, SceneObject* parent) : SceneObject(scene, parent) {
         name = "EarthSun";
         // Create Planetoids
-        earth = new Planetoid(scene, this, EARTH, 40, 20, 0.08f);
+        earth = new Planetoid(scene, this, A_EARTH, 40, 20, 0.08f);
         earth->name = "Earth";
-        sun = new Planetoid(scene, this, SUN, 40, 20, 0.16f);
+        sun = new Planetoid(scene, this, A_SUN, 40, 20, 0.16f);
         sun->name = "Sun";
         update();
     }
@@ -1707,4 +2005,475 @@ private:
     // Primitives
     size_t earthaxis{ NO_UINT };
     size_t sunaxis{ NO_UINT };
+};
+
+
+// --------------------------
+//  Bert's Foucault Pendulum
+// --------------------------
+#include "glm/gtx/norm.hpp"
+// Source: https://github.com/qbertGloberCoder/glober-apps/blob/main/foucault_pendulum/src/main/java/me/qbert/foucault/
+// YouTube: https://www.youtube.com/watch?v=FYBPmzw84CY
+class FoucaultPendulumBert {
+public:
+    class Location {
+    public:
+        double latitude;
+        Location() = delete;
+        Location(double latitude) {
+            this->latitude = latitude;
+        }
+        double getLatitude() {
+            return latitude;
+        }
+        void setLatitude(double latitude) {
+            this->latitude = latitude;
+        }
+    };
+    class PrecessionRate {
+    public:
+        PrecessionRate() = delete;
+        PrecessionRate(Location location) {
+            this->location = location;
+            omega = 0.0;
+        }
+        PrecessionRate(Location location, double omega) {
+            this->location = location;
+            this->omega = omega;
+            reinit();
+        }
+        void setOmega(double omega) {
+            this->omega = omega;
+            reinit();
+        }
+        double getOmega() {
+            return omega;
+        }
+        void reinit() {
+            omegaP.x = 0.0;
+            omegaP.y = omega * cos(location.getLatitude());
+            omegaP.z = omega * sin(location.getLatitude());
+        }
+        bool isPrecessionActive() {
+            return precessionActive;
+        }
+        void setPrecessionActive(bool precessionActive) {
+            this->precessionActive = precessionActive;
+        }
+        double getOmegaX() {
+            if (!precessionActive) return 0.0;
+            return omegaP.x;
+        }
+        double getOmegaY() {
+            if (!precessionActive) return 0.0;
+            return omegaP.y;
+        }
+        double getOmegaZ() {
+            if (!precessionActive) return 0.0;
+            return omegaP.z;
+        }
+    private:
+        Location location{ 0.0 };
+        double omega;
+        glm::dvec3 omegaP{ 0.0 };
+        bool precessionActive = true;
+    };
+
+    //  Methods
+
+    void setLatitude(double latitude) {
+        location.setLatitude(latitude);
+        precessionRate.reinit();
+        runMode = false;
+    }
+    void setPrecessionRate(double secondsPerRotation) {
+        //statistics.setSiderealTime(secondsPerRotation / 3600.0);
+        precessionRate.setOmega(tau / secondsPerRotation);
+        runMode = false;
+    }
+    double getPrecessionRate() {
+        return tau / precessionRate.getOmega();
+    }
+    bool isPrecessionActive() {
+        return precessionRate.isPrecessionActive();
+    }
+    void setPrecessionActive(bool precessionActive) {
+        precessionRate.setPrecessionActive(precessionActive);
+    }
+    void setPendulumLength(double pendulumLength) {
+        this->pendulumLength = pendulumLength;
+        runMode = false;
+        resetPendulum();
+    }
+    void setStartPosition(double apexRadius, double startAzimuth) {
+        this->desiredApexRadius = apexRadius;
+        desiredStartAngle = ACoord::rangezero2threesixty(450.0 - startAzimuth);  // DEGREES
+        returnAngle = desiredStartAngle;
+        runMode = false;
+        resetPendulum();
+    }
+    bool isRunMode() {
+        return runMode;
+    }
+    void setRunMode(bool runMode) {
+        this->runMode = runMode;
+    }
+    void setGravity(double metersPerSecondSquared) {
+        this->metersPerSecondSquared = metersPerSecondSquared;
+        g = { 0.0, 0.0, -metersPerSecondSquared };
+    }
+    double getGravity() {
+        return metersPerSecondSquared;
+    }
+    bool isStableSwing() {
+        return stableSwing;
+    }
+    void setStableSwing(bool stableSwing) {
+        this->stableSwing = stableSwing;
+    }
+    bool isApplyDrag() {
+        return applyDrag;
+    }
+    void setApplyDrag(bool applyDrag) {
+        this->applyDrag = applyDrag;
+    }
+    double getDragCoefficent() {
+        return dragCoefficent;
+    }
+    void setDragCoefficent(double dragCoefficent) {
+        if ((dragCoefficent > 0.25) && (dragCoefficent < 1.0)) this->dragCoefficent = dragCoefficent;
+        else applyDrag = false;
+    }
+    double getMinTimeStep() {
+        return minTimeStep;
+    }
+    void setMinTimeStep(double minTimeStep) {
+        this->minTimeStep = minTimeStep;
+    }
+    double getMidTimeStep() {
+        return midTimeStep;
+    }
+    void setMidTimeStep(double midTimeStep) {
+        this->midTimeStep = midTimeStep;
+    }
+    double getMaxTimeStep() {
+        return maxTimeStep;
+    }
+    void setMaxTimeStep(double maxTimeStep) {
+        this->maxTimeStep = maxTimeStep;
+    }
+private:
+    void resetPendulum() {
+        desiredStartAngleRads = deg2rad * desiredStartAngle;
+        returnAngle = desiredStartAngleRads;
+
+        apexRadius = desiredApexRadius;
+        animationTime = 0;
+        lastDragTime = -1;
+
+        returnApex = true;
+        currentRadius = desiredStartAngleRads;
+        lastForwardApexTime = -1;
+        lastReturnApexTime = -1;
+        lastForwardApexAngle = desiredStartAngleRads;
+        lastReturnApexAngle = pi + desiredStartAngleRads;
+        lastNadirRadius = 0.0;
+        lastNadirAngle = desiredStartAngleRads;
+
+        //x = desiredApexRadius * cos(deg2rad * desiredStartAngle);
+        //y = desiredApexRadius * sin(deg2rad * desiredStartAngle);
+        //z = -sqrt(pendulumLength * pendulumLength - x * x - y * y);
+        P = {
+            desiredApexRadius * cos(deg2rad * desiredStartAngle),
+            desiredApexRadius * sin(deg2rad * desiredStartAngle),
+            -sqrt(pendulumLength * pendulumLength - P.x * P.x - P.y * P.y) };
+        v = { 0.0, 0.0, 0.0 };
+    }
+    void computeTimeStep() {
+        // MOST positions in the swing can get away with maxTimeStep integration intervals...
+        // To provide a more robust set of statistics and avoid sampling errors, as the
+        // pendulum approaches the nadir and the apex, switch to smaller time intervals.
+        if (abs(currentRadius) < 0.005) {
+            timeStep = minTimeStep;
+        }
+        else if ((currentRadius <= desiredApexRadius) && ((currentRadius / desiredApexRadius) > 0.99)) {
+            if ((currentRadius / desiredApexRadius) > 0.999) {
+                timeStep = minTimeStep;
+            }
+            else {
+                timeStep = midTimeStep;
+            }
+        }
+        else {
+            timeStep = maxTimeStep;
+        }
+    }
+public:
+    void setTargetFrameRate(double targetFrameRate) {
+        this->targetFrameTime = 1.0 / targetFrameRate;
+    }
+    void stepOnce() {
+        computeTimeStep();
+        stepToTime(animationTime + (timeStep / 2));
+    }
+    void stepToNextFrame() {
+        frameCount = (int)(animationTime / targetFrameTime);
+        stepToTime((double)(frameCount + 1) * targetFrameTime);
+    }
+    // Main calculation
+    void stepToTime(double time) {
+        if (!runMode) return;
+        if (timeStep <= 0.0) return;
+
+        double omegaX = precessionRate.getOmegaX();
+        double omegaY = precessionRate.getOmegaY();
+        double omegaZ = precessionRate.getOmegaZ();
+        bool precessionActive = precessionRate.isPrecessionActive();
+
+        while ((apexRadius > 0.0001) && (animationTime < time)) {
+            /* compute the unit vector along the string */    // MDO: Not a unit vector
+            double realLengthSquared = glm::length2(P);
+            glm::dvec3 a{ 0.0 };
+
+            /* compute acceleration based on gravity and coriolis */
+            if (precessionActive) {
+                a.x = g.x - 2.0 * (omegaY * v.z - omegaZ * v.y);
+                a.y = g.y - 2.0 * (omegaZ * v.x - omegaX * v.z);
+                a.z = g.z - 2.0 * (omegaX * v.y - omegaY * v.x);
+            }
+            else {
+                a = g;
+            }
+            /* Apply Velocity-Verlet half step correction */
+            glm::dvec3 vHalf = v + (0.5 * timeStep * a);
+            /* compute tentative position */
+            glm::dvec3 T = P + (timeStep * vHalf);
+            /* compute RATTLE position constraint */
+            double rTSq{ glm::length2(T) };
+            double lambda = (pendulumLength * pendulumLength - rTSq) / (2.0 * realLengthSquared);
+            glm::dvec3 pNew = T + lambda * P;
+            /* compute RATTLE velocity constraint */
+            double rNewSq{ glm::length2(pNew) };
+            double rDotV{ glm::dot(pNew, vHalf) };
+            double mu = -rDotV / rNewSq;
+            vHalf = mu * pNew;
+            /* recompute acceleration */
+            double rNewLen = sqrt(rNewSq);
+            glm::dvec3 rhatn{ pNew / rNewLen };
+            double gDotRnew = glm::dot(g, rhatn);
+            glm::dvec3 gtNew{ g - gDotRnew * rhatn };
+            glm::dvec3 aNew;
+
+            if (precessionActive) {
+                aNew.x = gtNew.x - 2.0 * (omegaY * vHalf.z - omegaZ * vHalf.y);
+                aNew.y = gtNew.y - 2.0 * (omegaZ * vHalf.x - omegaX * vHalf.z);
+                aNew.z = gtNew.z - 2.0 * (omegaX * vHalf.y - omegaY * vHalf.x);
+            }
+            else {
+                aNew = gtNew;
+            }
+
+            /* complete the velocity calculation */
+            v = vHalf + (0.5 * timeStep) * aNew;
+            /* update the pendulum position */
+            P = pNew;
+
+            /* Apply a correction force to keep the swing stable
+             *
+             * In the event correction is precisely 1.0, don't bother trying to muck
+             * with velocities, introducing possible rounding errors where none was
+             * needed
+             */
+            if ((stableSwing) && (swingCorrection != 1.0)) {
+                v *= swingCorrection;
+            }
+
+            /* detect if we reached the apex yet */
+            currentRadius = sqrt(P.x * P.x + P.y * P.y);
+
+            double swingVelocity;
+
+            if (currentRadius > 0.0)
+                swingVelocity = (P.x * v.x + P.y * v.y) / currentRadius;
+            else
+                swingVelocity = 0.0;
+
+            double newAngle = atan2(P.y, P.x);
+            if ((lastSwingVelocity > 0.0) && (swingVelocity < 0.0)) {
+                if (stableSwing) {
+                    swingCorrection = (swingCorrection + (1.0 + (((desiredApexRadius / currentRadius) - 1.0) / swingCorrectionSteps))) / 2.0;
+                }
+
+                apexRadius = currentRadius;
+
+                double testAngle = abs(newAngle - returnAngle);
+                testAngle = abs(ACoord::rangempi2pi(testAngle));
+
+                if (testAngle < 0.5) {
+                    returnApex = true;
+
+                    if (lastReturnApexTime >= 0.0) {
+                        double dAz = ACoord::rangempi2pi(newAngle - lastReturnApexAngle);
+                        double dt = animationTime - lastReturnApexTime;
+                        double precessionRate = dAz / dt;
+                        reportPrecessionRate(precessionRate, returnApex);
+                    }
+
+                    lastReturnApexTime = animationTime;
+                    lastReturnApexAngle = newAngle;
+                    returnAngle = newAngle;
+                }
+                else {
+                    returnApex = false;
+                    if (lastForwardApexTime >= 0.0) {
+                        double dAz = ACoord::rangempi2pi(newAngle - lastForwardApexAngle);
+                        double dt = animationTime - lastForwardApexTime;
+                        double precessionRate = dAz / dt;
+                        reportPrecessionRate(precessionRate, returnApex);
+                    }
+                    lastForwardApexTime = animationTime;
+                    lastForwardApexAngle = newAngle;
+                }
+                apexDetected(newAngle, returnApex);
+            }
+            else if ((lastSwingVelocity < 0.0) && (swingVelocity > 0.0)) {
+                nadirDetected(lastNadirRadius, lastNadirAngle, returnApex);
+                lastNadirRadius = NO_DOUBLE;
+            }
+            else {
+                if (currentRadius < lastNadirRadius) {
+                    lastNadirRadius = currentRadius;
+                    lastNadirAngle = newAngle;
+                }
+            }
+
+            if (swingVelocity != 0.0)
+                lastSwingVelocity = swingVelocity;
+
+            if ((int)(time / 2) > (int)(lastDragTime / 2)) {
+                if ((stableSwing) && (applyDrag) && (dragCoefficent < 1.0)) {
+                    desiredApexRadius *= dragCoefficent;
+                }
+                lastDragTime = time;
+            }
+            animationTime += timeStep;
+            computeTimeStep();
+        }
+        //statistics.setSimulationSeconds(animationTime);
+    }
+
+    double getX() {
+        return P.x;
+    }
+    double getY() {
+        return P.y;
+    }
+    double getZ() {
+        return P.z;
+    }
+
+    //public PendulumStatistics getStatistics() {
+    //    return statistics.copy();
+    //}
+
+    void apexDetected(double angle, bool returnApex) {
+        //statistics.getLastApexPosition().updatePosition(x, y, z);
+        //if (returnApex)
+        //    statistics.setReturnApex(apexRadius, angle);
+        //else
+        //    statistics.setForwardApex(apexRadius, angle);
+        //
+        //statistics.setSwingCorrection(swingCorrection);
+        //statistics.setSimulationSeconds(animationTime);
+        //
+        //if (statisticsUpdateListener != null)
+        //    statisticsUpdateListener.statisticsUpdated(this, statistics.copy());
+        ////		System.out.println("?? " + x + ", " + y + ", " + z);
+    }
+
+    void nadirDetected(double radius, double angle, bool forwardNadir) {
+        //if (forwardNadir)
+        //    statistics.setForwardNadir(radius, angle);
+        //else
+        //    statistics.setReturnNadir(radius, angle);
+        //
+        //statistics.setSimulationSeconds(animationTime);
+        //
+        //if (statisticsUpdateListener != null)
+        //    statisticsUpdateListener.statisticsUpdated(this, statistics.copy());
+        //
+        ///*		if (forwardNadir) {
+        //            System.out.println(
+        //                    "For.Ap. = " + statistics.getForwardApex().getRadius() + "/" + statistics.getForwardApex().getAzimuth() +
+        //                    " Ret.Nad. = " + statistics.getReturnNadir().getRadius() + "/" + statistics.getReturnNadir().getAzimuth() +
+        //                    " Ret.Ap. = " + statistics.getReturnApex().getRadius() + "/" + statistics.getReturnApex().getAzimuth() +
+        //                    " For.Nad. = " + statistics.getForwardNadir().getRadius() + "/" + statistics.getForwardNadir().getAzimuth() +
+        //                    " Prec. Rate. = " + statistics.getPrecessionRate() +
+        //                    " Nad. pos[x/y/z] = " + x + "/" + y + "/" + z +
+        //                    " Nad. vel[x/y/z] = " + vx + "/" + vy + "/" + vz
+        //                    );
+        //        } */
+        //        //		System.out.println("?? " + x + ", " + y + ", " + z);
+    }
+
+    void reportPrecessionRate(double precessionRate, bool returnApex) {
+        //statistics.setPrecessionRate(precessionRate);
+        //
+        ///*		if (returnApex)
+        //            System.out.println("PrR: " + precessionRate);
+        //        else
+        //            System.out.println("PrF: " + precessionRate); */
+        //            //		System.out.println("?? RATE? " + Math.toDegrees(precessionRate));
+    }
+
+
+private:
+    double earthRotation = 23.0 * 3600.0 + 56 * 60.0 + 4.09;  // Sidereal day in seconds
+
+    Location location{ 40.0 * deg2rad };
+    PrecessionRate precessionRate{ location, tau / earthRotation };
+
+    double pendulumLength = 150.0;
+
+    double desiredApexRadius = 2.5;
+    double desiredStartAngle = -90.0;
+    double desiredStartAngleRads = deg2rad * desiredStartAngle;
+    double returnAngle = desiredStartAngleRads;
+
+    bool runMode = false;
+    // Current position and velocity
+    glm::dvec3 P{ 0.0, desiredApexRadius, -sqrt(pendulumLength * pendulumLength - desiredApexRadius * desiredApexRadius) };
+    glm::dvec3 v{ 0.0 };
+
+    double metersPerSecondSquared = 9.80665;
+    glm::dvec3 g{ 0.0, 0.0, -metersPerSecondSquared };
+
+    double swingCorrectionSteps = 320000;
+    double minTimeStep = 0.000001;
+    double midTimeStep = 0.00001;
+    double maxTimeStep = 0.0001;
+    double timeStep = minTimeStep;
+    double animationTime = 0.0;
+    int frameCount = 0;
+    double targetFrameTime = 1 / 30.0;
+
+    bool stableSwing = true;
+    bool applyDrag = false;
+
+    double swingCorrection = 1.0;
+    double dragCoefficent = 1.0;
+    double lastDragTime = -1.0;
+    double lastSwingVelocity = 0.0;
+
+    bool returnApex = true;
+    double currentRadius = desiredStartAngleRads;
+    double lastForwardApexTime = -1;
+    double lastReturnApexTime = -1;
+    double lastForwardApexAngle = desiredStartAngleRads;
+    double lastReturnApexAngle = pi + desiredStartAngleRads;
+    double lastNadirRadius = 0.0;
+    double lastNadirAngle = desiredStartAngleRads;
+
+    double apexRadius = desiredApexRadius;
+
 };

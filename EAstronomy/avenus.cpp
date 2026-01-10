@@ -240,3 +240,11 @@ double AVenus::MagnitudeMuller(double r, double Delta, double i) noexcept {
     i *= rad2deg;
     return -4.00 + (5 * log10(r * Delta)) + (0.01322 * i) + (0.0000004247 * i * i * i);
 }
+
+// From AA+ v2.55 CAADiameters
+constexpr double AVenus::VenusSemidiameterA(double Delta) {
+    return 3600.0 * deg2rad * 8.41 / Delta;
+}
+constexpr double AVenus::VenusSemidiameterB(double Delta) {
+    return 3600.0 * deg2rad * 8.34 / Delta;
+}

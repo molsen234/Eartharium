@@ -1,3 +1,6 @@
+
+#include "config.h"   // Constants
+#include "aconfig.h"  // Enums
 #include "asaturn.h"
 #include "acoordinates.h"
 #include "vsop87/asaturn_vsop87_short.h"
@@ -250,13 +253,26 @@ double ASaturn::MagnitudeMuller(double r, double Delta, double DeltaU, double B)
     return -8.68 + (5 * log10(r * Delta)) + (0.044 * fabs(DeltaU)) - (2.60 * sin(fabs(B))) + (1.25 * sinB * sinB);
 }
 
+// From AA+ v2.55 CAADiameters
+inline constexpr double ASaturn::SaturnEquatorialSemidiameterA(double Delta) {
+    return 3600.0 * deg2rad * 83.33 / Delta;
+}
+inline constexpr double ASaturn::SaturnPolarSemidiameterA(double Delta) {
+    return 3600.0 * deg2rad * 74.57 / Delta;
+}
+inline constexpr double ASaturn::SaturnEquatorialSemidiameterB(double Delta) {
+    return 3600.0 * deg2rad * 82.73 / Delta;
+}
+inline constexpr double ASaturn::SaturnPolarSemidiameterB(double Delta) {
+    return 3600.0 * deg2rad * 73.82 / Delta;
+}
+
 // Diameters
-double ASaturn::ApparentSaturnPolarSemidiameterA(double Delta, double B) noexcept {
+double ASaturn::ApparentSaturnPolarSemidiameterA(double Delta, double B) {
     const double cosB{ cos(B) };
     return SaturnPolarSemidiameterA(Delta) * sqrt(1 - (0.19919731146620168 * cosB * cosB));  // radians
 }
-
-double ASaturn::ApparentSaturnPolarSemidiameterB(double Delta, double B) noexcept {
+double ASaturn::ApparentSaturnPolarSemidiameterB(double Delta, double B) {
     const double cosB{ cos(B) };
     return SaturnPolarSemidiameterB(Delta) * sqrt(1 - (0.20380025700102367 * cosB * cosB));  // radians
 }

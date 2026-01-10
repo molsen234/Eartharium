@@ -1,4 +1,5 @@
 #pragma once
+
 #include <array>
 
 // Everything below is directly from AA+ v2.49 AAELP2000.cpp

@@ -166,7 +166,7 @@ void Scene::render(Camera* cam) {
     // Should take fbo render target !!!
     if (m_earthOb != nullptr) m_earthOb->Update(); // Make sure primitives are up to date before casting their shadows (Earth updates Locations)
     //if (m_dskyOb != nullptr) m_dskyOb->update();
-    if (m_solsysOb != nullptr) m_solsysOb->Update();
+    //if (m_solsysOb != nullptr) m_solsysOb->Update();
     if (m_skysphereOb != nullptr) m_skysphereOb->UpdateTime(0.0); // Default time
     // Do shadow pass here
     if (shadows == SHADOW_MAP) {
@@ -188,7 +188,7 @@ void Scene::render(Camera* cam) {
     scenetree->drawBreathFirst(cam);
 
     if (m_earthOb != nullptr) m_earthOb->draw(cam);
-    if (m_solsysOb != nullptr) m_solsysOb->Draw();
+    //if (m_solsysOb != nullptr) m_solsysOb->Draw();
     if (m_countrybordersOb != nullptr) m_countrybordersOb->update();
     if (m_timezonesOb != nullptr) m_timezonesOb->update();
     for (auto& p : m_polylines) {
@@ -286,8 +286,8 @@ SkyBox* Scene::getSkyboxOb() {
     if (m_skyboxOb == nullptr) m_skyboxOb = new SkyBox(this);
     return m_skyboxOb;
 }
-SolarSystem* Scene::getSolsysOb() {
-    if (m_solsysOb == nullptr) m_solsysOb = new SolarSystem(this, /* geocentric */ false);
+OldSolarSystem* Scene::getSolsysOb() {
+    if (m_solsysOb == nullptr) m_solsysOb = new OldSolarSystem(this, /* geocentric */ false);
     return m_solsysOb;
 }
 ShadowBox* Scene::getShadowboxOb() {
@@ -635,7 +635,6 @@ bool PolyCurveSO::update() {
     return false;
 }
 void PolyCurveSO::draw(Camera* cam) {
-    //std::cout << "PolyCurveSO::draw()\n";
     if (m_segments.size() == 0) return;
     shdr->Bind();
     glm::mat4 pv = cam->getProjMat() * cam->getViewMat();

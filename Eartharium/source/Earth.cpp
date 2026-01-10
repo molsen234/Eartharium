@@ -1150,7 +1150,7 @@ void GreatCircleArc::draw(Camera* cam) {}
 // -----------
 // https://en.wikipedia.org/wiki/List_of_gravitationally_rounded_objects_of_the_Solar_System#Planets
 // https://nssdc.gsfc.nasa.gov/planetary/planetfact.html
-Planetoid::Planetoid(Scene* scene, SceneObject* parent, size_t material, unsigned int meshU, unsigned int meshV, float radius)
+Planetoid::Planetoid(Scene* scene, SceneObject* parent, Planet material, unsigned int meshU, unsigned int meshV, float radius)
     : SceneObject(scene, parent), material(material), meshU(meshU), meshV(meshV) {
     m_verts.reserve(((size_t)meshU + 1) * ((size_t)meshV + 1));
     m_tris.reserve((size_t)meshU * (size_t)meshV * sizeof(Tri));
@@ -1163,7 +1163,7 @@ Planetoid::Planetoid(Scene* scene, SceneObject* parent, size_t material, unsigne
     tex_ry = 2048.0f; // atlas height
     tex_dx = 1024.0f; // tile width
     tex_dy = 512.0f;  // tile height
-    tex_lx = tex_dx * (float)x; // lower x of atlas tile
+    tex_lx = tex_dx * (float)x;  // lower x of atlas tile
     tex_ly = tex_dy * (float)y;  // lower y of atlas tile
     //std::cout << "Material: " << material << " -> x=" << x << " y=" << y << '\n';
     //std::cout << "Lower: " << tex_lx << "," << tex_ly << " Upper: " << tex_hx << "," << tex_hy << '\n';
@@ -1247,7 +1247,7 @@ void Planetoid::draw(Camera* cam) {
         varing->Bind();
         ibring->Bind();
         //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        glDisable(GL_CULL_FACE); // It is irritating that Earth disappears when seen from back/in side
+        glDisable(GL_CULL_FACE); // Allow underside of planet rings to show
         glDrawElements(GL_TRIANGLES, ibring->GetCount(), GL_UNSIGNED_INT, 0);
         glEnable(GL_CULL_FACE);
         ibring->Unbind();
@@ -1319,8 +1319,8 @@ void Planetoid::genGeom(float radius) {
     float tex_y = 0.0f;
     const float rl_x = tex_lx / tex_rx;
     const float rl_y = tex_ly / tex_ry;
-    const float dr_x = (tex_dx - 1.0f) / (tex_rx * (float)meshU);
-    const float dr_y = (tex_dy - 1.0f) / (tex_ry * (float)meshV);
+    const float dr_x = (tex_dx + 1.0f) / (tex_rx * (float)meshU);
+    const float dr_y = (tex_dy + 1.0f) / (tex_ry * (float)meshV);
 
     for (unsigned int v = 0; v <= meshV; v++) {
         rLat = (pif * v / meshV) - pi2f;
@@ -1374,7 +1374,7 @@ void Planetoid::genGeomRing(float r_i, float r_o) {
 // ----------------------
 // Astonishing how little code it takes, when using Planetoid and SceneObject inheritance
 PlanetoidGP::PlanetoidGP(Scene* scene, SceneObject* parent, const size_t type, const std::string& name, const glm::vec3 pos)
-    : Planetoid(scene, parent, type, 40, 20, 0.02f) {
+    : Planetoid(scene, parent, (Planet)type, 40, 20, 0.02f) {
     this->name = name;
     //setParent(parent); // In SceneObject
     setPosition(pos);  // In Planetoid
@@ -1417,18 +1417,18 @@ void Ecliptic::generate() {
     if (start_eclip_lon < 0.0) start_eclip_lon += tau;
     //std::cout << start_eclip_lon << '\n';
     for (double lon = start_eclip_lon; lon <= tau; lon += deg2rad) {
-        gpos = scene->astro->calcEc2Geo(0.0, lon, epsilon);
+        gpos = scene->astro->calcEc2Eq(0.0, lon, epsilon);
         tpos = scene->astro->calcDecRA2GP(gpos, NO_DOUBLE);
         pos = (locref->*locpos)(tpos);
         path->addPoint(pos);
     }
     for (double lon = 0.0; lon <= start_eclip_lon; lon += deg2rad) {
-        gpos = scene->astro->calcEc2Geo(0.0, lon, epsilon);
+        gpos = scene->astro->calcEc2Eq(0.0, lon, epsilon);
         tpos = scene->astro->calcDecRA2GP(gpos, NO_DOUBLE);
         pos = (locref->*locpos)(tpos);
         path->addPoint(pos);
     }
-    gpos = scene->astro->calcEc2Geo(0.0, start_eclip_lon-tiny, epsilon);
+    gpos = scene->astro->calcEc2Eq(0.0, start_eclip_lon-tiny, epsilon);
     tpos = scene->astro->calcDecRA2GP(gpos, NO_DOUBLE);
     pos = (locref->*locpos)(tpos);
     path->addPoint(pos);
@@ -1559,7 +1559,7 @@ void DetailedSky::addPrecessionPath() {
     precessionpath = new PrecessionPath(scene, this, this, NO_FLOAT, NO_COLOR);
 }
 void DetailedSky::addSun() {
-    sundot = new PlanetoidGP(scene, this, SUN, "SunGP", getSunLocation());
+    sundot = new PlanetoidGP(scene, this, A_SUN, "SunGP", getSunLocation());
 }
 glm::vec3 DetailedSky::getSunLocation() {
     glm::vec3 sunloc;
@@ -1594,7 +1594,7 @@ void DetailedSky::addStar(size_t unique, Astronomy::stellarobject& star) {
     LLD starpm{};
     starpm.lat = star.pm_dec;
     starpm.lon = star.pm_ra;
-    starpm.dst = 0.0;
+    starpm.dst = 0.0;          // !!! FIX: Add parallax angle or parsec distance !!!
     skydotDefs.push_back({ unique, color, stardecra, starpm, size, index });
     return; // skydotDefs.size() - 1;
 }
@@ -1715,7 +1715,7 @@ DetailedEarth::~DetailedEarth() {
 void DetailedEarth::addSunGP() { // Maybe return the SunGP* so user can access directly if desired
     //m_sundot = m_dotsFactory->addXYZ(worldmatrix * sunDir * m_radius, SUNCOLOR, 0.015f);
     //m_sungp = new SunGP(m_scene, this, getSunGPLocation());
-    sungp = new PlanetoidGP(scene, this, SUN, "SunGP", getSunGPLocation());
+    sungp = new PlanetoidGP(scene, this, A_SUN, "SunGP", getSunGPLocation());
 }
 
 glm::vec3 DetailedEarth::getSunGPLocation() {
@@ -1729,7 +1729,7 @@ glm::vec3 DetailedEarth::getSunGPLocation() {
 }
 
 void DetailedEarth::addMoonGP() {
-    moongp = new PlanetoidGP(scene, this, MOON, "MoonGP", getMoonGPLocation());
+    moongp = new PlanetoidGP(scene, this, A_MOON, "MoonGP", getMoonGPLocation());
 }
 glm::vec3 DetailedEarth::getMoonGPLocation() {
     //std::cout << "MoonGP: " << sublunar.lat << ", " << sublunar.lon << "\n";
@@ -1957,11 +1957,11 @@ void DetailedMoon::setTopocentric(const double lat, const double lon, const bool
     return;
 }
 void DetailedMoon::addSunGP() {
-    sungp = new PlanetoidGP(scene, this, SUN, "SunGP", sunDir * radius);
+    sungp = new PlanetoidGP(scene, this, A_SUN, "SunGP", sunDir * radius);
     sungp->setRadius(0.015f);
 }
 void DetailedMoon::addEarthGP() {
-    earthgp = new PlanetoidGP(scene, this, EARTH, "EarthGP", getNml3D({0.0, 0.0, 0.0}));
+    earthgp = new PlanetoidGP(scene, this, A_EARTH, "EarthGP", getNml3D({0.0, 0.0, 0.0}));
 }
 void DetailedMoon::addLibrationTrail() {
     librationtrail = new ParticleTrail(scene, 300, EARTHCOLOR, 0.005f, 5, true);

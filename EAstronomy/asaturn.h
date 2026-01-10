@@ -1,7 +1,7 @@
 #pragma once
-#include "config.h"
-#include "aconfig.h"
-#include "acoordinates.h"
+
+struct LLD;
+enum Planetary_Ephemeris;
 
 class ASaturn {
 public:
@@ -68,11 +68,11 @@ public:
     static double MagnitudeMuller(double r, double Delta, double DeltaU, double B) noexcept;
     
     // From AA+ v2.55 CAADiameters
-    constexpr static double SaturnEquatorialSemidiameterA(double Delta) { return 3600.0 * deg2rad * 83.33 / Delta; }
-    constexpr static double SaturnPolarSemidiameterA(double Delta) { return 3600.0 * deg2rad * 74.57 / Delta; }
-    constexpr static double SaturnEquatorialSemidiameterB(double Delta) { return 3600.0 * deg2rad * 82.73 / Delta; }
-    constexpr static double SaturnPolarSemidiameterB(double Delta) { return 3600.0 * deg2rad * 73.82 / Delta; }
-    static double ApparentSaturnPolarSemidiameterA(double Delta, double B) noexcept;
-    static double ApparentSaturnPolarSemidiameterB(double Delta, double B) noexcept;
+    constexpr static double SaturnEquatorialSemidiameterA(double Delta);
+    constexpr static double SaturnPolarSemidiameterA(double Delta);
+    constexpr static double SaturnEquatorialSemidiameterB(double Delta);
+    constexpr static double SaturnPolarSemidiameterB(double Delta);
+    static double ApparentSaturnPolarSemidiameterA(double Delta, double B);
+    static double ApparentSaturnPolarSemidiameterB(double Delta, double B);
 
 };

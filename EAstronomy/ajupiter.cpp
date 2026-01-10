@@ -1,6 +1,8 @@
 
+#include "config.h"
+#include "aconfig.h"
+#include "acoordinates.h"
 #include "ajupiter.h"
-//#include "acoordinates.h"
 #include "vsop87/ajupiter_vsop87_short.h"
 #include "vsop87/ajupiter_vsop87_full.h"
 
@@ -244,4 +246,18 @@ double AJupiter::MagnitudeMuller(double r, double Delta) noexcept {
     // r = Jupiter to Sun distance in AU
     // Delta = Jupiter to Earth distance in AU
     return -8.93 + (5 * log10(r * Delta));
+}
+
+// Diameters from AA+ v2.55 CAADiameters
+constexpr double AJupiter::JupiterEquatorialSemidiameterA(double Delta) {
+    return 3600.0 * deg2rad * 98.47 / Delta;
+}
+constexpr double AJupiter::JupiterEquatorialSemidiameterB(double Delta) {
+    return 3600.0 * deg2rad * 98.44 / Delta;
+}
+constexpr double AJupiter::JupiterPolarSemidiameterA(double Delta) {
+    return 3600.0 * deg2rad * 91.91 / Delta;
+}
+constexpr double AJupiter::JupiterPolarSemidiameterB(double Delta) {
+    return 3600.0 * deg2rad * 92.06 / Delta;
 }

@@ -449,7 +449,7 @@ public:
 // -------------
 //  SolarSystem
 // -------------
-class SolarSystem {
+class OldSolarSystem {
 public:
     struct distline {
         size_t index;
@@ -507,8 +507,8 @@ private:
     size_t m_EarthDot = 0;
     ParticleTrail* m_EarthTrail = nullptr;
 public:
-    SolarSystem(Scene* scene, bool geocentric);
-    ~SolarSystem();
+    OldSolarSystem(Scene* scene, bool geocentric);
+    ~OldSolarSystem();
     void Update();
     void Draw();
     void addTrails(int traillen);

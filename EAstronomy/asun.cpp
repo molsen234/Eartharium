@@ -96,6 +96,11 @@ glm::dvec3 ASun::EquatorialRectangularCoordinatesAnyEquinox(double jd_tt, double
     value = FK5::VSOP2FK5_AnyEquinox(value, JDEquinox);
     return value;
 }
+
+// MDO
+LLD ASun::EclipticCoordinates(double jd_tt, Planetary_Ephemeris eph) {
+    return LLD(0.0, 0.0, 0.0);
+}
 double ASun::VariationGeometricEclipticLongitude(double jd_tt) noexcept {
     // AA+ CAASun::VariationGeometricEclipticLongitude()
     // Meeus98 page 168
@@ -151,8 +156,13 @@ double ASun::VSOP87_E_dZ(double jd_tt) {
 }
 
 
-// Physical - should be cleaned up a bit for efficiency
+// From AA+ v2.55 CAADiameters
+double ASun::SunSemidiameterA(double Delta) {
+    return deg2rad * (959.63 / Delta) / 3600.0;
+}
 
+
+// Physical - should be cleaned up a bit for efficiency
 PhysicalSunDetails ASun::CalculatePhysicalSun(double jd_tt, Planetary_Ephemeris eph) noexcept {
     // From MEEUS98 Chapter 29
     PhysicalSunDetails details;
@@ -177,7 +187,6 @@ PhysicalSunDetails ASun::CalculatePhysicalSun(double jd_tt, Planetary_Ephemeris 
 
     return details;
 }
-
 double ASun::TimeOfStartOfRotation(long C) noexcept {
     // C is the carrington count
     double JED{ 2398140.2270 + (27.2752316 * C) };

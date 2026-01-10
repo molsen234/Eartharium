@@ -1,8 +1,5 @@
 #pragma once
 
-#include <cmath>
-
-//#include "acoordinates.h"
 struct LLD;
 
 // Hold various 2-axis ellipsoids
@@ -12,28 +9,9 @@ struct Ellipsoid_2axis {
 	double semiminor_axis{ 0.0 };
 	double eccentricity{ 0.0 };  // store both flattening and eccentricity to avoid lots of sqrt() calls in user code
 	// these can't be constructors as they take same argument types
-	void fromSemimajorSemiminor(double semimajor, double semiminor) {
-		semimajor_axis = semimajor;
-		semiminor_axis = semiminor;
-		// f = 1-(b/a) = a/a - b/a = (a-b)/a   Which is faster / more accurate?
-		// flattening = 1.0 - (semiminor_axis / semimajor_axis);
-		flattening = (semimajor_axis - semiminor_axis) / semimajor_axis;
-		// e = sqrt( 2*f - f*f ) = sqrt( f*(2-f) )
-		eccentricity = sqrt(flattening * (2.0 - flattening));
-	}
-	void fromSemimajorFlattening(double semimajor, double flattening) {
-		semimajor_axis = semimajor;
-		this->flattening = flattening;
-		semiminor_axis = semimajor_axis * (1.0 - flattening);
-		// e = sqrt( 2*f - f*f ) = sqrt( f*(2-f) )
-		eccentricity = sqrt(flattening * (2.0 - flattening));
-	}
-	void fromSemimajorEccentricity(double semimajor, double eccentricity) {
-		semimajor_axis = semimajor;
-		this->eccentricity = eccentricity;
-		flattening = 1.0 - sqrt(1.0 - eccentricity * eccentricity);
-		semiminor_axis = semimajor_axis - (semimajor_axis * flattening); // b = a*(1-f) = a-(a*f)
-	}
+	void fromSemimajorSemiminor(double semimajor, double semiminor);
+	void fromSemimajorFlattening(double semimajor, double flattening);
+	void fromSemimajorEccentricity(double semimajor, double eccentricity);
 };
 
 // Define some standard 2-axis ellipsoids commonly used in astronomy and navigation

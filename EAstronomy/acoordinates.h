@@ -1,35 +1,18 @@
 
 #pragma once
 
-#include "config.h"
+#include <iostream>
+
+#include "glm\glm.hpp"
 
 struct LLD {
 public:
     LLD() {}
     LLD(double latitude, double longitude, double distance) : lat(latitude), lon(longitude), dst(distance) {}
-    void print() const {
-        std::cout << "lat=" << lat << ", lon=" << lon << ", dst=" << dst << '\n';
-    }
-    std::string str() const {
-        char buff[100];
-        snprintf(buff, sizeof(buff), "%03.14f,%03.14f,%03.14f", lat, lon, dst);
-        std::string dstring = buff;
-        return dstring;
-    }
-    std::string str_EQ() const {  // Equatorial is Dec(deg), RA(hrs), dst(AU)
-        char buff[100];
-        //snprintf(buff, sizeof(buff), "%03.9f,%03.9f,%03.9f", rad2deg * lat, rad2hrs * lon, dst);
-        snprintf(buff, sizeof(buff), "%03.14f,%03.14f,%03.14f", rad2deg * lat, rad2hrs * lon, dst);
-        std::string dstring = buff;
-        return dstring;
-    }
-    std::string str_EC() const {  // Ecliptic is Lat(deg), Lon(deg), dst(AU)
-        char buff[100];
-        //snprintf(buff, sizeof(buff), "%03.9f,%03.9f,%03.9f", rad2deg * lat, rad2deg * lon, dst);
-        snprintf(buff, sizeof(buff), "%03.14f,%03.14f,%03.14f", rad2deg * lat, rad2deg * lon, dst);
-        std::string dstring = buff;
-        return dstring;
-    }
+    void print() const;
+    std::string str() const;
+    std::string str_EQ() const;
+    std::string str_EC() const;
     bool operator==(LLD& other) {
         return (lat == other.lat && lon == other.lon && dst == other.dst);
     }
@@ -129,20 +112,8 @@ public:
     static LLD Equatorial2Galactic(double Alpha, double Delta) noexcept;
     static LLD Galactic2Equatorial(double l, double b) noexcept;
 
-    static glm::dvec3 Spherical2Rectangular(LLD spherical) {  // defined in .h to incourage inlining
-        const double cosB = cos(spherical.lat);
-        const double cosL = cos(spherical.lon);
-        return { spherical.dst * cosB * cosL, spherical.dst * cosB * sin(spherical.lon), spherical.dst * sin(spherical.lat) };
-    }
-    static LLD Rectangular2Spherical(glm::dvec3 rectangular) {  // defined in .h to incourage inlining
-        LLD retval{};
-        const double x2{ rectangular.x * rectangular.x };
-        const double y2{ rectangular.y * rectangular.y };
-        retval.lat = atan2(rectangular.z, sqrt(x2 + y2));
-        retval.lon = ACoord::rangezero2tau(atan2(rectangular.y, rectangular.x));
-        retval.dst = sqrt(x2 + y2 + (rectangular.z * rectangular.z));
-        return retval;
-    }
+    static glm::dvec3 Spherical2Rectangular(LLD spherical);
+    static LLD Rectangular2Spherical(glm::dvec3 rectangular);
 };
 
 class FK5 {

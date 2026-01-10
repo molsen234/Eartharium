@@ -1,7 +1,9 @@
 #pragma once
+
 #include <array>
+
 #include "aconfig.h"
-#include "acoordinates.h"
+struct LLD;
 
 class APhysicalMoonDetails
 {
@@ -14,7 +16,6 @@ public:
 	double b{ 0 };		 // The total libration in latitude in radians
 	double P{ 0 };		 // The position angle in radians of the Moon's axis of rotation
 };
-
 class ASelenographicMoonDetails
 {
 public:
@@ -22,7 +23,6 @@ public:
 	double b0{ 0 };
 	double c0{ 0 };
 };
-
 
 class AMoon {
 public:

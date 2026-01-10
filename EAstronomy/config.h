@@ -1,14 +1,14 @@
 #pragma once
 
 // C++ std::
-#include <vector>
-#include <map>
-#include <string>
-#include <iostream>
+//#include <vector>
+//#include <map>
+//#include <string>
+//#include <iostream>
 #include <algorithm>
 
 // GLM
-#include <glm/glm.hpp>
+//#include <glm/glm.hpp>
 
 // AA+
 //#include "AAplus/AAElliptical.h" // For the Enums - UPD: still using same enums, but not using AA+ anymore.

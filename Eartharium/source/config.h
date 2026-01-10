@@ -7,8 +7,8 @@
 #include <iostream>
 #include <algorithm>
 
-// AA+
-//#include "AAplus/AAElliptical.h" // For the Enums - UPD: still using same enums, but not using AA+ anymore.
+// GLM
+#include "glm\glm.hpp"
 
 // EAstronomy
 #include "../../EAstronomy/config.h"
@@ -24,7 +24,7 @@ enum itemtype {
     URANUS,
     NEPTUNE,
     EARTH,
-    MOON,
+    MOON,   // !!! FIX: From here upwards should be deleted !!!
     LOC,    // From here onwards, you can rearrange as you please.
     ZENITH,
     NORTH,

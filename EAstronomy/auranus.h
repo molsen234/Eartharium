@@ -1,7 +1,8 @@
 #pragma once
 #include "config.h"
 #include "aconfig.h"
-#include "acoordinates.h"
+//#include "acoordinates.h"
+struct LLD;
 
 class AUranus {
 public:
@@ -68,7 +69,7 @@ public:
     static double MagnitudeMuller(double r, double Delta) noexcept;
 
     // Diameters from AA+ v2.55 CAADiameters
-    constexpr static double UranusSemidiameterA(double Delta) { return 3600.0 * deg2rad * 34.28 / Delta; }
-    constexpr static double UranusSemidiameterB(double Delta) { return 3600.0 * deg2rad * 35.02 / Delta; }
+    constexpr static double UranusSemidiameterA(double Delta);
+    constexpr static double UranusSemidiameterB(double Delta);
 
 };

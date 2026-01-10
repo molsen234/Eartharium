@@ -8,11 +8,12 @@
 #include <glm/fwd.hpp>
 
 #include "config.h"
+#include "../../EAstronomy/config.h"
 #include "../../EAstronomy/aconfig.h"
 #include "../../EAstronomy/acoordinates.h"
-#include "../../EAstronomy/config.h"
 #include "../../EAstronomy/datetime.h"
-
+#include "../../EAstronomy/aasteroids.h"
+#include "../../EAstronomy/aelliptical.h"
 
 // Protos
 class Astronomy;
@@ -23,10 +24,7 @@ struct CelestialDetail {  // Used for CelestialPath entries
 	LLD hec{};             // Heliocentric ECliptic coordinates
 	LLD geq{};             // Geocentric EQuatorial coordinates
 	double geogha{ 0.0 };  // Greenwich Hour Angle
-	void print() const {
-		hec.print();
-		geq.print();
-	}
+	void print() const;
 };
 
 struct CelestialDetailFull {
@@ -42,17 +40,7 @@ struct CelestialDetailFull {
 	double jd_tt{ 0.0 };      // JD in Terrestrial Time when the position was calculated
 
 	// Mostly for troubleshooting, and also serves as a key to the abbreviated member variable names
-	void print() const {
-		std::cout << " True Heliocentric Ecliptic Spherical:     " << thecs.str_EC() << std::endl;
-		std::cout << " True Geocentric Ecliptic Rectangular:     " << tgecr.x << ", " << tgecr.y << ", " << tgecr.z << std::endl;
-		std::cout << " True Geocentric Ecliptic Spherical:       " << tgecs.str_EC() << std::endl;
-		std::cout << " True Geocentric Equatorial Spherical:     " << tgeqs.str_EQ() << std::endl;
-		std::cout << " Apparent Geocentric Ecliptic Spherical:   " << agecs.str_EC() << std::endl;
-		std::cout << " Apparent Geocentric Equatorial Spherical: " << ageqs.str_EQ() << std::endl;
-		std::cout << " True Light Time:                          " << tlt << std::endl;
-		std::cout << " Apparent Light Time:                      " << alt << std::endl;
-		std::cout << " Calculated at JD TT:                      " << jd_tt << std::endl;
-	}
+	void print() const;
 };
 
 // ---------------
@@ -101,7 +89,11 @@ public:
 		double dec{ 0.0 };
 		double pm_ra{ 0.0 };
 		double pm_dec{ 0.0 };
-		// !!! ADD: rad_vel and plax
+		// !!! ADD: rad_vel and plax:
+		//           - Adjust the SIMBAD extraction
+		//           - Create applyMotionInSpace()
+		//double rad_vel{ 0.0 };
+		//double plax{ 0.0 };
 		double vmag{ 0.0 };
 		double red{ 0.0 };
 		double green{ 0.0 };
@@ -168,6 +160,67 @@ public:
 	static bool constellations_loaded;
 	static std::vector<ConstellationBoundary> constellations;
 	static void loadConstellations();
+
+	// == Asteroids ==
+	// Load and search MPCORB.DAT files from Minor Planet Center (https://www.minorplanetcenter.net/data)
+	// !!! ADD: Files are updated regularly. Maybe make a Python script to download and create a binary version to load faster. !!!
+	struct asteroidobject {
+		double Epoch{ 0.0 };	// Epoch of entry
+		double M{ 0.0 };		// Mean Anomaly at Epoch
+		double w{ 0.0 };		// omega = Argument of Perihelion in J2000.0 Ecliptic (from Node) 
+		double Node{ 0.0 };		// Omega = Longitude of Ascending Node from J2000.0 Equinox
+		double i{ 0.0 };		// Inclination of Orbit relative to J2000.0 Ecliptic
+		double e{ 0.0 };		// Eccentricity of elliptical orbit
+		double n{ 0.0 };		// Mean daily motion (degrees per day)
+		double a{ 0.0 };		// Semimajor axis of orbit (in AU)
+		std::string identifier;	// Name or designation
+		void print() {
+<<<<<<< HEAD
+			std::cout << " Epoch: " << Epoch << ", M: " << rad2deg * M << ", w: " << rad2deg * w
+				<< ", Node: " << rad2deg * Node << ", i: " << rad2deg * i << ", e: " << e
+				<< ", n: " << rad2deg * n << ", a: " << a << ", ID: " << identifier << "\n";
+=======
+			std::cout << " Epoch: " << Epoch << " M: " << rad2deg * M << " w: " << rad2deg * w
+				<< " Node: " << rad2deg * Node << " i: " << rad2deg * i << " e: " << e
+				<< " n: " << rad2deg * n << " a: " << a << " ID: " << identifier << "\n";
+>>>>>>> 28303ac (Added asteroids and comets)
+		}
+	};
+	static bool asteroidobjects_loaded;
+	static std::vector<asteroidobject> asteroidobjects; // Common for all Astronomy instances
+	static long MPCchar2num(char c);
+	static double processEpoch(std::string epoch);
+	static void loadAsteroidObjects();
+	static AEllipticalObjectElements AsteroidObject2OrbitalElements(asteroidobject asteroid);
+	static AEllipticalObjectElements getAsteroidOrbitByName(std::string);
+	//static AEllipticalObjectElements getOrbitalElements(std::string name);
+
+
+	// == Comets ==
+	// Load and search AllCometEls.txt files from Minor Planet Center (https://www.minorplanetcenter.net/data)
+	// !!! ADD: Files are updated regularly. Maybe make a Python script to download and create a binary version to load faster. !!!
+	struct cometobject {
+		double Epoch{ 0.0 };	// Epoch of entry
+		double T{ 0.0 };		// Time of Perihelion Passage (JD TBD)
+		double w{ 0.0 };		// omega = Argument of Perihelion in J2000.0 Ecliptic (from Node) 
+		double Node{ 0.0 };		// Omega = Longitude of Ascending Node from J2000.0 Equinox
+		double i{ 0.0 };		// Inclination of Orbit relative to J2000.0 Ecliptic
+		double e{ 0.0 };		// Eccentricity of elliptical orbit
+		double a{ 0.0 };		// Semimajor axis of orbit (in AU)
+		std::string identifier;	// Name or designation
+		void print() {
+			std::cout << " Epoch: " << Epoch << " T: " << rad2deg * T << " w: " << rad2deg * w
+				<< " Node: " << rad2deg * Node << " i: " << rad2deg * i << " e: " << e
+				<<  " a: " << a << " ID: " << identifier << "\n";
+		}
+	};
+	static bool cometobjects_loaded;
+	static std::vector<cometobject> cometobjects; // Common for all Astronomy instances
+	static void loadCometObjects();
+	static AEllipticalObjectElements CometObject2OrbitalElements(cometobject comet);
+	static AEllipticalObjectElements getCometOrbitByName(std::string);
+
+
 	EDateTime m_datetime;    // Default constructor initializes to current system time in UTC
 private:
 	double eot{ 0.0 };
@@ -219,8 +272,8 @@ public:
 	double getEoT(double jd_tt = NO_DOUBLE);
 
 	// Coordinate transformations
-	LLD calcEc2Geo(double Beta, double Lambda, double Epsilon) noexcept;
-	LLD calcGeo2Ec(double Delta, double Alpha, double Epsilon) noexcept;
+	LLD calcEc2Eq(double Beta, double Lambda, double Epsilon) noexcept;
+	LLD calcEq2Ec(double Delta, double Alpha, double Epsilon) noexcept;
 	LLD calcGeo2Topo(LLD pos, LLD loc);
 	LLD calcDecHA2GP(LLD decra);
 	LLD calcDecRA2GP(LLD decra, double jd_utc);
@@ -256,7 +309,7 @@ public:
 	// Planetary calculations
 	unsigned int enablePlanet(Planet planet);
 	unsigned int disablePlanet(Planet planet);
-	LLD EclipticCoordinates(double jd_tt, Planet planet, Planetary_Ephemeris eph);
+	LLD EclipticCoordinates(double jd_tt, Planet planet, Planetary_Ephemeris eph = EPH_VSOP87_SHORT);
 	CelestialDetailFull planetaryDetails(double jd_tt, Planet planet, Planetary_Ephemeris eph);
 	CelestialDetail getDetails(double jd_tt, Planet planet, Planetary_Ephemeris eph, unsigned int type);
 	CelestialPath* getCelestialPath(Planet planet, double startoffset, double endoffset, unsigned int steps, unsigned int type, bool fixed = false);

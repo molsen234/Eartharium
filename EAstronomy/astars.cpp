@@ -1,6 +1,6 @@
 
 #include "astars.h"
-//#include "acoordinates.h"  // already included in astars.h
+#include "acoordinates.h"
 
 LLD AProperMotion::AdjustPositionUsingUniformProperMotion(double t, double Alpha, double Delta, double PMAlpha, double PMDelta) noexcept {
 	// This is from AA+ CAAPrecession::AdjustPositionUsingUniformProperMotion(), but NOTE: the parameter units are different!

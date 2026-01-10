@@ -13,8 +13,9 @@
 // Forward references
 //  Astronomy.h
 class Astronomy;
+//  OldObjects.h
+class OldSolarSystem;
 //  Earth.h
-class SolarSystem;
 class Earth;
 class SkySphere;
 class BodyGeometry;
@@ -138,7 +139,7 @@ public:
     // Safer to pass a parent when constructing. If there is ever a need to change parent, destroy the object and create a new one.
     // - Simply setting a parent after construction can lead to loops in the scene tree.
     //void setParent(SceneObject* parent);
-    SceneObject* getParent();
+    //SceneObject* getParent();
     void setID(unsigned int oid);
     unsigned int getID();
     // setWorldMat() removed, as inherit() will overwrite due to being called in the render phase, after setWorldMat() can be called.
@@ -172,7 +173,7 @@ public:
     Astronomy* astro = nullptr; // Why is this here? Oh, so Earth can look it up. Probably should have a RenderLayer3D pointer instead.
     Camera* w_camera = nullptr;
     unsigned int shadows = NONE;  // Create a way to update this from GUI or keyboard or python etc.
-    SolarSystem* m_solsysOb = nullptr;
+    OldSolarSystem* m_solsysOb = nullptr;
     Earth* m_earthOb = nullptr;
     SkySphere* m_skysphereOb = nullptr;
 private:
@@ -227,7 +228,7 @@ public:
     SkySphere* newSkysphere(unsigned int mU, unsigned int mV, bool texture);
     SkySphere* getSkysphere();
     SkyBox* getSkyboxOb();
-    SolarSystem* getSolsysOb();
+    OldSolarSystem* getSolsysOb();
     ShadowBox* getShadowboxOb();
     ShadowMap* getShadowmapOb();
     Earth* newEarth(std::string mode, unsigned int mU, unsigned int mV);

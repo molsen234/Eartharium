@@ -1,3 +1,5 @@
+
+#include "config.h"
 #include "aneptune.h"
 #include "acoordinates.h"
 #include "vsop87/aneptune_vsop87_short.h"
@@ -224,4 +226,13 @@ double ANeptune::MagnitudeMuller(double r, double Delta) noexcept {
     // r = Neptune to Sun distance in AU
     // Delta = Neptune to Earth distance in AU
     return -7.05 + (5 * log10(r * Delta));
+}
+
+// Diameters - From AA+v2.55 CAAdiameters
+constexpr double ANeptune::NeptuneSemidiameterA(double Delta) {
+    return 3600.0 * deg2rad * 36.56 / Delta;
+}
+constexpr double ANeptune::NeptuneSemidiameterB(double Delta) {
+    return 3600.0 * deg2rad * 33.50 / Delta;
+
 }

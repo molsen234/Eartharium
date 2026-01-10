@@ -1,7 +1,15 @@
 
-#include "aasteroids.h"
 #include<cmath>
 
+#include "config.h"
+#include "aasteroids.h"
+
+double AAsteroids::ApparentAsteroidDiameter(double Delta, double d) noexcept {
+	// Delta = distance in AU
+	// d = diameter in km
+	// returns apparent diameter in radians
+	return deg2rad * (0.0013788 * d) / (Delta * 3600.0);
+}
 double AAsteroids::AsteroidDiameter(double H, double A) noexcept {
 	// H = Absolute Magnitude of asteroid
 	// A = Albedo of asteroid

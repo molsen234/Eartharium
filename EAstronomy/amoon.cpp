@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <array>
 #include <cassert>
+
 #include "aconfig.h"
 #include "acoordinates.h"
 #include "amoon.h"

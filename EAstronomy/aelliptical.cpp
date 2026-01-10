@@ -1,4 +1,7 @@
 
+#include <cmath>
+#include <iostream>
+
 #include "aelliptical.h"
 
 #include "aearth.h"
@@ -10,8 +13,6 @@
 #include "asaturn.h"
 #include "auranus.h"
 #include "aneptune.h"
-
-#include <cmath>
 
 // from CAAKepler
 double AElliptical::calcKepler(double M, double e, int nIterations) noexcept {
@@ -154,46 +155,141 @@ LLD AElliptical::EclipticCoordinates(double jd_tt, Planet planet, Planetary_Ephe
     return retval;
 }
 double AElliptical::MeanMotionFromSemiMajorAxis(double a) noexcept {
-    return deg2rad * 0.9856076686 / (a * sqrt(a));  // radians
+    // MEEUS98 - Chapter 33 - Equation 33.6
+    // Number is https://en.wikipedia.org/wiki/Gaussian_gravitational_constant
+    // return deg2rad * 0.9856076686 / (a * sqrt(a));  // radians
+    return 0.01720'20989'50000 / (a * sqrt(a));  // radians
 }
 
-AEllipticalObjectDetails AElliptical::Calculate(double JD, const AEllipticalObjectElements& elements, bool bHighPrecision) noexcept {
+
+glm::dvec3 AElliptical::HeliocentricRectangular(double JD, const AEllipticalObjectElements& elements) noexcept {
+    // TODO: Clean up and add comments
     // MEEUS98 chapter 33
     // from AA+ v2.49 CAAElliptical
 
-    AEllipticalObjectDetails details; // Return value
+    glm::dvec3 result; // Return value
 
+    // Obliquity at Epoch of Elements
     double Epsilon{ AEarth::MeanObliquityOfEcliptic(elements.JDEquinox) };
-
     const double sinEpsilon{ sin(Epsilon) };
     const double cosEpsilon{ cos(Epsilon) };
+
     const double sinOmega{ sin(elements.omega) };
     const double cosOmega{ cos(elements.omega) };
     const double cosi{ cos(elements.i) };
     const double sini{ sin(elements.i) };
 
+    // equation 33.7
     const double F{ cosOmega };
     const double G{ sinOmega * cosEpsilon };
     const double H{ sinOmega * sinEpsilon };
     const double P{ -sinOmega * cosi };
     const double Q{ (cosOmega * cosi * cosEpsilon) - (sini * sinEpsilon) };
     const double R{ (cosOmega * cosi * sinEpsilon) + (sini * cosEpsilon) };
-    const double a{ sqrt((F * F) + (P * P)) };
-    const double b{ sqrt((G * G) + (Q * Q)) };
-    const double c{ sqrt((H * H) + (R * R)) };
+    // Sanity check: F*F+G*G+H*H = 1, P*P+Q*Q+R*R = 1
+
+    // equation 33.8
     const double A{ atan2(F, P) };
     const double B{ atan2(G, Q) };
     const double C{ atan2(H, R) };
+    const double a{ sqrt((F * F) + (P * P)) };
+    const double b{ sqrt((G * G) + (Q * Q)) };
+    const double c{ sqrt((H * H) + (R * R)) };
+
+    const double n{ AElliptical::MeanMotionFromSemiMajorAxis(elements.a) };  // radians
+
+    const glm::dvec3 SunCoord{ ASun::EquatorialRectangularCoordinatesAnyEquinox(JD, elements.JDEquinox) };
+
+    // Mean Anomaly of body
+    const double M{ n * (JD - elements.T) };  // radians
+    // Eccentric Anomaly of body
+    double E{ calcKepler(M, elements.e) };     // radians
+    // True Anomaly of body (eqn 30.1)
+    const double v{ 2 * atan(sqrt((1 + elements.e) / (1 - elements.e)) * tan(E / 2)) };
+    // Radial distance of body (eqn 30.2)
+    const double r{ elements.a * (1 - (elements.e * cos(E))) };
+
+    // Heliocentric Rectangular Equatorial Coordinates (of Epoch) of body
+    // MEEUS98 equation 33.9 - Note: a,b,c,A,B,C depend only on the orbital elements and the obliquity
+    //                               thus they remain constant when calculating multiple positions from
+    //                               the same elements.
+    result.x = r * a * sin(A + elements.w + v);
+    result.y = r * b * sin(B + elements.w + v);
+    result.z = r * c * sin(C + elements.w + v);
+
+    return result;
+}
+
+double AElliptical::PerihelionDistance2SemimajorAxis(double e, double q) noexcept {
+    // Comet Orbital Elements list perihelion distance rather than semimajor axis
+    // Takes eccentricity and perihelion distance (AU), returns semimajor axis (AU)
+    // MEEUS98 eqn 33.6
+    return q / (1 - e);
+}
+double AElliptical::SemimajorAxis2PerihelionDistance(double e, double a) noexcept {
+    // Comet Orbital Elements list perihelion distance rather than semimajor axis
+    // Takes eccentricity and semimajor axis (AU), returns perihelion distance (AU)
+    // MEEUS98 eqn 33.6
+    return a * (1 - e);
+}
+
+
+
+
+
+AEllipticalObjectDetails AElliptical::Calculate(double JD, const AEllipticalObjectElements& elements) noexcept {
+    // TODO: Clean up and add comments
+    // MEEUS98 chapter 33
+    // from AA+ v2.49 CAAElliptical
+
+    AEllipticalObjectDetails details; // Return value
+
+    // Obliquity at Epoch of Elements
+    double Epsilon{ AEarth::MeanObliquityOfEcliptic(elements.JDEquinox) };
+    const double sinEpsilon{ sin(Epsilon) };
+    const double cosEpsilon{ cos(Epsilon) };
+
+    const double sinOmega{ sin(elements.omega) };
+    const double cosOmega{ cos(elements.omega) };
+    const double cosi{ cos(elements.i) };
+    const double sini{ sin(elements.i) };
+
+    // equation 33.7
+    const double F{ cosOmega };
+    const double G{ sinOmega * cosEpsilon };
+    const double H{ sinOmega * sinEpsilon };
+    const double P{ -sinOmega * cosi };
+    const double Q{ (cosOmega * cosi * cosEpsilon) - (sini * sinEpsilon) };
+    const double R{ (cosOmega * cosi * sinEpsilon) + (sini * cosEpsilon) };
+    // Sanity check: F*F+G*G+H*H = 1, P*P+Q*Q+R*R = 1
+
+    // equation 33.8
+    const double A{ atan2(F, P) };
+    const double B{ atan2(G, Q) };
+    const double C{ atan2(H, R) };
+    const double a{ sqrt((F * F) + (P * P)) };
+    const double b{ sqrt((G * G) + (Q * Q)) };
+    const double c{ sqrt((H * H) + (R * R)) };
+
     const double n{ AElliptical::MeanMotionFromSemiMajorAxis(elements.a) };  // radians
 
     const glm::dvec3 SunCoord{ ASun::EquatorialRectangularCoordinatesAnyEquinox(JD, elements.JDEquinox) };
 
     double JD0{ JD };
     for (int j = 0; j < 2; j++) {
+        // Mean Anomaly of body
         const double M{ n * (JD0 - elements.T) };  // radians
+        // Eccentric Anomaly of body
         double E{ calcKepler(M, elements.e) };     // radians
+        // True Anomaly of body (eqn 30.1)
         const double v{ 2 * atan(sqrt((1 + elements.e) / (1 - elements.e)) * tan(E / 2)) };
+        // Radial distance of body (eqn 30.2)
         const double r{ elements.a * (1 - (elements.e * cos(E))) };
+
+        // Heliocentric Rectangular Equatorial Coordinates (of Epoch) of body
+        // MEEUS98 equation 33.9 - Note: a,b,c,A,B,C depend only on the orbital elements and the obliquity
+        //                               thus they remain constant when calculating multiple positions from
+        //                               the same elements.
         const double x{ r * a * sin(A + elements.w + v) };
         const double y{ r * b * sin(B + elements.w + v) };
         const double z{ r * c * sin(C + elements.w + v) };
@@ -296,4 +392,127 @@ double AElliptical::MinorPlanetMagnitude(double H, double delta, double G, doubl
     const double phi1{ exp(-3.33 * pow(tan(PhaseAngle / 2.0), 0.63)) };
     const double phi2{ exp(-1.87 * pow(tan(PhaseAngle / 2.0), 1.22)) };
     return H + (5.0 * log10(r * delta)) - (2.5 * log10(((1.0 - G) * phi1) + (G * phi2)));
+}
+
+
+AEllipticalOrbit::AEllipticalOrbit(AEllipticalObjectElements& elements) {
+    updateElements(elements);
+}
+void AEllipticalOrbit::updateElements(AEllipticalObjectElements& elements) {
+    m_elements = elements;
+    calcParams();
+}
+glm::dvec3 AEllipticalOrbit::EquatorialHeliocentricRectangular(double jd_tt) {
+    // !!! FIX: NOT TESTED YET !!!
+    // Heliocentric Rectangular Equatorial Coordinates of body
+    // MEEUS98 - Chapter 33
+
+    // Note: This returns rectangular coordinates of the object at time jd_tt, in the equatorial reference frame of m_elements.JDEquinox
+    //       There is no light time compensation etc.
+
+    //const glm::dvec3 SunCoord{ ASun::EquatorialRectangularCoordinatesAnyEquinox(jd_tt, m_elements.JDEquinox) };
+
+    const double M{ n * (jd_tt - m_elements.T) };             // Mean Anomaly of body in radians
+    double E{ AElliptical::calcKepler(M, m_elements.e) };     // Eccentric Anomaly of body in radians
+    // True Anomaly of body (eqn 30.1)
+    const double v{ 2 * atan(sqrt((1 + m_elements.e) / (1 - m_elements.e)) * tan(E / 2)) };
+    // Radial distance of body (eqn 30.2)
+    const double r{ m_elements.a * (1 - (m_elements.e * cos(E))) };
+
+    return glm::dvec3(
+        r * a * sin(A + m_elements.w + v),
+        r * b * sin(B + m_elements.w + v),
+        r * c * sin(C + m_elements.w + v));
+}
+glm::dvec3 AEllipticalOrbit::EclipticHeliocentricRectangular(double jd_tt) {
+    // Ceres verified against JPL Horizons for node passages 2026-9-14 and 2028-10-12
+    const double M{ n * (jd_tt - m_elements.T) };             // Mean Anomaly of body in radians
+    double E{ AElliptical::calcKepler(M, m_elements.e) };     // Eccentric Anomaly of body in radians
+    // True Anomaly of body (eqn 30.1)
+    const double v{ 2 * atan(sqrt((1 + m_elements.e) / (1 - m_elements.e)) * tan(E / 2)) };
+    // Radial distance of body (eqn 30.2)
+    const double r{ m_elements.a * (1 - (m_elements.e * cos(E))) };
+
+    const double u{ m_elements.w + v };
+    const double cosu{ cos(u) };
+    const double sinu{ sin(u) };
+
+    return glm::dvec3(
+        r * ((cosOmega * cosu) - (sinOmega * sinu * cosi)),
+        r * ((sinOmega * cosu) + (cosOmega * sinu * cosi)),
+        r * sini * sinu);
+}
+<<<<<<< HEAD
+glm::dvec3 AEllipticalOrbit::UniformHeliocentricRectangular(double E) {
+    // Use this to plot orbits, it takes the Eccentric Anomaly directly as parameter,
+    // thus allowing to sweep equal angles. This avoids the large steps at perihelion.
+    const double v{ 2 * atan(sqrt((1 + m_elements.e) / (1 - m_elements.e)) * tan(E / 2)) };
+    const double r{ m_elements.a * (1 - (m_elements.e * cos(E))) };
+
+    const double u{ m_elements.w + v };
+    const double cosu{ cos(u) };
+    const double sinu{ sin(u) };
+
+    return glm::dvec3(
+        r * ((cosOmega * cosu) - (sinOmega * sinu * cosi)),
+        r * ((sinOmega * cosu) + (cosOmega * sinu * cosi)),
+        r * sini * sinu);
+}
+
+=======
+>>>>>>> 28303ac (Added asteroids and comets)
+LLD AEllipticalOrbit::EclipticHeliocentricSpherical(double jd_tt) {
+    // !!! FIX: NOT TESTED YET !!!
+    glm::dvec3 rect{ EclipticHeliocentricRectangular(jd_tt) };  // rectangular coordinates
+    return Spherical::Rectangular2Spherical(rect);
+    //return LLD(
+    //    atan2(rect.z,sqrt(rect.x*rect.x + rect.y*rect.y)),
+    //    atan2(rect.y, rect.x),
+    //    sqrt(rect.x*rect.x + rect.y*rect.y + rect.z*rect.z));
+}
+void AEllipticalOrbit::calcParams() {
+    // Recalculate the parameters which only depend on the orbital elements (and the obliquity at JDEquinox).
+    //  This will save a lot of computation when calculating coordinates for a path.
+
+    // Obliquity at Epoch of Elements
+    const double Epsilon{ AEarth::MeanObliquityOfEcliptic(m_elements.JDEquinox) };
+    const double sinEpsilon = sin(Epsilon);
+    const double cosEpsilon = cos(Epsilon);
+
+    // These are used for ecliptic heliocentric coordinates
+    sinOmega = sin(m_elements.omega);
+    cosOmega = cos(m_elements.omega);
+    cosi = cos(m_elements.i);
+    sini = sin(m_elements.i);
+
+    // equation 33.7
+    const double F = cosOmega;
+    const double G = sinOmega * cosEpsilon;
+    const double H = sinOmega * sinEpsilon;
+    const double P = -sinOmega * cosi;
+    const double Q = (cosOmega * cosi * cosEpsilon) - (sini * sinEpsilon);
+    const double R = (cosOmega * cosi * sinEpsilon) + (sini * cosEpsilon);
+    // Sanity check: F*F+G*G+H*H = 1, P*P+Q*Q+R*R = 1
+
+    // Calculate the reusable parameters
+    // equation 33.8
+    A = atan2(F, P);
+    B = atan2(G, Q);
+    C = atan2(H, R);
+    a = sqrt((F * F) + (P * P));
+    b = sqrt((G * G) + (Q * Q));
+    c = sqrt((H * H) + (R * R));
+
+<<<<<<< HEAD
+    n = AElliptical::MeanMotionFromSemiMajorAxis(m_elements.a);  // Mean Motion in radians
+}
+
+// julian day of passage of perihelion
+void AEllipticalObjectElements::print() {
+    std::cout << " a: " << a << " e: " << e << " i: " << rad2deg * i
+        << " w: " << rad2deg * w << " omega: " << rad2deg * omega
+        << " JDEquinox: " << JDEquinox << " T: " << T << "\n";
+=======
+    n = AElliptical::MeanMotionFromSemiMajorAxis(m_elements.a);  // radians
+>>>>>>> 28303ac (Added asteroids and comets)
 }

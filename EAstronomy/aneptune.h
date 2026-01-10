@@ -1,7 +1,7 @@
 #pragma once
-#include "config.h"
+
 #include "aconfig.h"
-#include "acoordinates.h"
+struct LLD;
 
 class ANeptune {
 public:
@@ -68,7 +68,7 @@ public:
     static double MagnitudeMuller(double r, double Delta) noexcept;
 
     // Diameters - From AA+v2.55 CAAdiameters
-    constexpr static double NeptuneSemidiameterA(double Delta) { return 3600.0 * deg2rad * 36.56 / Delta; }
-    constexpr static double NeptuneSemidiameterB(double Delta) { return 3600.0 * deg2rad * 33.50 / Delta; }
+    constexpr static double NeptuneSemidiameterA(double Delta);
+    constexpr static double NeptuneSemidiameterB(double Delta);
 
 };

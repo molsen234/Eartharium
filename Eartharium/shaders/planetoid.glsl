@@ -31,7 +31,7 @@ uniform sampler2D tex;
 void main()
 {   
     FragColor = texture(tex, TexCoord);
-    float lfactor = clamp(dot(lightDir, lNormal) + 0.1, 0.0, 1.0);
+    float lfactor = clamp(abs(dot(lightDir, lNormal)) + 0.1, 0.0, 1.0);
     FragColor = vec4((FragColor.rgb * lfactor),FragColor.a);
     //FragColor = vec4((FragColor.rgb * lfactor),1.0);
     //FragColor = vec4(1.0);

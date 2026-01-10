@@ -1,7 +1,6 @@
 #pragma once
-#include "config.h"
-#include "aconfig.h"
-#include "acoordinates.h"
+
+struct LLD;
 
 class APluto {
 public:
@@ -14,6 +13,6 @@ public:
 	static double MagnitudeAA(double r, double Delta) noexcept;
 
 	// Diameter - From AA+ v2.55 CAADiameters
-	constexpr static double PlutoSemidiameterB(double Delta) { return 3600.0 * deg2rad * 2.07 / Delta; }
+	constexpr static double PlutoSemidiameterB(double Delta) noexcept;
 
 };

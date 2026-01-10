@@ -1,5 +1,6 @@
 #pragma once
-#include "config.h"
+
+//#include "config.h"
 #include "aconfig.h"
 #include "acoordinates.h"
 
@@ -69,6 +70,6 @@ public:
     static double MagnitudeMuller(double r, double Delta, double i) noexcept;
 
     // From AA+ v2.55 CAADiameters
-    constexpr static double MercurySemidiameterA(double Delta) { return 3600.0 * deg2rad * 3.34 / Delta; }
-    constexpr static double MercurySemidiameterB(double Delta) { return 3600.0 * deg2rad * 3.36 / Delta; }
+    constexpr static double MercurySemidiameterA(double Delta) noexcept;
+    constexpr static double MercurySemidiameterB(double Delta) noexcept;
 };

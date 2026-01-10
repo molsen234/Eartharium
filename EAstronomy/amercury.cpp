@@ -1,4 +1,5 @@
 
+#include "config.h"
 #include "amercury.h"
 #include "acoordinates.h"
 #include "vsop87/amercury_vsop87_short.h"
@@ -236,4 +237,12 @@ double AMercury::MagnitudeMuller(double r, double Delta, double i) noexcept {
     i *= rad2deg;
     const double I_50{ i - 50 };
     return 1.16 + (5 * log10(r * Delta)) + (0.02838 * I_50) + (0.0001023 * I_50 * I_50);
+}
+
+// From AA+ v2.55 CAADiameters
+constexpr double AMercury::MercurySemidiameterA(double Delta) noexcept {
+    return 3600.0 * deg2rad * 3.34 / Delta;
+}
+constexpr double AMercury::MercurySemidiameterB(double Delta) noexcept {
+    return 3600.0 * deg2rad * 3.36 / Delta;
 }

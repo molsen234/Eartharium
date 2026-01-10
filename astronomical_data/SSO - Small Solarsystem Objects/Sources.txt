@@ -1,0 +1,9 @@
+Minor Planet Center: https://www.minorplanetcenter.net/
+
+Their data can be found here: https://www.minorplanetcenter.net/data
+
+Asteroids (MPCORB.DAT):   https://www.minorplanetcenter.net/iau/MPCORB/MPCORB.DAT
+Comets (AllCometEls.txt): https://www.minorplanetcenter.net/iau/MPCORB/AllCometEls.txt
+
+See also Comet Observation Database: https://cobs.si/
+

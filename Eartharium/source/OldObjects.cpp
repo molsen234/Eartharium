@@ -1269,7 +1269,7 @@ void Earth::addSubsolarPoint(float size) {
     //m_sunob = new SubSolar(m_scene, 16, 32, size);
     //m_sunob->Update(flatSun);
     if (m_subsolar) return;
-    m_subsolar = new Planetoid(m_scene, nullptr, SUN, 16, 32, size);
+    m_subsolar = new Planetoid(m_scene, nullptr, A_SUN, 16, 32, size);
 }
 void Earth::deleteSubsolarPoint() {
     //if (m_sunob != nullptr) delete m_sunob;
@@ -3267,14 +3267,14 @@ void Location::Draw(Camera* cam) {
 glm::vec4 Location::getPlanetColor(size_t planet, glm::vec4 color) {
     // Might belong somewhere else, like a config object or CelestialMech !!!
     if (color != NO_COLOR) return color;
-    if (planet == SUN) return SUNCOLOR;
-    if (planet == MERCURY) return MERCURYCOLOR;
-    if (planet == VENUS) return VENUSCOLOR;
-    if (planet == MARS) return MARSCOLOR;
-    if (planet == JUPITER) return JUPITERCOLOR;
-    if (planet == SATURN) return SATURNCOLOR;
-    if (planet == URANUS) return URANUSCOLOR;
-    if (planet == NEPTUNE) return NEPTUNECOLOR;
+    if (planet == A_SUN) return SUNCOLOR;
+    if (planet == A_MERCURY) return MERCURYCOLOR;
+    if (planet == A_VENUS) return VENUSCOLOR;
+    if (planet == A_MARS) return MARSCOLOR;
+    if (planet == A_JUPITER) return JUPITERCOLOR;
+    if (planet == A_SATURN) return SATURNCOLOR;
+    if (planet == A_URANUS) return URANUSCOLOR;
+    if (planet == A_NEPTUNE) return NEPTUNECOLOR;
     std::cout << "WARNING! Location::getPlanetColor() called with unknown planet: " << planet << "\n";
     return WHITE;
 }
@@ -3674,13 +3674,13 @@ void Location::FlatSun::enablePath24() {
 }
 // No need for an update function, that is handled in Location
 void Location::FlatSun::disablePath24() {
-    m_location->deletePlanetaryPath(TRUESUN3D, SUN);  // FIX !!!
+    m_location->deletePlanetaryPath(TRUESUN3D, A_SUN);  // FIX !!!
 }
 void Location::FlatSun::enableAnalemma() {
     m_location->addPlanetaryPath(A_SUN, -183.0, 183.0, 366, TRUEANALEMMA3D, defaultcolor, 0.002f);
 }
 void Location::FlatSun::disableAnalemma() {
-    m_location->deletePlanetaryPath(TRUEANALEMMA3D, SUN);
+    m_location->deletePlanetaryPath(TRUEANALEMMA3D, A_SUN);
 }
 double Location::FlatSun::getElevation(bool radians) {
     if (radians) return localsun.lat;
@@ -4286,7 +4286,7 @@ void Location::doPath3DDecRA(double dec, double ra, PolyCurve* path) {
 // -------------
 //  SolarSystem
 // -------------
-SolarSystem::SolarSystem(Scene* scene, bool geocentric) : m_scene(scene), m_geocentric(geocentric) {
+OldSolarSystem::OldSolarSystem(Scene* scene, bool geocentric) : m_scene(scene), m_geocentric(geocentric) {
     //std::cout << "SolarSystem::SolarSystem()\n";
     m_astro = m_scene->astro;
     m_jd = m_astro->getJD_TT();
@@ -4302,10 +4302,10 @@ SolarSystem::SolarSystem(Scene* scene, bool geocentric) : m_scene(scene), m_geoc
         PlanetOrbit((Planet)p);
     }
 }
-SolarSystem::~SolarSystem() {
+OldSolarSystem::~OldSolarSystem() {
     // Clear orbits here
 }
-void SolarSystem::Update() {
+void OldSolarSystem::Update() {
     // Check if GUI changed: bool geocentric, bool orbits, bool trails, int traillen
     if (geocentric != m_geocentric) changeCentricity();
     if (orbits != m_orbits) changeOrbits();
@@ -4323,14 +4323,14 @@ void SolarSystem::Update() {
     //else PlanetOrbit(EARTH);
     UpdateDistLines();
 }
-void SolarSystem::Draw() {
+void OldSolarSystem::Draw() {
     if (m_orbits) {
         for (auto& p : m_PlanetPath) {
             if (p != nullptr) p->draw(m_scene->w_camera);
         }
     }
 }
-void SolarSystem::addTrails(int traillength) {
+void OldSolarSystem::addTrails(int traillength) {
     // NOTE: traillen must be positive, but ImGUI just supports signed ints in sliders
     // Geocentric and Heliocentric require different dynamic trail lengths
     //  and densities/spacings. Maybe make an AdjustTrails() method for switching.
@@ -4342,26 +4342,26 @@ void SolarSystem::addTrails(int traillength) {
     }
     m_trails = true;
 }
-void SolarSystem::clearTrails() {
+void OldSolarSystem::clearTrails() {
     for (size_t p = A_MERCURY; p <= A_SUN; p++) {
         if (m_PlanetTrail[p] != nullptr) m_PlanetTrail[p]->clear();
     }
 }
-glm::vec3 SolarSystem::CalcPlanet(Planet planet, double jd_tt) {
+glm::vec3 OldSolarSystem::CalcPlanet(Planet planet, double jd_tt) {
     if (jd_tt == 0.0) jd_tt = m_jd;
     const double lon = m_astro->getEcLon(planet, jd_tt);  // Radians
     const double lat = m_astro->getEcLat(planet, jd_tt);  // Radians
     const double dst = m_astro->getEcDst(planet, jd_tt);  // AU
     return Ecliptic2Cartesian(lat, lon, dst);
 }
-void SolarSystem::PlanetPos(Planet planet, bool update) {
+void OldSolarSystem::PlanetPos(Planet planet, bool update) {
     // NOTE: Optionally push to trail depending on distance from last frame. !!!
     glm::vec3 pos = CalcPlanet(planet) + m_sunpos;
     if (!update) m_PlanetDot[planet] = m_scene->getDotsFactory()->addXYZ(pos, m_planetinfos[planet].color, planetdot);
     if (update) m_scene->getDotsFactory()->changeXYZ(m_PlanetDot[planet], pos, m_planetinfos[planet].color, planetdot);
     if (m_PlanetTrail[planet] != nullptr && m_trails) m_PlanetTrail[planet]->push(pos);
 }
-void SolarSystem::PlanetOrbit(Planet planet) {
+void OldSolarSystem::PlanetOrbit(Planet planet) {
     if (m_PlanetPath[planet] == nullptr) {
         double siderealyear = m_planetinfos[planet].sidyear;
         glm::vec4 color = m_planetinfos[planet].color;
@@ -4377,13 +4377,13 @@ void SolarSystem::PlanetOrbit(Planet planet) {
     }
     m_PlanetPath[planet]->generate();
 }
-void SolarSystem::SunPos(bool update) {
+void OldSolarSystem::SunPos(bool update) {
     m_sunpos = m_geocentric ? CalcSun() : glm::vec3(0.0f);
     if (!update) m_SunDot = m_scene->getDotsFactory()->addXYZ(m_sunpos, SUNCOLOR, planetdot);
     if (update) m_scene->getDotsFactory()->changeXYZ(m_SunDot, m_sunpos, SUNCOLOR, planetdot);
     if (m_PlanetTrail[A_SUN] != nullptr && m_trails) m_PlanetTrail[A_SUN]->push(m_sunpos);
 }
-void SolarSystem::SunOrbit(bool update) {
+void OldSolarSystem::SunOrbit(bool update) {
     m_SunPath = new PolyCurve(m_scene, SUNCOLOR, solsyspathwidth);
     double siderealyear = 366; // Sun days
     for (double jd = m_astro->getJD_TT() - 0.5 * siderealyear; jd < m_astro->getJD_TT() + 0.5 * siderealyear; jd += siderealyear / 360) {
@@ -4393,28 +4393,28 @@ void SolarSystem::SunOrbit(bool update) {
     m_SunPath->generate();
     m_SunPath->draw(m_scene->w_camera); // Default cam, NOT always correct !!!
 }
-glm::vec3 SolarSystem::CalcSun(double jd_tt) {
+glm::vec3 OldSolarSystem::CalcSun(double jd_tt) {
     if (jd_tt == 0.0) jd_tt = m_jd;
     const double lon = m_astro->getEcLon(A_EARTH, jd_tt);
     const double lat = m_astro->getEcLat(A_EARTH, jd_tt);
     const double dst = au2km * m_astro->getEcDst(A_EARTH, jd_tt);
     return -Ecliptic2Cartesian(lat, lon, dst);
 }
-void SolarSystem::EarthPos(bool update) {
+void OldSolarSystem::EarthPos(bool update) {
     m_earthpos = m_geocentric ? glm::vec3(0.0f) : CalcEarth() + m_sunpos;
     if (!update) m_EarthDot = m_scene->getDotsFactory()->addXYZ(m_earthpos, EARTHCOLOR, planetdot);
     if (update) m_scene->getDotsFactory()->changeXYZ(m_EarthDot, m_earthpos, EARTHCOLOR, planetdot);
     //pos += m_sunpos;
     if (m_EarthTrail != nullptr && m_trails) m_EarthTrail->push(m_earthpos);
 }
-glm::vec3 SolarSystem::CalcEarth(double jd_tt) {
+glm::vec3 OldSolarSystem::CalcEarth(double jd_tt) {
     if (jd_tt == 0.0) jd_tt = m_jd;
     const double lon = m_astro->getEcLon(A_EARTH, jd_tt);
     const double lat = m_astro->getEcLat(A_EARTH, jd_tt);
     const double dst = au2km * m_astro->getEcDst(A_EARTH, jd_tt);
     return Ecliptic2Cartesian(lat, lon, dst);
 }
-glm::vec3 SolarSystem::Ecliptic2Cartesian(double Brad, double Lrad, double dst) {
+glm::vec3 OldSolarSystem::Ecliptic2Cartesian(double Brad, double Lrad, double dst) {
     glm::vec3 pos = glm::vec3(0.0f);
     const double cosB = cos(Brad);
     pos.x = (float)(dst * cosB * cos(Lrad));
@@ -4422,19 +4422,19 @@ glm::vec3 SolarSystem::Ecliptic2Cartesian(double Brad, double Lrad, double dst) 
     pos.z = (float)(dst * sin(Brad));
     return pos;
 }
-glm::vec3 SolarSystem::GetPlanetPos(Planet planet) {  // Optional JD ?
+glm::vec3 OldSolarSystem::GetPlanetPos(Planet planet) {  // Optional JD ?
     if (planet == A_SUN) return m_sunpos;
     else if (planet == A_EARTH) return m_earthpos;
     else if (planet > A_SUN && planet < A_EARTH) return CalcPlanet(planet);
     else std::cout << "SolarSystem::GetPlanetPos() called with invalid planet enum: " << planet << ", returning glm::vec3(0.0f)!\n";
     return glm::vec3(0.0f);
 }
-void SolarSystem::AddDistLine(Planet planet1, Planet planet2, glm::vec4 color, float width) {
+void OldSolarSystem::AddDistLine(Planet planet1, Planet planet2, glm::vec4 color, float width) {
     if (m_cylinders == nullptr) m_cylinders = m_scene->getCylindersFactory();
     size_t index = m_cylinders->addStartEnd(GetPlanetPos(planet1), GetPlanetPos(planet2), width, color);
     m_distlines.store({ index, planet1, planet2, color, width });
 }
-void SolarSystem::UpdateDistLines() {
+void OldSolarSystem::UpdateDistLines() {
     for (auto& dl : m_distlines.m_Elements) {
         glm::vec3 p1 = GetPlanetPos(dl.planet1);
         glm::vec3 p2 = GetPlanetPos(dl.planet2);
@@ -4443,10 +4443,10 @@ void SolarSystem::UpdateDistLines() {
         m_cylinders->changeStartEnd(dl.index, p1, p2, dl.width, dl.color);
     }
 }
-void SolarSystem::changeCentricity() {
+void OldSolarSystem::changeCentricity() {
     m_geocentric = geocentric;
 }
-void SolarSystem::changeOrbits() {
+void OldSolarSystem::changeOrbits() {
     if (orbits && !m_orbits) { // Orbits being enabled
         for (unsigned int p = A_MERCURY; p <= A_SUN; p++) {
             PlanetOrbit((Planet)p); // Create or update
@@ -4458,14 +4458,14 @@ void SolarSystem::changeOrbits() {
         m_orbits = false;
     }
 }
-void SolarSystem::changeTrails() {
+void OldSolarSystem::changeTrails() {
     if (trails) {
         addTrails(m_traillen);
     }
     m_trails = trails;
     // NOTE: This also causes the trails to stop fading
 }
-void SolarSystem::changeTraillen() {
+void OldSolarSystem::changeTraillen() {
     if (traillen == m_traillen) return; // called in error
     if (traillen < m_traillen) {
         for (unsigned int p = A_MERCURY; p <= A_SUN; p++) {

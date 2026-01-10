@@ -1,5 +1,8 @@
 #pragma once
-#include "acoordinates.h"
+
+#include "config.h"
+//#include "acoordinates.h"
+struct LLD;
 
 class AProperMotion {
 	// MEEUS98 Chapter 21

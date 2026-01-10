@@ -1,10 +1,42 @@
 
-
 #include <cmath>
+#include <string>
 
+#include "glm\glm.hpp"
+
+#include "config.h"
 #include "acoordinates.h"
 
+// -----------
+//  LLD class
+// -----------
+void LLD::print() const {
+	std::cout << "lat=" << lat << ", lon=" << lon << ", dst=" << dst << '\n';
+}
+std::string LLD::str() const {
+	char buff[100];
+	snprintf(buff, sizeof(buff), "%03.14f,%03.14f,%03.14f", lat, lon, dst);
+	std::string dstring = buff;
+	return dstring;
+}
+std::string LLD::str_EQ() const {  // Equatorial is Dec(deg), RA(hrs), dst(AU)
+	char buff[100];
+	//snprintf(buff, sizeof(buff), "%03.9f,%03.9f,%03.9f", rad2deg * lat, rad2hrs * lon, dst);
+	snprintf(buff, sizeof(buff), "%03.14f,%03.14f,%03.14f", rad2deg * lat, rad2hrs * lon, dst);
+	std::string dstring = buff;
+	return dstring;
+}
+std::string LLD::str_EC() const {  // Ecliptic is Lat(deg), Lon(deg), dst(AU)
+	char buff[100];
+	//snprintf(buff, sizeof(buff), "%03.9f,%03.9f,%03.9f", rad2deg * lat, rad2deg * lon, dst);
+	snprintf(buff, sizeof(buff), "%03.14f,%03.14f,%03.14f", rad2deg * lat, rad2deg * lon, dst);
+	std::string dstring = buff;
+	return dstring;
+}
 
+// --------------
+//  ACoord class
+// --------------
 double ACoord::rangezero2tau(double rad) { // snap radian value to 0 to 2pi range
 	double fResult = fmod(rad, tau);
 	if (fResult < 0)
@@ -460,6 +492,22 @@ LLD Spherical::Galactic2Equatorial(double l, double b) noexcept {
 	Equatorial.lon = ACoord::rangezero2tau(Equatorial.lon);
 	Equatorial.lat = asin((sin(b) * sin274) + (cos(b) * cos274 * cosl));
 	return Equatorial;
+}
+
+glm::dvec3 Spherical::Spherical2Rectangular(LLD spherical) {  // defined in .h to incourage inlining
+	const double cosB = cos(spherical.lat);
+	const double cosL = cos(spherical.lon);
+	return { spherical.dst * cosB * cosL, spherical.dst * cosB * sin(spherical.lon), spherical.dst * sin(spherical.lat) };
+}
+
+LLD Spherical::Rectangular2Spherical(glm::dvec3 rectangular) {  // defined in .h to incourage inlining
+	LLD retval{};
+	const double x2{ rectangular.x * rectangular.x };
+	const double y2{ rectangular.y * rectangular.y };
+	retval.lat = atan2(rectangular.z, sqrt(x2 + y2));
+	retval.lon = ACoord::rangezero2tau(atan2(rectangular.y, rectangular.x));
+	retval.dst = sqrt(x2 + y2 + (rectangular.z * rectangular.z));
+	return retval;
 }
 
 double FK5::CorrectionInLongitude(double lon, double lat, double jd_tt) noexcept {

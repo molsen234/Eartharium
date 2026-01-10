@@ -9,17 +9,17 @@ void GLPrintError();
 #include "Astronomy.h"
 #include "Renderer.h"
 #include "Primitives.h"
-//#include "SceneObjects.h"
 #include "Earth.h"
 #include "OldObjects.h"
 //#include "Utilities.h"
-//  #include "astronomy/acoordinates.h"
-//  #include "astronomy/aearth.h"
 //#include "FigureGeometry.h"
 
 #include "Geometry.h"
 
+#include "../../EAstronomy/acoordinates.h"
+#include "../../EAstronomy/aelliptical.h"
 #include "../../EAstronomy/all.h"
+//#include "../../EAstronomy/all.h"
 
 #include "pythoninterface.h"
 
@@ -1237,6 +1237,121 @@ void testGeometry(Application& app) {
 }
 
 
+// ------------------------
+//  Test Elliptical Orbits
+// ------------------------
+#include "..\\..\\EAstronomy\aasteroids.h"
+void testEllipticalOrbit(Application& myapp) {
+    AEllipticalObjectElements HalleyOE = {
+        AElliptical::PerihelionDistance2SemimajorAxis(0.96714291, 0.58597811),      // semimajor axis
+        0.96714291,     // eccentricity
+        162.26269 * deg2rad,       // inclination
+        111.33249 * deg2rad,       // w
+        58.42008 * deg2rad,       // omega
+        49400 + MJD_BASE, // JD equinox
+        EDateTime(1986, 2, 8.47361615, 0.0, 0.0, 0.0).jd_tt()  
+    };
+    AEllipticalOrbit Halley(HalleyOE);
+    EDateTime jd_tt = EDateTime(1986, 2, 8.47361615, 0.0, 0.0, 0.0);
+    std::cout << jd_tt.stringms() << "\n";
+    char buff[100];
+    snprintf(buff, sizeof(buff), "%06.6f", jd_tt.jd_tt());
+
+    std::cout << "Time of Perihelion: " << buff << "\n";
+    glm::dvec3 pos = Halley.EclipticHeliocentricRectangular(jd_tt.jd_tt());
+    std::cout << "Halley rectangular: " << pos.x << " " << pos.y << " " << pos.z << "\n";
+    LLD sph_pos = Halley.EclipticHeliocentricSpherical(jd_tt.jd_tt());
+    std::cout << "Halley spherical:   " << sph_pos.lat << " " << sph_pos.lon << " " << sph_pos.dst << "\n";
+
+    EDateTime halleytime = EDateTime(2446469.973616146677, true);
+    std::cout << halleytime.stringms() << "\n";
+    snprintf(buff, sizeof(buff), "%06.6f", halleytime.jd_tt());
+    std::cout << "Time of Perihelion from JD: " << buff << "\n";
+}
+
+// -----------------------
+//  Test Asteroid Loading 
+// -----------------------
+void AsteroidData(Application& myapp) {
+    Astronomy::loadAsteroidObjects();
+    AEllipticalObjectElements ceres = Astronomy::getAsteroidOrbitByName("Ceres");
+    AEllipticalOrbit ceres_orbit = AEllipticalOrbit(ceres);
+    EDateTime mytime{ 2026, 9, 14.0, 0.0, 0.0, 0.0 };
+    glm::dvec3 ceres_rect = ceres_orbit.EclipticHeliocentricRectangular(mytime.jd_tt());
+    std::cout << ceres_rect.x << "," << ceres_rect.y << "," << ceres_rect.z << "\n";
+    // Ceres verified against JPL Horizons for node passages 2026-9-14 and 2028-10-12
+}
+
+// --------------------
+//  Test Comet Loading 
+// --------------------
+void CometData(Application& myapp) {
+    Astronomy::loadCometObjects();
+    AEllipticalObjectElements halley = Astronomy::getCometOrbitByName("1P/Halley");
+    halley.print();
+    AEllipticalOrbit halley_orbit = AEllipticalOrbit(halley);
+    EDateTime mytime{ 2024, 7, 27.0, 0.0, 0.0, 0.0 };
+    glm::dvec3 halley_rect = halley_orbit.EclipticHeliocentricRectangular(mytime.jd_utc());
+    std::cout << halley_rect.x << "," << halley_rect.y << "," << halley_rect.z << "\n";
+    std::cout << "Solar Distance: " << glm::length(halley_rect) << "\n";
+    // tried to verify against JPL Horizons, but they use previous epoch and date up to 1994 only, so that is not accurate.
+}
+
+// -------------------------
+//  (new) Solar System Test
+// -------------------------
+void SolSysTest(Application& app) {
+
+    // Set up
+    Astronomy* astro = app.newAstronomy();
+    //astro->setTime(2025, 1, 19.0, 11.0, 43.0, 0.0);  // Time of interest in FEM challenge
+<<<<<<< HEAD
+    Astronomy::loadCometObjects();
+=======
+>>>>>>> 28303ac (Added asteroids and comets)
+    Scene* scene = app.newScene();
+    scene->astro = astro;
+    Camera* cam = scene->w_camera; // Pick up default camera
+    app.currentCam = cam;          // Bind camera to keyboard updates
+    RenderLayer3D* layer = app.newLayer3D(0.0f, 0.0f, 1.0f, 1.0f, scene, astro, cam);
+    RenderLayerText* text = app.newLayerText(0.0f, 0.0f, 1.0f, 1.0f, nullptr);
+    text->setFont(app.m_font2);
+    text->setAstronomy(astro);
+    RenderLayerGUI* gui = app.newLayerGUI(0.0f, 0.0f, 1.0f, 1.0f);
+    gui->addLayer3D(layer, "Solar System");
+
+    SolarSystem solsys{ scene, nullptr };
+<<<<<<< HEAD
+    solsys.addComets();
+    solsys.show_comet_orbits = true;
+
+
+    //std::string cometname1 = "1P/Halley";
+    //AEllipticalObjectElements halley = Astronomy::getCometOrbitByName(cometname1);
+    //EllipticalOrbit halley_ob{ scene, &solsys, halley, cometname1 };
+    //
+    //std::string cometname2 = "29P/Schwassmann-Wachmann";
+    //AEllipticalObjectElements sw1 = Astronomy::getCometOrbitByName(cometname2);
+    //EllipticalOrbit sw1_ob{ scene, &solsys, sw1, cometname2 };
+=======
+    
+>>>>>>> 28303ac (Added asteroids and comets)
+
+    while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
+    {
+        if (app.anim) {
+            //astro->setTimeNow();
+            astro->addTime(0.0, 12.0, 0.0, 0.0);
+            //solsys.Update();
+        }
+        //app.anim = false; // Nice for single step action. <space> will set app.anim in app.render, and we get back here one frame later.
+        app.render();
+    }
+
+}
+
+
+
 
 
 // ----------------------
@@ -1319,9 +1434,12 @@ int main(int argc, char** argv) {
     //testEarthMoonSun(app);
     //testGeometry(app);
 
-
     //blinkTest(app);
-    testEarthSun(app);
+    //testEarthSun(app);
+    //testEllipticalOrbit(app);
+    //AsteroidData(app);
+    //CometData(app);
+    SolSysTest(app);
 
 
     // Cleanup - Move this to cleanup function in Application.

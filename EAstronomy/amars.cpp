@@ -367,3 +367,23 @@ double AMars::MagnitudeMuller(double r, double Delta, double i) noexcept {
     i *= rad2deg;
     return -1.3 + (5 * log10(r * Delta)) + (0.01486 * i);
 }
+
+// Diameters from AA+ v2.55
+constexpr double AMars::MarsSemidiameterA(double Delta) {
+    return 3600.0 * deg2rad * 4.68 / Delta;
+}
+constexpr double AMars::MarsSemidiameterB(double Delta) {
+    return 3600.0 * deg2rad * 4.68 / Delta;
+}
+
+// apparent diameter of Mars in arc seconds
+void APhysicalMarsDetails::print() const {
+    std::cout << "Planetocentric declination of the Earth (DE):        " << DE * rad2deg << "\n";            // radians
+    std::cout << "Planetocentric declination of the Sun (DS):          " << DS * rad2deg << "\n";            // radians
+    std::cout << "Aerographic longitude of central meridian (w):       " << w * rad2deg << "\n";             // radians
+    std::cout << "Geocentric position angle of Mars' N pole (P):       " << P * rad2deg << "\n";             // radians
+    std::cout << "Position angle of mid-point of illuminated limb (X): " << X * rad2deg << "\n";             // radians
+    std::cout << "Illuminated fraction of the planet's disk (k):       " << k << "\n";                       // fraction (0.0->1.0)
+    std::cout << "Defect of illumination (q):                          " << q * rad2deg * 3600 << "\n";      // radians
+    std::cout << "Apparent diameter of Mars (d):                       " << d * rad2deg * 3600 << std::endl; // radians
+}

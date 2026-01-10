@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <iomanip>  // For setting double output format in std::cout
 
 #include "config.h"
 #include "Astronomy.h"
@@ -17,6 +18,7 @@
 #include "../../EAstronomy/asaturn.h"
 #include "../../EAstronomy/auranus.h"
 #include "../../EAstronomy/aneptune.h"
+#include "../../EAstronomy/asun.h"
 
 // Coordinate systems:
 //  + Heliocentric ecliptic = Ecliptic Latitude, Ecliptic Longitude, Radius Vector
@@ -90,6 +92,13 @@ std::vector<Astronomy::stellarobject_xref> Astronomy::stellarobject_xrefs;
 // As above, for constellation boundaries
 bool Astronomy::constellations_loaded = false;
 std::vector<Astronomy::ConstellationBoundary> Astronomy::constellations;
+// ...and these for Asteroid DB
+bool Astronomy::asteroidobjects_loaded = false;
+std::vector<Astronomy::asteroidobject> Astronomy::asteroidobjects;
+// ...and these for Comet DB
+bool Astronomy::cometobjects_loaded = false;
+std::vector<Astronomy::cometobject> Astronomy::cometobjects;
+// members
 void Astronomy::loadStellarObjects() {
     if (stellarobjects.empty()) { // First object is an empty that can be returned when no stellarobject matches a search
         stellarobjects.push_back(stellarobject());
@@ -107,6 +116,7 @@ void Astronomy::loadStellarObjects() {
     size_t res_namexrefs = 500;
     stellarobjects.reserve(res_items);
     stellarobject_xrefs.reserve(res_namexrefs);
+    // !!! FIX: File location - this is a mess !!
     std::ifstream stream("C:\\Coding\\Eartharium\\visible stars color - v2.csv");
     if (!stream.is_open()) {
         std::cout << "Astronomy::loadStellarObjects() Did not manage to open Star file!\n";
@@ -172,6 +182,7 @@ void Astronomy::loadStellarObjects() {
 void Astronomy::convertSIMBAD(std::string filename) {
     // Clean up raw SIMBAD exports to clean CSV format
     // NOTE: Add SIMBAD config file so exports match the below "parser"
+    // !!! FIX: Maybe better to have a Python script download and parse to a binary format. !!!
     char outsep = ','; // Output separator
     std::ifstream streami("C:\\Coding\\Eartharium\\simbad-raw.csv");
     std::ofstream streamo("C:\\Coding\\Eartharium\\simbad-export.csv");
@@ -584,6 +595,224 @@ void Astronomy::loadConstellations() {
     constellations_loaded = true;
 }
 
+long Astronomy::MPCchar2num(char c) {
+    if (c > 64) return c - 64 + 9;
+    if (c > 48) return c - 48;
+    return maxuint;
+}
+double Astronomy::processEpoch(std::string epoch) {
+    // For details see https://www.minorplanetcenter.net/iau/info/PackedDates.html
+    long year = MPCchar2num(epoch[0]) * 100 + MPCchar2num(epoch[1]) * 10 + MPCchar2num(epoch[2]);
+    long month = MPCchar2num(epoch[3]);
+    double day = (double)MPCchar2num(epoch[4]);
+    //std::cout << " Year: " << year << " Month: " << month << " Day: " << day;
+    return EDateTime(year, month, day, 0.0, 0.0, 0.0).jd_tt();
+}
+
+void Astronomy::loadAsteroidObjects() {
+    std::cout << "Loading Asteroid data from file.\n";
+    size_t res_items = 1'500'000;  // Currently MPCORB.DAT contains 1.48 million asteroids
+
+    if (asteroidobjects.empty()) { // First object is an empty that can be returned when no asteroidobject matches a search
+        asteroidobjects.push_back(asteroidobject());
+        asteroidobjects.back().Epoch = NO_DOUBLE;
+        asteroidobjects.back().M = NO_DOUBLE;
+        asteroidobjects.back().w = NO_DOUBLE;
+        asteroidobjects.back().Node = NO_DOUBLE;
+        asteroidobjects.back().i = NO_DOUBLE;
+        asteroidobjects.back().e = NO_DOUBLE;
+        asteroidobjects.back().n = NO_DOUBLE;
+        asteroidobjects.back().a = NO_DOUBLE;
+        asteroidobjects.back().identifier = "None";
+    }
+    asteroidobjects.reserve(res_items);
+    // !!! FIX: File location - this is a mess !!
+    std::ifstream stream("C:\\Coding\\Eartharium\\MPCORB.DAT");
+    if (!stream.is_open()) {
+        std::cout << "Astronomy::loadAsteroidObjects() Did not manage to open data file!\n";
+    }
+    std::string line, item;
+    size_t i = 0;
+    bool is_in_data = false;
+    while (i < res_items && getline(stream, line)) {
+        if (line[0] == '-') {
+            is_in_data = true;
+            continue;  // next line is first data
+        }
+        if (is_in_data == false) continue;
+        // process data line
+        if (line.length() < 2) continue; // skip blank lines
+        i++;  // load line counter - here to avoid counting headers skipped above
+        asteroidobjects.push_back(asteroidobject());
+
+        // get Epoch of Orbit
+        asteroidobjects.back().Epoch = processEpoch(line.substr(20, 5));
+        // get M - Mean anomaly at the epoch, in degrees
+        asteroidobjects.back().M = deg2rad * std::stod(line.substr(26, 9));
+        // get w - Argument of Perihelion
+        asteroidobjects.back().w = deg2rad * std::stod(line.substr(37, 9));
+        // get Node - Longitude of Ascending Node
+        asteroidobjects.back().Node = deg2rad * std::stod(line.substr(48, 9));
+        // get i - Inclination relative to Ecliptic
+        asteroidobjects.back().i = deg2rad * std::stod(line.substr(59, 9));
+
+        // get e - Orbit Eccentricity
+        asteroidobjects.back().e = std::stod(line.substr(70, 9));
+
+        // get n - Orbit Eccentricity
+        asteroidobjects.back().n = deg2rad * std::stod(line.substr(80, 11));
+
+        // get a - Semimajor Axis
+        asteroidobjects.back().a = std::stod(line.substr(92, 11));
+
+        // get identifier - Name for named asteroids, discovery designation otherwise
+        //asteroidobjects.back().identifier = line.substr(166, 27);  // contains (index) and leading spaces
+        item = line.substr(175, 18);
+        asteroidobjects.back().identifier = rtrim(item);
+    }
+    asteroidobjects_loaded = true;
+    std::cout << "Finished loading asteroid DB.\n";
+}
+AEllipticalObjectElements Astronomy::AsteroidObject2OrbitalElements(asteroidobject asteroid) {
+    AEllipticalObjectElements result;
+    result.a = asteroid.a;
+    result.e = asteroid.e;
+    result.i = asteroid.i;
+    result.w = asteroid.w;
+    result.omega = asteroid.Node;
+    result.JDEquinox = asteroid.Epoch;
+    result.T = asteroid.Epoch - (asteroid.M / asteroid.n); // M = Mean Anomaly at Epoch in rad, n = Mean Motion in rad / day
+    //result.print();
+    return result;
+}
+AEllipticalObjectElements Astronomy::getAsteroidOrbitByName(std::string name) {
+    AEllipticalObjectElements result;
+    //std::cout << "Searching for " << name << "\n";
+    for (auto& asteroid : asteroidobjects) {
+        //std::cout << asteroid.identifier << "\n";
+        if (asteroid.identifier == name) result = AsteroidObject2OrbitalElements(asteroid);
+    }
+    return result;
+}
+
+void Astronomy::loadCometObjects() {
+    // File format details: https://www.minorplanetcenter.net/iau/info/CometOrbitFormat.html
+    //  - NOTE: See second section "Ephemerides and Orbital Elements Format", NOT the first section!
+    std::cout << "Loading Comet data from file.\n";
+    size_t res_items = 5000;  // Currently AllCometEls.txt contains 4621 comets
+
+    if (cometobjects.empty()) { // First object is an empty that can be returned when no cometobject matches a search
+        cometobjects.push_back(cometobject());
+        cometobjects.back().Epoch = NO_DOUBLE;
+        cometobjects.back().T = NO_DOUBLE;
+        cometobjects.back().w = NO_DOUBLE;
+        cometobjects.back().Node = NO_DOUBLE;
+        cometobjects.back().i = NO_DOUBLE;
+        cometobjects.back().e = NO_DOUBLE;
+        cometobjects.back().a = NO_DOUBLE;
+        cometobjects.back().identifier = "None";
+    }
+    cometobjects.reserve(res_items);
+    // !!! FIX: File location - this is a mess !!
+    std::ifstream stream("C:\\Coding\\Eartharium\\AllCometEls.txt");
+    if (!stream.is_open()) {
+        std::cout << "Astronomy::loadCometObjects() Did not manage to open data file!\n";
+    }
+    std::string line, item;
+    std::istringstream parse;
+    long year{ 0 };
+    long month{ 0 };
+    double day{ 0.0 };
+    double eccentricity{ 0 };
+    double Pd{ 0 };
+    size_t i{ 0 };
+    while (i < res_items && getline(stream, line)) {
+        // process data line
+        if (line.length() < 160) continue; // skip truncated lines
+
+        // Some comets have parabolic or hyperbolic orbits.
+        // They result in an infinite semimajor axis and can thus not be modelled using an ellipse.
+        // Since q (perihelion distance) is converted to semimajor axis below, eccentricities >= than 1.0 are filtered out.
+        // !!! FIX: MEEUS98 chapter 34 describes how to calculate parabolic orbits. Implement this.
+        //          MEEUS98 chapter 35 describes near-parablic orbits. Implement this too.
+        //          Maybe also use a more generic element format storing both semimajor and perihelion distance, long with orbit type.
+        eccentricity = std::stod(line.substr(41, 8));
+        if (eccentricity >= 1.0) continue; // skip non-elliptical orbits
+
+        i++;  // load line counter - here to avoid counting headers skipped above
+        cometobjects.push_back(cometobject());
+        // Time of Perihelion Passage
+        year = std::stol(line.substr(14, 4));
+        month = std::stol(line.substr(19, 2));
+        day = std::stod(line.substr(22, 7));
+        cometobjects.back().T = EDateTime(year, month, day, 0.0, 0.0, 0.0).jd_tt();
+
+        // Perihelion distance (used to calculate Semimajor Axis below)
+        Pd = std::stod(line.substr(30, 9));
+        
+        // Orbital Eccentricity
+        cometobjects.back().e = eccentricity;
+
+        // Calculate Semimajor Axis
+        cometobjects.back().a = AElliptical::PerihelionDistance2SemimajorAxis(eccentricity, Pd);
+
+        // Argument of Perihelion
+        cometobjects.back().w = deg2rad * std::stod(line.substr(51, 8));
+
+        // Longitude of Ascending Node
+        cometobjects.back().Node = deg2rad * std::stod(line.substr(61, 8));
+
+        // Inclination
+        cometobjects.back().i = deg2rad * std::stod(line.substr(71, 8));
+
+        // Epoch of Elements
+        // Note some are blank in the data file, I assume these are J2000.0 epoch. I could not find documentation to confirm this.
+        item = line.substr(81, 8);
+        if (rtrim(item).length() < 8) cometobjects.back().Epoch = JD_2000;  // default to J2000.0 if no Epoch is given
+        else {
+            year = std::stol(line.substr(81, 4));
+            month = std::stol(line.substr(85, 2));
+            day = std::stod(line.substr(87, 2));
+            cometobjects.back().Epoch = EDateTime(year, month, day, 0.0, 0.0, 0.0).jd_tt();
+        }
+
+        // Designation - Note these are hard to search.
+        parse.clear();
+        item.clear();
+        item = line.substr(102, 56);
+        parse.str(line.substr(102, 56));
+        std::getline(parse, item, '('); // Strip off (discoverer)
+        cometobjects.back().identifier = rtrim(item);
+
+        //cometobjects.back().print();
+        //std::cout << "\n";
+    }
+    cometobjects_loaded = true;
+    std::cout << "Finished loading " << i << " comets.\n";
+
+}
+AEllipticalObjectElements Astronomy::CometObject2OrbitalElements(cometobject comet) {
+    AEllipticalObjectElements result;
+    result.a = comet.a;
+    result.e = comet.e;
+    result.i = comet.i;
+    result.w = comet.w;
+    result.omega = comet.Node;
+    result.JDEquinox = comet.Epoch;
+    result.T = comet.T;
+    //result.print();
+    return result;
+}
+AEllipticalObjectElements Astronomy::getCometOrbitByName(std::string name) {
+    AEllipticalObjectElements result;
+    //std::cout << "Searching for " << name << "\n";
+    for (auto& comet : cometobjects) {
+        //std::cout << comet.identifier << "\n";
+        if (comet.identifier == name) result = CometObject2OrbitalElements(comet);
+    }
+    return result;
+}
+
 
 Astronomy::Astronomy() {
     //std::cout << "Astronomy{" << this << "} created!\n";
@@ -683,11 +912,11 @@ double Astronomy::getEoT(double jd_tt) {  // NOTE:  EoT is used while updating t
 }
 
 // Coordinate Transformations
-LLD Astronomy::calcEc2Geo(double Beta, double Lambda, double Epsilon) noexcept {
+LLD Astronomy::calcEc2Eq(double Beta, double Lambda, double Epsilon) noexcept {
     // Spherical coordinates Ecliptic to Equatorial
     return Spherical::Ecliptic2Equatorial2(Lambda, Beta, Epsilon);
 }
-LLD Astronomy::calcGeo2Ec(double Delta, double Alpha, double Epsilon) noexcept {
+LLD Astronomy::calcEq2Ec(double Delta, double Alpha, double Epsilon) noexcept {
     // Spherical coordinates Equatorial to Ecliptic
     return Spherical::Equatorial2Ecliptic2(Alpha, Delta, Epsilon);
 }
@@ -841,6 +1070,7 @@ LLD Astronomy::PrecessJ2000DecRA(const LLD decra, const double jd_tt) {  // ALWA
     }
     return retval;
 }
+
 double Astronomy::MeanObliquityOfEcliptic(double jd_tt, bool rad) {
     if (jd_tt == NO_DOUBLE) jd_tt = getJD_TT();
     // !!! FIX: Check cached value against jd_tt
@@ -1035,14 +1265,17 @@ LLD Astronomy::EclipticCoordinates(double jd_tt, Planet planet, Planetary_Epheme
     LLD retval{};
     switch (planet) {
         case A_MERCURY: return AMercury::EclipticCoordinates(jd_tt, eph);
-        case A_VENUS:   return AVenus::EclipticCoordinates(jd_tt, eph);
-        case A_MARS:    return AMars::EclipticCoordinates(jd_tt, eph);
+        case A_VENUS: return AVenus::EclipticCoordinates(jd_tt, eph);
+        case A_EARTH: return AEarth::EclipticCoordinates(jd_tt, eph);
+        case A_MARS: return AMars::EclipticCoordinates(jd_tt, eph);
         case A_JUPITER: return AJupiter::EclipticCoordinates(jd_tt, eph);
-        case A_SATURN:  return ASaturn::EclipticCoordinates(jd_tt, eph);
-        case A_URANUS:  return AUranus::EclipticCoordinates(jd_tt, eph);
+        case A_SATURN: return ASaturn::EclipticCoordinates(jd_tt, eph);
+        case A_URANUS: return AUranus::EclipticCoordinates(jd_tt, eph);
         case A_NEPTUNE: return ANeptune::EclipticCoordinates(jd_tt, eph);
-     }
-    std::cout << "Astronomy::EclipticalCoordinates(): ERROR - Unknown planet id passed" << std::endl;
+        case A_SUN: return ASun::EclipticCoordinates(jd_tt, eph);
+    }
+
+    std::cout << "Astronomy::EclipticCoordinates(): ERROR - Unknown planet id passed: " << planet << std::endl;
     retval.lat = NO_DOUBLE;
     retval.lon = NO_DOUBLE;
     retval.dst = NO_DOUBLE;
@@ -1230,7 +1463,8 @@ void Astronomy::updateCelestialPaths() {
 }
 double Astronomy::getEcLat(Planet planet, double jd_tt, Planetary_Ephemeris eph) {
     // Heliocentric Ecliptic Latitude (ref. Equinox of Epoch) in radians
-    if (planet == MERCURY) planet_ecLat[planet] = AMercury::EclipticLatitude(jd_tt, eph);
+    // !!! FIX: Change to switch statement !!!
+    if (planet == A_MERCURY) planet_ecLat[planet] = AMercury::EclipticLatitude(jd_tt, eph);
     else if (planet == A_VENUS) planet_ecLat[planet] = AVenus::EclipticLatitude(jd_tt, eph);
     else if (planet == A_EARTH) planet_ecLat[planet] = AEarth::EclipticLatitude(jd_tt, eph);
     else if (planet == A_MARS) planet_ecLat[planet] = AMars::EclipticLatitude(jd_tt, eph);
@@ -1238,12 +1472,14 @@ double Astronomy::getEcLat(Planet planet, double jd_tt, Planetary_Ephemeris eph)
     else if (planet == A_SATURN) planet_ecLat[planet] = ASaturn::EclipticLatitude(jd_tt, eph);
     else if (planet == A_URANUS) planet_ecLat[planet] = AUranus::EclipticLatitude(jd_tt, eph);
     else if (planet == A_NEPTUNE) planet_ecLat[planet] = ANeptune::EclipticLatitude(jd_tt, eph);
+    else if (planet == A_SUN) planet_ecLat[planet] = 0.0;
     else std::cout << "APlanet::getEcLat(): planet unknown: " << planet << "\n";
     return planet_ecLat[planet];
 }
 double Astronomy::getEcLon(Planet planet, double jd_tt, Planetary_Ephemeris eph) {
     // Heliocentric Ecliptic Longitude (ref. Equinox of Epoch) in radians
-    if (planet == MERCURY) planet_ecLon[planet] = AMercury::EclipticLongitude(jd_tt, eph);
+    // !!! FIX: Change to switch statement !!!
+    if (planet == A_MERCURY) planet_ecLon[planet] = AMercury::EclipticLongitude(jd_tt, eph);
     else if (planet == A_VENUS) planet_ecLon[planet] = AVenus::EclipticLongitude(jd_tt, eph);
     else if (planet == A_EARTH) planet_ecLon[planet] = AEarth::EclipticLongitude(jd_tt, eph);
     else if (planet == A_MARS) planet_ecLon[planet] = AMars::EclipticLongitude(jd_tt, eph);
@@ -1251,12 +1487,14 @@ double Astronomy::getEcLon(Planet planet, double jd_tt, Planetary_Ephemeris eph)
     else if (planet == A_SATURN) planet_ecLon[planet] = ASaturn::EclipticLongitude(jd_tt, eph);
     else if (planet == A_URANUS) planet_ecLon[planet] = AUranus::EclipticLongitude(jd_tt, eph);
     else if (planet == A_NEPTUNE) planet_ecLon[planet] = ANeptune::EclipticLongitude(jd_tt, eph);
+    else if (planet == A_SUN) planet_ecLon[planet] = 0.0;
     else std::cout << "APlanet::getEcLon(): planet unknown: " << planet << "\n";
     return planet_ecLon[planet];
 }
 double Astronomy::getEcDst(Planet planet, double jd_tt, Planetary_Ephemeris eph) {
     // Heliocentric Ecliptic Radius (ref. Equinox of Epoch) in kilometers
-    if (planet == MERCURY) planet_ecRadius[planet] = AMercury::EclipticDistance(jd_tt, eph);
+    // !!! FIX: Change to switch statement !!!
+    if (planet == A_MERCURY) planet_ecRadius[planet] = AMercury::EclipticDistance(jd_tt, eph);
     else if (planet == A_VENUS) planet_ecRadius[planet] = AVenus::EclipticDistance(jd_tt, eph);
     else if (planet == A_EARTH) planet_ecRadius[planet] = AEarth::EclipticDistance(jd_tt, eph);
     else if (planet == A_MARS) planet_ecRadius[planet] = AMars::EclipticDistance(jd_tt, eph);
@@ -1264,10 +1502,10 @@ double Astronomy::getEcDst(Planet planet, double jd_tt, Planetary_Ephemeris eph)
     else if (planet == A_SATURN) planet_ecRadius[planet] = ASaturn::EclipticDistance(jd_tt, eph);
     else if (planet == A_URANUS) planet_ecRadius[planet] = AUranus::EclipticDistance(jd_tt, eph);
     else if (planet == A_NEPTUNE) planet_ecRadius[planet] = ANeptune::EclipticDistance(jd_tt, eph);
+    else if (planet == A_SUN) planet_ecRadius[planet] = 0.0;
     else std::cout << "APlanet::getRadius(): planet unknown: " << planet << "\n";
     return planet_ecRadius[planet];
 }
-
 int Astronomy::getString2UnixTime(std::string& string) {
     // TODO: Implement like in Eartharium.cpp:TestArea5(), but resilient to missing seconds, and accepting either '/' or '-' date separator
     std::cout << "ERROR: Astronomy::getString2UnixTime() is not yet implemented.";
@@ -1316,3 +1554,21 @@ void Astronomy::update() {  // Updates cache values for common parameters
     updateCelestialPaths();
 }
 
+// Greenwich Hour Angle
+void CelestialDetail::print() const {
+    hec.print();
+    geq.print();
+}
+
+// Mostly for troubleshooting, and also serves as a key to the abbreviated member variable names
+void CelestialDetailFull::print() const {
+    std::cout << " True Heliocentric Ecliptic Spherical:     " << thecs.str_EC() << std::endl;
+    std::cout << " True Geocentric Ecliptic Rectangular:     " << tgecr.x << ", " << tgecr.y << ", " << tgecr.z << std::endl;
+    std::cout << " True Geocentric Ecliptic Spherical:       " << tgecs.str_EC() << std::endl;
+    std::cout << " True Geocentric Equatorial Spherical:     " << tgeqs.str_EQ() << std::endl;
+    std::cout << " Apparent Geocentric Ecliptic Spherical:   " << agecs.str_EC() << std::endl;
+    std::cout << " Apparent Geocentric Equatorial Spherical: " << ageqs.str_EQ() << std::endl;
+    std::cout << " True Light Time:                          " << tlt << std::endl;
+    std::cout << " Apparent Light Time:                      " << alt << std::endl;
+    std::cout << " Calculated at JD TT:                      " << jd_tt << std::endl;
+}

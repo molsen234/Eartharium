@@ -2,6 +2,8 @@
 
 #include <cmath>
 
+// !!! FIX: Move this to aelliptical.h !!!
+
 // --------------------------
 //  Kepler Elliptical Orbits
 // --------------------------
@@ -9,7 +11,7 @@
 // https://docs.rs/crate/vsop87/latest/source/src/lib.rs
 // Summary:
 // --------
-// Semimajor axis               a = A
+// Semimajor axis:              a = A
 // Eccentricity:                e = sqrt(H*H + K*K)
 // Inclination:                 i = acos(1 - 2 * (P * P + Q * Q))
 // Longitude of Ascending Node: Omega = atan(P / Q) = atan2(P,Q)
@@ -35,3 +37,4 @@ static Keplerian VSOP87_to_Kepler(double A, double L, double K, double H, double
     kep.o = asin(H / kep.e);
     return kep;
 }
+

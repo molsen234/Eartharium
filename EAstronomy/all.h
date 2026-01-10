@@ -19,5 +19,6 @@
 #include "auranus.h"
 #include "aneptune.h"
 #include "apluto.h"
+#include "astars.h"
 //#include "vsop87/vsop87.h"
 //#include "config.h"

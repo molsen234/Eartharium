@@ -1,10 +1,13 @@
 #pragma once
 
-//#include "../config.h"
+#include "glm\glm.hpp"
+
 #include "aconfig.h"
 #include "acoordinates.h"
 
+
 struct AEllipticalObjectElements {
+    // 
     double a{ 0 };           // Semimajor axis in AU
     double e{ 0 };           // eccentricity
     double i{ 0 };           // orbital plane inclination in radians
@@ -12,6 +15,15 @@ struct AEllipticalObjectElements {
     double omega{ 0 };       // longitude of ascending node in radians
     double JDEquinox{ 0 };   // desired julian day to calculate position for
     double T{ 0 };           // julian day of passage of perihelion
+<<<<<<< HEAD
+    void print();
+=======
+    void print() {
+        std::cout << " a: " << a << " e: " << e << " i: " << rad2deg * i
+            << " w: " << rad2deg * w << " omega: " << rad2deg * omega
+            << " JDEquinox: " << JDEquinox << " T: " << T << "\n";
+    }
+>>>>>>> 28303ac (Added asteroids and comets)
 };
 
 //struct AEllipticalPlanetaryDetails {
@@ -65,6 +77,11 @@ struct AEllipticalObjectDetails {
 
 class AElliptical {
 public:
+    // MDO
+    static glm::dvec3 HeliocentricRectangular(double JD, const AEllipticalObjectElements& elements) noexcept;
+    static double PerihelionDistance2SemimajorAxis(double e, double q) noexcept;
+    static double SemimajorAxis2PerihelionDistance(double e, double a) noexcept;
+
 	// from CAAKepler
 	static double calcKepler(double M, double e, int nIterations = 53) noexcept;
 	// from CAAElliptical
@@ -72,11 +89,50 @@ public:
     static LLD EclipticCoordinates(double jd_tt, Planet planet, Planetary_Ephemeris eph);
     constexpr static double SemiMajorAxisFromPerihelionDistance(double q, double e) { return q / (1 - e); }
     static double MeanMotionFromSemiMajorAxis(double a) noexcept;
-    static AEllipticalObjectDetails Calculate(double JD, const AEllipticalObjectElements& elements, bool bHighPrecision) noexcept;
+    static AEllipticalObjectDetails Calculate(double JD, const AEllipticalObjectElements& elements) noexcept;
     static double InstantaneousVelocity(double r, double a) noexcept;
     static double VelocityAtPerihelion(double e, double a) noexcept;
     static double VelocityAtAphelion(double e, double a) noexcept;
     static double LengthOfEllipse(double e, double a) noexcept;
     static double CometMagnitude(double g, double delta, double k, double r) noexcept;
     static double MinorPlanetMagnitude(double H, double delta, double G, double r, double PhaseAngle) noexcept;
+};
+
+class AEllipticalOrbit {
+    // MDO - MEEUS98 Chapter 33
+public:
+    AEllipticalOrbit(AEllipticalObjectElements& elements);
+    void updateElements(AEllipticalObjectElements& elements);
+    glm::dvec3 EquatorialHeliocentricRectangular(double jd_tt);
+    glm::dvec3 EclipticHeliocentricRectangular(double jd_tt);
+<<<<<<< HEAD
+    glm::dvec3 UniformHeliocentricRectangular(double jd_tt);
+    LLD EclipticHeliocentricSpherical(double jd_tt);  // Use for plotting orbits
+private:
+    void calcParams();
+public:
+    double n{ 0 };
+    AEllipticalObjectElements m_elements;
+private:
+=======
+    LLD EclipticHeliocentricSpherical(double jd_tt);
+private:
+    void calcParams();
+private:
+    AEllipticalObjectElements m_elements;
+>>>>>>> 28303ac (Added asteroids and comets)
+    double sinOmega{ 0 };
+    double cosOmega{ 0 };
+    double cosi{ 0 };
+    double sini{ 0 };
+    double A{ 0 };
+    double B{ 0 };
+    double C{ 0 };
+    double a{ 0 };
+    double b{ 0 };
+    double c{ 0 };
+<<<<<<< HEAD
+=======
+    double n{ 0 };
+>>>>>>> 28303ac (Added asteroids and comets)
 };

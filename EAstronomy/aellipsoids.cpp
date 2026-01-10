@@ -1,4 +1,6 @@
 
+#include <cmath>
+
 #include "aellipsoids.h"
 #include "acoordinates.h"
 
@@ -89,3 +91,27 @@ double AEllipsoid::DistanceBetweenPoints(double GeographicalLatitude1, double Ge
 // Initialize the static Ellipsoids
 Ellipsoid_2axis AEllipsoid::Earth_IAU76{ Earth_IAU76_f, Earth_IAU76_a , Earth_IAU76_b, Earth_IAU76_e };
 Ellipsoid_2axis AEllipsoid::Earth_WGS84{ Earth_WGS84_f, Earth_WGS84_a , Earth_WGS84_b, Earth_WGS84_e };
+
+// these can't be constructors as they take same argument types
+void Ellipsoid_2axis::fromSemimajorSemiminor(double semimajor, double semiminor) {
+    semimajor_axis = semimajor;
+    semiminor_axis = semiminor;
+    // f = 1-(b/a) = a/a - b/a = (a-b)/a   Which is faster / more accurate?
+    // flattening = 1.0 - (semiminor_axis / semimajor_axis);
+    flattening = (semimajor_axis - semiminor_axis) / semimajor_axis;
+    // e = sqrt( 2*f - f*f ) = sqrt( f*(2-f) )
+    eccentricity = sqrt(flattening * (2.0 - flattening));
+}
+void Ellipsoid_2axis::fromSemimajorFlattening(double semimajor, double flattening) {
+    semimajor_axis = semimajor;
+    this->flattening = flattening;
+    semiminor_axis = semimajor_axis * (1.0 - flattening);
+    // e = sqrt( 2*f - f*f ) = sqrt( f*(2-f) )
+    eccentricity = sqrt(flattening * (2.0 - flattening));
+}
+void Ellipsoid_2axis::fromSemimajorEccentricity(double semimajor, double eccentricity) {
+    semimajor_axis = semimajor;
+    this->eccentricity = eccentricity;
+    flattening = 1.0 - sqrt(1.0 - eccentricity * eccentricity);
+    semiminor_axis = semimajor_axis - (semimajor_axis * flattening); // b = a*(1-f) = a-(a*f)
+}

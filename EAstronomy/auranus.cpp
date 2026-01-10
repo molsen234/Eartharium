@@ -219,13 +219,21 @@ double AUranus::VSOP87_E_dZ(double jd_tt) {
 }
 
 // Illumination
+double AUranus::MagnitudeAA(double r, double Delta) noexcept {
+    // r = Uranus to Sun distance in AU
+    // Delta = Uranus to Earth distance in AU
+    return -7.19 + (5 * log10(r * Delta));
+}
 double AUranus::MagnitudeMuller(double r, double Delta) noexcept {
     // r = Uranus to Sun distance in AU
     // Delta = Uranus to Earth distance in AU
     return -6.85 + (5 * log10(r * Delta));
 }
-double AUranus::MagnitudeAA(double r, double Delta) noexcept {
-    // r = Uranus to Sun distance in AU
-    // Delta = Uranus to Earth distance in AU
-    return -7.19 + (5 * log10(r * Delta));
+
+// Diameters from AA+ v2.55 CAADiameters
+constexpr double AUranus::UranusSemidiameterA(double Delta) {
+    return 3600.0 * deg2rad * 34.28 / Delta;
+}
+constexpr double AUranus::UranusSemidiameterB(double Delta) {
+    return 3600.0 * deg2rad * 35.02 / Delta;
 }
