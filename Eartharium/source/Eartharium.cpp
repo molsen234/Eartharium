@@ -1305,10 +1305,9 @@ void SolSysTest(Application& app) {
     // Set up
     Astronomy* astro = app.newAstronomy();
     //astro->setTime(2025, 1, 19.0, 11.0, 43.0, 0.0);  // Time of interest in FEM challenge
-<<<<<<< HEAD
+
     Astronomy::loadCometObjects();
-=======
->>>>>>> 28303ac (Added asteroids and comets)
+
     Scene* scene = app.newScene();
     scene->astro = astro;
     Camera* cam = scene->w_camera; // Pick up default camera
@@ -1321,7 +1320,7 @@ void SolSysTest(Application& app) {
     gui->addLayer3D(layer, "Solar System");
 
     SolarSystem solsys{ scene, nullptr };
-<<<<<<< HEAD
+
     solsys.addComets();
     solsys.show_comet_orbits = true;
 
@@ -1333,9 +1332,6 @@ void SolSysTest(Application& app) {
     //std::string cometname2 = "29P/Schwassmann-Wachmann";
     //AEllipticalObjectElements sw1 = Astronomy::getCometOrbitByName(cometname2);
     //EllipticalOrbit sw1_ob{ scene, &solsys, sw1, cometname2 };
-=======
-    
->>>>>>> 28303ac (Added asteroids and comets)
 
     while (!glfwWindowShouldClose(app.window))  // && currentframe < 200) // && animframe < 366)
     {

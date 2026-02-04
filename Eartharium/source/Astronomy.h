@@ -175,15 +175,9 @@ public:
 		double a{ 0.0 };		// Semimajor axis of orbit (in AU)
 		std::string identifier;	// Name or designation
 		void print() {
-<<<<<<< HEAD
 			std::cout << " Epoch: " << Epoch << ", M: " << rad2deg * M << ", w: " << rad2deg * w
 				<< ", Node: " << rad2deg * Node << ", i: " << rad2deg * i << ", e: " << e
 				<< ", n: " << rad2deg * n << ", a: " << a << ", ID: " << identifier << "\n";
-=======
-			std::cout << " Epoch: " << Epoch << " M: " << rad2deg * M << " w: " << rad2deg * w
-				<< " Node: " << rad2deg * Node << " i: " << rad2deg * i << " e: " << e
-				<< " n: " << rad2deg * n << " a: " << a << " ID: " << identifier << "\n";
->>>>>>> 28303ac (Added asteroids and comets)
 		}
 	};
 	static bool asteroidobjects_loaded;

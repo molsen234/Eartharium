@@ -15,15 +15,7 @@ struct AEllipticalObjectElements {
     double omega{ 0 };       // longitude of ascending node in radians
     double JDEquinox{ 0 };   // desired julian day to calculate position for
     double T{ 0 };           // julian day of passage of perihelion
-<<<<<<< HEAD
     void print();
-=======
-    void print() {
-        std::cout << " a: " << a << " e: " << e << " i: " << rad2deg * i
-            << " w: " << rad2deg * w << " omega: " << rad2deg * omega
-            << " JDEquinox: " << JDEquinox << " T: " << T << "\n";
-    }
->>>>>>> 28303ac (Added asteroids and comets)
 };
 
 //struct AEllipticalPlanetaryDetails {
@@ -105,7 +97,6 @@ public:
     void updateElements(AEllipticalObjectElements& elements);
     glm::dvec3 EquatorialHeliocentricRectangular(double jd_tt);
     glm::dvec3 EclipticHeliocentricRectangular(double jd_tt);
-<<<<<<< HEAD
     glm::dvec3 UniformHeliocentricRectangular(double jd_tt);
     LLD EclipticHeliocentricSpherical(double jd_tt);  // Use for plotting orbits
 private:
@@ -114,13 +105,6 @@ public:
     double n{ 0 };
     AEllipticalObjectElements m_elements;
 private:
-=======
-    LLD EclipticHeliocentricSpherical(double jd_tt);
-private:
-    void calcParams();
-private:
-    AEllipticalObjectElements m_elements;
->>>>>>> 28303ac (Added asteroids and comets)
     double sinOmega{ 0 };
     double cosOmega{ 0 };
     double cosi{ 0 };
@@ -131,8 +115,4 @@ private:
     double a{ 0 };
     double b{ 0 };
     double c{ 0 };
-<<<<<<< HEAD
-=======
-    double n{ 0 };
->>>>>>> 28303ac (Added asteroids and comets)
 };

@@ -442,7 +442,6 @@ glm::dvec3 AEllipticalOrbit::EclipticHeliocentricRectangular(double jd_tt) {
         r * ((sinOmega * cosu) + (cosOmega * sinu * cosi)),
         r * sini * sinu);
 }
-<<<<<<< HEAD
 glm::dvec3 AEllipticalOrbit::UniformHeliocentricRectangular(double E) {
     // Use this to plot orbits, it takes the Eccentric Anomaly directly as parameter,
     // thus allowing to sweep equal angles. This avoids the large steps at perihelion.
@@ -458,9 +457,6 @@ glm::dvec3 AEllipticalOrbit::UniformHeliocentricRectangular(double E) {
         r * ((sinOmega * cosu) + (cosOmega * sinu * cosi)),
         r * sini * sinu);
 }
-
-=======
->>>>>>> 28303ac (Added asteroids and comets)
 LLD AEllipticalOrbit::EclipticHeliocentricSpherical(double jd_tt) {
     // !!! FIX: NOT TESTED YET !!!
     glm::dvec3 rect{ EclipticHeliocentricRectangular(jd_tt) };  // rectangular coordinates
@@ -502,8 +498,6 @@ void AEllipticalOrbit::calcParams() {
     a = sqrt((F * F) + (P * P));
     b = sqrt((G * G) + (Q * Q));
     c = sqrt((H * H) + (R * R));
-
-<<<<<<< HEAD
     n = AElliptical::MeanMotionFromSemiMajorAxis(m_elements.a);  // Mean Motion in radians
 }
 
@@ -512,7 +506,4 @@ void AEllipticalObjectElements::print() {
     std::cout << " a: " << a << " e: " << e << " i: " << rad2deg * i
         << " w: " << rad2deg * w << " omega: " << rad2deg * omega
         << " JDEquinox: " << JDEquinox << " T: " << T << "\n";
-=======
-    n = AElliptical::MeanMotionFromSemiMajorAxis(m_elements.a);  // radians
->>>>>>> 28303ac (Added asteroids and comets)
 }

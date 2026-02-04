@@ -33,11 +33,7 @@ public:
 	static glm::dvec3 EquatorialRectangularCoordinatesB1950(double jd_tt) noexcept;
 	static glm::dvec3 EquatorialRectangularCoordinatesAnyEquinox(double jd_tt, double JDEquinox) noexcept;
 	// MDO
-<<<<<<< HEAD
 	static LLD EclipticCoordinates(double jd_tt, Planetary_Ephemeris eph);
-=======
-	static LLD EclipticCoordinates(double jd_tt, Planetary_Ephemeris eph) { return LLD(0.0, 0.0, 0.0); }
->>>>>>> 28303ac (Added asteroids and comets)
 
 	// VSOP87 - Ephemeris E - Rectangular Barycentric Ecliptic coordinates & velocities
 	//          (The other Ephemeris series are Heliocentric)
