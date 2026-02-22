@@ -1352,6 +1352,7 @@ public:
         this->name = name;
         hasgui = false;
         updateOrbit(orbel, name);
+        hidden = false;
         //orbit = new AEllipticalOrbit{ orbel };
         //orbitpath = new SmartPath(scene, this, eorbit_width, NO_COLOR);
     }
@@ -1376,14 +1377,20 @@ public:
             // and very dense points at aphelion (where it moves slowly)
             orbitpath->addPoint(orbit->UniformHeliocentricRectangular(E));
         }
+        //std::cout << "EllipticalOrbit " << this << " altered.\n";
     }
     bool update() override {
         orbitpath->hidden = hidden;
+        //std::cout << "EllipticalOrbit udpdated.\n";
         // No need to update orbit every frame, it only changes via updateOrbit()
         return false;
     }
-    void draw(Camera* cam) override { return; }
-private:
+    void draw(Camera* cam) override {
+        //std::cout << "Drawing orbit: " << this << "\n";
+        orbitpath->draw(cam);
+        return;
+    }
+//private:
     AEllipticalOrbit* orbit{ nullptr };
     SmartPath* orbitpath{ nullptr };
 };
@@ -1445,10 +1452,9 @@ public:
         AEllipticalObjectElements orbel{};
         for (auto& name : comet_names) {
             orbel = scene->astro->getCometOrbitByName(name);
-            //std::cout << name << ": " << &orbel << "\n";
-            //orbel.print();
-            cometorbits.push_back({ scene, this, orbel, name });
-            
+            //std::cout <<  "Adding comet: " << name << ": " << &orbel << "\n";
+            orbel.print();
+            cometorbits.push_back(new EllipticalOrbit(scene, this, orbel, name));  // !!! FIX: These are not showing up. !!!
         }
     }
     void clearTrails() {}
@@ -1501,14 +1507,15 @@ private:
     }
     void updComets() {
         for (auto& comet : cometorbits) {
-            comet.hidden = !show_comet_orbits;
+            comet->hidden = !show_comet_orbits;
+            //std::cout << "Set Comet hidden: " << comet.hidden << "\n";
         }
     }
 public:
     // For GUI
     bool geocentric = false;
     bool show_planet_orbits = false;
-    bool show_comet_orbits = false;
+    bool show_comet_orbits = true;
     //bool trails = false;
     //int traillen = 400;
     int orbitsteps = orbit_steps;
@@ -1517,7 +1524,7 @@ private:
     std::vector<Planetoid*> planetoids;
     std::vector<glm::vec3> planetpositions;
     std::vector<SmartPath*> planetorbits;
-    std::vector<EllipticalOrbit> cometorbits;
+    std::vector<EllipticalOrbit*> cometorbits;
 };
 
 // --------------------

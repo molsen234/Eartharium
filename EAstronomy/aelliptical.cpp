@@ -399,7 +399,15 @@ AEllipticalOrbit::AEllipticalOrbit(AEllipticalObjectElements& elements) {
     updateElements(elements);
 }
 void AEllipticalOrbit::updateElements(AEllipticalObjectElements& elements) {
+    // Don't save the reference here, copy the elements.
     m_elements = elements;
+    //m_elements.a        = elements.a;
+    //m_elements.e        = elements.e;
+    //m_elements.i        = elements.i;
+    //m_elements.w        = elements.w;
+    //m_elements.omega    = elements.omega;
+    //m_elements.JDEquinox = elements.JDEquinox;
+    //m_elements.T        = elements.T;
     calcParams();
 }
 glm::dvec3 AEllipticalOrbit::EquatorialHeliocentricRectangular(double jd_tt) {

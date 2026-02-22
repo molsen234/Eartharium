@@ -1,0 +1,60 @@
+Databases in Eartharium
+=======================
+
+Stars
+-----
+Contains all stars with apparent magnitude of 6 or less. Magnitude 6.5 (search parameter: Vmag < 6.5) is the dimmest star that can be observed with the naked eye under optimal conditions.
+
+Parameters:
+ - Right Ascension
+ - Declination
+ - Proper Motion in RA
+ - Proper Motion in Dec
+ - Radial Velocity
+ - Heliocentric Parallax
+ - Visible Light Magnitude
+ - Red, Green, Blue values based on spectral type
+
+Data is obtained from SIMBAD: https://simbad.u-strasbg.fr/simbad/ using the following steps:
+1) Configure the output formats on: https://simbad.cds.unistra.fr/simbad/sim-fout
+   - Output Format = ASCII (;-separator for spreadsheet)
+   - Check the "file output" box
+   - Max. # of objects = 20000
+   
+
+
+
+Asteroids
+---------
+Currently the full MPCORB.DAT from 
+
+
+Comets
+------
+
+
+Small Solar System Body families
+--------------------------------
+
+
+Constellation Boundaries
+------------------------
+
+
+Asterisms / Constellations
+--------------------------
+
+
+Planets
+-------
+-= Not implemented yet =-
+Physical parameters of the solar system planets, such as:
+ - (Mean) Semimajor Axis of Orbit
+ - (Mean) Eccentricity of Orbit
+ - Mass (in Earth masses?)
+ - Mean Albedo
+ - Mean Orbital Period (to plot orbits)
+ - Ellipsoid parameters
+ - Mean Radius of Body
+ - Axis Orientation (J2000.0)
+ - Precession parameters?
